@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Dashboard from '@/components/SimpleDashboard';
+import Dashboard from '@/components/ProfessionalDashboard';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);

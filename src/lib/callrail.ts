@@ -7,7 +7,7 @@ export class CallRailConnector {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.CALLRAIL_API_TOKEN || '';
+    this.apiKey = process.env.CALLRAIL_API_KEY || process.env.CALLRAIL_API_TOKEN || '';
     this.accountId = process.env.CALLRAIL_ACCOUNT_ID || '';
     this.baseUrl = 'https://api.callrail.com/v3';
   }
