@@ -9,7 +9,6 @@ import {
   Target,
   Phone,
   LogOut,
-  Calendar,
   ArrowUp,
   ArrowDown,
   Building2,
@@ -141,11 +140,11 @@ function TrafficSourcesPieChart({ data }: { data: any[] }) {
 }
 
 // Modern Traffic Analytics Component
-function ModernTrafficChart({ data, period }: { data: any[], period: string }) {
+function ModernTrafficChart({ data }: { data: any[] }) {
   const [tooltip, setTooltip] = useState<{ show: boolean, x: number, y: number, value: number, date: string, users: number }>({
     show: false, x: 0, y: 0, value: 0, date: '', users: 0
   });
-  const [selectedMetric, setSelectedMetric] = useState('sessions');
+  const [selectedMetric] = useState('sessions');
 
   if (!data || data.length === 0) {
     return (
@@ -172,14 +171,6 @@ function ModernTrafficChart({ data, period }: { data: any[], period: string }) {
   const maxUsers = Math.max(...users);
   const maxLeads = Math.max(...leads);
   
-  const periodText = period === '7days' ? '7d' : period === '30days' ? '30d' : '90d';
-
-  const currentData = selectedMetric === 'sessions' ? sessions : 
-                     selectedMetric === 'users' ? users : leads;
-  const currentMax = selectedMetric === 'sessions' ? maxSessions : 
-                    selectedMetric === 'users' ? maxUsers : maxLeads;
-  const currentTotal = selectedMetric === 'sessions' ? totalSessions : 
-                      selectedMetric === 'users' ? totalUsers : totalLeads;
 
   // Format dates properly
   const formatDate = (dateStr: string) => {
@@ -310,7 +301,6 @@ function ModernTrafficChart({ data, period }: { data: any[], period: string }) {
               <div className="absolute -left-12 top-0 h-full flex flex-col justify-between text-sm text-gray-600 w-10 font-bold">
                 {(() => {
                   const max = Math.ceil(maxSessions / 100) * 100;
-                  const step = max / 4;
                   
                   return [max, Math.round(max * 0.75), Math.round(max * 0.5), Math.round(max * 0.25), 0].map((val, i) => (
                     <span key={i} className="text-right text-sm leading-none font-bold">
