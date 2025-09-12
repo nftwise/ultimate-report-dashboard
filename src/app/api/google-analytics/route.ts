@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           }
           result = { data: { status: 'connected' }, cached: false };
         } catch (error) {
-          throw new Error(`Google Analytics API configuration error: ${error.message}`);
+          throw new Error(`Google Analytics API configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
         break;
         

@@ -346,21 +346,21 @@ function ModernTrafficChart({ data }: { data: any[] }) {
                 if (data.length <= 7) {
                   // 7 days - show daily
                   showEvery = 1;
-                  dateFormat = (date) => {
+                  dateFormat = (date: string) => {
                     const d = new Date(date);
                     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   };
                 } else if (data.length <= 30) {
                   // 30 days - show weekly (every 7 days)
                   showEvery = 7;
-                  dateFormat = (date) => {
+                  dateFormat = (date: string) => {
                     const d = new Date(date);
                     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   };
                 } else {
                   // 90 days - show monthly
                   showEvery = Math.floor(data.length / 6);
-                  dateFormat = (date) => {
+                  dateFormat = (date: string) => {
                     const d = new Date(date);
                     return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
                   };
@@ -746,8 +746,8 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
           
           // Use actual daily data from Google Analytics
           const realDailyData = result.data
-            .filter(day => day.date && day.date !== '') // Filter out empty dates
-            .map(day => ({
+            .filter((day: any) => day.date && day.date !== '') // Filter out empty dates
+            .map((day: any) => ({
               date: formatDate(day.date),
               sessions: day.sessions || 0,
               users: day.users || 0,
@@ -755,7 +755,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
               pageviews: day.pageviews || 0,
               leads: day.conversions || 0, // Use actual conversions as leads
             }))
-            .sort((a, b) => {
+            .sort((a: any, b: any) => {
               // Sort by original date format first
               return new Date(a.date.split('/').reverse().join('-')).getTime() - 
                      new Date(b.date.split('/').reverse().join('-')).getTime();
