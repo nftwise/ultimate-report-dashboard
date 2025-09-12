@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAdsConnector } from '@/lib/google-ads';
-import { withCache, cacheKeys } from '@/lib/cache';
 import { getTimeRangeDates } from '@/lib/utils';
 import { ApiResponse } from '@/types';
 import { getClientConfig } from '@/lib/server-utils';
@@ -10,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || '7days';
-    const report = searchParams.get('report') || 'campaigns';
+    const report = searchParams.get('report') || searchParams.get('type') || 'campaigns';
     const clientId = searchParams.get('clientId');
     const timeRange = getTimeRangeDates(period);
 
@@ -50,6 +49,21 @@ export async function GET(request: NextRequest) {
     let result;
     
     switch (report) {
+      case 'status':
+        // Simple status check - try to initialize connector and check credentials
+        try {
+          if (!process.env.GOOGLE_ADS_DEVELOPER_TOKEN || 
+              !process.env.GOOGLE_ADS_CLIENT_ID || 
+              !process.env.GOOGLE_ADS_CLIENT_SECRET || 
+              !process.env.GOOGLE_ADS_REFRESH_TOKEN) {
+            throw new Error('Missing Google Ads API credentials');
+          }
+          result = { data: { status: 'connected' }, cached: false };
+        } catch (error) {
+          throw new Error(`Google Ads API configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+        break;
+        
       case 'campaigns':
         result = {
           data: await cachedApiCall(

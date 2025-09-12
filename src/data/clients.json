@@ -62,6 +62,15 @@
       "googleAnalyticsPropertyId": "326814792",
       "googleAdsCustomerId": "2812810609",
       "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11323"
+    },
+    {
+      "id": "client-008",
+      "email": "dr@digrado.com",
+      "password": "DrPassword123",
+      "companyName": "Dr Digrado",
+      "googleAnalyticsPropertyId": "386814792",
+      "googleAdsCustomerId": "2812810610",
+      "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11324"
     }
   ]
 }

@@ -252,6 +252,47 @@ export class CallRailConnector {
     }
   }
 
+  async getRecentCalls(timeRange: TimeRange, accountId?: string, limit: number = 10): Promise<any[]> {
+    try {
+      const useAccountId = accountId || this.accountId;
+      const response = await axios.get(
+        `${this.baseUrl}/a/${useAccountId}/calls.json`,
+        {
+          headers: this.getHeaders(),
+          params: {
+            start_date: this.formatDate(timeRange.startDate),
+            end_date: this.formatDate(timeRange.endDate),
+            per_page: limit,
+            sort: 'start_time',
+            order: 'desc',
+            fields: 'id,answered,business_phone_number,tracking_phone_number,duration,start_time,customer_phone_number,first_call,direction,source,tags,note,value,lead_status,recording,transcription',
+          },
+        }
+      );
+
+      return response.data.calls.map((call: any) => ({
+        id: call.id,
+        phoneNumber: call.business_phone_number,
+        trackingNumber: call.tracking_phone_number,
+        callerNumber: call.customer_phone_number,
+        duration: call.duration,
+        startTime: call.start_time,
+        answered: call.answered,
+        firstCall: call.first_call,
+        direction: call.direction,
+        source: call.source?.name || 'Unknown',
+        leadStatus: call.lead_status || 'unknown',
+        tags: call.tags || [],
+        note: call.note || '',
+        value: call.value || 0,
+      }));
+
+    } catch (error) {
+      console.error('Error fetching recent CallRail calls:', error);
+      return [];
+    }
+  }
+
   async getCallsByTrackingNumber(timeRange: TimeRange, accountId?: string): Promise<any[]> {
     try {
       const useAccountId = accountId || this.accountId;

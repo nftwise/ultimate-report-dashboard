@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // User creation disabled - using manual JSON file authentication
     // To add users, manually edit src/data/clients.json

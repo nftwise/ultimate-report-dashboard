@@ -151,6 +151,91 @@ export class GoogleAnalyticsConnector {
     }
   }
 
+  async getTopPages(timeRange: TimeRange, propertyId?: string): Promise<any[]> {
+    try {
+      const usePropertyId = propertyId || this.propertyId;
+      const [response] = await this.analyticsDataClient.runReport({
+        property: `properties/${usePropertyId}`,
+        dateRanges: [
+          {
+            startDate: timeRange.startDate,
+            endDate: timeRange.endDate,
+          },
+        ],
+        metrics: [
+          { name: 'screenPageViews' },
+          { name: 'sessions' },
+          { name: 'averageSessionDuration' },
+          { name: 'bounceRate' },
+        ],
+        dimensions: [
+          { name: 'pagePath' },
+          { name: 'pageTitle' },
+        ],
+        orderBys: [
+          {
+            metric: { metricName: 'screenPageViews' },
+            desc: true,
+          },
+        ],
+        limit: 10,
+      });
+
+      return response.rows?.map(row => ({
+        path: row.dimensionValues?.[0]?.value || '',
+        title: row.dimensionValues?.[1]?.value || '',
+        pageviews: parseInt(row.metricValues?.[0]?.value || '0'),
+        sessions: parseInt(row.metricValues?.[1]?.value || '0'),
+        avgDuration: parseFloat(row.metricValues?.[2]?.value || '0'),
+        bounceRate: parseFloat(row.metricValues?.[3]?.value || '0'),
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching GA4 top pages:', error);
+      throw error;
+    }
+  }
+
+  async getSessionsByDay(timeRange: TimeRange, propertyId?: string): Promise<any[]> {
+    try {
+      const usePropertyId = propertyId || this.propertyId;
+      const [response] = await this.analyticsDataClient.runReport({
+        property: `properties/${usePropertyId}`,
+        dateRanges: [
+          {
+            startDate: timeRange.startDate,
+            endDate: timeRange.endDate,
+          },
+        ],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'activeUsers' },
+          { name: 'conversions' },
+          { name: 'screenPageViews' },
+        ],
+        dimensions: [
+          { name: 'date' },
+        ],
+        orderBys: [
+          {
+            dimension: { dimensionName: 'date' },
+            desc: false,
+          },
+        ],
+      });
+
+      return response.rows?.map(row => ({
+        date: row.dimensionValues?.[0]?.value || '',
+        sessions: parseInt(row.metricValues?.[0]?.value || '0'),
+        users: parseInt(row.metricValues?.[1]?.value || '0'),
+        conversions: parseInt(row.metricValues?.[2]?.value || '0'),
+        pageviews: parseInt(row.metricValues?.[3]?.value || '0'),
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching GA4 sessions by day:', error);
+      throw error;
+    }
+  }
+
   async getConversionsByDay(timeRange: TimeRange, propertyId?: string): Promise<any[]> {
     try {
       const usePropertyId = propertyId || this.propertyId;

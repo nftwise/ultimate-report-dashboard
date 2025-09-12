@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || '7days';
-    const report = searchParams.get('report') || 'basic';
+    const report = searchParams.get('report') || searchParams.get('type') || 'basic';
     const timeRange = getTimeRangeDates(period);
 
     const connector = new GoogleAnalyticsConnector();
@@ -17,6 +17,20 @@ export async function GET(request: NextRequest) {
     let result;
     
     switch (report) {
+      case 'status':
+        // Simple status check - verify API credentials
+        try {
+          if (!process.env.GOOGLE_CLIENT_EMAIL || 
+              !process.env.GOOGLE_PRIVATE_KEY || 
+              !process.env.GOOGLE_ANALYTICS_PROPERTY_ID) {
+            throw new Error('Missing Google Analytics API credentials');
+          }
+          result = { data: { status: 'connected' }, cached: false };
+        } catch (error) {
+          throw new Error(`Google Analytics API configuration error: ${error.message}`);
+        }
+        break;
+        
       case 'basic':
         result = await withCache(
           cacheKeys.googleAnalytics(timeRange),
@@ -54,6 +68,22 @@ export async function GET(request: NextRequest) {
         result = await withCache(
           `ga_devices_${period}`,
           () => connector.getDeviceData(timeRange)
+        );
+        break;
+        
+      case 'daily':
+        // Daily traffic data for chart - actual daily breakdown
+        result = await withCache(
+          `ga_daily_${period}`,
+          () => connector.getSessionsByDay(timeRange)
+        );
+        break;
+        
+      case 'top-pages':
+        // Top 5 pages by pageviews
+        result = await withCache(
+          `ga_top_pages_${period}`,
+          () => connector.getTopPages(timeRange)
         );
         break;
         

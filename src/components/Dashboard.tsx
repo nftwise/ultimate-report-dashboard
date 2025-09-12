@@ -24,8 +24,6 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [gaLoading, setGaLoading] = useState(false);
-  const [adsLoading, setAdsLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();

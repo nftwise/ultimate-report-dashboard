@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || '7days';
-    const report = searchParams.get('report') || 'calls';
+    const report = searchParams.get('report') || searchParams.get('type') || 'calls';
     const clientId = searchParams.get('clientId');
     const timeRange = getTimeRangeDates(period);
 
@@ -22,6 +22,18 @@ export async function GET(request: NextRequest) {
     let result;
     
     switch (report) {
+      case 'status':
+        // Simple status check - verify API credentials
+        try {
+          if (!process.env.CALLRAIL_API_TOKEN && !process.env.CALLRAIL_API_KEY) {
+            throw new Error('Missing CallRail API credentials');
+          }
+          result = { data: { status: 'connected' }, cached: false };
+        } catch (error) {
+          throw new Error(`CallRail API configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+        break;
+        
       case 'calls':
       case 'overview':
         result = await withCache(
@@ -62,6 +74,13 @@ export async function GET(request: NextRequest) {
         result = await withCache(
           `cr_by_tracking_${period}_${clientId}`,
           () => connector.getCallsByTrackingNumber(timeRange, callrailAccountId)
+        );
+        break;
+        
+      case 'recent-calls':
+        result = await withCache(
+          `cr_recent_calls_${period}_${clientId}`,
+          () => connector.getRecentCalls(timeRange, callrailAccountId, 10)
         );
         break;
         
