@@ -7,7 +7,8 @@
       "companyName": "ABC Marketing",
       "googleAnalyticsPropertyId": "123456789",
       "googleAdsCustomerId": "123-456-7890",
-      "callrailAccountId": "abc123"
+      "callrailAccountId": "abc123",
+      "searchConsoleSiteUrl": "https://abcmarketing.com"
     },
     {
       "id": "client-002",
@@ -16,7 +17,8 @@
       "companyName": "XYZ Corporation",
       "googleAnalyticsPropertyId": "987654321",
       "googleAdsCustomerId": "987-654-3210",
-      "callrailAccountId": "xyz789"
+      "callrailAccountId": "xyz789",
+      "searchConsoleSiteUrl": "https://xyzcorp.com"
     },
     {
       "id": "client-003",
@@ -25,7 +27,8 @@
       "companyName": "Tech Solutions Inc",
       "googleAnalyticsPropertyId": "456789123",
       "googleAdsCustomerId": "456-789-1230",
-      "callrailAccountId": "tech456"
+      "callrailAccountId": "tech456",
+      "searchConsoleSiteUrl": "https://techsolutions.com"
     },
     {
       "id": "client-004",
@@ -34,7 +37,8 @@
       "companyName": "Digital Agency Pro",
       "googleAnalyticsPropertyId": "111222333",
       "googleAdsCustomerId": "111-222-3330",
-      "callrailAccountId": "digital111"
+      "callrailAccountId": "digital111",
+      "searchConsoleSiteUrl": "https://digitalagency.com"
     },
     {
       "id": "client-005",
@@ -43,7 +47,8 @@
       "companyName": "E-commerce Co",
       "googleAnalyticsPropertyId": "444555666",
       "googleAdsCustomerId": "444-555-6660",
-      "callrailAccountId": "ecom444"
+      "callrailAccountId": "ecom444",
+      "searchConsoleSiteUrl": "https://ecommerceco.com"
     },
     {
       "id": "client-006",
@@ -52,7 +57,8 @@
       "companyName": "Test Company",
       "googleAnalyticsPropertyId": "999888777",
       "googleAdsCustomerId": "999-888-7770",
-      "callrailAccountId": "test999"
+      "callrailAccountId": "test999",
+      "searchConsoleSiteUrl": "https://example.com"
     },
     {
       "id": "client-007",
@@ -61,7 +67,8 @@
       "companyName": "My Chiropractic Practice",
       "googleAnalyticsPropertyId": "326814792",
       "googleAdsCustomerId": "2812810609",
-      "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11323"
+      "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11323",
+      "searchConsoleSiteUrl": "https://mychiropractice.com"
     },
     {
       "id": "client-008",
@@ -70,7 +77,8 @@
       "companyName": "Dr Digrado",
       "googleAnalyticsPropertyId": "386814792",
       "googleAdsCustomerId": "2812810610",
-      "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11324"
+      "callrailAccountId": "ACCe5277425fcef4c6cbc46addc72f11324",
+      "searchConsoleSiteUrl": "https://digrado.com"
     }
   ]
 }

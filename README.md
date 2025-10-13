@@ -1,11 +1,11 @@
 # Ultimate Reporting Dashboard
 
-A comprehensive marketing analytics dashboard that integrates Google Analytics, Google Ads, and CallRail to provide real-time insights into your marketing performance.
+A comprehensive marketing analytics dashboard that integrates Google Analytics, Google Ads, Google Search Console, and CallRail to provide real-time insights into your marketing performance.
 
 ## 🚀 Features
 
 - **Real-time Dashboard**: Live metrics updating every 5 minutes
-- **Multi-source Integration**: Google Analytics, Google Ads, and CallRail
+- **Multi-source Integration**: Google Analytics, Google Ads, Google Search Console, and CallRail
 - **Key Metrics**:
   - Website traffic and user behavior
   - Ad spend, CPC, and cost per lead
@@ -24,6 +24,14 @@ A comprehensive marketing analytics dashboard that integrates Google Analytics, 
 - Conversions and Goal Completions
 - Traffic Sources and Device Data
 - Revenue and Ecommerce Metrics
+
+### Google Search Console
+- Search Clicks and Impressions
+- Click-through Rates (CTR)
+- Average Search Position
+- Top Search Queries
+- Top Performing Pages
+- Search Performance Trends
 
 ### Google Ads
 - Impressions, Clicks, CTR
@@ -46,8 +54,9 @@ A comprehensive marketing analytics dashboard that integrates Google Analytics, 
 - **Frontend**: Next.js 14, React, TypeScript
 - **Styling**: Tailwind CSS
 - **Charts**: Recharts
-- **APIs**: 
+- **APIs**:
   - Google Analytics Data API v1
+  - Google Search Console API v1
   - Google Ads API
   - CallRail REST API
 - **Caching**: In-memory cache with TTL

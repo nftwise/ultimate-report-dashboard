@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  TrendingUp, 
-  Users, 
-  DollarSign, 
+import {
+  TrendingUp,
+  Users,
+  DollarSign,
   Target,
   Phone,
   LogOut,
@@ -13,8 +13,14 @@ import {
   ArrowDown,
   Building2,
   AlertCircle,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  Eye,
+  MousePointer
 } from 'lucide-react';
+import { CompetitivePosition } from '@/components/CompetitivePosition';
+import { AITrafficSources } from '@/components/AITrafficSources';
+import { WeeklyReport } from '@/components/WeeklyReport';
 
 // KPI Card Component
 function KPICard({ 
@@ -677,6 +683,9 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
   const [trafficSourcesData, setTrafficSourcesData] = useState<any[]>([]);
   const [recentCallsData, setRecentCallsData] = useState<any[]>([]);
   const [callsBySourceData, setCallsBySourceData] = useState<any[]>([]);
+  const [searchConsoleData, setSearchConsoleData] = useState<any>({});
+  const [searchConsoleQueries, setSearchConsoleQueries] = useState<any[]>([]);
+  const [searchConsolePages, setSearchConsolePages] = useState<any[]>([]);
   const [apiErrors, setApiErrors] = useState<any>({});
   const router = useRouter();
 
@@ -687,8 +696,12 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
     fetchTrafficSources();
     fetchRecentCalls();
     fetchCallsBySource();
+    fetchSearchConsoleData();
+    fetchSearchConsoleQueries();
+    fetchSearchConsolePages();
     checkGoogleAdsAPI();
     checkCallRailAPI();
+    checkSearchConsoleAPI();
   }, [period, user.id]);
 
   const fetchDashboardData = async () => {
@@ -763,7 +776,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
             
           if (realDailyData.length > 0) {
             setTrafficData(realDailyData);
-            setApiErrors(prev => ({ ...prev, googleAnalytics: null }));
+            setApiErrors((prev: any) => ({ ...prev, googleAnalytics: null }));
             console.log('✅ Using REAL Google Analytics daily data:', realDailyData);
             return;
           }
@@ -774,8 +787,8 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
           console.log('Found GA dimensions data:', result.data.dimensions);
           
           const realDailyData = result.data.dimensions
-            .filter(day => day.date && day.date !== '')
-            .map(day => ({
+            .filter((day: any) => day.date && day.date !== '')
+            .map((day: any) => ({
               date: formatDate(day.date),
               sessions: parseInt(day.sessions) || 0,
               users: parseInt(day.users) || 0,
@@ -784,7 +797,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
             
           if (realDailyData.length > 0) {
             setTrafficData(realDailyData);
-            setApiErrors(prev => ({ ...prev, googleAnalytics: null }));
+            setApiErrors((prev: any) => ({ ...prev, googleAnalytics: null }));
             console.log('✅ Using REAL GA dimensions data:', realDailyData);
             return;
           }
@@ -822,7 +835,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
           }
           
           setTrafficData(distributedData);
-          setApiErrors(prev => ({ ...prev, googleAnalytics: 'Using real GA totals distributed across days' }));
+          setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'Using real GA totals distributed across days' }));
           console.log('✅ Using real GA totals distributed daily:', distributedData);
           return;
         }
@@ -832,14 +845,14 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
       // Fallback to mock data
       const mockData = generateTrafficData();
       setTrafficData(mockData);
-      setApiErrors(prev => ({ ...prev, googleAnalytics: 'Using mock data - no real GA data available' }));
+      setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'Using mock data - no real GA data available' }));
       
     } catch (error) {
       console.error('❌ GA API Error:', error);
       // Fallback to mock data on error
       const mockData = generateTrafficData();
       setTrafficData(mockData);
-      setApiErrors(prev => ({ ...prev, googleAnalytics: 'Using mock data - API connection failed' }));
+      setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'Using mock data - API connection failed' }));
     }
   };
 
@@ -921,11 +934,11 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
       const result = await response.json();
       
       if (!result.success) {
-        setApiErrors(prev => ({ ...prev, googleAds: result.error || 'Google Ads API connection failed' }));
+        setApiErrors((prev: any) => ({ ...prev, googleAds: result.error || 'Google Ads API connection failed' }));
       }
     } catch (error) {
       console.error('Failed to check Google Ads API:', error);
-      setApiErrors(prev => ({ ...prev, googleAds: 'Google Ads API connection failed' }));
+      setApiErrors((prev: any) => ({ ...prev, googleAds: 'Google Ads API connection failed' }));
     }
   };
 
@@ -935,14 +948,83 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
       const result = await response.json();
       
       if (!result.success) {
-        setApiErrors(prev => ({ ...prev, callRail: result.error || 'CallRail API connection failed' }));
+        setApiErrors((prev: any) => ({ ...prev, callRail: result.error || 'CallRail API connection failed' }));
       }
     } catch (error) {
       console.error('Failed to check CallRail API:', error);
-      setApiErrors(prev => ({ ...prev, callRail: 'CallRail API connection failed' }));
+      setApiErrors((prev: any) => ({ ...prev, callRail: 'CallRail API connection failed' }));
     }
   };
 
+  const fetchSearchConsoleData = async () => {
+    try {
+      console.log('🔍 Fetching Search Console data...');
+      const response = await fetch(`/api/search-console?period=${period}&clientId=${user.id}&type=performance`);
+      const result = await response.json();
+
+      console.log('Search Console API Response:', result);
+
+      if (result.success && result.data) {
+        setSearchConsoleData(result.data);
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: null }));
+        console.log('✅ Search Console data loaded successfully');
+      } else {
+        console.error('❌ Search Console API failed:', result.error);
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: result.error || 'Search Console API connection failed' }));
+      }
+    } catch (error) {
+      console.error('❌ Search Console API Error:', error);
+      setApiErrors((prev: any) => ({ ...prev, searchConsole: 'Search Console API connection failed' }));
+    }
+  };
+
+  const fetchSearchConsoleQueries = async () => {
+    try {
+      const response = await fetch(`/api/search-console?period=${period}&clientId=${user.id}&type=queries`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setSearchConsoleQueries(result.data.queries || []);
+        console.log('✅ Search Console queries loaded:', result.data.queries?.length || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Search Console queries:', error);
+      setSearchConsoleQueries([]);
+    }
+  };
+
+  const fetchSearchConsolePages = async () => {
+    try {
+      const response = await fetch(`/api/search-console?period=${period}&clientId=${user.id}&type=pages`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setSearchConsolePages(result.data.pages || []);
+        console.log('✅ Search Console pages loaded:', result.data.pages?.length || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Search Console pages:', error);
+      setSearchConsolePages([]);
+    }
+  };
+
+  const checkSearchConsoleAPI = async () => {
+    try {
+      console.log('🔍 Checking Search Console API status...');
+      const response = await fetch(`/api/search-console?period=${period}&clientId=${user.id}&type=status`);
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('❌ Search Console API check failed:', result.error);
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: result.error || 'Search Console API connection failed' }));
+      } else {
+        console.log('✅ Search Console API check passed');
+      }
+    } catch (error) {
+      console.error('Failed to check Search Console API:', error);
+      setApiErrors((prev: any) => ({ ...prev, searchConsole: 'Search Console API connection failed' }));
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -1058,7 +1140,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
         <div className="max-w-7xl mx-auto space-y-6">
           
           {/* Row 1: KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <KPICard
               title="Traffic (Sessions)"
               value={kpis?.traffic || 0}
@@ -1089,6 +1171,18 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
               format="currency"
               trend="down"
             />
+            <KPICard
+              title="Search Clicks"
+              value={searchConsoleData?.totals?.clicks || 0}
+              icon={MousePointer}
+              trend="up"
+            />
+            <KPICard
+              title="Search Impressions"
+              value={searchConsoleData?.totals?.impressions || 0}
+              icon={Eye}
+              trend="up"
+            />
           </div>
 
           {/* Row 2: Traffic Trend Chart */}
@@ -1104,9 +1198,8 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
                 </div>
               )}
             </div>
-            <ModernTrafficChart 
-              data={trafficData} 
-              period={period}
+            <ModernTrafficChart
+              data={trafficData}
             />
             {apiErrors.googleAnalytics && (
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -1390,6 +1483,141 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
           </div>
         </div>
       </div>
+
+      {/* Search Console Section */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Google Search Console
+          </h2>
+          {apiErrors.searchConsole && (
+            <div className="flex items-center gap-2 text-sm text-amber-600">
+              <AlertCircle className="w-4 h-4" />
+              <span>API Issue</span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top Search Queries */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-600 mb-3">Top Search Queries</h3>
+            <div className="space-y-2">
+              {searchConsoleQueries && searchConsoleQueries.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-5 gap-2 pb-2 border-b font-medium text-gray-600 text-xs">
+                    <span className="col-span-2">Query</span>
+                    <span>Clicks</span>
+                    <span>Impressions</span>
+                    <span>CTR</span>
+                  </div>
+                  {searchConsoleQueries.slice(0, 8).map((query, idx) => (
+                    <div key={idx} className="grid grid-cols-5 gap-2 py-2 text-sm border-b border-gray-100">
+                      <span className="col-span-2 text-gray-900 truncate" title={query.query}>
+                        {query.query}
+                      </span>
+                      <span className="text-gray-700">{query.clicks}</span>
+                      <span className="text-gray-700">{query.impressions}</span>
+                      <span className="text-gray-700">{(query.ctr * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="text-sm py-4 text-center">
+                  <span className="text-red-500 font-medium">n/a - No search queries data available</span>
+                  <p className="text-xs text-gray-500 mt-1">Check console for API details</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Top Pages */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-600 mb-3">Top Performing Pages</h3>
+            <div className="space-y-2">
+              {searchConsolePages && searchConsolePages.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-5 gap-2 pb-2 border-b font-medium text-gray-600 text-xs">
+                    <span className="col-span-2">Page</span>
+                    <span>Clicks</span>
+                    <span>Impressions</span>
+                    <span>CTR</span>
+                  </div>
+                  {searchConsolePages.slice(0, 8).map((page, idx) => (
+                    <div key={idx} className="grid grid-cols-5 gap-2 py-2 text-sm border-b border-gray-100">
+                      <span className="col-span-2 text-gray-900 truncate" title={page.page}>
+                        {page.page.replace(/^https?:\/\/[^\/]+/, '') || '/'}
+                      </span>
+                      <span className="text-gray-700">{page.clicks}</span>
+                      <span className="text-gray-700">{page.impressions}</span>
+                      <span className="text-gray-700">{(page.ctr * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="text-sm py-4 text-center">
+                  <span className="text-red-500 font-medium">n/a - No pages data available</span>
+                  <p className="text-xs text-gray-500 mt-1">Check console for API details</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Search Console Totals Summary */}
+        {searchConsoleData?.totals && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-900 mb-2">Period Summary</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-blue-600">Total Clicks:</span>
+                <span className="ml-2 font-medium">{searchConsoleData.totals.clicks}</span>
+              </div>
+              <div>
+                <span className="text-blue-600">Total Impressions:</span>
+                <span className="ml-2 font-medium">{searchConsoleData.totals.impressions}</span>
+              </div>
+              <div>
+                <span className="text-blue-600">Avg CTR:</span>
+                <span className="ml-2 font-medium">{(searchConsoleData.totals.avgCtr * 100).toFixed(2)}%</span>
+              </div>
+              <div>
+                <span className="text-blue-600">Avg Position:</span>
+                <span className="ml-2 font-medium">{searchConsoleData.totals.avgPosition.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {apiErrors.searchConsole && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800 font-medium">Connection Issue</p>
+            <p className="text-xs text-amber-700 mt-1">{apiErrors.searchConsole}</p>
+            <div className="text-xs text-amber-600 mt-2">
+              <p><strong>Troubleshooting:</strong></p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Ensure service account has Search Console access</li>
+                <li>Verify site URL matches Search Console property</li>
+                <li>Check browser console for detailed error logs</li>
+                <li>Confirm environment variables are set correctly</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* New Impressive Features Section */}
+      <div className="space-y-6 mt-6">
+        {/* Weekly Report - WOW Factor! */}
+        <WeeklyReport clientId={user.id} />
+
+        {/* Row: Competitive Position & AI Traffic side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CompetitivePosition period={period} clientId={user.id} />
+          <AITrafficSources period={period} clientId={user.id} />
+        </div>
+      </div>
+
       </main>
     </div>
   );

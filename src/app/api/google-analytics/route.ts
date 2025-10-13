@@ -86,7 +86,15 @@ export async function GET(request: NextRequest) {
           () => connector.getTopPages(timeRange)
         );
         break;
-        
+
+      case 'ai-traffic':
+        // AI and emerging traffic sources
+        result = await withCache(
+          `ga_ai_traffic_${period}`,
+          () => connector.getAITrafficSources(timeRange)
+        );
+        break;
+
       default:
         throw new Error(`Unknown report type: ${report}`);
     }
