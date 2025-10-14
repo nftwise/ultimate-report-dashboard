@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     const previousWeekRange = {
       startDate: previousWeekStart.toISOString().split('T')[0],
       endDate: previousWeekEnd.toISOString().split('T')[0],
+      period: '7days' as const,
     };
 
     const gaConnector = new GoogleAnalyticsConnector();
