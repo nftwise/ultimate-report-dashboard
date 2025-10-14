@@ -4,24 +4,6 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
-  "env": {
-    "NEXTAUTH_URL": "@nextauth_url",
-    "NEXTAUTH_SECRET": "@nextauth_secret"
-  },
-  "build": {
-    "env": {
-      "NEXTAUTH_URL": "@nextauth_url",
-      "NEXTAUTH_SECRET": "@nextauth_secret",
-      "GOOGLE_CLIENT_EMAIL": "@google_client_email",
-      "GOOGLE_PRIVATE_KEY": "@google_private_key",
-      "GOOGLE_PROJECT_ID": "@google_project_id",
-      "GOOGLE_ADS_DEVELOPER_TOKEN": "@google_ads_developer_token",
-      "GOOGLE_ADS_CLIENT_ID": "@google_ads_client_id",
-      "GOOGLE_ADS_CLIENT_SECRET": "@google_ads_client_secret",
-      "GOOGLE_ADS_REFRESH_TOKEN": "@google_ads_refresh_token",
-      "CALLRAIL_API_TOKEN": "@callrail_api_token"
-    }
-  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
