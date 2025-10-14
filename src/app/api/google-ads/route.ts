@@ -16,10 +16,12 @@ export async function GET(request: NextRequest) {
     // Get client-specific configuration
     let clientConfig = null;
     let customerId = undefined;
-    
+    let mccId = undefined;
+
     if (clientId) {
       clientConfig = await getClientConfig(clientId);
       customerId = clientConfig?.googleAdsCustomerId;
+      mccId = clientConfig?.googleAdsMccId;
     }
 
     const connector = new GoogleAdsConnector();
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
         result = {
           data: await cachedApiCall(
             `gads_campaigns_${period}_${clientId || 'default'}`,
-            () => connector.getCampaignReport(timeRange, customerId),
+            () => connector.getCampaignReport(timeRange, customerId, mccId),
             {
               ttl: 10 * 60 * 1000, // 10 minutes cache
               timeout: 5000, // 5 second timeout
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
         result = {
           data: await cachedApiCall(
             `gads_phone_calls_${period}_${clientId || 'default'}`,
-            () => connector.getPhoneCallConversions(timeRange, customerId),
+            () => connector.getPhoneCallConversions(timeRange, customerId, mccId),
             {
               ttl: 10 * 60 * 1000,
               timeout: 5000,
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
         result = {
           data: await cachedApiCall(
             `gads_cpl_${period}_${clientId || 'default'}`,
-            () => connector.getCostPerLeadData(timeRange, customerId),
+            () => connector.getCostPerLeadData(timeRange, customerId, mccId),
             {
               ttl: 10 * 60 * 1000,
               timeout: 5000,
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
         result = {
           data: await cachedApiCall(
             `gads_overview_${period}_${clientId || 'default'}`,
-            () => connector.getCampaignReport(timeRange, customerId),
+            () => connector.getCampaignReport(timeRange, customerId, mccId),
             {
               ttl: 10 * 60 * 1000,
               timeout: 5000,

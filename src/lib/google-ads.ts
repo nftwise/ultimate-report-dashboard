@@ -65,11 +65,15 @@ export class GoogleAdsConnector {
     return customerId.replace(/-|\s/g, '');
   }
 
-  async getCampaignReport(timeRange: TimeRange, customerId?: string): Promise<GoogleAdsReport> {
+  async getCampaignReport(timeRange: TimeRange, customerId?: string, mccId?: string): Promise<GoogleAdsReport> {
     try {
       const rawCustomerId = customerId || this.customerId;
       const cleanCustomerId = this.cleanCustomerId(rawCustomerId);
-      
+
+      // MCC ID (Manager account ID) - needed for child account access
+      const mccAccountId = mccId || process.env.GOOGLE_ADS_MCC_ID || '8432700368'; // Default MCC ID
+      const cleanMccId = this.cleanCustomerId(mccAccountId);
+
       if (!cleanCustomerId) {
         // Return empty report if no customer ID
         return {
@@ -94,10 +98,19 @@ export class GoogleAdsConnector {
         };
       }
 
-      const customer = this.client.Customer({
+      // For MCC accounts: use login_customer_id to authenticate with manager account
+      const customerConfig: any = {
         customer_id: cleanCustomerId,
         refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-      });
+      };
+
+      // Add MCC login if customer is under a manager account
+      if (cleanMccId && cleanMccId !== cleanCustomerId) {
+        customerConfig.login_customer_id = cleanMccId;
+        console.log(`Using MCC account ${cleanMccId} to access customer ${cleanCustomerId}`);
+      }
+
+      const customer = this.client.Customer(customerConfig);
       
       // Get campaign data
       const campaignQuery = `
@@ -278,19 +291,28 @@ export class GoogleAdsConnector {
     };
   }
 
-  async getPhoneCallConversions(timeRange: TimeRange, customerId?: string): Promise<any[]> {
+  async getPhoneCallConversions(timeRange: TimeRange, customerId?: string, mccId?: string): Promise<any[]> {
     try {
       const rawCustomerId = customerId || this.customerId;
       const cleanCustomerId = this.cleanCustomerId(rawCustomerId);
-      
+
       if (!cleanCustomerId) {
         return [];
       }
 
-      const customer = this.client.Customer({
+      const mccAccountId = mccId || process.env.GOOGLE_ADS_MCC_ID || '8432700368';
+      const cleanMccId = this.cleanCustomerId(mccAccountId);
+
+      const customerConfig: any = {
         customer_id: cleanCustomerId,
         refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-      });
+      };
+
+      if (cleanMccId && cleanMccId !== cleanCustomerId) {
+        customerConfig.login_customer_id = cleanMccId;
+      }
+
+      const customer = this.client.Customer(customerConfig);
       
       const query = `
         SELECT
@@ -331,19 +353,28 @@ export class GoogleAdsConnector {
     }
   }
 
-  async getCostPerLeadData(timeRange: TimeRange, customerId?: string): Promise<any[]> {
+  async getCostPerLeadData(timeRange: TimeRange, customerId?: string, mccId?: string): Promise<any[]> {
     try {
       const rawCustomerId = customerId || this.customerId;
       const cleanCustomerId = this.cleanCustomerId(rawCustomerId);
-      
+
       if (!cleanCustomerId) {
         return [];
       }
 
-      const customer = this.client.Customer({
+      const mccAccountId = mccId || process.env.GOOGLE_ADS_MCC_ID || '8432700368';
+      const cleanMccId = this.cleanCustomerId(mccAccountId);
+
+      const customerConfig: any = {
         customer_id: cleanCustomerId,
         refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-      });
+      };
+
+      if (cleanMccId && cleanMccId !== cleanCustomerId) {
+        customerConfig.login_customer_id = cleanMccId;
+      }
+
+      const customer = this.client.Customer(customerConfig);
       
       const query = `
         SELECT
