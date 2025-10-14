@@ -79,8 +79,9 @@ export async function GET(request: NextRequest) {
     });
 
     try {
-      // Create a customer instance without customer_id to list accessible customers
+      // Create a customer instance with MCC ID to list accessible customers
       const customer = client.Customer({
+        customer_id: process.env.GOOGLE_ADS_MCC_ID || '0000000000',
         refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
       });
 
