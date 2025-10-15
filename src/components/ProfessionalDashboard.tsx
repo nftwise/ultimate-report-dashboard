@@ -21,6 +21,7 @@ import {
 import { CompetitivePosition } from '@/components/CompetitivePosition';
 import { AITrafficSources } from '@/components/AITrafficSources';
 import { WeeklyReport } from '@/components/WeeklyReport';
+import SixMonthLeadsChart from '@/components/SixMonthLeadsChart';
 
 // KPI Card Component
 function KPICard({ 
@@ -1138,7 +1139,13 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
       {/* Main Content */}
       <main className="px-6 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          
+
+          {/* Weekly Win Report - Top Priority! */}
+          <WeeklyReport clientId={user.id} />
+
+          {/* 6-Month Leads Trend Chart */}
+          <SixMonthLeadsChart clientId={user.id} />
+
           {/* Row 1: KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <KPICard
@@ -1606,11 +1613,165 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
         )}
       </div>
 
+      {/* Google Ads Detailed Report Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Google Ads Campaign Performance</h2>
+              <p className="text-sm text-gray-500 mt-1">Detailed metrics for all active advertising campaigns</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {/* Google Ads Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-900">Total Ad Spend</span>
+                <DollarSign className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-2xl font-bold text-blue-900">
+                ${(data?.googleAds?.totalMetrics?.cost || 0).toFixed(2)}
+              </div>
+              <div className="text-xs text-blue-700 mt-1">
+                Avg CPC: ${(data?.googleAds?.totalMetrics?.cpc || 0).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-green-900">Total Clicks</span>
+                <MousePointer className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="text-2xl font-bold text-green-900">
+                {(data?.googleAds?.totalMetrics?.clicks || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-green-700 mt-1">
+                CTR: {(data?.googleAds?.totalMetrics?.ctr || 0).toFixed(2)}%
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-purple-900">Impressions</span>
+                <Eye className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="text-2xl font-bold text-purple-900">
+                {(data?.googleAds?.totalMetrics?.impressions || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-purple-700 mt-1">
+                Reach
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-orange-900">Conversions</span>
+                <Target className="w-5 h-5 text-orange-600" />
+              </div>
+              <div className="text-2xl font-bold text-orange-900">
+                {(data?.googleAds?.totalMetrics?.conversions || 0).toFixed(1)}
+              </div>
+              <div className="text-xs text-orange-700 mt-1">
+                Rate: {(data?.googleAds?.totalMetrics?.conversionRate || 0).toFixed(2)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Google Ads Campaigns Table */}
+          {data?.googleAds?.campaigns && data.googleAds.campaigns.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Campaign</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Impressions</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Clicks</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">CTR</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Cost</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Conversions</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Cost/Conv</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.googleAds.campaigns.map((campaign: any) => (
+                    <tr key={campaign.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-gray-900">{campaign.name}</div>
+                        <div className="text-xs text-gray-500">{campaign.type}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          campaign.status === 'ENABLED'
+                            ? 'bg-green-100 text-green-800'
+                            : campaign.status === 'PAUSED'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {campaign.status}
+                        </span>
+                      </td>
+                      <td className="text-right py-3 px-4 text-gray-900">
+                        {campaign.metrics.impressions.toLocaleString()}
+                      </td>
+                      <td className="text-right py-3 px-4 text-gray-900">
+                        {campaign.metrics.clicks.toLocaleString()}
+                      </td>
+                      <td className="text-right py-3 px-4 text-gray-900">
+                        {campaign.metrics.ctr.toFixed(2)}%
+                      </td>
+                      <td className="text-right py-3 px-4 font-semibold text-gray-900">
+                        ${campaign.metrics.cost.toFixed(2)}
+                      </td>
+                      <td className="text-right py-3 px-4 text-gray-900">
+                        {campaign.metrics.conversions.toFixed(1)}
+                      </td>
+                      <td className="text-right py-3 px-4 text-gray-900">
+                        ${campaign.metrics.costPerConversion.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 border-t-2 border-gray-300 font-bold">
+                    <td className="py-3 px-4 text-gray-900" colSpan={2}>TOTAL</td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      {(data.googleAds.totalMetrics.impressions || 0).toLocaleString()}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      {(data.googleAds.totalMetrics.clicks || 0).toLocaleString()}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      {(data.googleAds.totalMetrics.ctr || 0).toFixed(2)}%
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      ${(data.googleAds.totalMetrics.cost || 0).toFixed(2)}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      {(data.googleAds.totalMetrics.conversions || 0).toFixed(1)}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-900">
+                      ${(data.googleAds.totalMetrics.costPerConversion || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <DollarSign className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="font-medium">No Google Ads data available</p>
+              <p className="text-sm mt-1">Check API connection or try a different time period</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* New Impressive Features Section */}
       <div className="space-y-6 mt-6">
-        {/* Weekly Report - WOW Factor! */}
-        <WeeklyReport clientId={user.id} />
-
         {/* Row: Competitive Position & AI Traffic side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CompetitivePosition period={period} clientId={user.id} />
