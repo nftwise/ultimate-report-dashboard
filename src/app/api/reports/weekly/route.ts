@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTimeRangeDates } from '@/lib/utils';
 import { GoogleAnalyticsConnector } from '@/lib/google-analytics';
-import { google } from 'googleapis';
+import { GoogleAdsDirectConnector } from '@/lib/google-ads-direct';
 import { JWT } from 'google-auth-library';
 import fs from 'fs';
 import path from 'path';
@@ -10,6 +10,8 @@ interface Client {
   id: string;
   companyName: string;
   searchConsoleSiteUrl: string;
+  googleAdsCustomerId?: string;
+  googleAdsMccId?: string;
 }
 
 const getClient = (clientId: string): Client | null => {
@@ -51,16 +53,27 @@ export async function GET(request: NextRequest) {
     };
 
     const gaConnector = new GoogleAnalyticsConnector();
+    const adsConnector = new GoogleAdsDirectConnector();
 
     // Fetch current week data
-    const [currentGA, currentTraffic] = await Promise.all([
+    const [currentGA, currentTraffic, currentAds] = await Promise.all([
       gaConnector.getBasicMetrics(currentWeekRange),
       gaConnector.getSessionsByDay(currentWeekRange),
+      adsConnector.getCampaignReport(
+        currentWeekRange,
+        client.googleAdsCustomerId,
+        client.googleAdsMccId
+      ).catch(() => ({ campaigns: [], totalMetrics: { cost: 0, clicks: 0, impressions: 0, conversions: 0 } }))
     ]);
 
     // Fetch previous week data for comparison
-    const [previousGA] = await Promise.all([
+    const [previousGA, previousAds] = await Promise.all([
       gaConnector.getBasicMetrics(previousWeekRange),
+      adsConnector.getCampaignReport(
+        previousWeekRange,
+        client.googleAdsCustomerId,
+        client.googleAdsMccId
+      ).catch(() => ({ campaigns: [], totalMetrics: { cost: 0, clicks: 0, impressions: 0, conversions: 0 } }))
     ]);
 
     // Calculate growth rates
@@ -72,52 +85,68 @@ export async function GET(request: NextRequest) {
       ? Math.round(((currentGA.metrics.conversions - previousGA.metrics.conversions) / previousGA.metrics.conversions) * 100)
       : 0;
 
-    // Get Search Console ranking changes
+    // Get Search Console ranking changes using direct API
     let rankingImprovements: any[] = [];
     let newTopKeywords = 0;
 
+    async function makeSearchConsoleRequest(siteUrl: string, startDate: string, endDate: string) {
+      const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+
+      const auth = new JWT({
+        email: clientEmail,
+        key: privateKey,
+        scopes: ['https://www.googleapis.com/auth/webmasters.readonly']
+      });
+
+      const tokenResponse = await auth.getAccessToken();
+      const encodedSiteUrl = encodeURIComponent(siteUrl);
+      const url = `https://www.googleapis.com/webmasters/v3/sites/${encodedSiteUrl}/searchAnalytics/query`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenResponse.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          dimensions: ['query'],
+          rowLimit: 20
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search Console API error: ${response.status}`);
+      }
+
+      return response.json();
+    }
+
     try {
       if (client.searchConsoleSiteUrl) {
-        const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-        const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        const currentResponse = await makeSearchConsoleRequest(
+          client.searchConsoleSiteUrl,
+          currentWeekRange.startDate,
+          currentWeekRange.endDate
+        );
 
-        const auth = new JWT({
-          email: clientEmail,
-          key: privateKey,
-          scopes: ['https://www.googleapis.com/auth/webmasters.readonly']
-        });
+        const previousResponse = await makeSearchConsoleRequest(
+          client.searchConsoleSiteUrl,
+          previousWeekRange.startDate,
+          previousWeekRange.endDate
+        );
 
-        const searchconsole = google.searchconsole({ version: 'v1', auth: auth as any });
-
-        const currentResponse = await searchconsole.searchanalytics.query({
-          siteUrl: client.searchConsoleSiteUrl,
-          requestBody: {
-            startDate: currentWeekRange.startDate,
-            endDate: currentWeekRange.endDate,
-            dimensions: ['query'],
-            rowLimit: 20
-          }
-        });
-
-        const previousResponse = await searchconsole.searchanalytics.query({
-          siteUrl: client.searchConsoleSiteUrl,
-          requestBody: {
-            startDate: previousWeekRange.startDate,
-            endDate: previousWeekRange.endDate,
-            dimensions: ['query'],
-            rowLimit: 20
-          }
-        });
-
-        const currentQueries = new Map(
-          currentResponse.data.rows?.map((row: any) => [
+        const currentQueries = new Map<string, { position: number }>(
+          currentResponse.rows?.map((row: any) => [
             row.keys[0],
             { position: row.position }
           ]) || []
         );
 
-        const previousQueries = new Map(
-          previousResponse.data.rows?.map((row: any) => [
+        const previousQueries = new Map<string, { position: number }>(
+          previousResponse.rows?.map((row: any) => [
             row.keys[0],
             { position: row.position }
           ]) || []
@@ -126,7 +155,8 @@ export async function GET(request: NextRequest) {
         // Find improvements (positive changes only)
         rankingImprovements = Array.from(currentQueries.entries())
           .map(([query, data]) => {
-            const previousPosition = previousQueries.get(query)?.position || 999;
+            const prevData = previousQueries.get(query);
+            const previousPosition = prevData?.position || 999;
             const improvement = previousPosition - data.position;
             return {
               keyword: query,
@@ -186,19 +216,36 @@ export async function GET(request: NextRequest) {
       insight = `Your SEO investments are paying off. Better rankings mean more free, high-intent traffic coming your way.`;
     }
 
-    // Calculate money metrics (simplified - would need actual ad spend data)
-    const estimatedRevenue = currentGA.metrics.conversions * 1200; // $1200 avg customer value
-    const estimatedAdSpend = currentGA.metrics.conversions * 67; // Estimated $67 CPL
-    const roas = estimatedAdSpend > 0 ? Math.round((estimatedRevenue / estimatedAdSpend) * 100) : 0;
+    // Calculate real performance metrics
+    const totalLeads = currentGA.metrics.conversions;
+    const previousLeads = previousGA.metrics.conversions;
+    const leadsChange = previousLeads > 0 ? Math.round(((totalLeads - previousLeads) / previousLeads) * 100) : 0;
+
+    const adSpend = currentAds.totalMetrics.cost;
+    const previousAdSpend = previousAds.totalMetrics.cost;
+    const adSpendChange = previousAdSpend > 0 ? Math.round(((adSpend - previousAdSpend) / previousAdSpend) * 100) : 0;
+
+    const adClicks = currentAds.totalMetrics.clicks;
+    const previousAdClicks = previousAds.totalMetrics.clicks;
+    const clicksChange = previousAdClicks > 0 ? Math.round(((adClicks - previousAdClicks) / previousAdClicks) * 100) : 0;
+
+    const costPerLead = totalLeads > 0 ? adSpend / totalLeads : 0;
+    const previousCostPerLead = previousLeads > 0 ? previousAdSpend / previousLeads : 0;
+    const costPerLeadChange = previousCostPerLead > 0 ? Math.round(((previousCostPerLead - costPerLead) / previousCostPerLead) * 100) : 0;
 
     const reportData = {
       weekWin,
-      moneyMetrics: {
-        revenue: estimatedRevenue,
-        roas,
-        costPerLead: 67,
-        costPerLeadImprovement: 15, // Example improvement
-        adSpend: estimatedAdSpend,
+      performanceMetrics: {
+        totalLeads,
+        leadsChange,
+        adSpend,
+        adSpendChange,
+        adClicks,
+        clicksChange,
+        costPerLead,
+        costPerLeadChange,
+        sessions: currentGA.metrics.sessions,
+        sessionsChange: trafficGrowth,
       },
       competitiveEdge: {
         rankingImprovements,

@@ -10,12 +10,17 @@ interface WeeklyReportData {
     description: string;
     icon: string;
   };
-  moneyMetrics: {
-    revenue: number;
-    roas: number;
-    costPerLead: number;
-    costPerLeadImprovement: number;
+  performanceMetrics: {
+    totalLeads: number;
+    leadsChange: number;
     adSpend: number;
+    adSpendChange: number;
+    adClicks: number;
+    clicksChange: number;
+    costPerLead: number;
+    costPerLeadChange: number;
+    sessions: number;
+    sessionsChange: number;
   };
   competitiveEdge: {
     rankingImprovements: Array<{
@@ -159,43 +164,53 @@ export function WeeklyReport({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      {/* Section 2: Money Metrics */}
+      {/* Section 2: Performance Metrics */}
       <div className="mb-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <DollarSign className="w-6 h-6 text-green-600" />
-          💰 Money Metrics
+          <Target className="w-6 h-6 text-blue-600" />
+          🎯 Performance Highlights
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {reportData.moneyMetrics.revenue > 0 && (
-            <div className="bg-white rounded-lg p-5 border-2 border-green-200 shadow-sm">
-              <div className="text-sm text-green-700 font-medium mb-1">Revenue Generated</div>
-              <div className="text-3xl font-bold text-green-900">
-                ${reportData.moneyMetrics.revenue.toLocaleString()}
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-lg p-5 border-2 border-green-200 shadow-sm">
+            <div className="text-sm text-green-700 font-medium mb-1">Total Leads</div>
+            <div className="text-3xl font-bold text-green-900">
+              {reportData.performanceMetrics.totalLeads}
             </div>
-          )}
+            {reportData.performanceMetrics.leadsChange !== 0 && (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.leadsChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <TrendingUp className="w-3 h-3" />
+                <span>
+                  {reportData.performanceMetrics.leadsChange > 0 ? '+' : ''}{reportData.performanceMetrics.leadsChange}% vs last week
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="bg-white rounded-lg p-5 border-2 border-blue-200 shadow-sm">
-            <div className="text-sm text-blue-700 font-medium mb-1">Return on Ad Spend</div>
+            <div className="text-sm text-blue-700 font-medium mb-1">Website Visitors</div>
             <div className="text-3xl font-bold text-blue-900">
-              {reportData.moneyMetrics.roas}%
+              {reportData.performanceMetrics.sessions.toLocaleString()}
             </div>
-            <div className="text-xs text-blue-600 mt-1">
-              ${(reportData.moneyMetrics.roas / 100).toFixed(2)} for every $1 spent
-            </div>
+            {reportData.performanceMetrics.sessionsChange !== 0 && (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.sessionsChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <TrendingUp className="w-3 h-3" />
+                <span>
+                  {reportData.performanceMetrics.sessionsChange > 0 ? '+' : ''}{reportData.performanceMetrics.sessionsChange}% vs last week
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-lg p-5 border-2 border-purple-200 shadow-sm">
-            <div className="text-sm text-purple-700 font-medium mb-1">Cost Per Lead</div>
+            <div className="text-sm text-purple-700 font-medium mb-1">Ad Clicks</div>
             <div className="text-3xl font-bold text-purple-900">
-              ${reportData.moneyMetrics.costPerLead.toFixed(2)}
+              {reportData.performanceMetrics.adClicks.toLocaleString()}
             </div>
-            {reportData.moneyMetrics.costPerLeadImprovement !== 0 && (
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
+            {reportData.performanceMetrics.clicksChange !== 0 && (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.clicksChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 <TrendingUp className="w-3 h-3" />
                 <span>
-                  {reportData.moneyMetrics.costPerLeadImprovement > 0 ? '↓' : '↑'}{' '}
-                  {Math.abs(reportData.moneyMetrics.costPerLeadImprovement)}% vs last week
+                  {reportData.performanceMetrics.clicksChange > 0 ? '+' : ''}{reportData.performanceMetrics.clicksChange}% vs last week
                 </span>
               </div>
             )}
@@ -204,8 +219,31 @@ export function WeeklyReport({ clientId }: { clientId: string }) {
           <div className="bg-white rounded-lg p-5 border-2 border-orange-200 shadow-sm">
             <div className="text-sm text-orange-700 font-medium mb-1">Ad Spend</div>
             <div className="text-3xl font-bold text-orange-900">
-              ${reportData.moneyMetrics.adSpend.toLocaleString()}
+              ${reportData.performanceMetrics.adSpend.toFixed(2)}
             </div>
+            {reportData.performanceMetrics.adSpendChange !== 0 && (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.adSpendChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <TrendingUp className="w-3 h-3" />
+                <span>
+                  {reportData.performanceMetrics.adSpendChange > 0 ? '+' : ''}{reportData.performanceMetrics.adSpendChange}% vs last week
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg p-5 border-2 border-indigo-200 shadow-sm">
+            <div className="text-sm text-indigo-700 font-medium mb-1">Cost Per Lead</div>
+            <div className="text-3xl font-bold text-indigo-900">
+              ${reportData.performanceMetrics.costPerLead.toFixed(2)}
+            </div>
+            {reportData.performanceMetrics.costPerLeadChange !== 0 && (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.costPerLeadChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <TrendingUp className="w-3 h-3" />
+                <span>
+                  {reportData.performanceMetrics.costPerLeadChange > 0 ? '↓' : '↑'}{Math.abs(reportData.performanceMetrics.costPerLeadChange)}% vs last week
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
