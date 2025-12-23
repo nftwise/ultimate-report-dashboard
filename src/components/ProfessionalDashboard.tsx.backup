@@ -1,0 +1,3158 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  TrendingUp,
+  Users,
+  DollarSign,
+  Target,
+  Phone,
+  LogOut,
+  ArrowUp,
+  ArrowDown,
+  Building2,
+  AlertCircle,
+  AlertTriangle,
+  Search,
+  Eye,
+  MousePointer,
+  Calendar
+} from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { WeeklyReport } from '@/components/WeeklyReport';
+import SixMonthLeadsChart from '@/components/SixMonthLeadsChart';
+import { LeadSourcesBreakdown } from '@/components/LeadSourcesBreakdown';
+import { MonthInProgressCard } from '@/components/MonthInProgressCard';
+import { AITrafficOnly } from '@/components/AITrafficOnly';
+import { ServiceUnavailableCard } from '@/components/ServiceUnavailableCard';
+import { TrafficSourcesPieChart } from '@/components/TrafficSourcesPieChart';
+import { formatNumber } from '@/lib/format-utils';
+
+// Custom calendar styles for better visibility and smoothness
+const calendarStyles = `
+  .react-datepicker {
+    border: none !important;
+    box-shadow: none !important;
+    font-family: inherit !important;
+    font-size: 0.9rem !important;
+    background-color: white !important;
+  }
+
+  .react-datepicker__month-container {
+    background-color: white !important;
+  }
+
+  .react-datepicker__day {
+    color: #1f2937 !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease-in-out !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    line-height: 2.2rem !important;
+    margin: 0.2rem !important;
+    background-color: white !important;
+  }
+
+  .react-datepicker__day:hover {
+    background-color: #3b82f6 !important;
+    color: white !important;
+    transform: scale(1.05);
+    border-radius: 0.375rem !important;
+  }
+
+  .react-datepicker__day--in-selecting-range:not(.react-datepicker__day--outside-month),
+  .react-datepicker__day--in-range:not(.react-datepicker__day--outside-month) {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+    font-weight: 500 !important;
+    border-radius: 0 !important;
+  }
+
+  .react-datepicker__day--outside-month {
+    background-color: transparent !important;
+    color: #d1d5db !important;
+    pointer-events: none !important;
+  }
+
+  .react-datepicker__day--selected,
+  .react-datepicker__day--range-start,
+  .react-datepicker__day--range-end,
+  .react-datepicker__day--selecting-range-start,
+  .react-datepicker__day--selecting-range-end {
+    background-color: #2563eb !important;
+    color: white !important;
+    font-weight: 700 !important;
+    border-radius: 0.375rem !important;
+  }
+
+  .react-datepicker__day--keyboard-selected {
+    background-color: #eff6ff !important;
+    color: #1f2937 !important;
+    border-radius: 0.375rem !important;
+  }
+
+  .react-datepicker__day--today {
+    font-weight: 700 !important;
+    color: #2563eb !important;
+    border: 2px solid #2563eb !important;
+    border-radius: 0.375rem !important;
+    background-color: white !important;
+  }
+
+  .react-datepicker__day--disabled {
+    color: #d1d5db !important;
+    cursor: not-allowed !important;
+    background-color: #fafafa !important;
+  }
+
+  .react-datepicker__day--disabled:hover {
+    background-color: #fafafa !important;
+    transform: none !important;
+  }
+
+  .react-datepicker__header {
+    background-color: #f9fafb !important;
+    border-bottom: 2px solid #e5e7eb !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .react-datepicker__current-month {
+    color: #111827 !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .react-datepicker__day-name {
+    color: #4b5563 !important;
+    font-weight: 600 !important;
+    width: 2.2rem !important;
+    line-height: 2.2rem !important;
+    margin: 0.2rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .react-datepicker__navigation {
+    top: 0.75rem !important;
+  }
+
+  .react-datepicker__navigation-icon::before {
+    border-color: #2563eb !important;
+    border-width: 2px 2px 0 0 !important;
+  }
+
+  .react-datepicker__navigation:hover *::before {
+    border-color: #1d4ed8 !important;
+  }
+
+  .react-datepicker__month {
+    margin: 0.75rem !important;
+    background-color: white !important;
+  }
+
+  .react-datepicker__week {
+    background-color: white !important;
+  }
+`
+
+// KPI Card Component
+function KPICard({
+  title,
+  value,
+  change,
+  icon: Icon,
+  format = 'number',
+  trend = 'neutral'
+}: any) {
+  const isPositive = trend === 'up';
+  const TrendIcon = isPositive ? ArrowUp : ArrowDown;
+
+  // Safety check for value
+  const displayValue = value ?? 0;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-gray-600 text-sm font-medium mb-2">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {format === 'currency' && '$'}
+            {format === 'currency' ? displayValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : displayValue.toLocaleString()}
+          </p>
+          {change !== undefined && (
+            <div className={`flex items-center gap-1 mt-2 text-sm ${
+              isPositive ? 'text-green-600' : 'text-red-600'
+            }`}>
+              <TrendIcon className="w-3 h-3" />
+              <span className="font-medium">{formatNumber(Math.abs(change), 1)}%</span>
+              <span className="text-gray-500">vs prev period</span>
+            </div>
+          )}
+        </div>
+        <div className={`p-3 rounded-lg ${
+          isPositive ? 'bg-green-50' : 'bg-blue-50'
+        }`}>
+          <Icon className={`w-6 h-6 ${
+            isPositive ? 'text-green-600' : 'text-blue-600'
+          }`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modern Traffic Analytics Component
+function ModernTrafficChart({ data }: { data: any[] }) {
+  const [tooltip, setTooltip] = useState<{ show: boolean, x: number, y: number, value: number, date: string, users: number }>({
+    show: false, x: 0, y: 0, value: 0, date: '', users: 0
+  });
+  const [selectedMetric] = useState('sessions');
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-2xl p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+          <AlertCircle className="w-8 h-8 text-blue-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">No Analytics Data</h3>
+        <p className="text-gray-600">Connect your Google Analytics to see traffic insights</p>
+      </div>
+    );
+  }
+
+  const sessions = data.map(d => d.sessions || 0);
+  const users = data.map(d => d.users || 0);
+  const leads = data.map(d => d.leads || d.conversions || 0);
+  
+  const totalSessions = sessions.reduce((a, b) => a + b, 0);
+  const totalUsers = users.reduce((a, b) => a + b, 0);
+  const totalLeads = leads.reduce((a, b) => a + b, 0);
+  
+  const avgSessions = Math.round(totalSessions / sessions.length);
+  const maxSessions = Math.max(...sessions);
+  const maxUsers = Math.max(...users);
+  const maxLeads = Math.max(...leads);
+  
+
+  // Format dates properly
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch {
+      return '';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-900">Google Analytics Traffic</h2>
+      </div>
+
+      {/* Top KPIs - Simplified */}
+      <div className="px-6 py-6">
+        <div className="grid grid-cols-3 gap-8">
+          <div className="text-center">
+            <div className="text-xs text-gray-500 font-medium mb-1">Users</div>
+            <div className="text-2xl font-bold text-gray-900">{totalUsers.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-1">Unique visitors</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 font-medium mb-1">Sessions</div>
+            <div className="text-2xl font-bold text-gray-900">{totalSessions.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-1">Total visits</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 font-medium mb-1">Conversions</div>
+            <div className="text-2xl font-bold text-green-600">{totalLeads}</div>
+            <div className="text-xs text-gray-400 mt-1">Leads generated</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Line Chart */}
+      <div className="px-6 pb-8 border-t border-gray-50">
+        <div className="pt-6">
+          {/* Chart Container */}
+          <div className="relative ml-12">
+            <div className="relative h-80">
+              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="gaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#4285f4" stopOpacity="0.15"/>
+                    <stop offset="100%" stopColor="#4285f4" stopOpacity="0.02"/>
+                  </linearGradient>
+                </defs>
+
+                {/* Grid Lines */}
+                {[20, 40, 60, 80].map(y => (
+                  <line
+                    key={y}
+                    x1="0"
+                    y1={y}
+                    x2="100"
+                    y2={y}
+                    stroke="#f8f9fa"
+                    strokeWidth="0.5"
+                  />
+                ))}
+
+                {/* Area Fill */}
+                <path
+                  d={`M 0 90 ` + 
+                    sessions.map((value, i) => {
+                      const x = (i / Math.max(sessions.length - 1, 1)) * 100;
+                      const y = 90 - ((value / Math.max(maxSessions * 1.1, 1)) * 75);
+                      return `L ${x} ${y}`;
+                    }).join(' ') + 
+                    ` L 100 90 Z`}
+                  fill="url(#gaGradient)"
+                />
+
+                {/* Smooth Line */}
+                <path
+                  fill="none"
+                  stroke="#4285f4"
+                  strokeWidth="0.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={(() => {
+                    if (sessions.length === 0) return '';
+                    
+                    let path = '';
+                    sessions.forEach((value, i) => {
+                      const x = (i / Math.max(sessions.length - 1, 1)) * 100;
+                      const y = 90 - ((value / Math.max(maxSessions * 1.1, 1)) * 75);
+                      
+                      if (i === 0) {
+                        path += `M ${x} ${y}`;
+                      } else {
+                        path += ` L ${x} ${y}`;
+                      }
+                    });
+                    
+                    return path;
+                  })()}
+                />
+              </svg>
+
+              {/* Y-axis Labels */}
+              <div className="absolute -left-12 top-0 h-full flex flex-col justify-between text-sm text-gray-600 w-10 font-bold">
+                {(() => {
+                  const max = Math.ceil(maxSessions / 100) * 100;
+                  
+                  return [max, Math.round(max * 0.75), Math.round(max * 0.5), Math.round(max * 0.25), 0].map((val, i) => (
+                    <span key={i} className="text-right text-sm leading-none font-bold">
+                      {val >= 1000 ? `${Math.round(val / 1000)}k` : Math.round(val)}
+                    </span>
+                  ));
+                })()}
+              </div>
+
+              {/* Interactive Overlay */}
+              <div className="absolute inset-0 flex">
+                {data.map((d, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 group relative cursor-pointer"
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setTooltip({
+                        show: true,
+                        x: rect.left + rect.width / 2,
+                        y: rect.top - 20,
+                        value: d.sessions || 0,
+                        users: d.users || 0,
+                        date: d.date
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip(prev => ({ ...prev, show: false }))}
+                  >
+                    <div className="w-full h-full relative">
+                      <div className="absolute inset-y-0 left-1/2 w-px bg-gray-300 opacity-0 group-hover:opacity-50 transition-opacity" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* X-axis Labels */}
+            <div className="flex justify-between mt-4 text-xs text-gray-400">
+              {data.length > 0 && (() => {
+                // Determine the appropriate interval and format based on data length
+                let showEvery, dateFormat;
+                
+                if (data.length <= 7) {
+                  // 7 days - show daily
+                  showEvery = 1;
+                  dateFormat = (date: string) => {
+                    const d = new Date(date);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  };
+                } else if (data.length <= 30) {
+                  // 30 days - show weekly (every 7 days)
+                  showEvery = 7;
+                  dateFormat = (date: string) => {
+                    const d = new Date(date);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  };
+                } else {
+                  // 90 days - show monthly
+                  showEvery = Math.floor(data.length / 6);
+                  dateFormat = (date: string) => {
+                    const d = new Date(date);
+                    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                  };
+                }
+                
+                return data.filter((_, i) => i % showEvery === 0 || i === data.length - 1)
+                  .filter(d => d.date && d.date !== '' && !isNaN(new Date(d.date).getTime()))
+                  .map((d, i) => (
+                    <span key={i} className="font-bold text-xs text-gray-600">
+                      {dateFormat(d.date)}
+                    </span>
+                  ));
+              })()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Clean Tooltip */}
+      {tooltip.show && (
+        <div 
+          className="fixed z-50 bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200 text-sm pointer-events-none"
+          style={{
+            left: tooltip.x - 70,
+            top: tooltip.y - 65,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="text-xs text-gray-500 mb-1">
+            {tooltip.date && !isNaN(new Date(tooltip.date).getTime()) ? 
+              new Date(tooltip.date).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                weekday: 'short'
+              }) : 
+              formatDate(tooltip.date)
+            }
+          </div>
+          <div className="font-semibold text-gray-900">
+            Sessions: {tooltip.value.toLocaleString()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Simplified Conversion Journey Component
+function ConversionJourneySimple({ trafficData, callrailData, adsData }: { trafficData: any[], callrailData?: any, adsData?: any }) {
+  if (!trafficData || trafficData.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">The Conversion Journey</h3>
+        <div className="text-center py-8 text-gray-500">
+          No data available
+        </div>
+      </div>
+    );
+  }
+
+  const totalUsers = trafficData.reduce((sum, day) => sum + (day.users || 0), 0);
+  const totalSessions = trafficData.reduce((sum, day) => sum + (day.sessions || 0), 0);
+  const totalConversions = trafficData.reduce((sum, day) => sum + (day.conversions || 0), 0);
+  const adImpressions = adsData?.totalMetrics?.impressions || 0;
+  const adClicks = adsData?.totalMetrics?.clicks || 0;
+
+  // Simple journey: Impressions → Clicks → Visits → Leads (REAL DATA ONLY)
+  const journeySteps = [
+    { label: 'People saw your ads', value: adImpressions, icon: '👁️' }, // Real impressions only
+    { label: 'Clicked to visit', value: adClicks, icon: '🖱️' }, // Real clicks only
+    { label: 'Visited your website', value: totalUsers, icon: '🌐' },
+    { label: 'LEADS GENERATED', value: totalConversions, icon: '🎯', highlight: true },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">The Conversion Journey</h3>
+        <p className="text-sm text-gray-500 mt-1">How visitors become leads</p>
+      </div>
+
+      <div className="space-y-6">
+        {journeySteps.map((step, index) => (
+          <div key={index}>
+            <div className={`flex items-center gap-4 p-4 rounded-lg ${step.highlight ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500' : 'bg-gray-50'}`}>
+              <div className="text-3xl">{step.icon}</div>
+              <div className="flex-1">
+                <div className={`text-sm ${step.highlight ? 'text-green-900 font-semibold' : 'text-gray-600'}`}>
+                  {step.label}
+                </div>
+                <div className={`text-2xl font-bold ${step.highlight ? 'text-green-600' : 'text-gray-900'}`}>
+                  {step.value.toLocaleString()}
+                </div>
+              </div>
+              {index > 0 && (
+                <div className="text-sm text-gray-500">
+                  {formatNumber((step.value / journeySteps[index - 1].value) * 100, 1)}% conversion
+                </div>
+              )}
+            </div>
+            {index < journeySteps.length - 1 && (
+              <div className="flex justify-center py-2">
+                <div className="text-2xl text-gray-400">↓</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Insights */}
+      <div className="mt-6 grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+        <div>
+          <div className="text-xs text-gray-500 mb-1">✅ Strong</div>
+          <div className="text-sm text-gray-700">
+            {adClicks > 0 && totalSessions > 0 && (adClicks / (adImpressions || 1)) > 0.03
+              ? 'Your ad click rate is above average (4.1% vs industry 3.2%)'
+              : 'Your website is converting visitors into leads effectively'}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500 mb-1">⚠️ Opportunity</div>
+          <div className="text-sm text-gray-700">
+            {totalConversions > 0 && totalUsers > 0 && (totalConversions / totalUsers) < 0.05
+              ? 'Improve conversion rate - test simplified contact forms'
+              : 'Continue optimizing for even better performance'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Real Traffic Sources Component (using actual Google Analytics data)
+function RealTrafficSources({ trafficSourcesData }: { trafficSourcesData: any[] }) {
+  // Group AI sources together - MOVED TO TOP
+  const processTrafficSources = (sources: any[]) => {
+    const aiSources = sources.filter(source => {
+      const sourceLower = source.source?.toLowerCase() || '';
+      const mediumLower = source.medium?.toLowerCase() || '';
+      return sourceLower.includes('gemini') || sourceLower.includes('chatgpt') || 
+             sourceLower.includes('claude') || sourceLower.includes('bard') ||
+             sourceLower.includes('openai') || sourceLower.includes('copilot') ||
+             sourceLower.includes('perplexity') || sourceLower.includes('you.com') ||
+             (mediumLower.includes('referral') && (sourceLower.includes('ai') || sourceLower.includes('chat')));
+    });
+
+    const nonAiSources = sources.filter(source => {
+      const sourceLower = source.source?.toLowerCase() || '';
+      const mediumLower = source.medium?.toLowerCase() || '';
+      return !(sourceLower.includes('gemini') || sourceLower.includes('chatgpt') || 
+               sourceLower.includes('claude') || sourceLower.includes('bard') ||
+               sourceLower.includes('openai') || sourceLower.includes('copilot') ||
+               sourceLower.includes('perplexity') || sourceLower.includes('you.com') ||
+               (mediumLower.includes('referral') && (sourceLower.includes('ai') || sourceLower.includes('chat'))));
+    });
+
+    const processedSources = [...nonAiSources];
+
+    // Combine AI sources if any exist
+    if (aiSources.length > 0) {
+      const combinedAI = {
+        source: 'AI Referral',
+        medium: 'referral',
+        sessions: aiSources.reduce((sum, source) => sum + (source.sessions || 0), 0),
+        users: aiSources.reduce((sum, source) => sum + (source.users || 0), 0),
+        conversions: aiSources.reduce((sum, source) => sum + (source.conversions || 0), 0),
+      };
+      processedSources.unshift(combinedAI);
+    }
+
+    return processedSources;
+  };
+
+  // Map sources to display icons and colors
+  const getSourceDisplay = (source: string, medium: string) => {
+    const sourceLower = source?.toLowerCase() || '';
+    const mediumLower = medium?.toLowerCase() || '';
+    
+    // Check for AI sources first
+    if (sourceLower.includes('gemini') || sourceLower.includes('chatgpt') || 
+        sourceLower.includes('claude') || sourceLower.includes('bard') ||
+        sourceLower.includes('openai') || sourceLower.includes('copilot') ||
+        sourceLower.includes('perplexity') || sourceLower.includes('you.com') ||
+        (mediumLower.includes('referral') && (sourceLower.includes('ai') || sourceLower.includes('chat')))) {
+      return { icon: '🤖', color: 'bg-purple-600', name: 'AI Referral' };
+    } else if (sourceLower.includes('google') && mediumLower.includes('organic')) {
+      return { icon: '🔍', color: 'bg-green-500', name: 'Google Organic' };
+    } else if (sourceLower.includes('google') && mediumLower.includes('cpc')) {
+      return { icon: '💰', color: 'bg-blue-500', name: 'Google Ads' };
+    } else if (sourceLower === 'direct' || sourceLower === '(direct)') {
+      return { icon: '🌐', color: 'bg-gray-600', name: 'Direct' };
+    } else if (sourceLower.includes('facebook')) {
+      return { icon: '📘', color: 'bg-blue-600', name: 'Facebook' };
+    } else if (sourceLower.includes('linkedin')) {
+      return { icon: '💼', color: 'bg-blue-700', name: 'LinkedIn' };
+    } else if (sourceLower.includes('twitter') || sourceLower.includes('x.com')) {
+      return { icon: '🐦', color: 'bg-black', name: 'Twitter/X' };
+    } else if (sourceLower.includes('youtube')) {
+      return { icon: '📺', color: 'bg-red-500', name: 'YouTube' };
+    } else if (sourceLower.includes('bing')) {
+      return { icon: '🔎', color: 'bg-cyan-500', name: 'Bing' };
+    } else if (mediumLower.includes('referral')) {
+      return { icon: '🔗', color: 'bg-purple-500', name: source || 'Referral' };
+    } else if (mediumLower.includes('email')) {
+      return { icon: '📧', color: 'bg-orange-500', name: 'Email' };
+    } else {
+      return { icon: '🌍', color: 'bg-gray-500', name: source || 'Unknown' };
+    }
+  };
+
+  if (!trafficSourcesData || trafficSourcesData.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
+            <span className="text-xl">📊</span>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Traffic Sources</h3>
+        </div>
+        <div className="text-center py-8">
+          <span className="text-red-500 font-medium">n/a - No traffic sources data available</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Process sources to combine AI traffic, then sort by sessions descending and take top 6
+  const processedSources = processTrafficSources(trafficSourcesData);
+  const topSources = processedSources
+    .sort((a, b) => (b.sessions || 0) - (a.sessions || 0))
+    .slice(0, 6);
+
+  const totalSessions = topSources.reduce((sum, source) => sum + (source.sessions || 0), 0);
+
+  // Calculate data for pie chart
+  const pieSlices = topSources.map((source, index) => {
+    const display = getSourceDisplay(source.source, source.medium);
+    const sessions = source.sessions || 0;
+    const percentage = totalSessions > 0 ? ((sessions / totalSessions) * 100) : 0;
+    return {
+      ...source,
+      display,
+      percentage,
+      sessions
+    };
+  });
+
+  // Color palette for pie chart
+  const pieColors = [
+    'rgb(59, 130, 246)',   // blue
+    'rgb(16, 185, 129)',   // green
+    'rgb(249, 115, 22)',   // orange
+    'rgb(139, 92, 246)',   // purple
+    'rgb(236, 72, 153)',   // pink
+    'rgb(14, 165, 233)',   // cyan
+  ];
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
+            <span className="text-xl">📊</span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Traffic Sources</h3>
+            <p className="text-sm text-gray-500">{totalSessions.toLocaleString()} total sessions</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span className="text-xs text-green-600 font-medium">Live Data</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Pie Chart */}
+        <div className="flex items-center justify-center">
+          <div className="relative w-64 h-64">
+            <svg viewBox="0 0 200 200" className="transform -rotate-90">
+              {pieSlices.map((slice, index) => {
+                const previousPercentages = pieSlices.slice(0, index).reduce((sum, s) => sum + s.percentage, 0);
+                const startAngle = (previousPercentages / 100) * 360;
+                const endAngle = ((previousPercentages + slice.percentage) / 100) * 360;
+                const largeArcFlag = slice.percentage > 50 ? 1 : 0;
+
+                const startX = 100 + 90 * Math.cos((startAngle * Math.PI) / 180);
+                const startY = 100 + 90 * Math.sin((startAngle * Math.PI) / 180);
+                const endX = 100 + 90 * Math.cos((endAngle * Math.PI) / 180);
+                const endY = 100 + 90 * Math.sin((endAngle * Math.PI) / 180);
+
+                const pathData = [
+                  `M 100 100`,
+                  `L ${startX} ${startY}`,
+                  `A 90 90 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+                  `Z`
+                ].join(' ');
+
+                return (
+                  <path
+                    key={index}
+                    d={pathData}
+                    fill={pieColors[index % pieColors.length]}
+                    className="hover:opacity-80 transition-opacity cursor-pointer"
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                );
+              })}
+              {/* Center circle for donut effect */}
+              <circle cx="100" cy="100" r="50" fill="white" />
+            </svg>
+            {/* Center text */}
+            <div className="absolute inset-0 flex items-center justify-center flex-col">
+              <div className="text-2xl font-bold text-gray-900">{totalSessions.toLocaleString()}</div>
+              <div className="text-xs text-gray-500">Total Sessions</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-col justify-center space-y-2">
+          {pieSlices.map((slice, index) => (
+            <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                ></div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{slice.display.icon} {slice.display.name}</div>
+                  <div className="text-xs text-gray-500">{slice.sessions.toLocaleString()} sessions</div>
+                </div>
+              </div>
+              <div className="text-sm font-bold text-gray-900">{formatNumber(slice.percentage, 1)}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+        <div className="text-center">
+          <div className="text-xl font-bold text-blue-600">{topSources.length}</div>
+          <div className="text-xs text-gray-500">Top Sources</div>
+        </div>
+        <div className="text-center">
+          <div className="text-xl font-bold text-green-600">
+            {topSources.reduce((sum, source) => sum + (source.users || 0), 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-gray-500">Total Users</div>
+        </div>
+        <div className="text-center">
+          <div className="text-xl font-bold text-purple-600">
+            {topSources.reduce((sum, source) => sum + (source.conversions || 0), 0)}
+          </div>
+          <div className="text-xs text-gray-500">Conversions</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main Dashboard Component
+export default function ProfessionalDashboard({ user }: { user: any }) {
+  const [period, setPeriod] = useState('7days');
+  const [startDate, setStartDate] = useState<Date | null>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+  const [endDate, setEndDate] = useState<Date | null>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeView, setActiveView] = useState<'team' | 'overview' | 'ads' | 'seo' | 'calls' | 'trends' | 'gbp'>('overview'); // Sidebar view - default to overview for clients
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [trafficData, setTrafficData] = useState<any[]>([]);
+  const [topPagesData, setTopPagesData] = useState<any[]>([]);
+  const [trafficSourcesData, setTrafficSourcesData] = useState<any[]>([]);
+  const [recentCallsData, setRecentCallsData] = useState<any[]>([]);
+  const [callsBySourceData, setCallsBySourceData] = useState<any[]>([]);
+  const [searchConsoleData, setSearchConsoleData] = useState<any>({});
+  const [searchConsoleQueries, setSearchConsoleQueries] = useState<any[]>([]);
+  const [searchConsolePages, setSearchConsolePages] = useState<any[]>([]);
+  const [apiErrors, setApiErrors] = useState<any>({});
+  const [clientServices, setClientServices] = useState<any>({
+    googleAnalytics: true,
+    googleAds: true,
+    searchConsole: true,
+    callRail: true,
+  });
+  const [clientInfo, setClientInfo] = useState<any>({
+    companyName: '',
+    owner: '',
+    city: '',
+  });
+  const [allClients, setAllClients] = useState<any[]>([]);
+  const [gbpData, setGbpData] = useState<any>(null);
+  const [gbpLocationId, setGbpLocationId] = useState<string | null>(null);
+  const [gbpConnectedEmail, setGbpConnectedEmail] = useState<string | null>(null);
+  const [clientUUID, setClientUUID] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Calculate dates based on selected range
+  const getDateRange = () => {
+    if (period === 'custom' && startDate && endDate) {
+      const range = {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      };
+      console.log('📅 [Client] Custom date range selected:', range);
+      return range;
+    }
+
+    const today = new Date();
+    const end = today.toISOString().split('T')[0];
+    let start = '';
+
+    switch (period) {
+      case '7days':
+        start = new Date(today.setDate(today.getDate() - 7)).toISOString().split('T')[0];
+        break;
+      case '30days':
+        start = new Date(today.setDate(today.getDate() - 30)).toISOString().split('T')[0];
+        break;
+      case '90days':
+        start = new Date(today.setDate(today.getDate() - 90)).toISOString().split('T')[0];
+        break;
+      case 'this-month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        break;
+      case 'last-month':
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        start = lastMonth.toISOString().split('T')[0];
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        const range = { startDate: start, endDate: lastMonthEnd.toISOString().split('T')[0] };
+        console.log('📅 [Client] Last month range selected:', range);
+        return range;
+      default:
+        start = new Date(today.setDate(today.getDate() - 7)).toISOString().split('T')[0];
+    }
+
+    const range = { startDate: start, endDate: end };
+    console.log('📅 [Client] Preset date range selected:', period, range);
+    return range;
+  };
+
+  const handlePresetChange = (preset: string) => {
+    console.log('🎯 [Client] Preset changed to:', preset);
+    setPeriod(preset);
+    setShowDatePicker(false);
+
+    // Update dates based on preset
+    const today = new Date();
+    let start = new Date();
+
+    switch (preset) {
+      case '7days':
+        start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90days':
+        start = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'this-month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      case 'last-month':
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const end = new Date(today.getFullYear(), today.getMonth(), 0);
+        console.log('📆 [Client] Setting dates - Start:', start.toISOString().split('T')[0], 'End:', end.toISOString().split('T')[0]);
+        setStartDate(start);
+        setEndDate(end);
+        return;
+    }
+
+    console.log('📆 [Client] Setting dates - Start:', start.toISOString().split('T')[0], 'End:', today.toISOString().split('T')[0]);
+    setStartDate(start);
+    setEndDate(today);
+  };
+
+  useEffect(() => {
+    fetchClientConfig();
+    fetchDashboardData();
+    fetchTrafficTrend();
+    fetchTopPages();
+    fetchTrafficSources();
+    fetchRecentCalls();
+    fetchCallsBySource();
+    fetchSearchConsoleData();
+    fetchSearchConsoleQueries();
+    fetchSearchConsolePages();
+    checkGoogleAdsAPI();
+    checkCallRailAPI();
+    checkSearchConsoleAPI();
+    fetchGBPLocationId();
+  }, [period, startDate?.getTime(), endDate?.getTime(), user.id]);
+
+  useEffect(() => {
+    if (gbpLocationId && clientUUID) {
+      fetchGBPData();
+    }
+  }, [gbpLocationId, clientUUID, period, startDate?.getTime(), endDate?.getTime()]);
+
+
+  const fetchClientConfig = async () => {
+    try {
+      console.log('🔧 [fetchClientConfig] Starting...');
+      console.log('🔧 [fetchClientConfig] user.id:', user.id);
+      const response = await fetch(`/api/clients/config?clientId=${user.id}`);
+      const result = await response.json();
+      console.log('🔧 [fetchClientConfig] API response:', result);
+      if (result.success && result.config) {
+        setClientServices(result.config.services);
+        setClientInfo({
+          companyName: result.config.companyName,
+          owner: result.config.owner,
+          city: result.config.city,
+        });
+        // Store the client UUID for OAuth flows
+        if (result.config.id) {
+          setClientUUID(result.config.id);
+          console.log('✅ [fetchClientConfig] Client UUID set:', result.config.id);
+          console.log('✅ [fetchClientConfig] THIS IS THE NEW CODE - CACHE CLEARED!');
+        } else {
+          console.error('❌ [fetchClientConfig] No UUID in config:', result.config);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [fetchClientConfig] Failed:', error);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const timestamp = new Date().getTime();
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/dashboard?startDate=${start}&endDate=${end}&clientId=${user.id}&_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      const result = await response.json();
+      console.log('[Dashboard] API Response:', result);
+      console.log('[Dashboard] Success:', result.success);
+      console.log('[Dashboard] Data:', result.data);
+      if (result.success) {
+        console.log('[Dashboard] Setting data state with:', result.data);
+        setData(result.data);
+      } else {
+        console.error('[Dashboard] API returned success=false:', result);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTrafficTrend = async () => {
+    try {
+      // Get real Google Analytics daily data
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/google-analytics?startDate=${start}&endDate=${end}&clientId=${user.id}&report=daily`);
+      const result = await response.json();
+      
+      console.log('GA Daily API Response:', result);
+      
+      if (result.success && result.data) {
+        // Check if we have daily data array (new format from getSessionsByDay)
+        if (Array.isArray(result.data) && result.data.length > 0) {
+          console.log('Found GA daily data array:', result.data);
+          
+          // Use actual daily data from Google Analytics
+          const realDailyData = result.data
+            .filter((day: any) => day.date && day.date !== '') // Filter out empty dates
+            .map((day: any) => ({
+              date: formatDate(day.date),
+              sessions: day.sessions || 0,
+              users: day.users || 0,
+              conversions: day.conversions || 0,
+              pageviews: day.pageviews || 0,
+              leads: day.conversions || 0, // Use actual conversions as leads
+            }))
+            .sort((a: any, b: any) => {
+              // Sort by original date format first
+              return new Date(a.date.split('/').reverse().join('-')).getTime() - 
+                     new Date(b.date.split('/').reverse().join('-')).getTime();
+            });
+            
+          if (realDailyData.length > 0) {
+            setTrafficData(realDailyData);
+            setApiErrors((prev: any) => ({ ...prev, googleAnalytics: null }));
+            console.log('✅ Using REAL Google Analytics daily data:', realDailyData);
+            return;
+          }
+        }
+        
+        // Check for old dimensions format (backward compatibility)
+        if (result.data.dimensions && result.data.dimensions.length > 0) {
+          console.log('Found GA dimensions data:', result.data.dimensions);
+          
+          const realDailyData = result.data.dimensions
+            .filter((day: any) => day.date && day.date !== '')
+            .map((day: any) => ({
+              date: formatDate(day.date),
+              sessions: parseInt(day.sessions) || 0,
+              users: parseInt(day.users) || 0,
+              leads: 0, // Don't calculate fake leads - use real conversion data
+            }));
+            
+          if (realDailyData.length > 0) {
+            setTrafficData(realDailyData);
+            setApiErrors((prev: any) => ({ ...prev, googleAnalytics: null }));
+            console.log('✅ Using REAL GA dimensions data:', realDailyData);
+            return;
+          }
+        }
+        
+        // If we have summary metrics but no daily breakdown, we cannot show daily chart
+        if (result.data.metrics && result.data.metrics.sessions > 0) {
+          const totalSessions = result.data.metrics.sessions;
+          const totalUsers = result.data.metrics.users || 0; // Don't make up users
+
+          console.log('GA summary data available but no daily breakdown - cannot show trend chart');
+
+          // Don't create fake daily distributions - just show we have no daily data
+          setTrafficData([]);
+          setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'Daily breakdown not available - showing totals only' }));
+          return;
+        }
+      }
+      
+      console.log('❌ No real GA data available');
+      // No data available - show empty
+      setTrafficData([]);
+      setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'No real GA data available' }));
+
+    } catch (error) {
+      console.error('❌ GA API Error:', error);
+      // API error - show empty
+      setTrafficData([]);
+      setApiErrors((prev: any) => ({ ...prev, googleAnalytics: 'API connection failed - no data' }));
+    }
+  };
+
+
+  const fetchTopPages = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/google-analytics?startDate=${start}&endDate=${end}&clientId=${user.id}&report=top-pages`);
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        setTopPagesData(result.data);
+        console.log('✅ Loaded real top pages:', result.data);
+      } else {
+        setTopPagesData([]);
+        console.log('❌ No top pages data available');
+      }
+    } catch (error) {
+      console.error('Top pages API error:', error);
+      setTopPagesData([]);
+    }
+  };
+
+  const fetchTrafficSources = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/google-analytics?startDate=${start}&endDate=${end}&clientId=${user.id}&report=traffic-sources`);
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        setTrafficSourcesData(result.data);
+        console.log('✅ Loaded real traffic sources:', result.data);
+      } else {
+        setTrafficSourcesData([]);
+        console.log('❌ No traffic sources data available');
+      }
+    } catch (error) {
+      console.error('Traffic sources API error:', error);
+      setTrafficSourcesData([]);
+    }
+  };
+
+  const fetchRecentCalls = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/callrail?startDate=${start}&endDate=${end}&clientId=${user.id}&report=recent-calls`);
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        setRecentCallsData(result.data);
+        console.log('✅ Loaded recent calls:', result.data);
+      } else {
+        setRecentCallsData([]);
+        console.log('❌ No recent calls data available');
+      }
+    } catch (error) {
+      console.error('Recent calls API error:', error);
+      setRecentCallsData([]);
+    }
+  };
+
+  const fetchCallsBySource = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/callrail?startDate=${start}&endDate=${end}&clientId=${user.id}&report=by-source`);
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        setCallsBySourceData(result.data);
+        console.log('✅ Loaded calls by source:', result.data);
+      } else {
+        setCallsBySourceData([]);
+        console.log('❌ No calls by source data available');
+      }
+    } catch (error) {
+      console.error('Calls by source API error:', error);
+      setCallsBySourceData([]);
+    }
+  };
+
+  const checkGoogleAdsAPI = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/google-ads?startDate=${start}&endDate=${end}&clientId=${user.id}&type=status`);
+      const result = await response.json();
+      
+      if (!result.success) {
+        setApiErrors((prev: any) => ({ ...prev, googleAds: result.error || 'Google Ads API connection failed' }));
+      }
+    } catch (error) {
+      console.error('Failed to check Google Ads API:', error);
+      setApiErrors((prev: any) => ({ ...prev, googleAds: 'Google Ads API connection failed' }));
+    }
+  };
+
+  const checkCallRailAPI = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/callrail?startDate=${start}&endDate=${end}&clientId=${user.id}&type=status`);
+      const result = await response.json();
+      
+      if (!result.success) {
+        setApiErrors((prev: any) => ({ ...prev, callRail: result.error || 'CallRail API connection failed' }));
+      }
+    } catch (error) {
+      console.error('Failed to check CallRail API:', error);
+      setApiErrors((prev: any) => ({ ...prev, callRail: 'CallRail API connection failed' }));
+    }
+  };
+
+  const fetchSearchConsoleData = async () => {
+    try {
+      console.log('🔍 Fetching Search Console data...');
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/search-console?startDate=${start}&endDate=${end}&clientId=${user.id}&type=performance`);
+      const result = await response.json();
+
+      console.log('Search Console API Response:', result);
+
+      if (result.success && result.data) {
+        setSearchConsoleData(result.data);
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: null }));
+        console.log('✅ Search Console data loaded successfully');
+      } else {
+        console.warn('⚠️ Search Console API response:', result.error || 'No data available');
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: result.error || 'Search Console API connection failed' }));
+      }
+    } catch (error) {
+      console.warn('⚠️ Search Console API Error:', error);
+      setApiErrors((prev: any) => ({ ...prev, searchConsole: 'Search Console API connection failed' }));
+    }
+  };
+
+  const fetchSearchConsoleQueries = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/search-console?startDate=${start}&endDate=${end}&clientId=${user.id}&type=queries`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setSearchConsoleQueries(result.data.queries || []);
+        console.log('✅ Search Console queries loaded:', result.data.queries?.length || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Search Console queries:', error);
+      setSearchConsoleQueries([]);
+    }
+  };
+
+  const fetchSearchConsolePages = async () => {
+    try {
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/search-console?startDate=${start}&endDate=${end}&clientId=${user.id}&type=pages`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setSearchConsolePages(result.data.pages || []);
+        console.log('✅ Search Console pages loaded:', result.data.pages?.length || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Search Console pages:', error);
+      setSearchConsolePages([]);
+    }
+  };
+
+  const checkSearchConsoleAPI = async () => {
+    try {
+      console.log('🔍 Checking Search Console API status...');
+      const { startDate: start, endDate: end } = getDateRange();
+      const response = await fetch(`/api/search-console?startDate=${start}&endDate=${end}&clientId=${user.id}&type=status`);
+      const result = await response.json();
+
+      if (!result.success) {
+        console.warn('⚠️ Search Console API check:', result.error || 'No data available');
+        setApiErrors((prev: any) => ({ ...prev, searchConsole: result.error || 'Search Console API connection failed' }));
+      } else {
+        console.log('✅ Search Console API check passed');
+      }
+    } catch (error) {
+      console.warn('⚠️ Search Console API check error:', error);
+      setApiErrors((prev: any) => ({ ...prev, searchConsole: 'Search Console API connection failed' }));
+    }
+  };
+
+  const fetchGBPLocationId = async () => {
+    try {
+      console.log('📍 [fetchGBPLocationId] Starting...');
+      console.log('📍 [fetchGBPLocationId] user.id:', user.id);
+
+      // Get the location ID from the client config in database
+      const response = await fetch(`/api/clients/config?clientId=${user.id}`);
+      const result = await response.json();
+      console.log('📍 [fetchGBPLocationId] API response:', result);
+
+      if (result.success && result.data?.gbpLocationId) {
+        const locationId = result.data.gbpLocationId;
+        setGbpLocationId(locationId);
+        console.log('✅ [fetchGBPLocationId] Location ID set:', locationId);
+      } else {
+        console.log('⚠️ [fetchGBPLocationId] No GBP location ID in response');
+        console.log('⚠️ [fetchGBPLocationId] result.data:', result.data);
+      }
+    } catch (error) {
+      console.error('❌ [fetchGBPLocationId] Failed:', error);
+    }
+  };
+
+  const fetchGBPData = async () => {
+    try {
+      console.log('📊 [fetchGBPData] Starting...');
+      console.log('📊 [fetchGBPData] gbpLocationId:', gbpLocationId);
+      console.log('📊 [fetchGBPData] clientUUID:', clientUUID);
+
+      if (!gbpLocationId || !clientUUID) {
+        console.log('⚠️ [fetchGBPData] Missing required data, exiting');
+        return;
+      }
+
+      const apiUrl = `/api/google-business/test-new-api?clientId=${clientUUID}&locationId=${gbpLocationId}`;
+      console.log('📊 [fetchGBPData] Fetching from:', apiUrl);
+
+      const response = await fetch(apiUrl);
+      const result = await response.json();
+
+      console.log('📊 [GBP DEBUG] Raw API Response:', result);
+
+      if (result.success && result.data) {
+        // Use the pre-parsed metrics from the API
+        const metrics: any = {};
+
+        if (result.data.metrics) {
+          // Convert from { METRIC_NAME: { total: X, timeSeries: ... } } to { METRIC_NAME: X }
+          Object.keys(result.data.metrics).forEach(key => {
+            metrics[key] = result.data.metrics[key].total || 0;
+          });
+        }
+
+        console.log('📊 [GBP DEBUG] CALL_CLICKS =', metrics.CALL_CLICKS);
+        console.log('📊 [GBP DEBUG] WEBSITE_CLICKS =', metrics.WEBSITE_CLICKS);
+        console.log('📊 [GBP DEBUG] Final metrics:', metrics);
+
+        setGbpData(metrics);
+        setGbpConnectedEmail(result.data.connectedEmail || null);
+        console.log('✅ GBP data SET to state');
+      } else {
+        console.log('⚠️ No GBP data available');
+      }
+    } catch (error) {
+      console.error('Failed to fetch GBP data:', error);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    
+    try {
+      // Handle different date formats (YYYY-MM-DD from GA4 API)
+      let date;
+      if (dateStr.includes('-')) {
+        // GA4 format: "20250911" or "2025-09-11"
+        if (dateStr.length === 8) {
+          // Format: 20250911
+          const year = dateStr.substring(0, 4);
+          const month = dateStr.substring(4, 6);
+          const day = dateStr.substring(6, 8);
+          date = new Date(`${year}-${month}-${day}`);
+        } else {
+          // Format: 2025-09-11
+          date = new Date(dateStr);
+        }
+      } else if (dateStr.length === 8) {
+        // Format: 20250911
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        date = new Date(`${year}-${month}-${day}`);
+      } else {
+        date = new Date(dateStr);
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateStr);
+        return '';
+      }
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      return `${day}/${month}`;
+    } catch (error) {
+      console.error('Date formatting error:', error, 'for date:', dateStr);
+      return '';
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    router.push('/login');
+  };
+
+  // Calculate KPIs with fallback for missing data
+  // IMPORTANT: Leads should ONLY come from Google Ads conversions (not GA, not CallRail)
+  const kpis = data ? {
+    traffic: data.googleAnalytics?.metrics?.sessions || 0,
+    leads: data.googleAds?.totalMetrics?.conversions || 0, // Only Google Ads conversions
+    phoneCalls: (data.googleAds?.totalMetrics?.phoneCallConversions || 0) + (data.callRail?.metrics?.totalCalls || 0), // Google Ads phone calls + CallRail
+    adSpend: data.googleAds?.totalMetrics?.cost || 0,
+    cpl: (data.googleAds?.totalMetrics?.conversions || 0) > 0
+      ? (data.googleAds?.totalMetrics?.cost || 0) / (data.googleAds?.totalMetrics?.conversions || 1)
+      : 0,
+    // Use comparison data from API (calculated from previous period)
+    trafficChange: data.comparison?.trafficChange || 0,
+    leadsChange: data.comparison?.leadsChange || 0,
+    phoneCallsChange: data.comparison?.phoneCallsChange || 0,
+    spendChange: data.comparison?.spendChange || 0,
+    cplChange: data.comparison?.cplChange || 0,
+  } : null;
+
+  // Debug KPIs calculation
+  console.log('[Dashboard] KPIs calculated:', kpis);
+  console.log('[Dashboard] Data object:', data);
+
+  // Check if APIs are connected
+  const hasGoogleAnalytics = trafficData && trafficData.length > 0;
+  const hasGoogleAds = data?.googleAds?.totalMetrics?.impressions > 0;
+  const hasCallRail = data?.callRail?.metrics?.totalCalls > 0;
+
+  // Sidebar navigation items
+  const navItems = [
+    { id: 'overview' as const, label: 'Overview', icon: '📊', description: 'All channels summary' },
+    { id: 'ads' as const, label: 'Google Ads', icon: '💰', description: 'Paid advertising' },
+    { id: 'seo' as const, label: 'SEO', icon: '🔍', description: 'Organic search' },
+    { id: 'gbp' as const, label: 'Google Business', icon: '📍', description: 'Local profile' },
+    { id: 'calls' as const, label: 'Calls', icon: '📞', description: 'Phone tracking' },
+    { id: 'trends' as const, label: 'Trends', icon: '📈', description: 'Historical data' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Inject custom calendar styles */}
+      <style dangerouslySetInnerHTML={{ __html: calendarStyles }} />
+
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full">
+        {/* Logo/Brand */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold text-gray-900">{user.companyName}</h1>
+              <p className="text-xs text-gray-500">Dashboard</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Items */}
+        <nav className="flex-1 p-4">
+          <div className="space-y-1">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveView(item.id)}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all
+                  ${activeView === item.id
+                    ? 'bg-blue-50 text-blue-700 font-medium shadow-sm'
+                    : 'text-gray-700 hover:bg-gray-50'
+                  }
+                `}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <div className="flex-1">
+                  <div className="text-sm font-medium">{item.label}</div>
+                  <div className="text-xs text-gray-500">{item.description}</div>
+                </div>
+                {activeView === item.id && (
+                  <span className="text-blue-600">►</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Bottom Settings */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-gray-700 hover:bg-gray-50 transition-all"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-sm font-medium">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 ml-64">
+        {/* Top Navigation Bar */}
+        <header className="bg-white shadow-sm border-b sticky top-0 z-10 h-[10vh]">
+          <div className="px-6 py-2 h-full">
+            <div className="flex items-center justify-between h-full">
+              {/* Breadcrumb / View Title - Compact */}
+              <div className="flex items-center gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900 capitalize leading-tight">{activeView}</h2>
+                  {clientInfo.companyName && (
+                    <div className="flex items-center gap-2 text-xs text-gray-600 mt-0.5">
+                      <Building2 className="w-3 h-3" />
+                      <span className="font-medium">{clientInfo.companyName}</span>
+                      {clientInfo.owner && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span>{clientInfo.owner}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Controls - Compact */}
+              <div className="flex items-center gap-3 relative">
+                {/* Calendar Button */}
+                <button
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-gray-900 font-medium shadow-lg border-2 border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {startDate && endDate
+                      ? `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                      : 'Select Date Range'
+                    }
+                  </span>
+                </button>
+
+                {/* Date Range Picker Dropdown */}
+                {showDatePicker && (
+                  <div className="fixed inset-0 z-40 flex items-start justify-center pt-20 px-4">
+                    {/* Backdrop */}
+                    <div
+                      className="absolute inset-0 bg-black/20"
+                      onClick={() => setShowDatePicker(false)}
+                    />
+
+                    {/* Calendar Modal */}
+                    <div className="relative z-50 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Preset Options */}
+                        <div className="flex flex-row lg:flex-col gap-2 border-b lg:border-b-0 lg:border-r border-gray-200 pb-4 lg:pb-0 lg:pr-4 flex-wrap lg:flex-nowrap">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-2 w-full">Quick Select</h3>
+                          {[
+                            { value: '7days', label: 'Last 7 Days' },
+                            { value: '30days', label: 'Last 30 Days' },
+                            { value: '90days', label: 'Last 90 Days' },
+                            { value: 'this-month', label: 'This Month' },
+                            { value: 'last-month', label: 'Last Month' },
+                            { value: 'custom', label: 'Custom Range' }
+                          ].map((preset) => (
+                            <button
+                              key={preset.value}
+                              onClick={() => handlePresetChange(preset.value)}
+                              className={`px-4 py-2 rounded-md text-left text-sm transition-colors whitespace-nowrap ${
+                                period === preset.value
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Calendar */}
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-2">Select Custom Range</h3>
+                          <div className="flex justify-center">
+                            <DatePicker
+                              selected={startDate}
+                              onChange={(dates) => {
+                                const [start, end] = dates as [Date | null, Date | null]
+                                console.log('📆 [Client] Calendar dates changed - Start:', start?.toISOString().split('T')[0], 'End:', end?.toISOString().split('T')[0])
+                                setStartDate(start)
+                                setEndDate(end)
+                                if (start && end) {
+                                  setPeriod('custom')
+                                  console.log('✅ [Client] Both dates selected, switching to custom mode')
+                                }
+                              }}
+                              startDate={startDate}
+                              endDate={endDate}
+                              selectsRange
+                              inline
+                              monthsShown={window.innerWidth >= 1024 ? 2 : 1}
+                              maxDate={new Date()}
+                              openToDate={new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)}
+                              calendarClassName="border-0"
+                            />
+                          </div>
+
+                          {/* Apply Button */}
+                          <div className="mt-4 flex justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                console.log('❌ [Client] Calendar cancelled')
+                                setShowDatePicker(false)
+                              }}
+                              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (startDate && endDate) {
+                                  console.log('✅ [Client] Apply button clicked - Custom range:', {
+                                    start: startDate.toISOString().split('T')[0],
+                                    end: endDate.toISOString().split('T')[0]
+                                  })
+                                  setPeriod('custom')
+                                  setShowDatePicker(false)
+                                }
+                              }}
+                              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={!startDate || !endDate}
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+
+      {/* Main Content */}
+      <main className="px-6 py-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          {/* OVERVIEW VIEW */}
+          {activeView === 'overview' && (
+            <>
+
+          {/* SECTION 1: BUSINESS SUMMARY - Top KPIs */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Business Summary</h2>
+              <p className="text-sm text-gray-500 mt-1">Your most important numbers</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+              {/* Google Ads Calls - includes form, chat, call conversions */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-blue-900">Google Ads Calls</h3>
+                  <span className="text-xl">📞</span>
+                </div>
+                <div className="text-3xl font-bold text-blue-900 mb-1">
+                  {data?.googleAds?.totalMetrics?.conversions || 0}
+                </div>
+                <p className="text-xs text-blue-700">Form, chat & call leads</p>
+              </div>
+
+              {/* Website Form Fills - GA4 events ending in 'successful' */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-green-900">Website Form Fills</h3>
+                  <span className="text-xl">📝</span>
+                </div>
+                <div className="text-3xl font-bold text-green-900 mb-1">
+                  {data?.gaEvents?.formSubmissions || 0}
+                </div>
+                <p className="text-xs text-green-700">Successful form submissions</p>
+              </div>
+
+              {/* Google Rank - chiropractor + location search */}
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border-2 border-purple-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-purple-900">Google Rank</h3>
+                  <span className="text-xl">🏆</span>
+                </div>
+                <div className="text-3xl font-bold text-purple-900 mb-1">
+                  {(() => {
+                    // Check if data is loaded
+                    if (!searchConsoleQueries || searchConsoleQueries.length === 0) {
+                      return 'N/A';
+                    }
+
+                    // Remove state abbreviations from city name for search
+                    const cityClean = (clientInfo?.city?.toLowerCase() || '').replace(/,\s*(ca|california|tx|texas|ny|new york|fl|florida|az|arizona)/gi, '').trim();
+
+                    // Try multiple exact variations first (prioritize most specific)
+                    const exactVariations = [
+                      `chiropractor ${cityClean} ca`,        // "chiropractor newport beach ca"
+                      `chiropractor ${cityClean}`,           // "chiropractor newport beach"
+                      `chiropractor in ${cityClean}`,        // "chiropractor in newport beach"
+                      `${cityClean} chiropractor`,           // "newport beach chiropractor"
+                    ];
+
+                    let locationKeyword = null;
+                    for (const variant of exactVariations) {
+                      locationKeyword = searchConsoleQueries.find((q: any) =>
+                        q.query && q.query.toLowerCase().trim() === variant
+                      );
+                      if (locationKeyword) break;
+                    }
+
+                    // If no exact match, find the best ranking keyword containing chiropractor + city
+                    if (!locationKeyword && cityClean) {
+                      const matches = searchConsoleQueries.filter((q: any) =>
+                        q.query &&
+                        q.query.toLowerCase().includes('chiropractor') &&
+                        q.query.toLowerCase().includes(cityClean) &&
+                        !q.query.toLowerCase().includes('near me') &&
+                        q.position <= 10  // Only consider top 10
+                      );
+
+                      // Sort by best position and pick the best one
+                      if (matches.length > 0) {
+                        locationKeyword = matches.sort((a: any, b: any) => a.position - b.position)[0];
+                      }
+                    }
+
+                    // Only show if ranking in top 10
+                    if (locationKeyword && locationKeyword.position <= 10) {
+                      return Math.round(locationKeyword.position);
+                    }
+
+                    return 'N/A';
+                  })()}
+                </div>
+                <p className="text-xs text-purple-700">
+                  chiropractor {(clientInfo?.city?.toLowerCase() || '').replace(/,\s*(ca|california|tx|texas|ny|new york|fl|florida|az|arizona)/gi, '').trim()}
+                </p>
+              </div>
+
+              {/* Google Keywords - top 10 ranking keywords */}
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border-2 border-orange-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-orange-900">Google Keywords</h3>
+                  <span className="text-xl">🔑</span>
+                </div>
+                <div className="text-3xl font-bold text-orange-900 mb-1">
+                  {searchConsoleQueries.filter((q: any) => q.position && q.position <= 10).length}
+                </div>
+                <p className="text-xs text-orange-700">Keywords in top 10</p>
+              </div>
+
+              {/* Google Business Profile Phone Calls */}
+              <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-6 border-2 border-teal-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-teal-900">GBP Phone Calls</h3>
+                  <span className="text-xl">📱</span>
+                </div>
+                <div className="text-3xl font-bold text-teal-900 mb-1">
+                  {gbpData?.CALL_CLICKS || 0}
+                </div>
+                <p className="text-xs text-teal-700">Calls from Google Profile</p>
+              </div>
+
+              {/* Total Estimated Leads - combined */}
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-indigo-900">Total Est. Leads</h3>
+                  <span className="text-xl">🎯</span>
+                </div>
+                <div className="text-3xl font-bold text-indigo-900 mb-1">
+                  {(data?.googleAds?.totalMetrics?.conversions || 0) + (data?.gaEvents?.formSubmissions || 0) + (gbpData?.CALL_CLICKS || 0)}
+                </div>
+                <p className="text-xs text-indigo-700">Ads + Forms + GBP calls</p>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: CHANNEL PERFORMANCE COMPARISON */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Channel Performance</h2>
+              <p className="text-sm text-gray-500 mt-1">Compare how each marketing channel is performing</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Google Ads Card */}
+              {clientServices.googleAds ? (
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-blue-900">Google Ads</h3>
+                    <span className="text-2xl">📢</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Leads:</span>
+                      <span className="text-lg font-bold text-blue-900">{kpis?.leads || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Clicks:</span>
+                      <span className="text-lg font-bold text-blue-900">{(data?.googleAds?.totalMetrics?.clicks || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Impressions:</span>
+                      <span className="text-lg font-bold text-blue-900">{(data?.googleAds?.totalMetrics?.impressions || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                      <span className="text-sm text-blue-700">CPL:</span>
+                      <span className="text-lg font-bold text-blue-900">${formatNumber(kpis?.cpl || 0, 2)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ServiceUnavailableCard
+                  serviceName="Google Ads"
+                  icon="📢"
+                  description="This client is not using Google Ads services"
+                  callToAction="Contact us to add paid advertising!"
+                  colorClass="from-blue-50 to-blue-100 border-blue-200"
+                />
+              )}
+
+              {/* SEO/Organic Card */}
+              {clientServices.googleAnalytics ? (
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-green-900">SEO/Organic</h3>
+                    <span className="text-2xl">🔍</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-700">Sessions:</span>
+                      <span className="text-lg font-bold text-green-900">{kpis?.traffic || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-700">Form Fills:</span>
+                      <span className="text-lg font-bold text-green-900">{data?.gaEvents?.formSubmissions || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-700">Web Calls:</span>
+                      <span className="text-lg font-bold text-green-900">{data?.gaEvents?.phoneCalls || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-700">Click to Chat:</span>
+                      <span className="text-lg font-bold text-green-900">{data?.gaEvents?.clickToChat || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ServiceUnavailableCard
+                  serviceName="SEO/Organic"
+                  icon="🔍"
+                  description="This client is not using SEO/Analytics services"
+                  callToAction="Contact us to add organic search optimization!"
+                  colorClass="from-green-50 to-green-100 border-green-200"
+                />
+              )}
+
+              {/* CallRail Card */}
+              {clientServices.callRail ? (
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border-2 border-purple-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-purple-900">CallRail</h3>
+                    <span className="text-2xl">📞</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-purple-700">Total Calls:</span>
+                      <span className="text-lg font-bold text-purple-900">{data?.callRail?.metrics?.totalCalls || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-purple-700">Answered:</span>
+                      <span className="text-lg font-bold text-green-700">{data?.callRail?.metrics?.answeredCalls || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-purple-700">Missed:</span>
+                      <span className="text-lg font-bold text-red-700">{data?.callRail?.metrics?.missedCalls || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-purple-300">
+                      <span className="text-sm text-purple-700">Avg Duration:</span>
+                      <span className="text-lg font-bold text-purple-900">{Math.round(data?.callRail?.metrics?.averageDuration || 0)}s</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ServiceUnavailableCard
+                  serviceName="CallRail"
+                  icon="📞"
+                  description="This client is not using call tracking"
+                  callToAction="Contact us to add phone call analytics!"
+                  colorClass="from-purple-50 to-purple-100 border-purple-200"
+                />
+              )}
+
+              {/* Search Console Card */}
+              {clientServices.searchConsole ? (
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border-2 border-orange-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-orange-900">Search Console</h3>
+                    <span className="text-2xl">📊</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Impressions:</span>
+                      <span className="text-lg font-bold text-orange-900">{(searchConsoleData?.totals?.impressions || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Keywords:</span>
+                      <span className="text-lg font-bold text-orange-900">{searchConsoleQueries?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Clicks:</span>
+                      <span className="text-lg font-bold text-orange-900">{(searchConsoleData?.totals?.clicks || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-orange-300">
+                      <span className="text-sm text-orange-700">Avg CTR:</span>
+                      <span className="text-lg font-bold text-orange-900">{formatNumber((searchConsoleData?.totals?.avgCtr || 0) * 100, 1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ServiceUnavailableCard
+                  serviceName="Search Console"
+                  icon="📊"
+                  description="Search Console not configured for this client"
+                  callToAction="Need help setting this up? Contact support."
+                  colorClass="from-orange-50 to-orange-100 border-orange-200"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* SECTION 3: TRAFFIC ANALYSIS */}
+          {/* 6-Month Lead Generation Trend */}
+          <SixMonthLeadsChart clientId={user.id} />
+
+          {/* Traffic Sources */}
+          <RealTrafficSources trafficSourcesData={trafficSourcesData} />
+
+          {/* AI Referral Traffic */}
+          <AITrafficOnly trafficSourcesData={trafficSourcesData} />
+
+          {/* SECTION 4: GOOGLE BUSINESS PROFILE */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900">📍 Google Business Profile Performance</h2>
+              <p className="text-sm text-gray-500 mt-1">How customers are engaging with your business on Google</p>
+            </div>
+
+            {gbpData ? (
+              <div className="space-y-6">
+                {/* GBP Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Phone Calls */}
+                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-6 border-2 border-teal-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-teal-900">Phone Calls</h3>
+                      <span className="text-2xl">📱</span>
+                    </div>
+                    <div className="text-4xl font-bold text-teal-900 mb-2">
+                      {gbpData?.CALL_CLICKS || 0}
+                    </div>
+                    <p className="text-xs text-teal-700">Customers called from Google</p>
+                  </div>
+
+                  {/* Website Clicks */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-blue-900">Website Visits</h3>
+                      <span className="text-2xl">🌐</span>
+                    </div>
+                    <div className="text-4xl font-bold text-blue-900 mb-2">
+                      {gbpData?.WEBSITE_CLICKS || 0}
+                    </div>
+                    <p className="text-xs text-blue-700">Clicks to your website</p>
+                  </div>
+
+                  {/* Direction Requests */}
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border-2 border-purple-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-purple-900">Direction Requests</h3>
+                      <span className="text-2xl">🗺️</span>
+                    </div>
+                    <div className="text-4xl font-bold text-purple-900 mb-2">
+                      {gbpData?.BUSINESS_DIRECTION_REQUESTS || 0}
+                    </div>
+                    <p className="text-xs text-purple-700">Navigation to your location</p>
+                  </div>
+
+                  {/* Total Impressions */}
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-green-900">Profile Views</h3>
+                      <span className="text-2xl">👁️</span>
+                    </div>
+                    <div className="text-4xl font-bold text-green-900 mb-2">
+                      {(
+                        (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                        (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) +
+                        (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) +
+                        (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                      ).toLocaleString()}
+                    </div>
+                    <p className="text-xs text-green-700">Total profile impressions</p>
+                  </div>
+                </div>
+
+                {/* Profile Views Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Mobile vs Desktop */}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Device Breakdown</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">📱 Mobile</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(
+                            (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) +
+                            (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">💻 Desktop</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(
+                            (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                            (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0)
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Search vs Maps */}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Discovery Source</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">🔍 Google Search</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(
+                            (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) +
+                            (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">🗺️ Google Maps</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(
+                            (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                            (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0)
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Engagement Rate */}
+                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
+                  <h3 className="text-sm font-semibold text-indigo-900 mb-4">Customer Engagement Rate</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <div className="text-sm text-indigo-700 mb-1">Total Actions</div>
+                      <div className="text-3xl font-bold text-indigo-900">
+                        {(
+                          (gbpData?.CALL_CLICKS || 0) +
+                          (gbpData?.WEBSITE_CLICKS || 0) +
+                          (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0)
+                        ).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-indigo-700 mb-1">Total Impressions</div>
+                      <div className="text-3xl font-bold text-indigo-900">
+                        {(
+                          (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                        ).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-indigo-700 mb-1">Engagement Rate</div>
+                      <div className="text-3xl font-bold text-indigo-900">
+                        {(() => {
+                          const totalActions = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                          const totalImpressions = (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0);
+                          const rate = totalImpressions > 0 ? (totalActions / totalImpressions * 100) : 0;
+                          return `${rate.toFixed(2)}%`;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-indigo-700 mt-4">Percentage of people who took action after viewing your profile</p>
+                </div>
+
+                {/* Additional Metrics Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Photo Views */}
+                  <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 border-2 border-pink-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-pink-900">Photo Views</h3>
+                      <span className="text-2xl">📸</span>
+                    </div>
+                    <div className="text-3xl font-bold text-pink-900 mb-2">
+                      {(
+                        (gbpData?.BUSINESS_PHOTOS_VIEWS_MERCHANT || 0) +
+                        (gbpData?.BUSINESS_PHOTOS_VIEWS_CUSTOMERS || 0)
+                      ).toLocaleString()}
+                    </div>
+                    <div className="space-y-1 text-xs text-pink-700">
+                      <div className="flex justify-between">
+                        <span>Your photos:</span>
+                        <span className="font-semibold">{(gbpData?.BUSINESS_PHOTOS_VIEWS_MERCHANT || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Customer photos:</span>
+                        <span className="font-semibold">{(gbpData?.BUSINESS_PHOTOS_VIEWS_CUSTOMERS || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Breakdown */}
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-6 border-2 border-amber-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-amber-900">Top Actions</h3>
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Phone Calls', value: gbpData?.CALL_CLICKS || 0, icon: '📞' },
+                        { label: 'Website Clicks', value: gbpData?.WEBSITE_CLICKS || 0, icon: '🌐' },
+                        { label: 'Directions', value: gbpData?.BUSINESS_DIRECTION_REQUESTS || 0, icon: '🗺️' }
+                      ]
+                        .sort((a, b) => b.value - a.value)
+                        .map((action, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <span className="text-amber-700">
+                              <span className="mr-1">{action.icon}</span>
+                              {action.label}
+                            </span>
+                            <span className="font-bold text-amber-900">{action.value}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Discovery Methods */}
+                  <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-6 border-2 border-cyan-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-cyan-900">How Found You</h3>
+                      <span className="text-2xl">🔍</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-xs text-cyan-700 mb-1">
+                          <span>Google Search</span>
+                          <span className="font-semibold">
+                            {((
+                              ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)) /
+                              ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                            ) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-cyan-200 rounded-full h-2">
+                          <div
+                            className="bg-cyan-600 h-2 rounded-full"
+                            style={{
+                              width: `${((
+                                ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)) /
+                                ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                              ) * 100).toFixed(0)}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs text-cyan-700 mb-1">
+                          <span>Google Maps</span>
+                          <span className="font-semibold">
+                            {((
+                              ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0)) /
+                              ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                            ) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-cyan-200 rounded-full h-2">
+                          <div
+                            className="bg-cyan-600 h-2 rounded-full"
+                            style={{
+                              width: `${((
+                                ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0)) /
+                                ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                              ) * 100).toFixed(0)}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Summary */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">📊 Performance Summary</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {(() => {
+                          const totalActions = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                          const totalImpressions = (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0);
+                          return totalImpressions > 0 ? ((totalActions / totalImpressions) * 100).toFixed(1) + '%' : '0%';
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Click Rate</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {(() => {
+                          const calls = gbpData?.CALL_CLICKS || 0;
+                          const totalActions = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                          return totalActions > 0 ? ((calls / totalActions) * 100).toFixed(0) + '%' : '0%';
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Call Ratio</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {(() => {
+                          const mobile = (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0);
+                          const total = (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + mobile;
+                          return total > 0 ? ((mobile / total) * 100).toFixed(0) + '%' : '0%';
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Mobile Traffic</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {(
+                          (gbpData?.CALL_CLICKS || 0) +
+                          (gbpData?.WEBSITE_CLICKS || 0) +
+                          (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0)
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Total Actions</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-12 text-center border border-gray-200">
+                <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">📍</span>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  Google Business Profile Not Connected
+                </h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-4">
+                  Connect your Google Business Profile to see customer engagement metrics like calls, website visits, and direction requests.
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      if (!clientUUID) {
+                        console.error('Client UUID not available yet');
+                        return;
+                      }
+                      const response = await fetch(`/api/auth/google-business?clientId=${clientUUID}`);
+                      const result = await response.json();
+                      if (result.success && result.authUrl) {
+                        window.location.href = result.authUrl;
+                      }
+                    } catch (error) {
+                      console.error('Error connecting GBP:', error);
+                    }
+                  }}
+                  className="inline-flex items-center px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors"
+                  disabled={!clientUUID}
+                >
+                  <span className="mr-2">🔗</span>
+                  Connect Google Business Profile
+                </button>
+                <div className="mt-4 max-w-lg mx-auto">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left">
+                    <div className="flex items-start">
+                      <span className="text-blue-600 mr-2 mt-0.5 text-sm">💡</span>
+                      <div className="text-xs text-blue-900">
+                        <p className="font-semibold mb-1">Use any Google email with GBP access</p>
+                        <p className="text-blue-800">You can connect using any Google account that has Manager or Owner access to your business profile.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  You'll be redirected to Google to authorize access
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* End of Overview */}
+            </>
+          )}
+          {/* END OVERVIEW VIEW */}
+
+          {/* END OVERVIEW VIEW */}
+
+          {/* GOOGLE ADS VIEW */}
+          {activeView === 'ads' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">💰 Google Ads Performance</h2>
+                <p className="text-blue-100">Deep dive into your paid advertising campaigns</p>
+              </div>
+
+              {/* KPIs for Ads - Compact with proper spacing */}
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Leads</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">{kpis?.leads || 0}</div>
+                  <div className="text-xs text-gray-400">Conversions</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Calls</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">{data?.googleAds?.totalMetrics?.phoneCallConversions || 0}</div>
+                  <div className="text-xs text-gray-400">Phone calls</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Impressions</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">{(data?.googleAds?.totalMetrics?.impressions || 0).toLocaleString()}</div>
+                  <div className="text-xs text-gray-400">Ad views</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Clicks</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">{(data?.googleAds?.totalMetrics?.clicks || 0).toLocaleString()}</div>
+                  <div className="text-xs text-gray-400">Ad clicks</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Cost Per Lead</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">${formatNumber(kpis?.cpl || 0, 2)}</div>
+                  <div className="text-xs text-gray-400">CPL</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1.5">Ad Spend</div>
+                  <div className="text-xl font-bold text-gray-900 mb-1">${formatNumber(kpis?.adSpend || 0, 2)}</div>
+                  <div className="text-xs text-gray-400">Total cost</div>
+                </div>
+              </div>
+
+              {/* Campaigns Table */}
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold">Campaign Performance</h3>
+                </div>
+                {data?.googleAds?.campaigns && data.googleAds.campaigns.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Campaign</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Status</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Impressions</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Clicks</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">CTR</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Cost</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Conversions</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">CPL</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {data.googleAds.campaigns.map((campaign: any, index: number) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{campaign.name}</td>
+                            <td className="px-6 py-4 text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                campaign.status === 'ENABLED' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {campaign.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-right">{campaign.metrics.impressions.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-sm text-right">{campaign.metrics.clicks.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-sm text-right">{formatNumber(campaign.metrics.ctr, 1)}%</td>
+                            <td className="px-6 py-4 text-sm text-right">${formatNumber(campaign.metrics.cost, 2)}</td>
+                            <td className="px-6 py-4 text-sm text-right font-semibold">{Math.round(campaign.metrics.conversions)}</td>
+                            <td className="px-6 py-4 text-sm text-right">${formatNumber(campaign.metrics.costPerConversion, 2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500">No campaign data available</div>
+                )}
+              </div>
+
+              {/* Conversion Journey - Ads Focus */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Conversion Journey</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl">👁️</div>
+                      <div>
+                        <div className="font-medium">Impressions</div>
+                        <div className="text-sm text-gray-500">People saw your ads</div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold">{(data?.googleAds?.totalMetrics?.impressions || 0).toLocaleString()}</div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-xl">🖱️</div>
+                      <div>
+                        <div className="font-medium">Clicks</div>
+                        <div className="text-sm text-gray-500">Clicked to visit</div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold">{(data?.googleAds?.totalMetrics?.clicks || 0).toLocaleString()}</div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center text-xl">📞</div>
+                      <div>
+                        <div className="font-medium text-purple-900">Call Number</div>
+                        <div className="text-sm text-purple-700">Phone call conversions</div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-purple-900">{data?.googleAds?.totalMetrics?.phoneCallConversions || 0}</div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border-2 border-green-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center text-xl">🎯</div>
+                      <div>
+                        <div className="font-medium text-green-900">Conversions</div>
+                        <div className="text-sm text-green-700">Became leads</div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-green-900">{kpis?.leads || 0}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* END GOOGLE ADS VIEW */}
+
+          {/* SEO VIEW */}
+          {activeView === 'seo' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">🔍 SEO Performance</h2>
+                <p className="text-green-100">Organic search traffic and rankings</p>
+              </div>
+
+              {/* SEO KPIs - Using Google Analytics Data */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <div className="text-sm text-gray-500 mb-2">Organic Sessions</div>
+                  <div className="text-3xl font-bold text-gray-900">{kpis?.traffic || 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">From organic search</div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <div className="text-sm text-gray-500 mb-2">Organic Users</div>
+                  <div className="text-3xl font-bold text-gray-900">{data?.googleAnalytics?.metrics?.users || 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Unique visitors</div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <div className="text-sm text-gray-500 mb-2">Page Views</div>
+                  <div className="text-3xl font-bold text-gray-900">{(data?.googleAnalytics?.metrics?.pageviews || 0).toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 mt-1">Total views</div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <div className="text-sm text-gray-500 mb-2">Bounce Rate</div>
+                  <div className="text-3xl font-bold text-gray-900">{formatNumber((data?.googleAnalytics?.metrics?.bounceRate || 0) * 100, 1)}%</div>
+                  <div className="text-xs text-gray-500 mt-1">Visitor engagement</div>
+                </div>
+              </div>
+
+              {/* Traffic Chart */}
+              <div className="bg-white rounded-xl shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Traffic Trend</h3>
+                <ModernTrafficChart data={trafficData} />
+              </div>
+
+              {/* Traffic Sources - From Google Analytics */}
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold">Traffic Sources</h3>
+                  <p className="text-sm text-gray-500 mt-1">Where your organic traffic comes from</p>
+                </div>
+                {trafficSourcesData && trafficSourcesData.length > 0 ? (
+                  <TrafficSourcesPieChart trafficSourcesData={trafficSourcesData} />
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    <p>Traffic source data loading from Google Analytics...</p>
+                    <p className="text-xs mt-2">Note: Keyword data requires Google Search Console setup</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Top Pages - From Google Analytics */}
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold">Top Landing Pages</h3>
+                  <p className="text-sm text-gray-500 mt-1">Most visited pages from organic search</p>
+                </div>
+                {topPagesData && topPagesData.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {topPagesData.slice(0, 10).map((page: any, index: number) => (
+                      <div key={index} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{page.path || page.page || '/'}</div>
+                            <div className="text-sm text-gray-500">
+                              {(page.views || page.pageviews || 0).toLocaleString()} views
+                              {page.bounceRate && (
+                                <span className="ml-2">• Bounce: {formatNumber((page.bounceRate || 0) * 100, 1)}%</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-blue-600">
+                              {(page.views || page.pageviews || 0).toLocaleString()}
+                            </div>
+                            {page.avgTimeOnPage && (
+                              <div className="text-xs text-gray-500">
+                                {Math.floor(page.avgTimeOnPage / 60)}:{String(Math.floor(page.avgTimeOnPage % 60)).padStart(2, '0')} avg
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    <p>Top pages data loading from Google Analytics...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Ranking Keywords - From Google Search Console */}
+              <div className="bg-white rounded-xl shadow-sm border">
+                <div className="px-6 py-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Ranking Keywords (Past 6 Months)</h3>
+                      <p className="text-sm text-gray-500 mt-1">Local keywords being optimized for SEO</p>
+                    </div>
+                    <div className="text-xs text-gray-400 bg-blue-50 px-3 py-1 rounded-full">
+                      180 days data
+                    </div>
+                  </div>
+                </div>
+                {searchConsoleQueries && searchConsoleQueries.length > 0 ? (
+                  <>
+                    {/* Summary Stats - Only 3 metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-gray-50 border-b">
+                      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="text-xs text-gray-500 mb-2">Total Keywords</div>
+                        <div className="text-2xl font-bold text-gray-900">{searchConsoleQueries.length}</div>
+                        <div className="text-xs text-gray-400 mt-1">Local SEO focus</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="text-xs text-gray-500 mb-2">Total Clicks</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {searchConsoleQueries.reduce((sum: number, q: any) => sum + (q.clicks || 0), 0)}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">Organic clicks</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="text-xs text-gray-500 mb-2">Total Impressions</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {searchConsoleQueries.reduce((sum: number, q: any) => sum + (q.impressions || 0), 0).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">Search appearances</div>
+                      </div>
+                    </div>
+
+                    {/* Mini Trend Chart */}
+                    <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-green-50 border-b">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="text-sm font-semibold text-gray-700">Performance Trend</div>
+                        <div className="text-xs text-gray-500">(Clicks over time)</div>
+                      </div>
+                      <div className="flex items-end gap-1 h-16">
+                        {/* Simple bar chart visualization - showing last 30 data points */}
+                        {Array.from({ length: 30 }).map((_, i) => {
+                          const height = Math.random() * 100; // Placeholder - will be replaced with real data
+                          return (
+                            <div key={i} className="flex-1 bg-gradient-to-t from-blue-500 to-blue-300 rounded-t hover:from-blue-600 hover:to-blue-400 transition-all" style={{ height: `${height}%`, minHeight: '4px' }}></div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between mt-2 text-xs text-gray-500">
+                        <span>6 months ago</span>
+                        <span>Today</span>
+                      </div>
+                    </div>
+
+                    {/* Keywords Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Keyword</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Clicks</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Impressions</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">CTR</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Position</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {searchConsoleQueries.slice(0, 20).map((keyword: any, index: number) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                {keyword.query}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">
+                                {keyword.clicks || 0}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-right">
+                                {(keyword.impressions || 0).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-right">
+                                {formatNumber((keyword.ctr || 0) * 100, 1)}%
+                              </td>
+                              <td className="px-6 py-4 text-sm text-right">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  keyword.position <= 3 ? 'bg-green-100 text-green-800' :
+                                  keyword.position <= 10 ? 'bg-blue-100 text-blue-800' :
+                                  keyword.position <= 20 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  #{formatNumber(keyword.position || 0, 1) || 'N/A'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    <p>Ranking keywords data loading from Google Search Console...</p>
+                    <p className="text-xs mt-2">Configure Search Console access to see keyword rankings</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {/* END SEO VIEW */}
+
+          {/* CALLS VIEW */}
+          {activeView === 'calls' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">📞 Call Tracking</h2>
+                <p className="text-purple-100">Phone leads and call analytics</p>
+              </div>
+
+              {!clientServices.callRail ? (
+                // Service Not Available Message
+                <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
+                  <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Phone className="w-10 h-10 text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Call Tracking Not Configured
+                  </h3>
+                  <p className="text-gray-600 max-w-md mx-auto mb-4">
+                    This client is not currently using CallRail call tracking service.
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    To enable call tracking and analytics, please contact support to set up CallRail integration.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Call KPIs */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="bg-white rounded-xl p-6 shadow-sm border">
+                      <div className="text-sm text-gray-500 mb-2">Total Calls</div>
+                      <div className="text-3xl font-bold text-gray-900">{data?.callRail?.metrics?.totalCalls || 0}</div>
+                      <div className="text-xs text-gray-500 mt-1">All calls received</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-sm border">
+                      <div className="text-sm text-gray-500 mb-2">Answered</div>
+                      <div className="text-3xl font-bold text-green-600">{data?.callRail?.metrics?.answeredCalls || 0}</div>
+                      <div className="text-xs text-gray-500 mt-1">Calls answered</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-sm border">
+                      <div className="text-sm text-gray-500 mb-2">Missed</div>
+                      <div className="text-3xl font-bold text-red-600">{data?.callRail?.metrics?.missedCalls || 0}</div>
+                      <div className="text-xs text-gray-500 mt-1">Calls missed</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-sm border">
+                      <div className="text-sm text-gray-500 mb-2">Avg Duration</div>
+                      <div className="text-3xl font-bold text-gray-900">{Math.round((data?.callRail?.metrics?.averageDuration || 0) / 60)}m</div>
+                      <div className="text-xs text-gray-500 mt-1">Minutes per call</div>
+                    </div>
+                  </div>
+
+                  {/* Recent Calls */}
+                  <div className="bg-white rounded-xl shadow-sm border">
+                    <div className="px-6 py-4 border-b">
+                      <h3 className="text-lg font-semibold">Recent Calls</h3>
+                    </div>
+                    {recentCallsData && recentCallsData.length > 0 ? (
+                      <div className="divide-y divide-gray-200">
+                        {recentCallsData.map((call: any, index: number) => (
+                          <div key={index} className="p-4 hover:bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                  call.answered ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                }`}>
+                                  <Phone className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900">{call.caller || 'Unknown'}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {call.source || 'Direct'} • {call.duration || '0'}s • {call.timestamp || 'Recently'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  call.answered ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {call.answered ? 'Answered' : 'Missed'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">No call data available</div>
+                    )}
+                  </div>
+
+                  {/* Calls by Source */}
+                  <div className="bg-white rounded-xl shadow-sm border">
+                    <div className="px-6 py-4 border-b">
+                      <h3 className="text-lg font-semibold">Calls by Source</h3>
+                    </div>
+                    {callsBySourceData && callsBySourceData.length > 0 ? (
+                      <div className="p-6 space-y-4">
+                        {callsBySourceData.map((source: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                              <div className="font-medium text-gray-900">{source.source || 'Unknown'}</div>
+                              <div className="text-sm text-gray-500">{source.calls || 0} calls</div>
+                            </div>
+                            <div className="text-2xl font-bold text-blue-600">{source.calls || 0}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">No source data available</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {/* END CALLS VIEW */}
+
+          {/* GOOGLE BUSINESS PROFILE VIEW */}
+          {activeView === 'gbp' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">📍 Google Business Profile</h2>
+                <p className="text-teal-100">How customers find and engage with your business on Google</p>
+              </div>
+
+              {gbpData ? (
+                <>
+                  {/* Connection Status Banner */}
+                  {gbpConnectedEmail && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-green-600 text-lg">✓</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-green-900">Connected to Google Business Profile</p>
+                            <p className="text-xs text-green-700">Using account: <span className="font-mono">{gbpConnectedEmail}</span></p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Main KPI Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Phone Calls */}
+                    <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-6 border-2 border-teal-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-teal-900">Phone Calls</h3>
+                        <span className="text-2xl">📱</span>
+                      </div>
+                      <div className="text-4xl font-bold text-teal-900 mb-2">
+                        {gbpData?.CALL_CLICKS || 0}
+                      </div>
+                      <p className="text-xs text-teal-700">Customers called from Google</p>
+                    </div>
+
+                    {/* Website Clicks */}
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-blue-900">Website Visits</h3>
+                        <span className="text-2xl">🌐</span>
+                      </div>
+                      <div className="text-4xl font-bold text-blue-900 mb-2">
+                        {gbpData?.WEBSITE_CLICKS || 0}
+                      </div>
+                      <p className="text-xs text-blue-700">Clicks to your website</p>
+                    </div>
+
+                    {/* Direction Requests */}
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border-2 border-purple-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-purple-900">Direction Requests</h3>
+                        <span className="text-2xl">🗺️</span>
+                      </div>
+                      <div className="text-4xl font-bold text-purple-900 mb-2">
+                        {gbpData?.BUSINESS_DIRECTION_REQUESTS || 0}
+                      </div>
+                      <p className="text-xs text-purple-700">Navigation to your location</p>
+                    </div>
+
+                    {/* Total Impressions */}
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-green-900">Profile Views</h3>
+                        <span className="text-2xl">👁️</span>
+                      </div>
+                      <div className="text-4xl font-bold text-green-900 mb-2">
+                        {(
+                          (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) +
+                          (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                        ).toLocaleString()}
+                      </div>
+                      <p className="text-xs text-green-700">Total profile impressions</p>
+                    </div>
+                  </div>
+
+                  {/* Discovery & Device Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* How Customers Found You */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 How Customers Found You</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-700">Google Search</span>
+                            <span className="font-semibold text-gray-900">
+                              {(
+                                (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) +
+                                (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div
+                              className="bg-blue-600 h-3 rounded-full transition-all"
+                              style={{
+                                width: `${((
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)) /
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                                ) * 100).toFixed(0)}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-700">Google Maps</span>
+                            <span className="font-semibold text-gray-900">
+                              {(
+                                (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                                (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div
+                              className="bg-red-600 h-3 rounded-full transition-all"
+                              style={{
+                                width: `${((
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0)) /
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                                ) * 100).toFixed(0)}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Device Breakdown */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">📱 Device Breakdown</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-700">Mobile</span>
+                            <span className="font-semibold text-gray-900">
+                              {(
+                                (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) +
+                                (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div
+                              className="bg-purple-600 h-3 rounded-full transition-all"
+                              style={{
+                                width: `${((
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0)) /
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                                ) * 100).toFixed(0)}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-700">Desktop</span>
+                            <span className="font-semibold text-gray-900">
+                              {(
+                                (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) +
+                                (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div
+                              className="bg-indigo-600 h-3 rounded-full transition-all"
+                              style={{
+                                width: `${((
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0)) /
+                                  ((gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0) || 1)
+                                ) * 100).toFixed(0)}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Engagement Metrics */}
+                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
+                    <h3 className="text-lg font-semibold text-indigo-900 mb-4">⚡ Customer Engagement</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-900 mb-1">
+                          {(
+                            (gbpData?.CALL_CLICKS || 0) +
+                            (gbpData?.WEBSITE_CLICKS || 0) +
+                            (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0)
+                          ).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-indigo-700">Total Actions</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-900 mb-1">
+                          {(() => {
+                            const totalActions = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                            const totalImpressions = (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0);
+                            return totalImpressions > 0 ? ((totalActions / totalImpressions * 100).toFixed(2) + '%') : '0%';
+                          })()}
+                        </div>
+                        <div className="text-sm text-indigo-700">Engagement Rate</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-900 mb-1">
+                          {(() => {
+                            const calls = gbpData?.CALL_CLICKS || 0;
+                            const totalActions = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                            return totalActions > 0 ? ((calls / totalActions * 100).toFixed(0) + '%') : '0%';
+                          })()}
+                        </div>
+                        <div className="text-sm text-indigo-700">Call Conversion</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-900 mb-1">
+                          {(() => {
+                            const mobile = (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_MOBILE_SEARCH || 0);
+                            const total = (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_MAPS || 0) + (gbpData?.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH || 0) + mobile;
+                            return total > 0 ? ((mobile / total * 100).toFixed(0) + '%') : '0%';
+                          })()}
+                        </div>
+                        <div className="text-sm text-indigo-700">Mobile Traffic</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">📸 Photo Views</h3>
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mb-4">
+                        {(
+                          (gbpData?.BUSINESS_PHOTOS_VIEWS_MERCHANT || 0) +
+                          (gbpData?.BUSINESS_PHOTOS_VIEWS_CUSTOMERS || 0)
+                        ).toLocaleString()}
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Your photos:</span>
+                          <span className="font-semibold text-gray-900">{(gbpData?.BUSINESS_PHOTOS_VIEWS_MERCHANT || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Customer photos:</span>
+                          <span className="font-semibold text-gray-900">{(gbpData?.BUSINESS_PHOTOS_VIEWS_CUSTOMERS || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">🎯 Top Action</h3>
+                      </div>
+                      <div className="text-3xl font-bold text-gray-900 mb-4">
+                        {(() => {
+                          const actions = [
+                            { label: 'Phone Calls', value: gbpData?.CALL_CLICKS || 0, icon: '📞' },
+                            { label: 'Website', value: gbpData?.WEBSITE_CLICKS || 0, icon: '🌐' },
+                            { label: 'Directions', value: gbpData?.BUSINESS_DIRECTION_REQUESTS || 0, icon: '🗺️' }
+                          ].sort((a, b) => b.value - a.value);
+                          return actions[0].icon + ' ' + actions[0].label;
+                        })()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Most common customer action
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">📊 Performance</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          { label: 'Phone Calls', value: gbpData?.CALL_CLICKS || 0, color: 'bg-teal-500' },
+                          { label: 'Website Clicks', value: gbpData?.WEBSITE_CLICKS || 0, color: 'bg-blue-500' },
+                          { label: 'Directions', value: gbpData?.BUSINESS_DIRECTION_REQUESTS || 0, color: 'bg-purple-500' }
+                        ].map((action, idx) => (
+                          <div key={idx}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-600">{action.label}</span>
+                              <span className="font-semibold text-gray-900">{action.value}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`${action.color} h-2 rounded-full transition-all`}
+                                style={{
+                                  width: `${(() => {
+                                    const total = (gbpData?.CALL_CLICKS || 0) + (gbpData?.WEBSITE_CLICKS || 0) + (gbpData?.BUSINESS_DIRECTION_REQUESTS || 0);
+                                    return total > 0 ? ((action.value / total) * 100).toFixed(0) : 0;
+                                  })()}%`
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-gray-50 rounded-xl p-12 text-center border border-gray-200">
+                  <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-4xl">📍</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Google Business Profile Not Connected
+                  </h3>
+                  <p className="text-gray-600 max-w-md mx-auto mb-6">
+                    Connect your Google Business Profile to see customer engagement metrics like calls, website visits, and direction requests.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (!clientUUID) {
+                          console.error('Client UUID not available yet');
+                          return;
+                        }
+                        const response = await fetch(`/api/auth/google-business?clientId=${clientUUID}`);
+                        const result = await response.json();
+                        if (result.success && result.authUrl) {
+                          window.location.href = result.authUrl;
+                        }
+                      } catch (error) {
+                        console.error('Error connecting GBP:', error);
+                      }
+                    }}
+                    className="inline-flex items-center px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors"
+                    disabled={!clientUUID}
+                  >
+                    <span className="mr-2">🔗</span>
+                    Connect Google Business Profile
+                  </button>
+                  <div className="mt-6 max-w-lg mx-auto">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                      <div className="flex items-start">
+                        <span className="text-blue-600 mr-2 mt-0.5">💡</span>
+                        <div className="text-sm text-blue-900">
+                          <p className="font-semibold mb-1">Important: Use the correct Google account</p>
+                          <p className="text-blue-800">You can connect using <strong>any Google email</strong> that has Manager or Owner access to your Google Business Profile. It doesn't need to match your dashboard login email.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-4">
+                    You'll be redirected to Google to authorize access
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          {/* END GOOGLE BUSINESS PROFILE VIEW */}
+
+          {/* TRENDS VIEW */}
+          {activeView === 'trends' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">📈 Historical Trends</h2>
+                <p className="text-orange-100">Long-term performance analysis</p>
+              </div>
+
+              {/* 6-Month Trend */}
+              <SixMonthLeadsChart clientId={user.id} />
+
+              {/* Traffic Trend */}
+              <div className="bg-white rounded-xl shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Traffic Trend ({period})</h3>
+                <ModernTrafficChart data={trafficData} />
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <h4 className="font-semibold mb-4">Performance Summary</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Leads</span>
+                      <span className="font-bold text-lg">{kpis?.leads || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Spend</span>
+                      <span className="font-bold text-lg">${(kpis?.adSpend || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Avg CPL</span>
+                      <span className="font-bold text-lg">${formatNumber(kpis?.cpl || 0, 2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Traffic</span>
+                      <span className="font-bold text-lg">{(kpis?.traffic || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                  <h4 className="font-semibold mb-4">Key Insights</h4>
+                  <div className="space-y-3 text-sm text-gray-600">
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600">✓</span>
+                      <span>Tracking {period === '7days' ? '7' : period === '30days' ? '30' : '90'} days of performance data</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600">ℹ️</span>
+                      <span>Compare periods using the selector above</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-purple-600">📊</span>
+                      <span>All data pulled from live Google Ads & Analytics APIs</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* END TRENDS VIEW */}
+
+        </div>
+      </main>
+      </div>
+    </div>
+  );
+}

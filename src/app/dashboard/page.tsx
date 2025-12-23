@@ -1,47 +1,126 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Dashboard from '@/components/ProfessionalDashboard';
+import { Suspense, useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
+import Dashboard from '@/components/ProfessionalDashboard'
 
-export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+function DashboardContent() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const clientId = searchParams.get('clientId')
+  const [clientInfo, setClientInfo] = useState<any>(null)
+  const [loading, setLoading] = useState(!!clientId)
 
   useEffect(() => {
-    // Check if user is logged in
-    fetch('/api/auth')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.user) {
-          setUser(data.user);
-        } else {
-          router.push('/login');
-        }
-      })
-      .catch(() => {
-        router.push('/login');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [router]);
+    if (status === 'unauthenticated') {
+      router.push('/login')
+    } else if (status === 'authenticated' && session?.user?.role === 'admin' && !clientId) {
+      // Admins without clientId go to Team Overview
+      router.push('/admin')
+    }
+  }, [status, session, router, clientId])
 
-  if (loading) {
+  // Fetch client info if admin is viewing a specific client
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'admin' && clientId) {
+      fetchClientInfo()
+    }
+  }, [status, session, clientId])
+
+  const fetchClientInfo = async () => {
+    try {
+      const response = await fetch(`/api/clients/list`)
+      const data = await response.json()
+
+      if (data.success) {
+        const client = data.clients.find((c: any) => c.slug === clientId)
+        if (client) {
+          setClientInfo(client)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching client info:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading dashboard...</p>
         </div>
       </div>
-    );
+    )
   }
 
-  if (!user) {
-    return null;
+  if (!session) {
+    return null // Will redirect
   }
 
-  return <Dashboard user={user} />;
+  // Admin viewing a specific client
+  if (session.user.role === 'admin' && clientId && clientInfo) {
+    console.log('[Dashboard Page] Admin viewing client:', {
+      clientId,
+      clientInfoId: clientInfo.id,
+      clientInfoName: clientInfo.name,
+      clientInfoSlug: clientInfo.slug
+    });
+
+    return (
+      <div>
+        {/* Back Button */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <button
+            onClick={() => router.push('/admin')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to Team Overview</span>
+          </button>
+        </div>
+
+        <Dashboard
+          user={{
+            id: clientInfo.slug,
+            email: clientInfo.contact_email || '',
+            companyName: clientInfo.name,
+            role: 'admin' // Pass admin role so they can see all tabs
+          }}
+        />
+      </div>
+    )
+  }
+
+  // Regular client user - show their dashboard
+  if (session.user.role === 'client') {
+    return <Dashboard user={{
+      id: session.user.clientSlug || '',
+      email: session.user.email || '',
+      companyName: session.user.clientName || '',
+      role: session.user.role
+    }} />
+  }
+
+  return null
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  )
 }

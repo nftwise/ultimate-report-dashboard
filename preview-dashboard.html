@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Preview - Dr DiGrado</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'thorbit-bg': '#FAF8F5',
+            'thorbit-brown': '#8B7355',
+            'thorbit-dark': '#6B5344',
+            'thorbit-light': '#F5F0E8',
+            // Platform colors
+            'platform-ads': '#4A7C9B',      // Muted blue
+            'platform-seo': '#5B8A5B',      // Muted green
+            'platform-gbp': '#C97B4B',      // Warm orange
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #f0ebe4; }
+
+    /* Score Ring Animation */
+    .score-ring {
+      transform: rotate(-90deg);
+    }
+    .score-ring circle {
+      transition: stroke-dashoffset 1s ease-out;
+    }
+  </style>
+</head>
+<body class="bg-thorbit-bg min-h-screen p-6">
+
+  <div class="max-w-7xl mx-auto">
+
+    <!-- ======================= -->
+    <!-- HEADER WITH SCORE -->
+    <!-- ======================= -->
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-6">
+        <!-- Marketing Score Ring -->
+        <div class="relative w-20 h-20">
+          <svg class="score-ring w-full h-full" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f0ebe4" stroke-width="3"/>
+            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#8B7355" stroke-width="3"
+              stroke-dasharray="78 22" stroke-dashoffset="0" stroke-linecap="round"/>
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="text-center">
+              <div class="text-xl font-bold text-thorbit-dark">78</div>
+              <div class="text-[8px] text-thorbit-brown">SCORE</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-thorbit-dark">Dr DiGrado</h1>
+          <p class="text-sm text-thorbit-brown">Marketing Performance Dashboard</p>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-xs bg-thorbit-light text-thorbit-dark px-2 py-0.5 rounded-full">Good Health</span>
+            <span class="text-xs text-gray-400">Score improved +5 from last month</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <select class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+          <option>vs Last Month</option>
+          <option>vs Last Week</option>
+          <option>vs Last Year</option>
+        </select>
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-100">
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span class="text-sm text-gray-600">Nov 17 - Dec 17</span>
+          <span class="text-xs bg-thorbit-light text-thorbit-dark px-2 py-1 rounded">30 Days</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- GOALS PROGRESS BAR -->
+    <!-- ======================= -->
+    <div class="card p-4 mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-thorbit-dark">Monthly Goals Progress</h3>
+        <span class="text-sm text-thorbit-brown">18 days remaining</span>
+      </div>
+      <div class="grid grid-cols-3 gap-6">
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600">Ads Leads</span>
+            <span class="font-semibold text-thorbit-dark">42 / 50</span>
+          </div>
+          <div class="w-full bg-blue-100 rounded-full h-2">
+            <div class="bg-platform-ads h-2 rounded-full" style="width: 84%"></div>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">84% - On track</div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600">GBP Calls</span>
+            <span class="font-semibold text-thorbit-dark">86 / 80</span>
+          </div>
+          <div class="w-full bg-orange-100 rounded-full h-2">
+            <div class="bg-platform-gbp h-2 rounded-full" style="width: 100%"></div>
+          </div>
+          <div class="text-xs text-platform-gbp font-medium mt-1">107% - Goal exceeded!</div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600">Organic Leads</span>
+            <span class="font-semibold text-thorbit-dark">14 / 20</span>
+          </div>
+          <div class="w-full bg-green-100 rounded-full h-2">
+            <div class="bg-platform-seo h-2 rounded-full" style="width: 70%"></div>
+          </div>
+          <div class="text-xs text-platform-seo mt-1">70% - Needs attention</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- PERFORMANCE SUMMARY -->
+    <!-- ======================= -->
+    <div class="grid grid-cols-2 gap-6 mb-6">
+
+      <!-- What's Working Well -->
+      <div class="card overflow-hidden">
+        <div class="bg-thorbit-dark px-5 py-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="font-bold text-white">What's Working Well</h3>
+          </div>
+        </div>
+        <div class="p-5 space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">86 phone calls from Google Business</div>
+              <div class="text-sm text-gray-500">Up 15% - Patients finding you directly from search</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">372 keywords ranking in top 3</div>
+              <div class="text-sm text-gray-500">Gained 28 new positions this month</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">4.0% Google Ads CTR</div>
+              <div class="text-sm text-gray-500">Above industry average of 2.5%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- What We're Improving -->
+      <div class="card overflow-hidden">
+        <div class="bg-thorbit-brown px-5 py-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <h3 class="font-bold text-white">What We're Improving</h3>
+          </div>
+        </div>
+        <div class="p-5 space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-brown" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">Cost per lead at $94 (was $87)</div>
+              <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-xs bg-thorbit-light text-thorbit-dark px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Testing new ad copy and landing pages
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-brown" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">Organic CTR at 0.8% (target: 2%)</div>
+              <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-xs bg-thorbit-light text-thorbit-dark px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Rewriting meta titles and descriptions
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-thorbit-light rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-thorbit-brown" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-medium text-thorbit-dark">Organic leads below target (14/20)</div>
+              <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-xs bg-thorbit-light text-thorbit-dark px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Adding new content and CTAs on key pages
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- 3 PLATFORM CARDS -->
+    <!-- ======================= -->
+    <div class="grid grid-cols-3 gap-6 mb-6">
+
+      <!-- GOOGLE ADS -->
+      <div class="card overflow-hidden">
+        <div class="bg-platform-ads p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"/>
+                </svg>
+              </div>
+              <div class="text-white">
+                <h3 class="font-bold text-lg">Google Ads</h3>
+                <p class="text-white/70 text-sm">Paid Advertising</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-white">42</div>
+              <div class="text-white/70 text-xs">leads</div>
+            </div>
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div class="text-xs text-gray-500">Ad Spend</div>
+              <div class="text-lg font-bold text-thorbit-dark">$3,948</div>
+              <div class="text-xs text-gray-400">+5% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Cost/Lead</div>
+              <div class="text-lg font-bold text-amber-600">$94</div>
+              <div class="text-xs text-amber-600">+8% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Clicks</div>
+              <div class="text-lg font-bold text-thorbit-dark">263</div>
+              <div class="text-xs text-platform-seo">+12% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">CTR</div>
+              <div class="text-lg font-bold text-platform-seo">4.0%</div>
+              <div class="text-xs text-gray-400">Avg: 2.5%</div>
+            </div>
+          </div>
+          <!-- Benchmark bar -->
+          <div class="pt-3 border-t border-thorbit-light">
+            <div class="text-xs text-gray-500 mb-1">vs Industry Benchmark</div>
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-blue-100 rounded-full h-2 relative">
+                <div class="absolute left-1/2 w-0.5 h-4 bg-gray-300 -top-1"></div>
+                <div class="bg-platform-ads h-2 rounded-full" style="width: 70%"></div>
+              </div>
+              <span class="text-xs font-medium text-platform-ads">+40%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEO / ORGANIC -->
+      <div class="card overflow-hidden">
+        <div class="bg-platform-seo p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <div class="text-white">
+                <h3 class="font-bold text-lg">SEO</h3>
+                <p class="text-white/70 text-sm">Organic Search</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-white">14</div>
+              <div class="text-white/70 text-xs">leads</div>
+            </div>
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div class="text-xs text-gray-500">Organic Clicks</div>
+              <div class="text-lg font-bold text-thorbit-dark">125</div>
+              <div class="text-xs text-platform-seo">+18% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Impressions</div>
+              <div class="text-lg font-bold text-thorbit-dark">15.6K</div>
+              <div class="text-xs text-platform-seo">+22% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Avg Position</div>
+              <div class="text-lg font-bold text-thorbit-dark">11.4</div>
+              <div class="text-xs text-gray-400">Target: <10</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Top 3 Keywords</div>
+              <div class="text-lg font-bold text-platform-seo">372</div>
+              <div class="text-xs text-platform-seo">+28 new</div>
+            </div>
+          </div>
+          <!-- Ranking bars -->
+          <div class="pt-3 border-t border-thorbit-light">
+            <div class="text-xs text-gray-500 mb-2">Keyword Distribution</div>
+            <div class="flex gap-1 h-6">
+              <div class="bg-platform-seo rounded flex-[372] flex items-center justify-center">
+                <span class="text-[10px] text-white font-medium">372</span>
+              </div>
+              <div class="bg-green-400 rounded flex-[146] flex items-center justify-center">
+                <span class="text-[10px] text-white">146</span>
+              </div>
+              <div class="bg-amber-400 rounded flex-[137] flex items-center justify-center">
+                <span class="text-[10px] text-white">137</span>
+              </div>
+              <div class="bg-gray-300 rounded flex-[345] flex items-center justify-center">
+                <span class="text-[10px] text-gray-600">345</span>
+              </div>
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+              <span>Top 3</span>
+              <span>4-10</span>
+              <span>11-20</span>
+              <span>21+</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GOOGLE BUSINESS -->
+      <div class="card overflow-hidden">
+        <div class="bg-platform-gbp p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div class="text-white">
+                <h3 class="font-bold text-lg">Google Business</h3>
+                <p class="text-white/70 text-sm">Local Profile</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-white">86</div>
+              <div class="text-white/70 text-xs">calls</div>
+            </div>
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div class="text-xs text-gray-500">Website Clicks</div>
+              <div class="text-lg font-bold text-thorbit-dark">60</div>
+              <div class="text-xs text-platform-gbp">+10% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Directions</div>
+              <div class="text-lg font-bold text-thorbit-dark">186</div>
+              <div class="text-xs text-platform-gbp">+25% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Profile Views</div>
+              <div class="text-lg font-bold text-thorbit-dark">548</div>
+              <div class="text-xs text-gray-400">+5% vs last</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500">Total Actions</div>
+              <div class="text-lg font-bold text-platform-gbp">332</div>
+              <div class="text-xs text-platform-gbp">+15% vs last</div>
+            </div>
+          </div>
+          <!-- Actions breakdown -->
+          <div class="pt-3 border-t border-thorbit-light">
+            <div class="text-xs text-gray-500 mb-2">Actions Breakdown</div>
+            <div class="flex gap-1 h-6">
+              <div class="bg-platform-gbp rounded flex-[86] flex items-center justify-center" title="Calls">
+                <span class="text-[10px] text-white">Calls</span>
+              </div>
+              <div class="bg-orange-300 rounded flex-[186] flex items-center justify-center" title="Directions">
+                <span class="text-[10px] text-orange-800">Dirs</span>
+              </div>
+              <div class="bg-amber-300 rounded flex-[60] flex items-center justify-center" title="Website">
+                <span class="text-[10px] text-amber-800">Web</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================= -->
+    <!-- TOP PERFORMERS + ROI -->
+    <!-- ======================= -->
+    <div class="grid grid-cols-2 gap-6 mb-6">
+
+      <!-- Top Performers -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-thorbit-dark">Top Performers This Month</h3>
+          <span class="text-xs bg-thorbit-light text-thorbit-dark px-2 py-1 rounded-full">Best Results</span>
+        </div>
+        <div class="space-y-4">
+          <!-- Top Ad -->
+          <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs bg-platform-ads text-white px-2 py-0.5 rounded">ADS</span>
+              <span class="text-xs text-gray-500">Best Performing Ad</span>
+            </div>
+            <div class="font-medium text-thorbit-dark">"Back Pain Relief Newport Beach"</div>
+            <div class="flex items-center gap-4 mt-2 text-sm">
+              <span class="text-platform-ads font-semibold">18 conversions</span>
+              <span class="text-gray-500">$52 CPL</span>
+              <span class="text-gray-500">5.2% CTR</span>
+            </div>
+          </div>
+          <!-- Top Keyword -->
+          <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs bg-platform-seo text-white px-2 py-0.5 rounded">SEO</span>
+              <span class="text-xs text-gray-500">Best Ranking Keyword</span>
+            </div>
+            <div class="font-medium text-thorbit-dark">"chiropractor newport beach"</div>
+            <div class="flex items-center gap-4 mt-2 text-sm">
+              <span class="text-platform-seo font-semibold">Position #1</span>
+              <span class="text-gray-500">2,400 impressions</span>
+              <span class="text-gray-500">89 clicks</span>
+            </div>
+          </div>
+          <!-- Top Landing Page -->
+          <div class="p-3 bg-orange-50 rounded-lg border border-orange-100">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs bg-platform-gbp text-white px-2 py-0.5 rounded">GBP</span>
+              <span class="text-xs text-gray-500">Best Converting Page</span>
+            </div>
+            <div class="font-medium text-thorbit-dark">/back-pain-treatment</div>
+            <div class="flex items-center gap-4 mt-2 text-sm">
+              <span class="text-platform-gbp font-semibold">12 conversions</span>
+              <span class="text-gray-500">8.5% conv rate</span>
+              <span class="text-gray-500">141 visits</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROI Calculator -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-thorbit-dark">ROI Estimate</h3>
+          <span class="text-xs text-gray-500">Based on avg patient value</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="p-4 bg-thorbit-bg rounded-lg text-center border border-thorbit-light">
+            <div class="text-sm text-gray-500">Total Ad Spend</div>
+            <div class="text-2xl font-bold text-thorbit-dark">$3,948</div>
+          </div>
+          <div class="p-4 bg-thorbit-light rounded-lg text-center">
+            <div class="text-sm text-gray-500">Est. Revenue</div>
+            <div class="text-2xl font-bold text-thorbit-dark">$42,600</div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-thorbit-dark rounded-lg text-center text-white mb-4">
+          <div class="text-sm opacity-90">Return on Investment</div>
+          <div class="text-4xl font-bold">10.8x</div>
+          <div class="text-sm opacity-75">For every $1 spent, you get $10.80 back</div>
+        </div>
+
+        <div class="text-xs text-gray-500 space-y-1">
+          <div class="flex justify-between">
+            <span>Total Leads (All Channels)</span>
+            <span class="font-medium text-thorbit-dark">142</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Avg Patient Value</span>
+            <span class="font-medium text-thorbit-dark">$300</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Est. Conversion Rate</span>
+            <span class="font-medium text-thorbit-dark">~50%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- TRAFFIC & AI -->
+    <!-- ======================= -->
+    <div class="grid grid-cols-3 gap-6 mb-6">
+      <!-- Traffic Sources -->
+      <div class="card p-5">
+        <h3 class="font-semibold text-thorbit-dark mb-4">Traffic Sources</h3>
+        <div class="flex items-center gap-4">
+          <div class="relative w-24 h-24">
+            <svg viewBox="0 0 36 36" class="w-full h-full">
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f0ebe4" stroke-width="3"/>
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#6B5344" stroke-width="3"
+                stroke-dasharray="53 47" stroke-dashoffset="25" class="score-ring"/>
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#8B7355" stroke-width="3"
+                stroke-dasharray="25 75" stroke-dashoffset="-28" class="score-ring"/>
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#A08060" stroke-width="3"
+                stroke-dasharray="6 94" stroke-dashoffset="-53" class="score-ring"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="text-center">
+                <div class="text-sm font-bold text-thorbit-dark">3.5K</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex-1 space-y-1 text-sm">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-thorbit-dark rounded-full"></div>
+                <span class="text-gray-600">Direct</span>
+              </div>
+              <span class="font-semibold text-thorbit-dark">53%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-thorbit-brown rounded-full"></div>
+                <span class="text-gray-600">Organic</span>
+              </div>
+              <span class="font-semibold text-thorbit-dark">25%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-thorbit-accent rounded-full"></div>
+                <span class="text-gray-600">Ads</span>
+              </div>
+              <span class="font-semibold text-thorbit-dark">6%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Split -->
+      <div class="card p-5">
+        <h3 class="font-semibold text-thorbit-dark mb-4">Device Breakdown</h3>
+        <div class="space-y-3">
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="flex items-center gap-2 text-gray-600">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                Mobile
+              </span>
+              <span class="font-semibold text-thorbit-dark">78%</span>
+            </div>
+            <div class="w-full bg-thorbit-light rounded-full h-2">
+              <div class="bg-thorbit-dark h-2 rounded-full" style="width: 78%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="flex items-center gap-2 text-gray-600">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                Desktop
+              </span>
+              <span class="font-semibold text-thorbit-dark">18%</span>
+            </div>
+            <div class="w-full bg-thorbit-light rounded-full h-2">
+              <div class="bg-thorbit-brown h-2 rounded-full" style="width: 18%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="flex items-center gap-2 text-gray-600">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                Tablet
+              </span>
+              <span class="font-semibold text-thorbit-dark">4%</span>
+            </div>
+            <div class="w-full bg-thorbit-light rounded-full h-2">
+              <div class="bg-thorbit-accent h-2 rounded-full" style="width: 4%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Traffic -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-thorbit-dark">AI Traffic</h3>
+          <span class="text-xs bg-thorbit-light text-thorbit-dark px-2 py-1 rounded-full">New Channel</span>
+        </div>
+        <div class="text-center mb-4">
+          <div class="text-3xl font-bold text-thorbit-dark">7</div>
+          <div class="text-sm text-gray-500">sessions from AI</div>
+        </div>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600">ChatGPT</span>
+            <span class="font-semibold text-thorbit-dark">4</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600">Perplexity</span>
+            <span class="font-semibold text-thorbit-dark">2</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600">Gemini</span>
+            <span class="font-semibold text-thorbit-dark">1</span>
+          </div>
+        </div>
+        <div class="mt-3 p-2 bg-thorbit-light rounded text-xs text-thorbit-brown">
+          AI traffic is emerging. Expect growth as AI assistants become more popular.
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- 6-MONTH PERFORMANCE CHART -->
+    <!-- ======================= -->
+    <div class="card p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="font-semibold text-thorbit-dark">6-Month Performance by Channel</h3>
+          <p class="text-xs text-gray-500">Jul - Dec 2025</p>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+          <div class="flex items-center gap-1">
+            <div class="w-3 h-3 bg-platform-ads rounded"></div>
+            <span class="text-gray-600">Ads</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-3 h-3 bg-platform-seo rounded"></div>
+            <span class="text-gray-600">SEO</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-3 h-3 bg-platform-gbp rounded"></div>
+            <span class="text-gray-600">GBP</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grouped Bar Chart -->
+      <div class="flex items-end justify-between gap-3 h-52 px-4 mb-4">
+        <!-- July -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t transition-all hover:opacity-80" style="height: 40%" title="Ads: 24"></div>
+            <div class="w-5 bg-platform-seo rounded-t transition-all hover:opacity-80" style="height: 25%" title="SEO: 8"></div>
+            <div class="w-5 bg-platform-gbp rounded-t transition-all hover:opacity-80" style="height: 55%" title="GBP: 62"></div>
+          </div>
+          <div class="text-xs text-gray-500 mt-2 font-medium">Jul</div>
+          <div class="text-[10px] text-gray-400">94</div>
+        </div>
+        <!-- Aug -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t transition-all hover:opacity-80" style="height: 55%" title="Ads: 33"></div>
+            <div class="w-5 bg-platform-seo rounded-t transition-all hover:opacity-80" style="height: 30%" title="SEO: 10"></div>
+            <div class="w-5 bg-platform-gbp rounded-t transition-all hover:opacity-80" style="height: 70%" title="GBP: 78"></div>
+          </div>
+          <div class="text-xs text-gray-500 mt-2 font-medium">Aug</div>
+          <div class="text-[10px] text-gray-400">121</div>
+        </div>
+        <!-- Sep - Best -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t transition-all hover:opacity-80" style="height: 75%" title="Ads: 45"></div>
+            <div class="w-5 bg-platform-seo rounded-t transition-all hover:opacity-80" style="height: 45%" title="SEO: 18"></div>
+            <div class="w-5 bg-platform-gbp rounded-t transition-all hover:opacity-80" style="height: 100%" title="GBP: 98"></div>
+          </div>
+          <div class="text-xs text-platform-seo mt-2 font-bold">Sep</div>
+          <div class="text-[10px] text-platform-seo font-medium">161 Best</div>
+        </div>
+        <!-- Oct -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t transition-all hover:opacity-80" style="height: 50%" title="Ads: 30"></div>
+            <div class="w-5 bg-platform-seo rounded-t transition-all hover:opacity-80" style="height: 35%" title="SEO: 12"></div>
+            <div class="w-5 bg-platform-gbp rounded-t transition-all hover:opacity-80" style="height: 65%" title="GBP: 72"></div>
+          </div>
+          <div class="text-xs text-gray-500 mt-2 font-medium">Oct</div>
+          <div class="text-[10px] text-gray-400">114</div>
+        </div>
+        <!-- Nov -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t transition-all hover:opacity-80" style="height: 60%" title="Ads: 36"></div>
+            <div class="w-5 bg-platform-seo rounded-t transition-all hover:opacity-80" style="height: 40%" title="SEO: 15"></div>
+            <div class="w-5 bg-platform-gbp rounded-t transition-all hover:opacity-80" style="height: 75%" title="GBP: 82"></div>
+          </div>
+          <div class="text-xs text-gray-500 mt-2 font-medium">Nov</div>
+          <div class="text-[10px] text-gray-400">133</div>
+        </div>
+        <!-- Dec - Current -->
+        <div class="flex-1 flex flex-col items-center">
+          <div class="flex items-end gap-1 h-40 w-full justify-center">
+            <div class="w-5 bg-platform-ads rounded-t ring-2 ring-blue-200 transition-all hover:opacity-80" style="height: 55%" title="Ads: 42"></div>
+            <div class="w-5 bg-platform-seo rounded-t ring-2 ring-green-200 transition-all hover:opacity-80" style="height: 30%" title="SEO: 14"></div>
+            <div class="w-5 bg-platform-gbp rounded-t ring-2 ring-orange-200 transition-all hover:opacity-80" style="height: 80%" title="GBP: 86"></div>
+          </div>
+          <div class="text-xs text-thorbit-dark mt-2 font-bold">Dec</div>
+          <div class="text-[10px] text-thorbit-dark font-medium">142 Now</div>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="grid grid-cols-4 gap-4 pt-4 border-t border-thorbit-light">
+        <div class="text-center">
+          <div class="text-sm text-gray-500">6-Month Total</div>
+          <div class="text-2xl font-bold text-thorbit-dark">765</div>
+          <div class="text-xs text-gray-400">all leads</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">Ads Total</div>
+          <div class="text-xl font-bold text-platform-ads">210</div>
+          <div class="text-xs text-gray-400">27% of total</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">SEO Total</div>
+          <div class="text-xl font-bold text-platform-seo">77</div>
+          <div class="text-xs text-gray-400">10% of total</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">GBP Total</div>
+          <div class="text-xl font-bold text-platform-gbp">478</div>
+          <div class="text-xs text-gray-400">63% of total</div>
+        </div>
+      </div>
+
+      <!-- Trend Insight -->
+      <div class="mt-4 p-3 bg-thorbit-light rounded-lg flex items-start gap-3">
+        <div class="w-6 h-6 bg-thorbit-brown rounded-full flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-medium text-thorbit-dark">Performance Insight</div>
+          <div class="text-sm text-thorbit-brown">September was your best month with 161 total leads. December is on track to match that performance. GBP calls consistently drive the most leads (63%).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- MILESTONE BADGE -->
+    <!-- ======================= -->
+    <div class="card p-4 mb-6 bg-thorbit-light border border-thorbit-brown/20">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-thorbit-brown rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-bold text-thorbit-dark">Milestone Achieved!</div>
+            <div class="text-sm text-thorbit-brown">You've reached 500+ GBP calls this quarter</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-bold text-thorbit-dark">512</div>
+          <div class="text-xs text-gray-500">Total GBP Calls Q4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 text-center text-sm text-gray-400">
+      Preview v6 - Balanced Theme: Warm base + 3 platform colors (Blue/Green/Orange)
+    </div>
+
+  </div>
+</body>
+</html>

@@ -48,6 +48,8 @@ export interface GoogleAdsMetrics {
   costPerLead: number;
   qualityScore: number;
   searchImpressionShare: number;
+  searchBudgetLostImpressionShare?: number;
+  topImpressionPercentage?: number;
 }
 
 export interface GoogleAdsCampaign {
@@ -165,6 +167,11 @@ export interface DashboardMetrics {
   googleAnalytics: GAReport;
   googleAds: GoogleAdsReport;
   callRail: CallRailReport;
+  gaEvents?: {
+    formSubmissions: number;
+    phoneCalls: number;
+    clickToChat: number;
+  };
   combined: {
     totalTrafficSessions: number;
     totalAdSpend: number;
@@ -174,6 +181,14 @@ export interface DashboardMetrics {
     overallROI: number;
     phoneCallConversionRate: number;
     attributedPhoneCalls: number;
+  };
+  // Period comparison metrics (percentage changes)
+  comparison?: {
+    trafficChange: number;      // % change in sessions
+    leadsChange: number;         // % change in conversions
+    phoneCallsChange: number;    // % change in phone calls
+    spendChange: number;         // % change in ad spend
+    cplChange: number;           // % change in cost per lead
   };
 }
 
@@ -213,4 +228,36 @@ export interface ChartConfig {
   colors: string[];
   yAxisLabel?: string;
   xAxisLabel?: string;
+}
+
+// Google Business Profile Types
+export interface GBPMetrics {
+  searchQueries: {
+    direct: number;        // Customers searched for your business name/address
+    indirect: number;      // Customers found you via category/service searches
+    total: number;
+  };
+  views: {
+    search: number;        // Views from Google Search
+    maps: number;          // Views from Google Maps
+    total: number;
+  };
+  actions: {
+    website: number;       // Clicks to your website
+    phone: number;         // Phone calls from profile
+    directions: number;    // Direction requests
+    total: number;
+  };
+  photos: {
+    merchantViews: number; // Views of business-uploaded photos
+    customerViews: number; // Views of customer-uploaded photos
+    totalViews: number;
+  };
+}
+
+export interface GBPReport {
+  locationId: string;
+  timeRange: TimeRange;
+  metrics: GBPMetrics;
+  raw?: any;
 }

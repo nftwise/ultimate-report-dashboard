@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleAdsConnector } from '@/lib/google-ads';
+import { GoogleAdsUnifiedConnector, createGoogleAdsConnector } from '@/lib/google-ads-unified';
 import { getTimeRangeDates } from '@/lib/utils';
 import { ApiResponse } from '@/types';
 import { getClientConfig } from '@/lib/server-utils';
 import { cachedApiCall } from '@/lib/performance-cache';
+import { getCachedOrFetch, generateCacheKey } from '@/lib/smart-cache';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +14,14 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || '7days';
     const report = searchParams.get('report') || searchParams.get('type') || 'campaigns';
     const clientId = searchParams.get('clientId');
-    const timeRange = getTimeRangeDates(period);
+    const forceFresh = searchParams.get('forceFresh') === 'true'; // Skip cache
+
+    // Check for custom date range params first, otherwise use period
+    const customStartDate = searchParams.get('startDate');
+    const customEndDate = searchParams.get('endDate');
+    const timeRange = (customStartDate && customEndDate)
+      ? { startDate: customStartDate, endDate: customEndDate, period: 'custom' as any }
+      : getTimeRangeDates(period);
 
     // Get client-specific configuration
     let clientConfig = null;
@@ -24,7 +34,12 @@ export async function GET(request: NextRequest) {
       mccId = clientConfig?.googleAdsMccId;
     }
 
-    const connector = new GoogleAdsConnector();
+    // Get session to pass access token if available
+    const session = await getServerSession(authOptions) as { user?: { accessToken?: string } } | null;
+    const accessToken = session?.user?.accessToken;
+
+    // Use unified connector with automatic fallback
+    const connector = createGoogleAdsConnector(accessToken);
 
     // Fallback data structure for error cases - returns empty/zero values
     const fallbackCampaignData = {
@@ -67,14 +82,25 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'campaigns':
+        const campaignCacheKey = generateCacheKey('google_ads', clientId || 'default', {
+          report: 'campaigns',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
         result = {
-          data: await cachedApiCall(
-            `gads_campaigns_${period}_${clientId || 'default'}`,
+          data: await getCachedOrFetch(
+            campaignCacheKey,
             () => connector.getCampaignReport(timeRange, customerId, mccId),
             {
-              ttl: 10 * 60 * 1000, // 10 minutes cache
-              timeout: 5000, // 5 second timeout
-              fallbackData: fallbackCampaignData,
+              source: 'google_ads',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
             }
           ),
           cached: false,
@@ -82,14 +108,25 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'phone-calls':
+        const phoneCallsCacheKey = generateCacheKey('google_ads', clientId || 'default', {
+          report: 'phone-calls',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
         result = {
-          data: await cachedApiCall(
-            `gads_phone_calls_${period}_${clientId || 'default'}`,
+          data: await getCachedOrFetch(
+            phoneCallsCacheKey,
             () => connector.getPhoneCallConversions(timeRange, customerId, mccId),
             {
-              ttl: 10 * 60 * 1000,
-              timeout: 5000,
-              fallbackData: [],
+              source: 'google_ads',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
             }
           ),
           cached: false,
@@ -97,14 +134,25 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'cost-per-lead':
+        const cplCacheKey = generateCacheKey('google_ads', clientId || 'default', {
+          report: 'cost-per-lead',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
         result = {
-          data: await cachedApiCall(
-            `gads_cpl_${period}_${clientId || 'default'}`,
+          data: await getCachedOrFetch(
+            cplCacheKey,
             () => connector.getCostPerLeadData(timeRange, customerId, mccId),
             {
-              ttl: 10 * 60 * 1000,
-              timeout: 5000,
-              fallbackData: [],
+              source: 'google_ads',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
             }
           ),
           cached: false,
@@ -112,14 +160,25 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'overview':
+        const overviewCacheKey = generateCacheKey('google_ads', clientId || 'default', {
+          report: 'overview',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
         result = {
-          data: await cachedApiCall(
-            `gads_overview_${period}_${clientId || 'default'}`,
+          data: await getCachedOrFetch(
+            overviewCacheKey,
             () => connector.getCampaignReport(timeRange, customerId, mccId),
             {
-              ttl: 10 * 60 * 1000,
-              timeout: 5000,
-              fallbackData: fallbackCampaignData,
+              source: 'google_ads',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
             }
           ),
           cached: false,
@@ -142,9 +201,26 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Google Ads API error:', error);
 
+    // Get detailed error message
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+
+    console.error('Detailed error:', {
+      message: errorMessage,
+      stack: errorStack,
+      customerId: request.nextUrl.searchParams.get('clientId'),
+      envVars: {
+        hasDevToken: !!process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+        hasClientId: !!process.env.GOOGLE_ADS_CLIENT_ID,
+        hasClientSecret: !!process.env.GOOGLE_ADS_CLIENT_SECRET,
+        hasRefreshToken: !!process.env.GOOGLE_ADS_REFRESH_TOKEN,
+        hasMccId: !!process.env.GOOGLE_ADS_MCC_ID,
+      }
+    });
+
     const response: ApiResponse<null> = {
       success: false,
-      error: 'Failed to fetch Google Ads data',
+      error: `Failed to fetch Google Ads data: ${errorMessage}`,
       timestamp: new Date().toISOString(),
       cached: false,
     };

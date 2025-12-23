@@ -1,4 +1,4 @@
-import { createCacheKey } from './utils';
+// Simple in-memory cache for API responses
 
 interface CacheItem<T> {
   data: T;
@@ -25,90 +25,91 @@ class MemoryCache {
 
   get<T>(key: string): T | null {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return null;
     }
-    
+
     if (Date.now() - item.timestamp > item.ttl) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.data as T;
   }
 
   has(key: string): boolean {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return false;
     }
-    
+
     if (Date.now() - item.timestamp > item.ttl) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
-  delete(key: string): boolean {
-    return this.cache.delete(key);
+  delete(key: string): void {
+    this.cache.delete(key);
   }
 
   clear(): void {
     this.cache.clear();
   }
 
-  size(): number {
-    return this.cache.size;
+  keys(): string[] {
+    return Array.from(this.cache.keys());
   }
 
-  cleanup(): void {
-    const now = Date.now();
-    for (const [key, item] of this.cache.entries()) {
-      if (now - item.timestamp > item.ttl) {
-        this.cache.delete(key);
-      }
-    }
+  get size(): number {
+    return this.cache.size;
   }
 }
 
-// Singleton instance
-export const cache = new MemoryCache(parseInt(process.env.CACHE_TTL || '300000'));
+// Global cache instance
+export const cache = new MemoryCache();
 
-// Cache wrapper function
+// Cache key generators
+export const cacheKeys = {
+  googleAds: (timeRange: { startDate: string; endDate: string }) =>
+    `gads_${timeRange.startDate}_${timeRange.endDate}`,
+  googleAnalytics: (timeRange: { startDate: string; endDate: string }) =>
+    `ga_${timeRange.startDate}_${timeRange.endDate}`,
+  callRail: (timeRange: { startDate: string; endDate: string }) =>
+    `cr_${timeRange.startDate}_${timeRange.endDate}`,
+  callsByDay: (timeRange: { startDate: string; endDate: string }) =>
+    `cr_day_${timeRange.startDate}_${timeRange.endDate}`,
+  callsBySource: (timeRange: { startDate: string; endDate: string }) =>
+    `cr_src_${timeRange.startDate}_${timeRange.endDate}`,
+  searchConsole: (timeRange: { startDate: string; endDate: string }) =>
+    `gsc_${timeRange.startDate}_${timeRange.endDate}`,
+  gbp: (timeRange: { startDate: string; endDate: string }) =>
+    `gbp_${timeRange.startDate}_${timeRange.endDate}`,
+};
+
+// Wrapper function for caching async operations
 export async function withCache<T>(
   key: string,
   fetchFn: () => Promise<T>,
   ttl?: number
 ): Promise<{ data: T; cached: boolean }> {
+  // Check if data exists in cache
   const cachedData = cache.get<T>(key);
-  
-  if (cachedData) {
+  if (cachedData !== null) {
     return { data: cachedData, cached: true };
   }
-  
+
+  // Fetch fresh data
   const data = await fetchFn();
+
+  // Store in cache
   cache.set(key, data, ttl);
-  
+
   return { data, cached: false };
 }
 
-// Cache key generators
-export const cacheKeys = {
-  googleAnalytics: (timeRange: any) => createCacheKey('ga', timeRange),
-  googleAds: (timeRange: any) => createCacheKey('gads', timeRange),
-  callRail: (timeRange: any) => createCacheKey('cr', timeRange),
-  dashboard: (timeRange: any, filters: any) => createCacheKey('dashboard', { timeRange, filters }),
-  trafficSources: (timeRange: any) => createCacheKey('ga_traffic', timeRange),
-  phoneCallConversions: (timeRange: any) => createCacheKey('gads_phone', timeRange),
-  callsByDay: (timeRange: any) => createCacheKey('cr_by_day', timeRange),
-  callsBySource: (timeRange: any) => createCacheKey('cr_by_source', timeRange),
-};
-
-// Auto cleanup every 10 minutes
-setInterval(() => {
-  cache.cleanup();
-}, 600000);
+export default cache;

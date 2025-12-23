@@ -1,32 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Globe, BarChart3, TrendingUp, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Home() {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is already logged in
-    fetch('/api/auth')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.user) {
-          setUser(data.user);
-          router.push('/dashboard');
-        }
-      })
-      .catch(() => {
-        // User not logged in, stay on landing page
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [router]);
+    // Redirect authenticated users to dashboard
+    if (status === 'authenticated' && session?.user) {
+      if (session.user.role === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [status, session, router]);
+
+  const loading = status === 'loading';
 
   if (loading) {
     return (
@@ -36,8 +31,8 @@ export default function Home() {
     );
   }
 
-  if (user) {
-    return null; // Will redirect to dashboard
+  if (status === 'authenticated') {
+    return null; // Will redirect to dashboard or admin
   }
 
   return (

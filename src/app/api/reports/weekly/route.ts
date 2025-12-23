@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTimeRangeDates } from '@/lib/utils';
 import { GoogleAnalyticsConnector } from '@/lib/google-analytics';
-import { GoogleAdsDirectConnector } from '@/lib/google-ads-direct';
+import { GoogleAdsUnifiedConnector } from '@/lib/google-ads-unified';
 import { JWT } from 'google-auth-library';
 import fs from 'fs';
 import path from 'path';
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     };
 
     const gaConnector = new GoogleAnalyticsConnector();
-    const adsConnector = new GoogleAdsDirectConnector();
+    const adsConnector = new GoogleAdsUnifiedConnector();
 
     // Fetch current week data
     const [currentGA, currentTraffic, currentAds] = await Promise.all([

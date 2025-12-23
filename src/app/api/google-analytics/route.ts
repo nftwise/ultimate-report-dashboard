@@ -4,13 +4,38 @@ import { withCache, cacheKeys } from '@/lib/cache';
 import { getTimeRangeDates } from '@/lib/utils';
 import { ApiResponse } from '@/types';
 import { cachedApiCall, performanceCache } from '@/lib/performance-cache';
+import clientsData from '@/data/clients.json';
+import { getCachedOrFetch, generateCacheKey } from '@/lib/smart-cache';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || '7days';
     const report = searchParams.get('report') || searchParams.get('type') || 'basic';
-    const timeRange = getTimeRangeDates(period);
+    const clientId = searchParams.get('clientId');
+    const forceFresh = searchParams.get('forceFresh') === 'true'; // Skip cache
+
+    // Check for custom date range params first, otherwise use period
+    const customStartDate = searchParams.get('startDate');
+    const customEndDate = searchParams.get('endDate');
+    const timeRange = (customStartDate && customEndDate)
+      ? { startDate: customStartDate, endDate: customEndDate, period: 'custom' as any }
+      : getTimeRangeDates(period);
+
+    // Get client-specific property ID
+    let propertyId: string | undefined;
+    if (clientId) {
+      const clients = (clientsData as any).clients || [];
+      const client = clients.find((c: any) => c.id === clientId);
+      if (client?.googleAnalyticsPropertyId) {
+        propertyId = client.googleAnalyticsPropertyId;
+        console.log(`[GA API] Using propertyId ${propertyId} for client ${clientId}`);
+      } else {
+        console.log(`[GA API] No propertyId found for client ${clientId}`);
+      }
+    } else {
+      console.log('[GA API] No clientId provided, using default property');
+    }
 
     const connector = new GoogleAnalyticsConnector();
 
@@ -32,67 +57,188 @@ export async function GET(request: NextRequest) {
         break;
         
       case 'basic':
-        result = await withCache(
-          cacheKeys.googleAnalytics(timeRange),
-          () => connector.getBasicMetrics(timeRange)
-        );
-        break;
-        
-      case 'traffic-sources':
-        const cacheKey = `ga_traffic_sources_${period}`;
+        const basicCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'basic',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
         result = {
-          data: await cachedApiCall(
-            cacheKey,
-            () => connector.getTrafficSources(timeRange),
+          data: await getCachedOrFetch(
+            basicCacheKey,
+            () => connector.getBasicMetrics(timeRange, propertyId),
             {
-              ttl: 10 * 60 * 1000, // 10 minutes cache
-              timeout: 20000, // 20 second timeout
-              fallbackData: [
-                { source: 'google', medium: 'organic', campaign: '', sessions: 0, users: 0, conversions: 0 },
-                { source: 'direct', medium: '(none)', campaign: '', sessions: 0, users: 0, conversions: 0 },
-              ],
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
             }
           ),
-          cached: performanceCache.has(cacheKey),
+          cached: false,
         };
         break;
-        
+
+      case 'traffic-sources':
+        const trafficCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'traffic-sources',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            trafficCacheKey,
+            () => connector.getTrafficSources(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
+        break;
+
       case 'conversions-by-day':
-        result = await withCache(
-          `ga_conversions_${period}`,
-          () => connector.getConversionsByDay(timeRange)
-        );
+        const conversionsCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'conversions-by-day',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            conversionsCacheKey,
+            () => connector.getConversionsByDay(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
         break;
-        
+
       case 'devices':
-        result = await withCache(
-          `ga_devices_${period}`,
-          () => connector.getDeviceData(timeRange)
-        );
+        const devicesCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'devices',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            devicesCacheKey,
+            () => connector.getDeviceData(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
         break;
-        
+
       case 'daily':
         // Daily traffic data for chart - actual daily breakdown
-        result = await withCache(
-          `ga_daily_${period}`,
-          () => connector.getSessionsByDay(timeRange)
-        );
+        const dailyCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'daily',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            dailyCacheKey,
+            () => connector.getSessionsByDay(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
         break;
-        
+
       case 'top-pages':
         // Top 5 pages by pageviews
-        result = await withCache(
-          `ga_top_pages_${period}`,
-          () => connector.getTopPages(timeRange)
-        );
+        const topPagesCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'top-pages',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            topPagesCacheKey,
+            () => connector.getTopPages(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
         break;
 
       case 'ai-traffic':
         // AI and emerging traffic sources
-        result = await withCache(
-          `ga_ai_traffic_${period}`,
-          () => connector.getAITrafficSources(timeRange)
-        );
+        const aiTrafficCacheKey = generateCacheKey('google_analytics', clientId || 'default', {
+          report: 'ai-traffic',
+          period,
+          startDate: timeRange.startDate,
+          endDate: timeRange.endDate
+        });
+
+        result = {
+          data: await getCachedOrFetch(
+            aiTrafficCacheKey,
+            () => connector.getAITrafficSources(timeRange, propertyId),
+            {
+              source: 'google_analytics',
+              clientId: clientId || undefined,
+              dateRange: {
+                startDate: timeRange.startDate,
+                endDate: timeRange.endDate
+              },
+              forceFresh
+            }
+          ),
+          cached: false,
+        };
         break;
 
       default:

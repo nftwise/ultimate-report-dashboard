@@ -1,27 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAnalyticsConnector } from '@/lib/google-analytics';
-import { GoogleAdsDirectConnector } from '@/lib/google-ads-direct';
+import { GoogleAdsServiceAccountConnector } from '@/lib/google-ads-service-account';
 import { TimeRange } from '@/types';
-import fs from 'fs';
-import path from 'path';
+import { getClientConfig } from '@/lib/server-utils';
 
 interface Client {
   id: string;
   companyName: string;
+  googleAnalyticsPropertyId?: string;
   googleAdsCustomerId?: string;
   googleAdsMccId?: string;
 }
-
-const getClient = (clientId: string): Client | null => {
-  try {
-    const clientsPath = path.join(process.cwd(), 'src', 'data', 'clients.json');
-    const clientsData = JSON.parse(fs.readFileSync(clientsPath, 'utf8'));
-    return clientsData.clients.find((client: Client) => client.id === clientId) || null;
-  } catch (error) {
-    console.error('Error reading clients data:', error);
-    return null;
-  }
-};
 
 interface MonthData {
   month: string;
@@ -43,19 +32,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Client ID is required' }, { status: 400 });
     }
 
-    const client = getClient(clientId);
-    if (!client) {
+    // Use database lookup via getClientConfig (supports both database and JSON fallback)
+    const clientConfig = await getClientConfig(clientId);
+    if (!clientConfig) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
+    // Map to expected Client interface format
+    const client: Client = {
+      id: clientConfig.id,
+      companyName: clientConfig.companyName,
+      googleAnalyticsPropertyId: clientConfig.googleAnalyticsPropertyId,
+      googleAdsCustomerId: clientConfig.googleAdsCustomerId,
+      googleAdsMccId: clientConfig.googleAdsMccId
+    };
+
     const gaConnector = new GoogleAnalyticsConnector();
-    const adsConnector = new GoogleAdsDirectConnector();
+    const adsConnector = new GoogleAdsServiceAccountConnector();
 
-    // Generate last 6 months (May, June, July, Aug, Sept, Oct 2025)
+    // Generate last 6 months dynamically based on current date
     const historicalData: MonthData[] = [];
-    const today = new Date('2025-10-15');
+    const today = new Date();
 
-    console.log('[Historical Report] Fetching last', months, 'months of data');
+    console.log('[Historical Report] Fetching last', months, 'months of data for client:', client.companyName);
+    console.log('[Historical Report] GA Property ID:', client.googleAnalyticsPropertyId);
+    console.log('[Historical Report] Ads Customer ID:', client.googleAdsCustomerId);
 
     // Fetch data for each month
     for (let i = months - 1; i >= 0; i--) {
@@ -63,10 +64,10 @@ export async function GET(request: NextRequest) {
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth() + 1;
 
-      // For current month (October), only go up to today (Oct 15)
+      // For current month, only go up to today's date
       const isCurrentMonth = i === 0;
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-      const lastDay = isCurrentMonth ? 15 : new Date(year, month, 0).getDate();
+      const lastDay = isCurrentMonth ? today.getDate() : new Date(year, month, 0).getDate();
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
       const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -81,22 +82,35 @@ export async function GET(request: NextRequest) {
 
       try {
         const [gaData, adsData] = await Promise.all([
-          gaConnector.getBasicMetrics(timeRange).catch(() => ({
-            metrics: { sessions: 0, users: 0, conversions: 0, bounceRate: 0 }
-          })),
+          gaConnector.getBasicMetrics(timeRange, client.googleAnalyticsPropertyId).catch((err) => {
+            console.error(`[Historical] GA Error for ${monthLabel}:`, err.message);
+            console.error(`[Historical] GA Full Error:`, err);
+            return { metrics: { sessions: 0, users: 0, conversions: 0, bounceRate: 0 } };
+          }),
           adsConnector.getCampaignReport(
             timeRange,
             client.googleAdsCustomerId,
             client.googleAdsMccId
-          ).catch(() => ({
-            campaigns: [],
-            totalMetrics: { cost: 0, clicks: 0, impressions: 0, conversions: 0 }
-          }))
+          ).catch((err) => {
+            console.error(`[Historical] Ads Error for ${monthLabel}:`, err.message);
+            console.error(`[Historical] Ads Full Error:`, err);
+            console.error(`[Historical] Customer ID: ${client.googleAdsCustomerId}, MCC ID: ${client.googleAdsMccId}`);
+            return { campaigns: [], totalMetrics: { cost: 0, clicks: 0, impressions: 0, conversions: 0 } };
+          })
         ]);
 
-        const leads = gaData.metrics.conversions;
+        // Use Google Ads conversions as leads (more accurate than GA conversions)
+        const leads = adsData.totalMetrics?.conversions || 0;
         const adSpend = adsData.totalMetrics?.cost || 0;
         const costPerLead = leads > 0 ? adSpend / leads : 0;
+
+        console.log(`[Historical] ${monthLabel} - Raw Ads Data:`, {
+          conversions: adsData.totalMetrics?.conversions,
+          cost: adsData.totalMetrics?.cost,
+          clicks: adsData.totalMetrics?.clicks,
+          impressions: adsData.totalMetrics?.impressions,
+          campaignsCount: adsData.campaigns?.length
+        });
 
         historicalData.push({
           month: `${year}-${String(month).padStart(2, '0')}`,
@@ -104,11 +118,11 @@ export async function GET(request: NextRequest) {
           leads: Math.round(leads),
           adSpend: Math.round(adSpend * 100) / 100,
           costPerLead: Math.round(costPerLead * 100) / 100,
-          sessions: gaData.metrics.sessions,
+          sessions: gaData.metrics?.sessions || 0,
           clicks: adsData.totalMetrics?.clicks || 0
         });
 
-        console.log(`[Historical] ${monthLabel}: ${leads} leads, $${adSpend.toFixed(2)} spend`);
+        console.log(`[Historical] ${monthLabel}: ${leads} leads, $${adSpend.toFixed(2)} spend, ${adsData.campaigns?.length || 0} campaigns`);
       } catch (error) {
         console.error(`[Historical] Error fetching ${monthLabel}:`, error);
         historicalData.push({
@@ -142,6 +156,15 @@ export async function GET(request: NextRequest) {
     const trendPercentage = firstHalfAvg > 0
       ? Math.round(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100)
       : 0;
+
+    // Log summary for debugging
+    console.log('[Historical Report] ====== SUMMARY ======');
+    console.log(`[Historical Report] Client: ${client.companyName}`);
+    console.log(`[Historical Report] Total Leads: ${totalLeads}`);
+    console.log(`[Historical Report] Total Spend: $${totalSpend.toFixed(2)}`);
+    console.log(`[Historical Report] Avg Leads/Month: ${avgLeadsPerMonth}`);
+    console.log(`[Historical Report] Best Month: ${bestMonth.monthLabel} (${bestMonth.leads} leads)`);
+    console.log('[Historical Report] ========================\n');
 
     return NextResponse.json({
       success: true,

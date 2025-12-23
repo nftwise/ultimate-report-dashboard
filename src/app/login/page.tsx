@@ -1,60 +1,59 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Globe, Mail, Lock, AlertCircle } from 'lucide-react';
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Globe, Mail, Lock, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const router = useRouter();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
 
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      }) as { error?: string; ok?: boolean } | undefined
 
-      const data = await response.json();
-
-      if (data.success) {
-        router.push('/dashboard');
-      } else {
-        setError('Invalid email or password. Please try again.');
+      if (result?.error) {
+        setError('Invalid email or password. Please try again.')
+      } else if (result?.ok) {
+        // Successful login
+        router.push('/dashboard')
+        router.refresh()
       }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
-      console.error('Login error:', error);
+    } catch (err) {
+      setError('An error occurred. Please try again.')
+      console.error('Login error:', err)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-600 to-amber-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <Globe className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Analytics Dashboard
+            Ultimate Report Dashboard
           </h1>
           <p className="text-gray-600">
-            Sign in to view your website performance
+            Sign in to view your analytics
           </p>
         </div>
 
@@ -76,7 +75,7 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-gray-700">
                   Email Address
@@ -88,9 +87,10 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200"
                     placeholder="your-email@company.com"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -106,9 +106,10 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200"
                     placeholder="Enter your password"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -116,7 +117,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
@@ -128,6 +129,21 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {/* Test Accounts Info */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-xs text-gray-500 text-center mb-3">Test Accounts:</p>
+              <div className="space-y-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <div>
+                  <p className="font-semibold text-gray-700">Admin:</p>
+                  <p>seo@mychiropractice.com / Admin123!@#</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-semibold text-gray-700">Client (Dr DiGrado):</p>
+                  <p>dr@digrado.com / TempPassword456</p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -137,5 +153,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

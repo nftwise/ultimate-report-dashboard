@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Trophy, DollarSign, TrendingUp, Phone, Target, Sparkles, Download, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatNumber } from '@/lib/format-utils';
 
 interface WeeklyReportData {
   weekWin: {
@@ -219,7 +220,7 @@ export function WeeklyReport({ clientId }: { clientId: string }) {
           <div className="bg-white rounded-lg p-5 border-2 border-orange-200 shadow-sm">
             <div className="text-sm text-orange-700 font-medium mb-1">Ad Spend</div>
             <div className="text-3xl font-bold text-orange-900">
-              ${reportData.performanceMetrics.adSpend.toFixed(2)}
+              ${formatNumber(reportData.performanceMetrics.adSpend, 2)}
             </div>
             {reportData.performanceMetrics.adSpendChange !== 0 && (
               <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.adSpendChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -234,7 +235,7 @@ export function WeeklyReport({ clientId }: { clientId: string }) {
           <div className="bg-white rounded-lg p-5 border-2 border-indigo-200 shadow-sm">
             <div className="text-sm text-indigo-700 font-medium mb-1">Cost Per Lead</div>
             <div className="text-3xl font-bold text-indigo-900">
-              ${reportData.performanceMetrics.costPerLead.toFixed(2)}
+              ${formatNumber(reportData.performanceMetrics.costPerLead, 2)}
             </div>
             {reportData.performanceMetrics.costPerLeadChange !== 0 && (
               <div className={`flex items-center gap-1 text-xs mt-1 ${reportData.performanceMetrics.costPerLeadChange > 0 ? 'text-green-600' : 'text-red-600'}`}>

@@ -11,7 +11,14 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || '7days';
     const report = searchParams.get('report') || searchParams.get('type') || 'calls';
     const clientId = searchParams.get('clientId');
-    const timeRange = getTimeRangeDates(period);
+
+    // Support both period-based and direct date parameters
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    const timeRange = (startDateParam && endDateParam)
+      ? { startDate: startDateParam, endDate: endDateParam, period: period as any }
+      : getTimeRangeDates(period);
 
     // Get client-specific configuration
     const clientConfig = clientId ? await getClientConfig(clientId) : null;

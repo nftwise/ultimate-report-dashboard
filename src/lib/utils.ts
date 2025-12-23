@@ -27,43 +27,45 @@ export function formatPercentage(num: number, decimals = 2): string {
 export function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  
+
   if (minutes === 0) {
     return `${remainingSeconds}s`;
   }
-  
+
   return `${minutes}m ${remainingSeconds}s`;
 }
 
 export function getTimeRangeDates(period: string): TimeRange {
   const today = new Date();
-  const endDate = today.toISOString().split('T')[0];
-  
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const endDate = yesterday.toISOString().split('T')[0];
+
   let startDate: string;
-  
+
   switch (period) {
     case 'today':
-      startDate = endDate;
+      startDate = today.toISOString().split('T')[0];
       break;
     case '7days':
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 7);
+      const sevenDaysAgo = new Date(yesterday);
+      sevenDaysAgo.setDate(yesterday.getDate() - 6);
       startDate = sevenDaysAgo.toISOString().split('T')[0];
       break;
     case '30days':
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const thirtyDaysAgo = new Date(yesterday);
+      thirtyDaysAgo.setDate(yesterday.getDate() - 29);
       startDate = thirtyDaysAgo.toISOString().split('T')[0];
       break;
     case '90days':
-      const ninetyDaysAgo = new Date(today);
-      ninetyDaysAgo.setDate(today.getDate() - 90);
+      const ninetyDaysAgo = new Date(yesterday);
+      ninetyDaysAgo.setDate(yesterday.getDate() - 89);
       startDate = ninetyDaysAgo.toISOString().split('T')[0];
       break;
     default:
       startDate = endDate;
   }
-  
+
   return {
     startDate,
     endDate,
@@ -71,85 +73,57 @@ export function getTimeRangeDates(period: string): TimeRange {
   };
 }
 
-export function calculateROI(revenue: number, cost: number): number {
-  if (cost === 0) return 0;
-  return ((revenue - cost) / cost) * 100;
-}
+export function formatPhoneNumber(phoneNumber: string): string {
+  const cleaned = phoneNumber.replace(/\D/g, '');
 
-export function calculateConversionRate(conversions: number, clicks: number): number {
-  if (clicks === 0) return 0;
-  return (conversions / clicks) * 100;
-}
-
-export function calculateCostPerLead(cost: number, leads: number): number {
-  if (leads === 0) return 0;
-  return cost / leads;
-}
-
-export function generateDateRange(startDate: string, endDate: string): string[] {
-  const dates: string[] = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  while (start <= end) {
-    dates.push(start.toISOString().split('T')[0]);
-    start.setDate(start.getDate() + 1);
+  if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  } else if (cleaned.length === 11 && cleaned[0] === '1') {
+    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
   }
-  
-  return dates;
+
+  return phoneNumber;
 }
 
-export function aggregateMetrics(data: any[], metricKey: string): number {
-  return data.reduce((sum, item) => sum + (item[metricKey] || 0), 0);
-}
+/**
+ * Get the previous period date range for comparison
+ */
+export function getPreviousPeriodDates(currentStartDate: string, currentEndDate: string): TimeRange {
+  const current_start = new Date(currentStartDate);
+  const current_end = new Date(currentEndDate);
 
-export function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]> {
-  return array.reduce((groups, item) => {
-    const key = keyFn(item);
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(item);
-    return groups;
-  }, {} as Record<string, T[]>);
-}
+  const durationMs = current_end.getTime() - current_start.getTime();
+  const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
 
-export function sortBy<T>(array: T[], keyFn: (item: T) => number | string, order: 'asc' | 'desc' = 'asc'): T[] {
-  return [...array].sort((a, b) => {
-    const aVal = keyFn(a);
-    const bVal = keyFn(b);
-    
-    if (aVal < bVal) return order === 'asc' ? -1 : 1;
-    if (aVal > bVal) return order === 'asc' ? 1 : -1;
-    return 0;
-  });
-}
+  const prev_end = new Date(current_start);
+  prev_end.setDate(prev_end.getDate() - 1);
 
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: NodeJS.Timeout;
-  
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
+  const prev_start = new Date(prev_end);
+  prev_start.setDate(prev_start.getDate() - durationDays);
+
+  const startDate = prev_start.toISOString().split('T')[0];
+  const endDate = prev_end.toISOString().split('T')[0];
+
+  console.log(`📊 [Utils] Previous period calculation:
+    Current: ${currentStartDate} to ${currentEndDate} (${durationDays + 1} days)
+    Previous: ${startDate} to ${endDate} (${durationDays + 1} days)`);
+
+  return {
+    startDate,
+    endDate,
+    period: 'custom' as any,
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-  
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
+/**
+ * Calculate percentage change between current and previous values
+ */
+export function calculatePercentageChange(current: number, previous: number): number {
+  if (previous === 0) {
+    return current > 0 ? 100 : 0;
+  }
+  const change = ((current - previous) / previous) * 100;
+  return Math.round(change * 10) / 10;
 }
 
 export function createCacheKey(prefix: string, params: Record<string, any>): string {
@@ -159,25 +133,6 @@ export function createCacheKey(prefix: string, params: Record<string, any>): str
       result[key] = params[key];
       return result;
     }, {} as Record<string, any>);
-    
+
   return `${prefix}_${JSON.stringify(sortedParams)}`;
 }
-
-export function isValidDateRange(startDate: string, endDate: string): boolean {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  return start <= end && start <= new Date();
-}
-
-export function formatPhoneNumber(phoneNumber: string): string {
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  
-  if (cleaned.length === 10) {
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-  } else if (cleaned.length === 11 && cleaned[0] === '1') {
-    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
-  }
-  
-  return phoneNumber;
-}
-

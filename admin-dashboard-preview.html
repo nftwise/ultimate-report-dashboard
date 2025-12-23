@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --primary: #8B7355;
+      --primary-light: #A68B5B;
+      --bg-cream: #FAF8F5;
+      --bg-card: #FFFFFF;
+      --text-dark: #1a1a1a;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+    }
+    body { background: var(--bg-cream); }
+    .card { background: var(--bg-card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sparkline { display: flex; align-items: flex-end; gap: 2px; height: 24px; }
+    .sparkline-bar { width: 4px; background: var(--primary); border-radius: 2px; opacity: 0.6; }
+    .sparkline-bar:last-child { opacity: 1; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-good { background: var(--green); }
+    .status-warning { background: var(--yellow); }
+    .status-bad { background: var(--red); }
+    .table-row { transition: background 0.15s; }
+    .table-row:hover { background: #f9fafb; }
+    .filter-btn { padding: 6px 12px; border-radius: 20px; font-size: 13px; transition: all 0.2s; }
+    .filter-btn.active { background: var(--primary); color: white; }
+    .filter-btn:not(.active) { background: #f3f4f6; color: var(--text-muted); }
+    .filter-btn:not(.active):hover { background: #e5e7eb; }
+    .badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .mini-chart { width: 60px; height: 20px; }
+    .progress-bar { height: 4px; border-radius: 2px; background: #e5e7eb; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--primary);">
+          <span class="text-white font-bold text-sm">U</span>
+        </div>
+        <h1 class="font-semibold text-lg" style="color: var(--text-dark);">Client Overview</h1>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Search -->
+        <div class="relative">
+          <input type="text" placeholder="Search clients..."
+                 class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:border-gray-400">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+
+        <!-- Date Picker -->
+        <div class="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+          <button class="text-xs px-2 py-1 rounded hover:bg-gray-200">7D</button>
+          <button class="text-xs px-2 py-1 rounded bg-white shadow-sm">30D</button>
+          <button class="text-xs px-2 py-1 rounded hover:bg-gray-200">90D</button>
+          <span class="text-gray-300">|</span>
+          <span class="text-sm text-gray-600">Nov 17 - Dec 16</span>
+        </div>
+
+        <!-- Refresh -->
+        <button class="p-2 rounded-lg hover:bg-gray-100" title="Refresh Data">
+          <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <!-- Total Clients -->
+      <div class="card stat-card p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-gray-500">Active Clients</span>
+          <span class="text-xs text-green-600 font-medium">+2 this month</span>
+        </div>
+        <div class="flex items-end justify-between">
+          <span class="text-3xl font-bold" style="color: var(--text-dark);">32</span>
+          <div class="sparkline">
+            <div class="sparkline-bar" style="height: 40%;"></div>
+            <div class="sparkline-bar" style="height: 60%;"></div>
+            <div class="sparkline-bar" style="height: 45%;"></div>
+            <div class="sparkline-bar" style="height: 70%;"></div>
+            <div class="sparkline-bar" style="height: 55%;"></div>
+            <div class="sparkline-bar" style="height: 80%;"></div>
+            <div class="sparkline-bar" style="height: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Leads -->
+      <div class="card stat-card p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-gray-500">Total Leads (30d)</span>
+          <span class="badge badge-green">+18%</span>
+        </div>
+        <div class="flex items-end justify-between">
+          <span class="text-3xl font-bold" style="color: var(--text-dark);">847</span>
+          <div class="sparkline">
+            <div class="sparkline-bar" style="height: 50%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 65%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 55%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 75%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 85%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 90%; background: var(--green);"></div>
+            <div class="sparkline-bar" style="height: 100%; background: var(--green);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Spend -->
+      <div class="card stat-card p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-gray-500">Ad Spend (30d)</span>
+          <span class="text-xs text-gray-500">Avg CPL: $42</span>
+        </div>
+        <div class="flex items-end justify-between">
+          <span class="text-3xl font-bold" style="color: var(--text-dark);">$35.6K</span>
+          <div class="sparkline">
+            <div class="sparkline-bar" style="height: 70%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 75%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 80%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 72%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 85%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 78%; background: #6366f1;"></div>
+            <div class="sparkline-bar" style="height: 82%; background: #6366f1;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="card stat-card p-4 border-l-4" style="border-color: var(--yellow);">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-gray-500">Needs Attention</span>
+          <span class="badge badge-yellow">Action Required</span>
+        </div>
+        <div class="flex items-end justify-between">
+          <span class="text-3xl font-bold" style="color: var(--yellow);">4</span>
+          <div class="text-xs text-gray-500 text-right">
+            <div>2 no leads (3d)</div>
+            <div>2 high CPL</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <button class="filter-btn active">All (32)</button>
+        <button class="filter-btn">Google Ads (18)</button>
+        <button class="filter-btn">SEO (24)</button>
+        <button class="filter-btn">GBP (11)</button>
+        <span class="text-gray-300 mx-2">|</span>
+        <button class="filter-btn" style="background: #dcfce7; color: #166534;">Growing (12)</button>
+        <button class="filter-btn" style="background: #fee2e2; color: #991b1b;">Declining (4)</button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400">Last updated: 2:00 AM today</span>
+        <button class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Client Table -->
+    <div class="card overflow-hidden">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+            <th class="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center justify-end gap-1 cursor-pointer hover:text-gray-700">
+                Total Leads
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+              </div>
+            </th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Ads Conv</th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Forms</th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">GBP Calls</th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Spend</th>
+            <th class="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">CPL</th>
+            <th class="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
+            <th class="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+
+          <!-- Row 1 - Good Performance -->
+          <tr class="table-row cursor-pointer">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="status-dot status-good"></div>
+                <div>
+                  <div class="font-medium text-gray-900">Dr DiGrado Chiropractic</div>
+                  <div class="text-xs text-gray-500">dr-digrado</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <span class="w-6 h-6 rounded bg-blue-100 text-blue-600 text-xs flex items-center justify-center" title="Google Ads">G</span>
+                <span class="w-6 h-6 rounded bg-green-100 text-green-600 text-xs flex items-center justify-center" title="SEO">S</span>
+                <span class="w-6 h-6 rounded bg-orange-100 text-orange-600 text-xs flex items-center justify-center" title="GBP">B</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="text-lg font-bold text-gray-900">42</span>
+              <span class="badge badge-green ml-1">+24%</span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">28</td>
+            <td class="py-3 px-4 text-right text-gray-700">8</td>
+            <td class="py-3 px-4 text-right text-gray-700">6</td>
+            <td class="py-3 px-4 text-right text-gray-700">$1,847</td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-medium text-green-600">$44</span>
+            </td>
+            <td class="py-3 px-4">
+              <svg class="mini-chart mx-auto" viewBox="0 0 60 20">
+                <polyline fill="none" stroke="#10b981" stroke-width="2" points="0,15 10,12 20,14 30,10 40,8 50,6 60,4"/>
+              </svg>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="badge badge-green">Excellent</span>
+            </td>
+          </tr>
+
+          <!-- Row 2 - Warning -->
+          <tr class="table-row cursor-pointer">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="status-dot status-warning"></div>
+                <div>
+                  <div class="font-medium text-gray-900">CorePosture Chiropractic</div>
+                  <div class="text-xs text-gray-500">coreposture</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <span class="w-6 h-6 rounded bg-blue-100 text-blue-600 text-xs flex items-center justify-center">G</span>
+                <span class="w-6 h-6 rounded bg-green-100 text-green-600 text-xs flex items-center justify-center">S</span>
+                <span class="w-6 h-6 rounded bg-gray-100 text-gray-400 text-xs flex items-center justify-center">B</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="text-lg font-bold text-gray-900">18</span>
+              <span class="badge badge-yellow ml-1">-8%</span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">12</td>
+            <td class="py-3 px-4 text-right text-gray-700">6</td>
+            <td class="py-3 px-4 text-right text-gray-400">-</td>
+            <td class="py-3 px-4 text-right text-gray-700">$1,124</td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-medium text-yellow-600">$62</span>
+            </td>
+            <td class="py-3 px-4">
+              <svg class="mini-chart mx-auto" viewBox="0 0 60 20">
+                <polyline fill="none" stroke="#f59e0b" stroke-width="2" points="0,8 10,10 20,9 30,12 40,11 50,14 60,13"/>
+              </svg>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="badge badge-yellow">Watch</span>
+            </td>
+          </tr>
+
+          <!-- Row 3 - Bad Performance -->
+          <tr class="table-row cursor-pointer bg-red-50/30">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="status-dot status-bad"></div>
+                <div>
+                  <div class="font-medium text-gray-900">Zen Care Physical Medicine</div>
+                  <div class="text-xs text-gray-500">zencare</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <span class="w-6 h-6 rounded bg-blue-100 text-blue-600 text-xs flex items-center justify-center">G</span>
+                <span class="w-6 h-6 rounded bg-gray-100 text-gray-400 text-xs flex items-center justify-center">S</span>
+                <span class="w-6 h-6 rounded bg-orange-100 text-orange-600 text-xs flex items-center justify-center">B</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="text-lg font-bold text-gray-900">3</span>
+              <span class="badge badge-red ml-1">-45%</span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">2</td>
+            <td class="py-3 px-4 text-right text-gray-700">0</td>
+            <td class="py-3 px-4 text-right text-gray-700">1</td>
+            <td class="py-3 px-4 text-right text-gray-700">$892</td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-medium text-red-600">$297</span>
+            </td>
+            <td class="py-3 px-4">
+              <svg class="mini-chart mx-auto" viewBox="0 0 60 20">
+                <polyline fill="none" stroke="#ef4444" stroke-width="2" points="0,4 10,6 20,8 30,10 40,14 50,16 60,18"/>
+              </svg>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="badge badge-red">Critical</span>
+            </td>
+          </tr>
+
+          <!-- Row 4 - Normal -->
+          <tr class="table-row cursor-pointer">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="status-dot status-good"></div>
+                <div>
+                  <div class="font-medium text-gray-900">DeCarlo Chiropractic</div>
+                  <div class="text-xs text-gray-500">decarlo-chiro</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <span class="w-6 h-6 rounded bg-blue-100 text-blue-600 text-xs flex items-center justify-center">G</span>
+                <span class="w-6 h-6 rounded bg-green-100 text-green-600 text-xs flex items-center justify-center">S</span>
+                <span class="w-6 h-6 rounded bg-orange-100 text-orange-600 text-xs flex items-center justify-center">B</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="text-lg font-bold text-gray-900">31</span>
+              <span class="badge badge-green ml-1">+12%</span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">19</td>
+            <td class="py-3 px-4 text-right text-gray-700">7</td>
+            <td class="py-3 px-4 text-right text-gray-700">5</td>
+            <td class="py-3 px-4 text-right text-gray-700">$1,456</td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-medium text-green-600">$47</span>
+            </td>
+            <td class="py-3 px-4">
+              <svg class="mini-chart mx-auto" viewBox="0 0 60 20">
+                <polyline fill="none" stroke="#10b981" stroke-width="2" points="0,12 10,10 20,11 30,9 40,7 50,8 60,5"/>
+              </svg>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="badge badge-green">Good</span>
+            </td>
+          </tr>
+
+          <!-- Row 5 - SEO Only -->
+          <tr class="table-row cursor-pointer">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="status-dot status-good"></div>
+                <div>
+                  <div class="font-medium text-gray-900">Restoration Dental</div>
+                  <div class="text-xs text-gray-500">restoration-dental</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <span class="w-6 h-6 rounded bg-blue-100 text-blue-600 text-xs flex items-center justify-center">G</span>
+                <span class="w-6 h-6 rounded bg-green-100 text-green-600 text-xs flex items-center justify-center">S</span>
+                <span class="w-6 h-6 rounded bg-gray-100 text-gray-400 text-xs flex items-center justify-center">B</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <span class="text-lg font-bold text-gray-900">24</span>
+              <span class="badge badge-green ml-1">+5%</span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">15</td>
+            <td class="py-3 px-4 text-right text-gray-700">9</td>
+            <td class="py-3 px-4 text-right text-gray-400">-</td>
+            <td class="py-3 px-4 text-right text-gray-700">$987</td>
+            <td class="py-3 px-4 text-right">
+              <span class="font-medium text-green-600">$41</span>
+            </td>
+            <td class="py-3 px-4">
+              <svg class="mini-chart mx-auto" viewBox="0 0 60 20">
+                <polyline fill="none" stroke="#10b981" stroke-width="2" points="0,10 10,9 20,10 30,8 40,9 50,7 60,6"/>
+              </svg>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="badge badge-green">Good</span>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+        <span class="text-sm text-gray-500">Showing 1-5 of 32 clients</span>
+        <div class="flex items-center gap-1">
+          <button class="px-3 py-1 rounded border border-gray-200 text-sm hover:bg-gray-50">Previous</button>
+          <button class="px-3 py-1 rounded text-sm" style="background: var(--primary); color: white;">1</button>
+          <button class="px-3 py-1 rounded border border-gray-200 text-sm hover:bg-gray-50">2</button>
+          <button class="px-3 py-1 rounded border border-gray-200 text-sm hover:bg-gray-50">3</button>
+          <button class="px-3 py-1 rounded border border-gray-200 text-sm hover:bg-gray-50">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert Banner (bottom) -->
+    <div class="mt-4 card p-4 border-l-4" style="border-color: var(--yellow); background: #fffbeb;">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <div>
+            <span class="font-medium text-yellow-800">4 clients need attention:</span>
+            <span class="text-yellow-700 text-sm ml-2">Zen Care (high CPL), Newport Center (no leads 3d), Hood Chiro (token expired), Whole Body (declining)</span>
+          </div>
+        </div>
+        <button class="text-yellow-600 hover:text-yellow-800 text-sm font-medium">View All</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 text-xs text-gray-400">
+    Data refreshes daily at 2:00 AM UTC via Vercel Cron
+  </footer>
+
+</body>
+</html>
