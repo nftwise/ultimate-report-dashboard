@@ -329,6 +329,118 @@ export class GoogleBusinessProfileConnector {
   }
 
   /**
+   * Get reviews for a location
+   * @param locationId - The location ID (format: locations/{locationId})
+   * @param accessToken - OAuth2 access token
+   */
+  static async getReviews(locationId: string, accessToken: string): Promise<{
+    totalReviews: number;
+    averageRating: number;
+    newReviews: number;
+    daysSinceLastReview: number;
+  }> {
+    try {
+      const response = await fetch(
+        `https://mybusiness.googleapis.com/v4/${locationId}/reviews`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(`[GBP Reviews] API returned ${response.status} for ${locationId}`);
+        return { totalReviews: 0, averageRating: 0, newReviews: 0, daysSinceLastReview: 0 };
+      }
+
+      const data = await response.json();
+      const reviews = data.reviews || [];
+
+      // Calculate metrics
+      const totalReviews = reviews.length;
+      const averageRating = totalReviews > 0
+        ? reviews.reduce((sum: number, r: any) => sum + (r.starRating === 'FIVE' ? 5 : r.starRating === 'FOUR' ? 4 : r.starRating === 'THREE' ? 3 : r.starRating === 'TWO' ? 2 : 1), 0) / totalReviews
+        : 0;
+
+      // New reviews in last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const newReviews = reviews.filter((r: any) => {
+        const reviewDate = new Date(r.createTime);
+        return reviewDate >= thirtyDaysAgo;
+      }).length;
+
+      // Days since last review
+      let daysSinceLastReview = 0;
+      if (reviews.length > 0) {
+        const sortedReviews = reviews.sort((a: any, b: any) =>
+          new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
+        );
+        const lastReviewDate = new Date(sortedReviews[0].createTime);
+        const today = new Date();
+        daysSinceLastReview = Math.floor((today.getTime() - lastReviewDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      return { totalReviews, averageRating, newReviews, daysSinceLastReview };
+    } catch (error: any) {
+      console.error('[GBP Reviews] Error:', error.message);
+      return { totalReviews: 0, averageRating: 0, newReviews: 0, daysSinceLastReview: 0 };
+    }
+  }
+
+  /**
+   * Get posts for a location
+   * @param locationId - The location ID (format: locations/{locationId})
+   * @param accessToken - OAuth2 access token
+   */
+  static async getPosts(locationId: string, accessToken: string): Promise<{
+    postsCount: number;
+    postsViews: number;
+    postsClicks: number;
+    daysSinceLastPost: number;
+  }> {
+    try {
+      const response = await fetch(
+        `https://mybusiness.googleapis.com/v4/${locationId}/localPosts`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(`[GBP Posts] API returned ${response.status} for ${locationId}`);
+        return { postsCount: 0, postsViews: 0, postsClicks: 0, daysSinceLastPost: 0 };
+      }
+
+      const data = await response.json();
+      const posts = data.localPosts || [];
+
+      const postsCount = posts.length;
+      const postsViews = posts.reduce((sum: number, p: any) => sum + (p.searchUrl?.impressions || 0), 0);
+      const postsClicks = posts.reduce((sum: number, p: any) => sum + (p.searchUrl?.clicks || 0), 0);
+
+      // Days since last post
+      let daysSinceLastPost = 0;
+      if (posts.length > 0) {
+        const sortedPosts = posts.sort((a: any, b: any) =>
+          new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
+        );
+        const lastPostDate = new Date(sortedPosts[0].createTime);
+        const today = new Date();
+        daysSinceLastPost = Math.floor((today.getTime() - lastPostDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      return { postsCount, postsViews, postsClicks, daysSinceLastPost };
+    } catch (error: any) {
+      console.error('[GBP Posts] Error:', error.message);
+      return { postsCount: 0, postsViews: 0, postsClicks: 0, daysSinceLastPost: 0 };
+    }
+  }
+
+  /**
    * Fetch all GBP accounts and locations for the authenticated user
    * @param accessToken - The OAuth2 access token
    * @returns Array of locations with account and location IDs
