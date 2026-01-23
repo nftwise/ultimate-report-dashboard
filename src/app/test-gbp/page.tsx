@@ -10,8 +10,8 @@ function TestGBPContent() {
 
   useEffect(() => {
     // Check for success/error messages
-    const gbpConnected = searchParams.get('gbp_connected');
-    const error = searchParams.get('error');
+    const gbpConnected = searchParams?.get('gbp_connected');
+    const error = searchParams?.get('error');
 
     if (gbpConnected === 'true') {
       setMessage('Google Business Profile connected successfully!');
