@@ -10,7 +10,7 @@ function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const clientId = searchParams.get('clientId')
+  const clientId = searchParams?.get('clientId')
   const [clientInfo, setClientInfo] = useState<any>(null)
   const [loading, setLoading] = useState(!!clientId)
 
