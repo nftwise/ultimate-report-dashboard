@@ -20,7 +20,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Step 1: If no code, show authorization link
   if (!code) {
     const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gbp-refresh-token`;
+    // Auto-detect Vercel URL or use env variable
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.host}`;
+    const REDIRECT_URI = `${baseUrl}/api/auth/gbp-refresh-token`;
 
     const SCOPES = [
       'https://www.googleapis.com/auth/business.manage',
@@ -131,7 +133,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gbp-refresh-token`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.host}`;
+    const REDIRECT_URI = `${baseUrl}/api/auth/gbp-refresh-token`;
 
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
