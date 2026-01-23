@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       if (validLocations.length > 0) {
         const { error: locError } = await supabaseAdmin
           .from('gbp_locations')
-          .upsert(validLocations, { onConflict: 'client_id,gbp_location_id' });
+          .upsert(validLocations);
 
         if (locError) {
           results.locations.errors.push({ error: locError.message });
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       if (validMetrics.length > 0) {
         const { error: metricsError } = await supabaseAdmin
           .from('gbp_location_daily_metrics')
-          .upsert(validMetrics, { onConflict: 'location_id,date' });
+          .upsert(validMetrics);
 
         if (metricsError) {
           results.daily_metrics.errors.push({ error: metricsError.message });
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
       if (validPosts.length > 0) {
         const { error: postsError } = await supabaseAdmin
           .from('gbp_posts')
-          .upsert(validPosts, { onConflict: 'location_id,post_id' });
+          .upsert(validPosts);
 
         if (postsError) {
           results.posts.errors.push({ error: postsError.message });
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
       if (validPhotos.length > 0) {
         const { error: photosError } = await supabaseAdmin
           .from('gbp_location_photos')
-          .upsert(validPhotos, { onConflict: 'location_id,photo_id' });
+          .upsert(validPhotos);
 
         if (photosError) {
           results.photos.errors.push({ error: photosError.message });

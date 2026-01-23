@@ -21,6 +21,14 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 // Parse CLI args
 const year = parseInt(
@@ -58,7 +66,31 @@ interface DailyMetric {
 
 // Helper: Get access token from file or Supabase
 async function getGBPToken(): Promise<string | null> {
-  // Try .oauth-tokens folder first
+  // Try Supabase first
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'gbp_agency_master')
+        .single();
+
+      if (!error && data) {
+        const tokenData = JSON.parse(data.value);
+        if (tokenData.access_token) {
+          // Check if expired
+          if (tokenData.expiry_date > Date.now()) {
+            console.log(`✅ Using GBP token from Supabase`);
+            return tokenData.access_token;
+          }
+        }
+      }
+    } catch (e) {
+      // Continue to local files
+    }
+  }
+
+  // Try .oauth-tokens folder
   const tokenDir = path.join(process.cwd(), '.oauth-tokens');
   if (fs.existsSync(tokenDir)) {
     const files = fs.readdirSync(tokenDir).filter((f) => f.endsWith('.json'));
