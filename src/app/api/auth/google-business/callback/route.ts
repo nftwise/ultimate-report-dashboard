@@ -75,6 +75,37 @@ export async function GET(request: NextRequest) {
 
     console.log('[GBP OAuth] Tokens saved to:', tokenFile);
 
+    // ALSO save as agency master token to Supabase (for production use)
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { error: tokenError } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'gbp_oauth_token',
+          value: {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: Date.now() + ((tokens.expiry_date || Date.now() + 3600000) - Date.now()),
+            created_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key'
+        });
+
+      if (tokenError) {
+        console.error('[GBP OAuth] Could not save master token to Supabase:', tokenError);
+      } else {
+        console.log('[GBP OAuth] ✅ Master token saved to Supabase system_settings');
+      }
+    } catch (masterTokenError) {
+      console.error('[GBP OAuth] Error saving master token:', masterTokenError);
+    }
+
     // Auto-discover GBP accounts and locations
     let gbpLocationId: string | null = null;
     let gbpAccountId: string | null = null;

@@ -8,14 +8,8 @@ import { google } from 'googleapis';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const clientId = searchParams.get('clientId');
-
-    if (!clientId) {
-      return NextResponse.json({
-        success: false,
-        error: 'clientId parameter is required'
-      }, { status: 400 });
-    }
+    // Default to 'master' for agency-wide token
+    const clientId = searchParams.get('clientId') || 'master';
 
     // Create OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
