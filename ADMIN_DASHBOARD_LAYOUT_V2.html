@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Layout V2</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%);
+      color: #2c2419;
+    }
+
+    /* Navigation */
+    nav {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(44, 36, 25, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    nav h1 {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2c2419;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%);
+      color: white;
+      padding: 48px 32px;
+      text-align: center;
+    }
+
+    .hero h2 {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+
+    /* Stats Cards - Row 1 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: -40px;
+      position: relative;
+      z-index: 10;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(44, 36, 25, 0.1);
+      border: 1px solid rgba(44, 36, 25, 0.1);
+    }
+
+    .stat-card-label {
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5c5850;
+      margin-bottom: 8px;
+    }
+
+    .stat-card-value {
+      font-size: 28px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      color: #2c2419;
+    }
+
+    .stat-card-value.coral { color: #c4704f; }
+    .stat-card-value.gold { color: #d9a854; }
+    .stat-card-value.sage { color: #9db5a0; }
+    .stat-card-value.slate { color: #5c5850; }
+
+    .stat-card-time {
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    /* Section Title */
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #2c2419;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .count-badge {
+      font-size: 12px;
+      background: #f3f4f6;
+      color: #5c5850;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* Table Section */
+    .table-section {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 2px 8px rgba(44, 36, 25, 0.1);
+      border: 1px solid rgba(44, 36, 25, 0.1);
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid rgba(44, 36, 25, 0.1);
+      border-radius: 8px;
+      background: #f5f1ed;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    /* Responsive Table */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      border-bottom: 1px solid rgba(44, 36, 25, 0.1);
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 8px;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5c5850;
+    }
+
+    td {
+      padding: 12px 8px;
+      border-bottom: 1px solid rgba(44, 36, 25, 0.05);
+    }
+
+    tbody tr:hover {
+      background: rgba(44, 36, 25, 0.02);
+    }
+
+    .client-name {
+      font-weight: bold;
+      color: #2c2419;
+    }
+
+    .client-slug {
+      font-size: 12px;
+      color: #5c5850;
+    }
+
+    .metric-number {
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .metric-number.coral { color: #c4704f; }
+    .metric-number.gold { color: #d9a854; }
+    .metric-number.sage { color: #9db5a0; }
+    .metric-number.slate { color: #5c5850; }
+    .metric-number.gray { color: #9ca3af; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+
+    .status-active {
+      background: #ecfdf5;
+      color: #10b981;
+      border: 1px solid #d1fae5;
+    }
+
+    .status-inactive {
+      background: #f3f4f6;
+      color: #6b7280;
+      border: 1px solid #e5e7eb;
+    }
+
+    .trend {
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .trend.up { color: #10b981; }
+    .trend.down { color: #c5221f; }
+
+    /* Legend */
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(44, 36, 25, 0.1);
+    }
+
+    .legend-item {
+      font-size: 12px;
+    }
+
+    .legend-label {
+      color: #5c5850;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .legend-example {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .legend-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    /* Notes */
+    .notes {
+      background: #f9fafb;
+      border-left: 4px solid #d9a854;
+      padding: 16px;
+      margin-top: 24px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #5c5850;
+    }
+
+    /* Column Groups */
+    .col-group {
+      background: rgba(217, 168, 84, 0.05);
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav>
+    <h1>Admin Dashboard</h1>
+    <div>Administrator</div>
+  </nav>
+
+  <!-- Hero Section -->
+  <div class="hero">
+    <h2>Client Overview</h2>
+    <p>Monitor all clients performance with key metrics</p>
+  </div>
+
+  <!-- Container -->
+  <div class="container">
+    <!-- SECTION 1: Header Stats (4 Cards) -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-card-label">Total Clients</div>
+        <div class="stat-card-value coral">20</div>
+        <div class="stat-card-time">Updated now</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-label">Total Leads</div>
+        <div class="stat-card-value gold">438</div>
+        <div class="stat-card-time">Updated now</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-label">Avg Health Score</div>
+        <div class="stat-card-value sage">72</div>
+        <div class="stat-card-time">Updated now</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-label">Total Ad Spend</div>
+        <div class="stat-card-value slate">$4,200</div>
+        <div class="stat-card-time">Updated now</div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Client Table -->
+    <div class="table-section">
+      <div class="section-title">
+        All Clients
+        <span class="count-badge">20/20</span>
+      </div>
+
+      <input type="text" class="search-box" placeholder="🔍 Search clients by name or slug...">
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th colspan="2">🏢 Client Info</th>
+              <th class="col-group">📊 Leads</th>
+              <th class="col-group">🔍 SEO</th>
+              <th class="col-group">💰 Ads</th>
+              <th class="col-group">📱 GBP</th>
+              <th>📈 Trend</th>
+              <th>❤️ Health</th>
+              <th>✅ Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Client 1: CorePosture (High performer) -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">CorePosture</div>
+                <div class="client-slug">@coreposture • Newport Beach, CA</div>
+              </td>
+              <td class="metric-number coral"><strong>72</strong></td>
+              <td class="metric-number sage">50 forms</td>
+              <td class="metric-number gold">$1,200 / 22 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend up">↑ +15%</td>
+              <td class="metric-number sage"><strong>85</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 2: WHOLE BODY WELLNESS (Top leads) -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">WHOLE BODY WELLNESS</div>
+                <div class="client-slug">@whole-body-wellness • Riverside, CA</div>
+              </td>
+              <td class="metric-number coral"><strong>101</strong></td>
+              <td class="metric-number sage">0 forms</td>
+              <td class="metric-number gold">$800 / 101 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend up">↑ +8%</td>
+              <td class="metric-number sage"><strong>80</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 3: Restoration Dental -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">Restoration Dental</div>
+                <div class="client-slug">@restoration-dental • Orange, CA</div>
+              </td>
+              <td class="metric-number coral"><strong>47</strong></td>
+              <td class="metric-number sage">0 forms</td>
+              <td class="metric-number gold">$950 / 47 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend up">↑ +5%</td>
+              <td class="metric-number sage"><strong>78</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 4: Dr DiGrado -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">Dr DiGrado</div>
+                <div class="client-slug">@dr-digrado</div>
+              </td>
+              <td class="metric-number coral"><strong>45</strong></td>
+              <td class="metric-number sage">18 forms</td>
+              <td class="metric-number gold">$650 / 27 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend down">↓ -3%</td>
+              <td class="metric-number sage"><strong>72</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 5: SOUTHPORT CHIROPRACTIC -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">SOUTHPORT CHIROPRACTIC</div>
+                <div class="client-slug">@southport-chiropractic • Fairfield, CT</div>
+              </td>
+              <td class="metric-number coral"><strong>44</strong></td>
+              <td class="metric-number sage">0 forms</td>
+              <td class="metric-number gold">$700 / 44 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend up">↑ +2%</td>
+              <td class="metric-number sage"><strong>71</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 6: DeCarlo Chiropractic -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">DeCarlo Chiropractic</div>
+                <div class="client-slug">@decarlo-chiro • New City, NY</div>
+              </td>
+              <td class="metric-number coral"><strong>34</strong></td>
+              <td class="metric-number sage">10 forms</td>
+              <td class="metric-number gold">$420 / 24 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend up">↑ +12%</td>
+              <td class="metric-number sage"><strong>75</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+
+            <!-- Client 7: Low performer -->
+            <tr>
+              <td colspan="2">
+                <div class="client-name">AXIS CHIROPRACTIC</div>
+                <div class="client-slug">@axis-chiropractic • Charleston, SC</div>
+              </td>
+              <td class="metric-number coral"><strong>0</strong></td>
+              <td class="metric-number sage">0 forms</td>
+              <td class="metric-number gold">$0 / 0 conv</td>
+              <td class="metric-number gray">0 calls</td>
+              <td class="trend">- 0%</td>
+              <td class="metric-number sage"><strong>60</strong></td>
+              <td><span class="status-badge status-active">ACTIVE</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-label">📊 Leads</div>
+          <div class="legend-example">
+            <div class="legend-box" style="background: #c4704f;"></div>
+            <span>Total from all sources</span>
+          </div>
+        </div>
+
+        <div class="legend-item">
+          <div class="legend-label">🔍 SEO</div>
+          <div class="legend-example">
+            <div class="legend-box" style="background: #9db5a0;"></div>
+            <span>Form fill submissions</span>
+          </div>
+        </div>
+
+        <div class="legend-item">
+          <div class="legend-label">💰 Ads</div>
+          <div class="legend-example">
+            <div class="legend-box" style="background: #d9a854;"></div>
+            <span>Spend & Conversions</span>
+          </div>
+        </div>
+
+        <div class="legend-item">
+          <div class="legend-label">📱 GBP</div>
+          <div class="legend-example">
+            <div class="legend-box" style="background: #9ca3af;"></div>
+            <span>Phone calls (empty)</span>
+          </div>
+        </div>
+
+        <div class="legend-item">
+          <div class="legend-label">📈 Trend</div>
+          <div class="legend-example">
+            <span style="color: #10b981; font-weight: bold;">↑ +15%</span>
+            <span style="color: #c5221f; font-weight: bold;">↓ -3%</span>
+          </div>
+        </div>
+
+        <div class="legend-item">
+          <div class="legend-label">❤️ Health</div>
+          <div class="legend-example">
+            <span>Score 0-100</span>
+            <span>(Green = Good)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="notes">
+        <strong>📌 Layout Notes:</strong><br>
+        • Column Groups: Color-coded headers (SEO, Ads, GBP) for quick scanning<br>
+        • Metrics: Leads (Coral), SEO Forms (Sage), Ad Spend (Gold), Calls (Gray)<br>
+        • Trend: ↑ Green for increase, ↓ Red for decrease<br>
+        • Health Score: 0-100 scale (60+ = good)<br>
+        • Status: ACTIVE/INACTIVE badge<br>
+        • Responsive: Stacks on mobile, scrolls on tablet
+      </div>
+    </div>
+  </div>
+</body>
+</html>
