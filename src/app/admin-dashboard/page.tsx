@@ -3,89 +3,44 @@
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 
-interface Client {
+interface ClientWithMetrics {
   id: string;
-  slug: string;
   name: string;
+  slug: string;
   city: string;
   is_active: boolean;
-  services?: string[];
-  metrics?: {
-    leads: number;
-    conversions: number;
-    calls: number;
-    cpl: number;
-    healthScore: number;
-  };
-  trendChange?: number;
-}
-
-interface DashboardStats {
-  totalClients: number;
-  activeClients: number;
-  totalLeads: number;
-  totalAdSpend: number;
-  avgCPL: number;
-  changes: {
-    clients: number;
-    leads: number;
-    conversions: number;
-    calls: number;
-    cpl: number;
-  };
-}
-
-interface TrendData {
-  month: string;
-  value: number;
-}
-
-interface TrendSummary {
-  highest: number;
-  lowest: number;
-  average: number;
-  trend: 'up' | 'down' | 'stable';
+  seo_form_submits?: number;
+  seo_top_keyword?: string;
+  gbp_calls?: number;
+  ads_conversions?: number;
+  ads_cpl?: number;
+  total_leads?: number;
 }
 
 export default function AdminDashboardPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [trendData, setTrendData] = useState<TrendData[]>([]);
-  const [trendSummary, setTrendSummary] = useState<TrendSummary | null>(null);
+  const [clients, setClients] = useState<ClientWithMetrics[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAllData();
+    fetchData();
   }, []);
 
-  const fetchAllData = async () => {
+  const fetchData = async () => {
     try {
-      // Fetch all data in parallel
-      const [clientsRes, statsRes, trendRes] = await Promise.all([
-        fetch('/api/clients/list'),
-        fetch('/api/admin/dashboard-stats'),
-        fetch('/api/admin/monthly-leads-trend')
-      ]);
+      setLoading(true);
+      const response = await fetch('/api/clients/list');
+      const data = await response.json();
 
-      const clientsData = await clientsRes.json();
-      const statsData = await statsRes.json();
-      const trendDataRes = await trendRes.json();
-
-      if (clientsData.success) {
-        setClients(clientsData.clients || []);
+      if (data.success && data.clients) {
+        setClients(data.clients);
       }
-
-      if (statsData.success) {
-        setStats(statsData.data);
-      }
-
-      if (trendDataRes.success) {
-        setTrendData(trendDataRes.data || []);
-        setTrendSummary(trendDataRes.summary || null);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (err) {
+      setError('Failed to load clients');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,152 +49,56 @@ export default function AdminDashboardPage() {
     client.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const displayStats = stats || {
-    totalClients: clients.length,
-    activeClients: clients.filter(c => c.is_active).length,
-    totalLeads: 0,
-    totalAdSpend: 0,
-    avgCPL: 0,
-    changes: {
-      clients: 0,
-      leads: 0,
-      conversions: 0,
-      calls: 0,
-      cpl: 0
-    }
-  };
+  // Calculate aggregate stats
+  const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
+  const totalSeoFormSubmits = clients.reduce((sum, c) => sum + (c.seo_form_submits || 0), 0);
+  const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
+  const totalAdsConversions = clients.reduce((sum, c) => sum + (c.ads_conversions || 0), 0);
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Navigation */}
       <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-        <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Analytics</h1>
+        <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Admin Dashboard</h1>
         <div className="flex items-center gap-4">
           <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold" style={{ color: '#2c2419' }}>seo@mychiropractice.com</div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Admin</div>
-          </div>
-          <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold" style={{ backgroundColor: '#d9a854', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}>
-            👤
+            <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <div className="text-white py-20 text-center" style={{ background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)' }}>
-        <p className="text-xs font-bold tracking-[0.2em] uppercase opacity-80 mb-2">Team Overview</p>
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-4">Client Performance</h1>
-        <p className="opacity-80 font-medium">Dec 29 - Jan 28, 2026</p>
+      <div className="text-white py-12 text-center" style={{ background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)' }}>
+        <h1 className="text-4xl font-extrabold tracking-tight mb-2">Client Overview</h1>
+        <p className="opacity-80 font-medium text-sm">Monitor all clients performance</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-60px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pl-6 pr-6">
+      <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-40px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            {
-              label: 'TOTAL CLIENTS',
-              value: displayStats.totalClients,
-              change: `${displayStats.changes.clients > 0 ? '+' : ''}${displayStats.changes.clients.toFixed(1)}%`,
-              trend: displayStats.changes.clients >= 0 ? 'up' : 'down'
-            },
-            {
-              label: 'TOTAL LEADS',
-              value: displayStats.totalLeads,
-              change: `${displayStats.changes.leads > 0 ? '+' : ''}${displayStats.changes.leads.toFixed(1)}%`,
-              trend: displayStats.changes.leads >= 0 ? 'up' : 'down'
-            },
-            {
-              label: 'TOTAL AD SPEND',
-              value: `$${displayStats.totalAdSpend.toLocaleString()}`,
-              change: `${displayStats.changes.conversions > 0 ? '+' : ''}${displayStats.changes.conversions.toFixed(1)}%`,
-              trend: displayStats.changes.conversions >= 0 ? 'up' : 'down'
-            },
-            {
-              label: 'AVG. COST PER LEAD',
-              value: `$${displayStats.avgCPL.toFixed(2)}`,
-              change: `${displayStats.changes.cpl > 0 ? '+' : ''}${displayStats.changes.cpl.toFixed(1)}%`,
-              trend: displayStats.changes.cpl >= 0 ? 'up' : 'down'
-            }
+            { label: 'TOTAL CLIENTS', value: clients.length, color: '#c4704f' },
+            { label: 'TOTAL LEADS', value: totalLeads, color: '#d9a854' },
+            { label: 'SEO FORM SUBMITS', value: totalSeoFormSubmits, color: '#9db5a0' },
+            { label: 'GBP CALLS', value: totalGbpCalls, color: '#5c5850' }
           ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-3xl p-6 shadow-lg transition-all hover:shadow-xl hover:-translate-y-1" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+            <div key={i} className="bg-white rounded-2xl p-5 shadow-md" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850' }}>{stat.label}</p>
-              <p className="text-4xl font-extrabold my-4" style={{ color: '#2c2419' }}>{stat.value}</p>
-              <div className="flex items-center justify-between text-xs gap-2">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full font-bold" style={{ background: stat.trend === 'up' ? '#e6f4ea' : '#fce8e6', color: stat.trend === 'up' ? '#1e7e34' : '#c5221f' }}>
-                  {stat.trend === 'up' ? '↑' : '↓'} {stat.change}
-                </span>
-                <span style={{ color: '#5c5850' }}>vs last month</span>
-                <span style={{ color: '#5c5850', fontSize: '10px' }}>now</span>
-              </div>
+              <p className="text-3xl font-extrabold my-2" style={{ color: stat.color }}>{stat.value}</p>
+              <p className="text-xs" style={{ color: '#9ca3af' }}>Updated now</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 mt-8 space-y-8">
-        {/* Monthly Leads Trend */}
-        <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          <h2 className="text-3xl font-extrabold mb-6" style={{ color: '#2c2419' }}>Monthly Leads Trend</h2>
-          {trendData.length > 0 && trendSummary ? (
-            <>
-              <div className="h-80 mb-8 flex items-end justify-between">
-                {trendData.map((data, i) => (
-                  <div key={i} className="flex flex-col items-center" style={{ flex: 1 }}>
-                    <div className="w-8 rounded-t" style={{ height: `${trendSummary.highest > 0 ? (data.value / trendSummary.highest) * 100 : 0}%`, background: '#9db5a0' }}></div>
-                    <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>{data.month}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-8 border-t pt-6 text-center" style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Highest Month</p>
-                  <p className="text-xl font-bold" style={{ color: '#c4704f' }}>{trendSummary.highest}</p>
-                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>
-                    {trendData.find(d => d.value === trendSummary.highest)?.month || '-'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Lowest Month</p>
-                  <p className="text-xl font-bold" style={{ color: '#2c2419' }}>{trendSummary.lowest}</p>
-                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>
-                    {trendData.find(d => d.value === trendSummary.lowest)?.month || '-'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Average</p>
-                  <p className="text-xl font-bold" style={{ color: '#9db5a0' }}>{trendSummary.average}</p>
-                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>per month</p>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5c5850' }}>
-              Loading trend data...
-            </div>
-          )}
-        </div>
-
-        {/* Client Performance Table */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+      <main className="max-w-7xl mx-auto px-4 mt-12 pb-12">
+        <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h2 className="text-3xl font-extrabold" style={{ color: '#2c2419' }}>Client Performance ({filteredClients.length})</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('table')}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition"
-                style={{ background: viewMode === 'table' ? '#f3f4f6' : 'white', color: '#5c5850', border: '1px solid rgba(44, 36, 25, 0.1)' }}
-              >
-                📋 Table View
-              </button>
-              <button
-                onClick={() => setViewMode('card')}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition"
-                style={{ background: viewMode === 'card' ? '#f3f4f6' : 'transparent', color: '#5c5850' }}
-              >
-                🎴 Card View
-              </button>
-            </div>
+            <h2 className="text-2xl font-extrabold" style={{ color: '#2c2419' }}>
+              All Clients ({filteredClients.length}/{clients.length})
+            </h2>
           </div>
 
           {/* Search */}
@@ -250,68 +109,70 @@ export default function AdminDashboardPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search clients by name or slug..."
-              className="w-full pl-10 pr-4 py-3 border rounded-xl transition-all focus:outline-none focus:ring-2"
+              className="w-full pl-10 pr-4 py-3 border rounded-lg transition-all focus:outline-none focus:ring-2"
               style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419' }}
             />
           </div>
 
-          {/* Table View */}
-          {viewMode === 'table' && (
+          {/* Table */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>Loading clients...</div>
+          ) : error ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#c5221f' }}>{error}</div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Client</th>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Services</th>
+                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Client Name</th>
                     <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>City</th>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Status</th>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Action</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Total Leads</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>SEO Forms</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>GBP Calls</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Ads Conv.</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => (
-                    <tr key={client.id} className="transition" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(44, 36, 25, 0.02)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <td className="py-5">
-                        <div className="font-bold" style={{ color: '#2c2419' }}>{client.name.toUpperCase()}</div>
+                    <tr
+                      key={client.id}
+                      className="transition"
+                      style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(44, 36, 25, 0.02)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td className="py-4">
+                        <div className="font-bold text-sm" style={{ color: '#2c2419' }}>{client.name}</div>
                         <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
                       </td>
-                      <td className="py-5">
-                        <span className="inline-block text-xs font-bold px-2 py-1 rounded mr-2" style={{ background: '#fff8e1', color: '#b45309' }}>SEO</span>
-                        <span className="inline-block text-xs font-bold px-2 py-1 rounded" style={{ background: '#f3f4f6', color: '#374151' }}>ADS</span>
-                      </td>
-                      <td className="py-5" style={{ color: '#5c5850' }}>{client.city || '-'}</td>
-                      <td className="py-5">
-                        <span className="inline-block text-xs font-bold px-3 py-1 rounded-full" style={{ background: client.is_active ? '#ecfdf5' : '#f3f4f6', color: client.is_active ? '#10b981' : '#6b7280', border: client.is_active ? '1px solid #d1fae5' : '1px solid #e5e7eb' }}>
+                      <td className="py-4 text-sm" style={{ color: '#5c5850' }}>{client.city || '-'}</td>
+                      <td className="py-4 text-center font-semibold" style={{ color: '#c4704f' }}>{client.total_leads || 0}</td>
+                      <td className="py-4 text-center" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</td>
+                      <td className="py-4 text-center" style={{ color: '#d9a854' }}>{client.gbp_calls || 0}</td>
+                      <td className="py-4 text-center" style={{ color: '#5c5850' }}>{client.ads_conversions || 0}</td>
+                      <td className="py-4 text-center">
+                        <span
+                          className="text-xs font-bold px-3 py-1 rounded-full"
+                          style={{
+                            background: client.is_active ? '#ecfdf5' : '#f3f4f6',
+                            color: client.is_active ? '#10b981' : '#6b7280',
+                            border: client.is_active ? '1px solid #d1fae5' : '1px solid #e5e7eb'
+                          }}
+                        >
                           {client.is_active ? 'ACTIVE' : 'INACTIVE'}
                         </span>
-                      </td>
-                      <td className="py-5">
-                        <a href="#" className="text-sm font-medium transition" style={{ color: '#c4704f' }}>View →</a>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
 
-          {/* Card View */}
-          {viewMode === 'card' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredClients.map((client) => (
-                <div key={client.id} className="border rounded-lg p-4 transition hover:shadow-md" style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}>
-                  <h4 className="font-bold" style={{ color: '#2c2419' }}>{client.name}</h4>
-                  <p className="text-xs mt-1" style={{ color: '#5c5850' }}>@{client.slug}</p>
-                  <p className="text-sm mt-2" style={{ color: '#5c5850' }}>{client.city}</p>
-                  <div className="flex gap-2 mt-3">
-                    <span className="text-xs font-bold px-2 py-1 rounded" style={{ background: '#fff8e1', color: '#b45309' }}>SEO</span>
-                    <span className="text-xs font-bold px-2 py-1 rounded" style={{ background: '#f3f4f6', color: '#374151' }}>ADS</span>
-                  </div>
-                  <button className="w-full mt-3 py-2 rounded-lg text-sm font-medium text-white transition" style={{ background: '#c4704f' }}>
-                    View Dashboard
-                  </button>
+              {filteredClients.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>
+                  No clients found
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
