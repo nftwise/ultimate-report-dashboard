@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ClientWithMetrics {
@@ -34,10 +34,19 @@ export default function AdminDashboardPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
+  // Date range state
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return { start, end };
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   useEffect(() => {
     fetchData();
     fetchMonthlyData();
-  }, []);
+  }, [dateRange]);
 
   const fetchData = async () => {
     try {
@@ -59,7 +68,9 @@ export default function AdminDashboardPage() {
   const fetchMonthlyData = async () => {
     try {
       setMonthlyLoading(true);
-      const response = await fetch('/api/metrics/monthly-performance?daysBack=365');
+      // Calculate days between start and end date
+      const daysBack = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+      const response = await fetch(`/api/metrics/monthly-performance?daysBack=${daysBack}`);
       const data = await response.json();
 
       if (data.success && data.monthlyData) {
@@ -98,8 +109,62 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Navigation */}
       <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-        <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Admin Dashboard</h1>
-        <div className="flex items-center gap-4">
+        <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Analytics</h1>
+
+        <div className="flex items-center gap-6">
+          {/* Date Range Picker */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition"
+              style={{
+                background: '#f5f1ed',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                color: '#2c2419'
+              }}
+            >
+              <Calendar className="w-5 h-5" />
+              <span className="text-sm font-semibold">
+                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            </button>
+
+            {/* Date Picker Popup */}
+            {showDatePicker && (
+              <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl p-4 z-50" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-xs font-bold" style={{ color: '#5c5850' }}>Start Date</label>
+                    <input
+                      type="date"
+                      value={dateRange.start.toISOString().split('T')[0]}
+                      onChange={(e) => setDateRange({ ...dateRange, start: new Date(e.target.value) })}
+                      className="mt-1 px-3 py-2 border rounded w-full"
+                      style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold" style={{ color: '#5c5850' }}>End Date</label>
+                    <input
+                      type="date"
+                      value={dateRange.end.toISOString().split('T')[0]}
+                      onChange={(e) => setDateRange({ ...dateRange, end: new Date(e.target.value) })}
+                      className="mt-1 px-3 py-2 border rounded w-full"
+                      style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowDatePicker(false)}
+                    className="px-4 py-2 rounded font-semibold text-white"
+                    style={{ background: '#c4704f' }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="text-right hidden sm:block">
             <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
             <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
@@ -111,7 +176,9 @@ export default function AdminDashboardPage() {
       <div className="text-white py-16 text-center" style={{ background: 'linear-gradient(135deg, #c4704f 0%, #d49a6a 100%)' }}>
         <div className="text-xs uppercase tracking-wider opacity-90 mb-2">TEAM OVERVIEW</div>
         <h1 className="text-5xl font-extrabold tracking-tight mb-2">Client Performance</h1>
-        <p className="opacity-80 font-medium">Dec 29 - Jan 28, 2026</p>
+        <p className="opacity-80 font-medium">
+          {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </p>
       </div>
 
       {/* Stats Cards - Large Design */}
