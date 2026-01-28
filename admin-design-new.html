@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - New Design</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f5f1ed;
+            --bg-secondary: #ede8e3;
+            --text-primary: #2c2419;
+            --text-secondary: #5c5850;
+            --primary: #c4704f;
+            --accent: #d9a854;
+            --border-color: #2c24191a;
+            --shadow: #2c241914;
+            --shadow-hover: #2c24191f;
+            --cream: #f5f1ed;
+            --chocolate: #2c2419;
+            --gold: #d9a854;
+            --coral: #c4704f;
+            --slate: #5c5850;
+            --sage: #9db5a0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-primary) 0, var(--bg-secondary) 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-primary);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin: -60px auto 0;
+            max-width: 1280px;
+            padding: 0 16px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(44, 36, 25, 0.08);
+            border: 1px solid rgba(44, 36, 25, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 12px 30px rgba(44, 36, 25, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .stat-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--chocolate);
+            margin: 12px 0;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .badge-green {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            background: #e6f4ea;
+            color: #1e7e34;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-red {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            background: #fce8e6;
+            color: #c5221f;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .nav h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .profile {
+            text-align: right;
+        }
+
+        .profile-email {
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .profile-role {
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px 16px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(44, 36, 25, 0.08);
+            border: 1px solid var(--border-color);
+            margin-bottom: 32px;
+        }
+
+        .section h2 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--chocolate);
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-bottom: 32px;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+            text-align: center;
+        }
+
+        .stat-summary-item {
+            text-align: center;
+        }
+
+        .stat-summary-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-summary-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-summary-month {
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn.active {
+            background: #f3f4f6;
+            color: var(--text-secondary);
+        }
+
+        .toggle-btn:hover {
+            background: var(--bg-primary);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 12px 12px 40px;
+            border: 1px transparent;
+            border-radius: 12px;
+            background: var(--bg-primary);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            background: white;
+            ring: 2px solid var(--primary);
+            border-color: transparent;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 700;
+            padding-bottom: 16px;
+        }
+
+        td {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: rgba(44, 36, 25, 0.02);
+        }
+
+        .client-name {
+            font-weight: 700;
+            color: var(--chocolate);
+        }
+
+        .client-slug {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .tag-seo {
+            background: #fff8e1;
+            color: #b45309;
+        }
+
+        .tag-ads {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .tag-gbp {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-active {
+            background: #ecfdf5;
+            color: #10b981;
+            border: 1px solid #d1fae5;
+        }
+
+        .status-inactive {
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 1px solid #e5e7eb;
+        }
+
+        .action-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .action-link:hover {
+            color: #a05a3d;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .card h4 {
+            font-weight: 700;
+            color: var(--chocolate);
+            margin-bottom: 8px;
+        }
+
+        .card-slug {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .card-city {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .card-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .card-button {
+            width: 100%;
+            padding: 10px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .card-button:hover {
+            opacity: 0.9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+
+            .stats-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .nav {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .nav-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <h1 style="color: var(--chocolate);">Analytics</h1>
+        <div class="nav-right">
+            <div class="profile">
+                <div class="profile-email">seo@mychiropractice.com</div>
+                <div class="profile-role">Admin</div>
+            </div>
+            <div class="avatar">👤</div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero">
+        <div>
+            <p style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.8; margin-bottom: 8px;">Team Overview</p>
+            <h1>Client Performance</h1>
+            <p style="opacity: 0.8; font-weight: 500;">Dec 29 - Jan 28, 2026</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <p class="stat-label">Total Clients</p>
+            <div class="stat-value">20</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; gap: 8px;">
+                <span class="badge-green">↑ +12.5%</span>
+                <span style="color: var(--text-secondary);">vs last month</span>
+                <span style="color: var(--text-secondary); font-size: 10px;">5m ago</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <p class="stat-label">Total Leads</p>
+            <div class="stat-value">443</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; gap: 8px;">
+                <span class="badge-green">↑ +8.3%</span>
+                <span style="color: var(--text-secondary);">vs last month</span>
+                <span style="color: var(--text-secondary); font-size: 10px;">5m ago</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <p class="stat-label">Total Ad Spend</p>
+            <div class="stat-value">$20,618</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; gap: 8px;">
+                <span class="badge-red">↓ 2.1%</span>
+                <span style="color: var(--text-secondary);">optimization</span>
+                <span style="color: var(--text-secondary); font-size: 10px;">5m ago</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <p class="stat-label">Avg. Cost Per Lead</p>
+            <div class="stat-value">$58</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; gap: 8px;">
+                <span class="badge-red">↓ 5.7%</span>
+                <span style="color: var(--text-secondary);">efficiency</span>
+                <span style="color: var(--text-secondary); font-size: 10px;">5m ago</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+        <!-- Chart Section -->
+        <div class="section">
+            <h2>Monthly Leads Trend</h2>
+            <div class="chart-container">
+                <canvas id="leadsChart"></canvas>
+            </div>
+            <div class="stats-summary">
+                <div class="stat-summary-item">
+                    <div class="stat-summary-label">Highest Month</div>
+                    <div class="stat-summary-value" style="color: var(--coral);">94</div>
+                    <div class="stat-summary-month">Oct</div>
+                </div>
+                <div class="stat-summary-item">
+                    <div class="stat-summary-label">Lowest Month</div>
+                    <div class="stat-summary-value" style="color: var(--chocolate);">53</div>
+                    <div class="stat-summary-month">Jan</div>
+                </div>
+                <div class="stat-summary-item">
+                    <div class="stat-summary-label">Average</div>
+                    <div class="stat-summary-value" style="color: var(--sage);">74</div>
+                    <div class="stat-summary-month">per month</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Performance Table -->
+        <div class="section">
+            <div class="table-header">
+                <h2 style="margin: 0;">Client Performance (6)</h2>
+                <div class="view-toggle">
+                    <button class="toggle-btn active" onclick="setView('table')">📋 Table View</button>
+                    <button class="toggle-btn" onclick="setView('card')">🎴 Card View</button>
+                </div>
+            </div>
+
+            <!-- Search Box -->
+            <div class="search-box">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search clients by name or slug..." onkeyup="filterClients()">
+            </div>
+
+            <!-- Table View -->
+            <div id="tableView">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Services</th>
+                                <th>City</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td>
+                                    <div class="client-name">WHOLE BODY WELLNESS</div>
+                                    <div class="client-slug">@whole-body-wellness</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                </td>
+                                <td>Denver, CO</td>
+                                <td><span class="status-badge status-active">Active</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="client-name">COREPOSTURE</div>
+                                    <div class="client-slug">@coreposture</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                    <span class="tag tag-gbp">GBP</span>
+                                </td>
+                                <td>Los Angeles, CA</td>
+                                <td><span class="status-badge status-inactive">Inactive</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="client-name">RESTORATION DENTAL</div>
+                                    <div class="client-slug">@restoration-dental</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                    <span class="tag tag-gbp">GBP</span>
+                                </td>
+                                <td>New York, NY</td>
+                                <td><span class="status-badge status-active">Active</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="client-name">DR DIGRADO</div>
+                                    <div class="client-slug">@dr-digrado</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                    <span class="tag tag-gbp">GBP</span>
+                                </td>
+                                <td>Austin, TX</td>
+                                <td><span class="status-badge status-inactive">Inactive</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="client-name">SOUTHPORT CHIROPRACTIC</div>
+                                    <div class="client-slug">@southport-chiropractic</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                </td>
+                                <td>Jacksonville, FL</td>
+                                <td><span class="status-badge status-active">Active</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="client-name">NORTH ALABAMA SPINE & REHAB</div>
+                                    <div class="client-slug">@north-alabama-spine-rehab</div>
+                                </td>
+                                <td>
+                                    <span class="tag tag-seo">SEO</span>
+                                    <span class="tag tag-ads">ADS</span>
+                                </td>
+                                <td>Birmingham, AL</td>
+                                <td><span class="status-badge status-active">Active</span></td>
+                                <td><a class="action-link">View →</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card View -->
+            <div id="cardView" class="hidden">
+                <div class="card-grid" id="cardGrid">
+                    <div class="card">
+                        <h4>Whole Body Wellness</h4>
+                        <p class="card-slug">@whole-body-wellness</p>
+                        <p class="card-city">Denver, CO</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+
+                    <div class="card">
+                        <h4>CorePosture</h4>
+                        <p class="card-slug">@coreposture</p>
+                        <p class="card-city">Los Angeles, CA</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                            <span class="tag tag-gbp">GBP</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+
+                    <div class="card">
+                        <h4>Restoration Dental</h4>
+                        <p class="card-slug">@restoration-dental</p>
+                        <p class="card-city">New York, NY</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                            <span class="tag tag-gbp">GBP</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+
+                    <div class="card">
+                        <h4>Dr DiGrado</h4>
+                        <p class="card-slug">@dr-digrado</p>
+                        <p class="card-city">Austin, TX</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                            <span class="tag tag-gbp">GBP</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+
+                    <div class="card">
+                        <h4>Southport Chiropractic</h4>
+                        <p class="card-slug">@southport-chiropractic</p>
+                        <p class="card-city">Jacksonville, FL</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+
+                    <div class="card">
+                        <h4>North Alabama Spine & Rehab</h4>
+                        <p class="card-slug">@north-alabama-spine-rehab</p>
+                        <p class="card-city">Birmingham, AL</p>
+                        <div class="card-tags">
+                            <span class="tag tag-seo">SEO</span>
+                            <span class="tag tag-ads">ADS</span>
+                        </div>
+                        <button class="card-button">View Dashboard</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart
+        const ctx = document.getElementById('leadsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
+                datasets: [{
+                    label: 'Leads',
+                    data: [74, 88, 94, 78, 59, 53],
+                    borderColor: '#9db5a0',
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#9db5a0',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#2c2419',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        display: true,
+                        grid: { color: '#f3f4f6', drawBorder: false },
+                        ticks: { color: '#9ca3af', font: { size: 10 } },
+                        suggestedMin: 50,
+                        suggestedMax: 100
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9ca3af', font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        function setView(view) {
+            const tableView = document.getElementById('tableView');
+            const cardView = document.getElementById('cardView');
+            const buttons = document.querySelectorAll('.toggle-btn');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (view === 'table') {
+                tableView.classList.remove('hidden');
+                cardView.classList.add('hidden');
+            } else {
+                tableView.classList.add('hidden');
+                cardView.classList.remove('hidden');
+            }
+        }
+
+        function filterClients() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

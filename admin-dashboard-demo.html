@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(to bottom right, #f8fafc, #f0f9ff, #eff6ff);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .amber-gradient {
+            background: linear-gradient(to right, #fbbf24, #f59e0b);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .table-row-hover:hover {
+            background-color: #f8fafc;
+            transition: background-color 0.2s ease;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-seo {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+
+        .badge-ads {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .badge-active {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-inactive {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            color: #64748b;
+        }
+
+        .toggle-btn.active {
+            background-color: #dbeafe;
+            color: #2563eb;
+        }
+
+        .toggle-btn:hover:not(.active) {
+            background-color: #f1f5f9;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 12px 12px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            ring: 2px;
+            ring-color: #2563eb;
+            border-color: transparent;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-container i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #cbd5e1;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .card-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .client-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .client-slug {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .client-city {
+            font-size: 14px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        .view-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .view-btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: #f8fafc;
+            padding: 12px 24px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        td {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #1e293b;
+        }
+
+        .client-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .client-info-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .client-info-slug {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .action-btn {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .action-btn:hover {
+            color: #1d4ed8;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .grid.grid-cols-1 {
+                grid-template-columns: 1fr;
+            }
+
+            th, td {
+                padding: 12px 16px;
+            }
+
+            .kpi-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="amber-gradient sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 style="font-size: 12px; font-weight: 600; color: #78350f; letter-spacing: 2px;">ANALYTICS</h1>
+                <p style="font-size: 11px; color: rgba(120, 53, 15, 0.6); margin-top: 4px;">Dashboard Performance</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <span style="font-size: 11px; color: #78350f; font-weight: 500;">Dec 29, 2025 - Jan 28, 2026</span>
+                <button style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; color: white; background-color: rgba(255, 255, 255, 0.2); border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.3)'" onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.2)'">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="amber-gradient py-12 text-white">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <p style="font-size: 12px; font-weight: 600; letter-spacing: 3px; opacity: 0.9;">TEAM OVERVIEW</p>
+            <h2 style="font-size: 48px; font-weight: 700; margin-top: 8px;">Client Performance</h2>
+            <p style="color: #fef3c7; margin-top: 8px;">Dec 29 - Jan 28, 2026</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-6 py-8">
+
+        <!-- KPI Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; margin-top: -24px; position: relative; z-index: 10;">
+            <div class="kpi-card card-hover">
+                <p style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Total Clients</p>
+                <p style="font-size: 32px; font-weight: 700; color: #1e293b; margin-top: 12px;">24</p>
+                <p style="font-size: 11px; color: #ea580c; margin-top: 8px;">+12.5%</p>
+            </div>
+
+            <div class="kpi-card card-hover">
+                <p style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Total Leads</p>
+                <p style="font-size: 32px; font-weight: 700; color: #1e293b; margin-top: 12px;">443</p>
+                <p style="font-size: 11px; color: #ea580c; margin-top: 8px;">+8.3%</p>
+            </div>
+
+            <div class="kpi-card card-hover">
+                <p style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Total Ad Spend</p>
+                <p style="font-size: 32px; font-weight: 700; color: #1e293b; margin-top: 12px;">$20,618</p>
+                <p style="font-size: 11px; color: #ea580c; margin-top: 8px;">-2.1%</p>
+            </div>
+
+            <div class="kpi-card card-hover">
+                <p style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Avg. Cost Per Lead</p>
+                <p style="font-size: 32px; font-weight: 700; color: #1e293b; margin-top: 12px;">$58</p>
+                <p style="font-size: 11px; color: #ea580c; margin-top: 8px;">-5.7%</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div style="margin-bottom: 24px;">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search clients by name or slug...">
+            </div>
+        </div>
+
+        <!-- Table Header & Controls -->
+        <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid #e2e8f0;">
+                <h3 id="tableTitle" style="font-size: 20px; font-weight: 700; color: #1e293b;">Client Performance (24)</h3>
+                <div class="view-toggle">
+                    <button class="toggle-btn active" onclick="toggleView('table')" title="Table View">
+                        <i class="fas fa-list" style="font-size: 18px;"></i>
+                    </button>
+                    <button class="toggle-btn" onclick="toggleView('card')" title="Card View">
+                        <i class="fas fa-grip" style="font-size: 18px;"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table View -->
+            <div id="tableView">
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Services</th>
+                                <th>City</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card View -->
+            <div id="cardView" class="hidden" style="padding: 24px;">
+                <div class="card-grid" id="cardGrid">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample client data
+        const allClients = [
+            { id: 1, name: 'Dr DiGrado Chiropractic', slug: 'dr-digrado', city: 'Austin, TX', active: true },
+            { id: 2, name: 'Polished Cary Salon', slug: 'polished-cary', city: 'Cary, NC', active: true },
+            { id: 3, name: 'Decarlo Chiropractic', slug: 'decarlo-chiro', city: 'Jacksonville, FL', active: true },
+            { id: 4, name: 'Prime Wellness', slug: 'prime-wellness', city: 'Denver, CO', active: true },
+            { id: 5, name: 'Radiant Health Spa', slug: 'radiant-spa', city: 'Los Angeles, CA', active: true },
+            { id: 6, name: 'Mountain Physical Therapy', slug: 'mountain-pt', city: 'Boulder, CO', active: true },
+            { id: 7, name: 'Urban Dental Studio', slug: 'urban-dental', city: 'New York, NY', active: false },
+            { id: 8, name: 'Coast Chiropractic', slug: 'coast-chiro', city: 'San Diego, CA', active: true },
+            { id: 9, name: 'Heritage Medical', slug: 'heritage-med', city: 'Boston, MA', active: true },
+            { id: 10, name: 'Lakeside Wellness', slug: 'lakeside-well', city: 'Seattle, WA', active: true },
+            { id: 11, name: 'Zenith Therapy Center', slug: 'zenith-therapy', city: 'Miami, FL', active: true },
+            { id: 12, name: 'Summit Health Clinic', slug: 'summit-health', city: 'Salt Lake City, UT', active: false },
+            { id: 13, name: 'Pure Body Massage', slug: 'pure-massage', city: 'Portland, OR', active: true },
+            { id: 14, name: 'Elite Fitness', slug: 'elite-fitness', city: 'Chicago, IL', active: true },
+            { id: 15, name: 'Harmony Wellness', slug: 'harmony-well', city: 'Phoenix, AZ', active: true },
+            { id: 16, name: 'Peak Performance Physical Therapy', slug: 'peak-pt', city: 'Houston, TX', active: true },
+            { id: 17, name: 'Vitality Center', slug: 'vitality', city: 'Atlanta, GA', active: true },
+            { id: 18, name: 'Renewal Medical Spa', slug: 'renewal-spa', city: 'San Francisco, CA', active: true },
+            { id: 19, name: 'Active Life Chiropractic', slug: 'active-life', city: 'Nashville, TN', active: true },
+            { id: 20, name: 'Bright Smile Dental', slug: 'bright-smile', city: 'Austin, TX', active: false },
+            { id: 21, name: 'Premier Wellness Group', slug: 'premier-wellness', city: 'Las Vegas, NV', active: true },
+            { id: 22, name: 'Pro Sports Medicine', slug: 'pro-sports', city: 'Philadelphia, PA', active: true },
+            { id: 23, name: 'Serenity Yoga Studio', slug: 'serenity-yoga', city: 'Los Angeles, CA', active: true },
+            { id: 24, name: 'Apex Rehabilitation', slug: 'apex-rehab', city: 'San Antonio, TX', active: true },
+        ];
+
+        let currentView = 'table';
+        let filteredClients = [...allClients];
+
+        function renderTableView() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = filteredClients.map(client => `
+                <tr class="table-row-hover">
+                    <td>
+                        <div class="client-info">
+                            <span class="client-info-name">${client.name}</span>
+                            <span class="client-info-slug">@${client.slug}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <span class="badge badge-seo">SEO</span>
+                            <span class="badge badge-ads">ADS</span>
+                        </div>
+                    </td>
+                    <td>${client.city || '-'}</td>
+                    <td>
+                        <span class="badge ${client.active ? 'badge-active' : 'badge-inactive'}">
+                            ${client.active ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="#" class="action-btn">View →</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCardView() {
+            const cardGrid = document.getElementById('cardGrid');
+            cardGrid.innerHTML = filteredClients.map(client => `
+                <div class="card-item">
+                    <div class="client-name">${client.name}</div>
+                    <div class="client-slug">@${client.slug}</div>
+                    <div class="client-city">${client.city}</div>
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <span class="badge badge-seo">SEO</span>
+                        <span class="badge badge-ads">ADS</span>
+                    </div>
+                    <button class="view-btn">View Dashboard</button>
+                </div>
+            `).join('');
+        }
+
+        function toggleView(view) {
+            currentView = view;
+            const tableView = document.getElementById('tableView');
+            const cardView = document.getElementById('cardView');
+            const buttons = document.querySelectorAll('.toggle-btn');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.toggle-btn').classList.add('active');
+
+            if (view === 'table') {
+                tableView.classList.remove('hidden');
+                cardView.classList.add('hidden');
+            } else {
+                tableView.classList.add('hidden');
+                cardView.classList.remove('hidden');
+                renderCardView();
+            }
+        }
+
+        function filterClients() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            filteredClients = allClients.filter(client =>
+                client.name.toLowerCase().includes(query) ||
+                client.slug.toLowerCase().includes(query)
+            );
+            document.getElementById('tableTitle').textContent = `Client Performance (${filteredClients.length})`;
+            renderTableView();
+            if (currentView === 'card') {
+                renderCardView();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', filterClients);
+
+        // Initial render
+        renderTableView();
+    </script>
+</body>
+</html>
