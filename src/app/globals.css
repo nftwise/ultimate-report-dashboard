@@ -1,39 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  /* Thorbit Color Palette */
-  --background: #FAF8F5;
-  --foreground: #3D3D3D;
+  /* HealthFlow Color Palette - Modern Professional Healthcare */
+  --background: #f8fafc;
+  --foreground: #1e293b;
   --card: #ffffff;
-  --card-foreground: #3D3D3D;
+  --card-foreground: #1e293b;
   --popover: #ffffff;
-  --popover-foreground: #3D3D3D;
-  --primary: #8B7355;
+  --popover-foreground: #1e293b;
+  --primary: #0369a1;
   --primary-foreground: #ffffff;
-  --secondary: #F5F0E8;
-  --secondary-foreground: #6B5344;
-  --muted: #FAF8F5;
-  --muted-foreground: #9B9B9B;
-  --accent: #5D8A3E;
+  --secondary: #e0f2fe;
+  --secondary-foreground: #0369a1;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #06b6d4;
   --accent-foreground: #ffffff;
-  --destructive: #C4564A;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #E8E4DE;
-  --input: #E8E4DE;
-  --ring: #8B7355;
-  --radius: 0.75rem;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0369a1;
+  --radius: 0.5rem;
 
-  /* Thorbit specific colors */
-  --thorbit-brown: #8B7355;
-  --thorbit-brown-light: #A68B5B;
-  --thorbit-brown-dark: #6B5344;
-  --thorbit-green: #5D8A3E;
-  --thorbit-green-light: #7BA85C;
-  --thorbit-red: #C4564A;
-  --thorbit-red-light: #E07B6F;
-  --thorbit-orange: #E09B3D;
-  --thorbit-cream: #FAF8F5;
-  --thorbit-cream-dark: #F5F0E8;
+  /* HealthFlow specific colors */
+  --healthflow-primary: #0369a1;
+  --healthflow-primary-light: #0ea5e9;
+  --healthflow-primary-dark: #075985;
+  --healthflow-secondary: #06b6d4;
+  --healthflow-success: #10b981;
+  --healthflow-success-light: #6ee7b7;
+  --healthflow-warning: #f59e0b;
+  --healthflow-danger: #ef4444;
+  --healthflow-info: #3b82f6;
+  --healthflow-neutral: #f8fafc;
+  --healthflow-text-light: #64748b;
+  --healthflow-text-muted: #94a3b8;
 }
 
 @theme inline {
@@ -62,25 +64,25 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-    --card: #0a0a0a;
-    --card-foreground: #fafafa;
-    --popover: #0a0a0a;
-    --popover-foreground: #fafafa;
-    --primary: #fafafa;
-    --primary-foreground: #18181b;
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
-    --destructive: #7f1d1d;
-    --destructive-foreground: #fafafa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #d4d4d8;
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card: #1e293b;
+    --card-foreground: #f1f5f9;
+    --popover: #1e293b;
+    --popover-foreground: #f1f5f9;
+    --primary: #0ea5e9;
+    --primary-foreground: #0f172a;
+    --secondary: #0c4a6e;
+    --secondary-foreground: #f1f5f9;
+    --muted: #334155;
+    --muted-foreground: #cbd5e1;
+    --accent: #06b6d4;
+    --accent-foreground: #0f172a;
+    --destructive: #f87171;
+    --destructive-foreground: #0f172a;
+    --border: #334155;
+    --input: #334155;
+    --ring: #0ea5e9;
   }
 }
 
