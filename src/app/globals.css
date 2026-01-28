@@ -1,41 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  /* HealthFlow Color Palette - Modern Professional Healthcare */
-  --background: #f8fafc;
-  --foreground: #1e293b;
-  --card: #ffffff;
-  --card-foreground: #1e293b;
-  --popover: #ffffff;
-  --popover-foreground: #1e293b;
-  --primary: #0369a1;
-  --primary-foreground: #ffffff;
-  --secondary: #e0f2fe;
-  --secondary-foreground: #0369a1;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #06b6d4;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #0369a1;
-  --radius: 0.5rem;
+  /* Modern Warm Palette - Professional Analytics */
+  --bg-primary: #f5f1ed;
+  --bg-secondary: #ede8e3;
+  --text-primary: #2c2419;
+  --text-secondary: #5c5850;
+  --primary: #c4704f;
+  --accent: #d9a854;
+  --border-color: #2c24191a;
+  --shadow: #2c241914;
+  --shadow-hover: #2c24191f;
+  --cream: #f5f1ed;
+  --chocolate: #2c2419;
+  --gold: #d9a854;
+  --coral: #c4704f;
+  --slate: #5c5850;
+  --sage: #9db5a0;
+  --shadow-brown: #2c241914;
+  --shadow-brown-hover: #2c24191f;
 
-  /* HealthFlow specific colors */
-  --healthflow-primary: #0369a1;
-  --healthflow-primary-light: #0ea5e9;
-  --healthflow-primary-dark: #075985;
-  --healthflow-secondary: #06b6d4;
-  --healthflow-success: #10b981;
-  --healthflow-success-light: #6ee7b7;
-  --healthflow-warning: #f59e0b;
-  --healthflow-danger: #ef4444;
-  --healthflow-info: #3b82f6;
-  --healthflow-neutral: #f8fafc;
-  --healthflow-text-light: #64748b;
-  --healthflow-text-muted: #94a3b8;
+  /* Standard CSS variables */
+  --background: #f5f1ed;
+  --foreground: #2c2419;
+  --card: #ffffff;
+  --card-foreground: #2c2419;
+  --primary-foreground: #2c2419;
+  --secondary: #5c5850;
+  --border: #2c24191a;
+  --radius: 16px;
+
+  /* Fonts */
+  --font-outfit: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  /* Spacing & Sizes */
+  --space-section: 160px;
+  --radius-card: 24px;
+  --radius-button: 100px;
+  --radius-small: 12px;
 }
 
 @theme inline {
