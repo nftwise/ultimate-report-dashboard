@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Search, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface ClientWithMetrics {
   id: string;
@@ -18,21 +17,11 @@ interface ClientWithMetrics {
   total_leads?: number;
 }
 
-interface MonthlyData {
-  month: string;
-  total_leads: number;
-  seo_forms: number;
-  gbp_calls: number;
-  ads_conversions: number;
-}
-
 export default function AdminDashboardPage() {
   const [clients, setClients] = useState<ClientWithMetrics[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
-  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   // Date range state
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => {
@@ -41,11 +30,11 @@ export default function AdminDashboardPage() {
     start.setDate(start.getDate() - 30);
     return { start, end };
   });
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectingStart, setSelectingStart] = useState(true);
 
   useEffect(() => {
     fetchData();
-    fetchMonthlyData();
   }, [dateRange]);
 
   const fetchData = async () => {
@@ -65,23 +54,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const fetchMonthlyData = async () => {
-    try {
-      setMonthlyLoading(true);
-      // Calculate days between start and end date
-      const daysBack = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
-      const response = await fetch(`/api/metrics/monthly-performance?daysBack=${daysBack}`);
-      const data = await response.json();
-
-      if (data.success && data.monthlyData) {
-        setMonthlyData(data.monthlyData);
-      }
-    } catch (err) {
-      console.error('Failed to load monthly data:', err);
-    } finally {
-      setMonthlyLoading(false);
-    }
-  };
 
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,130 +66,179 @@ export default function AdminDashboardPage() {
   const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
   const totalAdsConversions = clients.reduce((sum, c) => sum + (c.ads_conversions || 0), 0);
 
-  // Calculate monthly stats for the trend section
-  const monthlyStats = monthlyData.length > 0 ? (() => {
-    const leads = monthlyData.map(m => m.total_leads);
-    const maxLeads = Math.max(...leads);
-    const minLeads = Math.min(...leads);
-    const avgLeads = Math.round(leads.reduce((a, b) => a + b, 0) / leads.length);
-    const highestMonth = monthlyData[monthlyData.findIndex(m => m.total_leads === maxLeads)];
-    const lowestMonth = monthlyData[monthlyData.findIndex(m => m.total_leads === minLeads)];
-    return { highestMonth, lowestMonth, avgLeads };
-  })() : { highestMonth: null, lowestMonth: null, avgLeads: 0 };
+  // Helper function to get days in month
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  // Helper function to format date for calendar
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+  // Helper function to check if date is in range
+  const isDateInRange = (date: Date) => {
+    return date >= dateRange.start && date <= dateRange.end;
+  };
+
+  // Helper function to check if date is start or end
+  const isDateStart = (date: Date) => formatDate(date) === formatDate(dateRange.start);
+  const isDateEnd = (date: Date) => formatDate(date) === formatDate(dateRange.end);
+
+  // Handle date selection from calendar
+  const handleDateClick = (day: number) => {
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+
+    if (selectingStart) {
+      setDateRange({ start: selectedDate, end: dateRange.end });
+      setSelectingStart(false);
+    } else {
+      if (selectedDate < dateRange.start) {
+        setDateRange({ start: selectedDate, end: dateRange.start });
+      } else {
+        setDateRange({ start: dateRange.start, end: selectedDate });
+      }
+      setSelectingStart(true);
+    }
+  };
+
+  // Get calendar days
+  const getCalendarDays = () => {
+    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const lastDay = getDaysInMonth(currentMonth);
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+
+    // Previous month's days
+    const prevMonthDays = getDaysInMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      days.push({
+        day: prevMonthDays - i,
+        isCurrentMonth: false,
+        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, prevMonthDays - i)
+      });
+    }
+
+    // Current month's days
+    for (let i = 1; i <= lastDay; i++) {
+      days.push({
+        day: i,
+        isCurrentMonth: true,
+        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i)
+      });
+    }
+
+    // Next month's days
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({
+        day: i,
+        isCurrentMonth: false,
+        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, i)
+      });
+    }
+
+    return days;
+  };
+
+  const calendarDays = getCalendarDays();
+  const monthName = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Navigation */}
       <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
         <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Analytics</h1>
-
-        <div className="flex items-center gap-3">
-          {/* Quick Date Range Buttons */}
-          <div className="flex items-center gap-2">
-            {[
-              { label: '7 Days', days: 7 },
-              { label: '30 Days', days: 30 },
-              { label: '90 Days', days: 90 }
-            ].map((preset) => (
-              <button
-                key={preset.days}
-                onClick={() => {
-                  const end = new Date();
-                  const start = new Date();
-                  start.setDate(start.getDate() - preset.days);
-                  setDateRange({ start, end });
-                  setShowDatePicker(false);
-                }}
-                className="px-3 py-2 text-sm font-semibold rounded-lg transition"
-                style={{
-                  background:
-                    Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) === preset.days
-                      ? '#c4704f'
-                      : '#f5f1ed',
-                  color:
-                    Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) === preset.days
-                      ? '#fff'
-                      : '#2c2419',
-                  border: '1px solid rgba(44, 36, 25, 0.1)'
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Custom Date Range Picker */}
-          <div className="relative">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition"
-              style={{
-                background: '#f5f1ed',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                color: '#2c2419'
-              }}
-            >
-              <Calendar className="w-5 h-5" />
-              <span className="text-sm font-semibold">
-                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </span>
-            </button>
-
-            {/* Date Picker Popup */}
-            {showDatePicker && (
-              <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl p-4 z-50" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <div className="flex flex-col gap-4 w-64">
-                  <div>
-                    <label className="text-xs font-bold" style={{ color: '#5c5850' }}>Start Date</label>
-                    <input
-                      type="date"
-                      value={dateRange.start.toISOString().split('T')[0]}
-                      onChange={(e) => setDateRange({ ...dateRange, start: new Date(e.target.value) })}
-                      className="mt-1 px-3 py-2 border rounded w-full"
-                      style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold" style={{ color: '#5c5850' }}>End Date</label>
-                    <input
-                      type="date"
-                      value={dateRange.end.toISOString().split('T')[0]}
-                      onChange={(e) => setDateRange({ ...dateRange, end: new Date(e.target.value) })}
-                      className="mt-1 px-3 py-2 border rounded w-full"
-                      style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => setShowDatePicker(false)}
-                    className="px-4 py-2 rounded font-semibold text-white"
-                    style={{ background: '#c4704f' }}
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
         <div className="text-right hidden sm:block">
           <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
           <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
         </div>
-        </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className="text-white py-16 text-center" style={{ background: 'linear-gradient(135deg, #c4704f 0%, #d49a6a 100%)' }}>
-        <div className="text-xs uppercase tracking-wider opacity-90 mb-2">TEAM OVERVIEW</div>
-        <h1 className="text-5xl font-extrabold tracking-tight mb-2">Client Performance</h1>
-        <p className="opacity-80 font-medium">
-          {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </p>
+      {/* Calendar Section */}
+      <div className="py-12 px-4">
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          {/* Date Range Display */}
+          <div className="text-center mb-8">
+            <p className="text-sm font-semibold mb-2" style={{ color: '#5c5850' }}>Selected Date Range</p>
+            <div className="px-4 py-3 rounded-lg" style={{ background: '#f5f1ed', border: '2px solid #c4704f' }}>
+              <p className="text-lg font-bold" style={{ color: '#2c2419' }}>
+                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+            <p className="text-xs mt-3 font-medium" style={{ color: '#9ca3af' }}>
+              {selectingStart ? 'Click to select start date' : 'Click to select end date'}
+            </p>
+          </div>
+
+          {/* Calendar */}
+          <div className="bg-white rounded-xl p-6" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+            {/* Month Header */}
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <span style={{ color: '#2c2419', fontSize: '20px' }}>‹</span>
+              </button>
+              <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
+                {monthName}
+              </h3>
+              <button
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <span style={{ color: '#2c2419', fontSize: '20px' }}>›</span>
+              </button>
+            </div>
+
+            {/* Day Labels */}
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                <div key={day} className="text-center text-xs font-bold py-2" style={{ color: '#5c5850' }}>
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar Days */}
+            <div className="grid grid-cols-7 gap-2">
+              {calendarDays.map((dayObj, idx) => {
+                const isInRange = dayObj.isCurrentMonth && isDateInRange(dayObj.date);
+                const isStart = dayObj.isCurrentMonth && isDateStart(dayObj.date);
+                const isEnd = dayObj.isCurrentMonth && isDateEnd(dayObj.date);
+                const isSelectable = dayObj.isCurrentMonth;
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => isSelectable && handleDateClick(dayObj.day)}
+                    disabled={!isSelectable}
+                    className="py-3 text-sm font-semibold rounded-lg transition"
+                    style={{
+                      background:
+                        isStart || isEnd
+                          ? '#c4704f'
+                          : isInRange
+                          ? '#e8dfd7'
+                          : '#f5f1ed',
+                      color: isStart || isEnd ? '#fff' : '#2c2419',
+                      opacity: dayObj.isCurrentMonth ? 1 : 0.3,
+                      cursor: isSelectable ? 'pointer' : 'default',
+                      border: isStart || isEnd ? '2px solid #a85a3a' : '1px solid rgba(44, 36, 25, 0.1)'
+                    }}
+                  >
+                    {dayObj.day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards - Large Design */}
-      <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-60px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards */}
+      <div className="max-w-7xl mx-auto px-4 mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             {
               label: 'TOTAL CLIENTS',
@@ -272,148 +293,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 mt-12 pb-12">
-        {/* Monthly Leads Trend Chart */}
-        <div className="bg-white rounded-3xl p-8 shadow-lg mb-12" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          <h2 className="text-2xl font-extrabold mb-8" style={{ color: '#2c2419' }}>
-            Monthly Leads Trend
-          </h2>
-
-          {/* Chart */}
-          {monthlyLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>Loading chart data...</div>
-          ) : monthlyData.length > 0 ? (
-            <div>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: '#2c2419'
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="total_leads"
-                    stroke="#9db5a0"
-                    strokeWidth={3}
-                    dot={{ fill: '#9db5a0', r: 6 }}
-                    activeDot={{ r: 8 }}
-                    name="Total Leads"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-
-              {/* Chart Summary Stats */}
-              <div className="grid grid-cols-3 gap-8 mt-12 pt-8" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <div>
-                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Highest Month</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#c4704f' }}>{monthlyStats.highestMonth?.total_leads || 0}</p>
-                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>
-                    {monthlyStats.highestMonth?.month.split(' ')[0] || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Lowest Month</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#2c2419' }}>{monthlyStats.lowestMonth?.total_leads || 0}</p>
-                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>
-                    {monthlyStats.lowestMonth?.month.split(' ')[0] || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Average</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#d9a854' }}>{monthlyStats.avgLeads}</p>
-                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>PER MONTH</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>No data available for this period</div>
-          )}
-        </div>
-
-        {/* Channel Breakdown Chart */}
-        <div className="bg-white rounded-3xl p-8 shadow-lg mb-12" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          <h2 className="text-2xl font-extrabold mb-8" style={{ color: '#2c2419' }}>
-            Leads by Channel (Monthly)
-          </h2>
-
-          {monthlyData.length > 0 ? (
-            <div>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: '#2c2419'
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="seo_forms" fill="#9db5a0" name="SEO Forms" />
-                  <Bar dataKey="gbp_calls" fill="#60a5fa" name="GBP Calls" />
-                  <Bar dataKey="ads_conversions" fill="#d9a854" name="Ads Conversions" />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {/* Channel Summary Table */}
-              <div className="mt-12 pt-8" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Monthly Breakdown</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
-                        <th className="text-left py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Month</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Total Leads</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>SEO Forms</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>GBP Calls</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Ads Conv.</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>SEO %</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>GBP %</th>
-                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Ads %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monthlyData.map((month, idx) => {
-                        const seoPercent = month.total_leads > 0 ? ((month.seo_forms / month.total_leads) * 100).toFixed(1) : '0';
-                        const gbpPercent = month.total_leads > 0 ? ((month.gbp_calls / month.total_leads) * 100).toFixed(1) : '0';
-                        const adsPercent = month.total_leads > 0 ? ((month.ads_conversions / month.total_leads) * 100).toFixed(1) : '0';
-                        return (
-                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
-                            <td className="py-3 px-4 font-semibold" style={{ color: '#2c2419' }}>{month.month}</td>
-                            <td className="py-3 px-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>{month.total_leads}</td>
-                            <td className="py-3 px-4 text-center" style={{ color: '#9db5a0' }}>{month.seo_forms}</td>
-                            <td className="py-3 px-4 text-center" style={{ color: '#60a5fa' }}>{month.gbp_calls}</td>
-                            <td className="py-3 px-4 text-center" style={{ color: '#d9a854' }}>{month.ads_conversions}</td>
-                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#9db5a0' }}>{seoPercent}%</td>
-                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#60a5fa' }}>{gbpPercent}%</td>
-                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#d9a854' }}>{adsPercent}%</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-4 p-4 rounded" style={{ backgroundColor: '#f3f0ec' }}>
-                  <p className="text-xs" style={{ color: '#5c5850' }}>
-                    <strong>Note:</strong> Percentages show each channel's contribution to total leads. A lead may be counted in multiple channels if it comes from multiple sources.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>No data available for this period</div>
-          )}
-        </div>
+      <main className="max-w-7xl mx-auto px-4 pb-12">
 
         {/* Clients Table */}
         <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
