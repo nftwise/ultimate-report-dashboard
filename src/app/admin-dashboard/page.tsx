@@ -111,8 +111,42 @@ export default function AdminDashboardPage() {
       <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
         <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Analytics</h1>
 
-        <div className="flex items-center gap-6">
-          {/* Date Range Picker */}
+        <div className="flex items-center gap-3">
+          {/* Quick Date Range Buttons */}
+          <div className="flex items-center gap-2">
+            {[
+              { label: '7 Days', days: 7 },
+              { label: '30 Days', days: 30 },
+              { label: '90 Days', days: 90 }
+            ].map((preset) => (
+              <button
+                key={preset.days}
+                onClick={() => {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setDate(start.getDate() - preset.days);
+                  setDateRange({ start, end });
+                  setShowDatePicker(false);
+                }}
+                className="px-3 py-2 text-sm font-semibold rounded-lg transition"
+                style={{
+                  background:
+                    Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) === preset.days
+                      ? '#c4704f'
+                      : '#f5f1ed',
+                  color:
+                    Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) === preset.days
+                      ? '#fff'
+                      : '#2c2419',
+                  border: '1px solid rgba(44, 36, 25, 0.1)'
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Date Range Picker */}
           <div className="relative">
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
@@ -125,14 +159,14 @@ export default function AdminDashboardPage() {
             >
               <Calendar className="w-5 h-5" />
               <span className="text-sm font-semibold">
-                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
             </button>
 
             {/* Date Picker Popup */}
             {showDatePicker && (
               <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl p-4 z-50" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 w-64">
                   <div>
                     <label className="text-xs font-bold" style={{ color: '#5c5850' }}>Start Date</label>
                     <input
@@ -165,10 +199,10 @@ export default function AdminDashboardPage() {
             )}
           </div>
 
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
-          </div>
+        <div className="text-right hidden sm:block">
+          <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
+          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
+        </div>
         </div>
       </nav>
 
