@@ -30,8 +30,6 @@ export default function AdminDashboardPage() {
     start.setDate(start.getDate() - 30);
     return { start, end };
   });
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectingStart, setSelectingStart] = useState(true);
 
   useEffect(() => {
     fetchData();
@@ -66,82 +64,18 @@ export default function AdminDashboardPage() {
   const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
   const totalAdsConversions = clients.reduce((sum, c) => sum + (c.ads_conversions || 0), 0);
 
-  // Helper function to get days in month
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  // Get days difference
+  const getDaysDifference = () => {
+    return Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  // Helper function to format date for calendar
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
-
-  // Helper function to check if date is in range
-  const isDateInRange = (date: Date) => {
-    return date >= dateRange.start && date <= dateRange.end;
+  // Set date range by preset
+  const setPresetRange = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    setDateRange({ start, end });
   };
-
-  // Helper function to check if date is start or end
-  const isDateStart = (date: Date) => formatDate(date) === formatDate(dateRange.start);
-  const isDateEnd = (date: Date) => formatDate(date) === formatDate(dateRange.end);
-
-  // Handle date selection from calendar
-  const handleDateClick = (day: number) => {
-    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-
-    if (selectingStart) {
-      setDateRange({ start: selectedDate, end: dateRange.end });
-      setSelectingStart(false);
-    } else {
-      if (selectedDate < dateRange.start) {
-        setDateRange({ start: selectedDate, end: dateRange.start });
-      } else {
-        setDateRange({ start: dateRange.start, end: selectedDate });
-      }
-      setSelectingStart(true);
-    }
-  };
-
-  // Get calendar days
-  const getCalendarDays = () => {
-    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-    const lastDay = getDaysInMonth(currentMonth);
-    const startingDayOfWeek = firstDay.getDay();
-
-    const days = [];
-
-    // Previous month's days
-    const prevMonthDays = getDaysInMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      days.push({
-        day: prevMonthDays - i,
-        isCurrentMonth: false,
-        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, prevMonthDays - i)
-      });
-    }
-
-    // Current month's days
-    for (let i = 1; i <= lastDay; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: true,
-        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i)
-      });
-    }
-
-    // Next month's days
-    const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: false,
-        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, i)
-      });
-    }
-
-    return days;
-  };
-
-  const calendarDays = getCalendarDays();
-  const monthName = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -154,84 +88,42 @@ export default function AdminDashboardPage() {
         </div>
       </nav>
 
-      {/* Calendar Section */}
-      <div className="py-12 px-4">
-        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          {/* Date Range Display */}
-          <div className="text-center mb-8">
-            <p className="text-sm font-semibold mb-2" style={{ color: '#5c5850' }}>Selected Date Range</p>
-            <div className="px-4 py-3 rounded-lg" style={{ background: '#f5f1ed', border: '2px solid #c4704f' }}>
+      {/* Date Range Quick Select */}
+      <div className="py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Selected Date Range Display */}
+          <div className="text-center mb-6">
+            <div className="inline-block px-6 py-3 rounded-lg" style={{ background: '#f5f1ed', border: '2px solid #c4704f' }}>
               <p className="text-lg font-bold" style={{ color: '#2c2419' }}>
                 {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
-            <p className="text-xs mt-3 font-medium" style={{ color: '#9ca3af' }}>
-              {selectingStart ? 'Click to select start date' : 'Click to select end date'}
-            </p>
           </div>
 
-          {/* Calendar */}
-          <div className="bg-white rounded-xl p-6" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-            {/* Month Header */}
-            <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <span style={{ color: '#2c2419', fontSize: '20px' }}>‹</span>
-              </button>
-              <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
-                {monthName}
-              </h3>
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <span style={{ color: '#2c2419', fontSize: '20px' }}>›</span>
-              </button>
-            </div>
-
-            {/* Day Labels */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                <div key={day} className="text-center text-xs font-bold py-2" style={{ color: '#5c5850' }}>
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Days */}
-            <div className="grid grid-cols-7 gap-2">
-              {calendarDays.map((dayObj, idx) => {
-                const isInRange = dayObj.isCurrentMonth && isDateInRange(dayObj.date);
-                const isStart = dayObj.isCurrentMonth && isDateStart(dayObj.date);
-                const isEnd = dayObj.isCurrentMonth && isDateEnd(dayObj.date);
-                const isSelectable = dayObj.isCurrentMonth;
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => isSelectable && handleDateClick(dayObj.day)}
-                    disabled={!isSelectable}
-                    className="py-3 text-sm font-semibold rounded-lg transition"
-                    style={{
-                      background:
-                        isStart || isEnd
-                          ? '#c4704f'
-                          : isInRange
-                          ? '#e8dfd7'
-                          : '#f5f1ed',
-                      color: isStart || isEnd ? '#fff' : '#2c2419',
-                      opacity: dayObj.isCurrentMonth ? 1 : 0.3,
-                      cursor: isSelectable ? 'pointer' : 'default',
-                      border: isStart || isEnd ? '2px solid #a85a3a' : '1px solid rgba(44, 36, 25, 0.1)'
-                    }}
-                  >
-                    {dayObj.day}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Quick Preset Buttons */}
+          <div className="flex justify-center gap-3 flex-wrap">
+            {[
+              { label: '7 Days', days: 7 },
+              { label: '30 Days', days: 30 },
+              { label: '90 Days', days: 90 }
+            ].map((preset) => {
+              const isActive = getDaysDifference() === preset.days;
+              return (
+                <button
+                  key={preset.days}
+                  onClick={() => setPresetRange(preset.days)}
+                  className="px-6 py-3 rounded-lg font-semibold transition-all"
+                  style={{
+                    background: isActive ? '#c4704f' : '#fff',
+                    color: isActive ? '#fff' : '#2c2419',
+                    border: `2px solid ${isActive ? '#c4704f' : 'rgba(44, 36, 25, 0.1)'}`,
+                    boxShadow: isActive ? '0 4px 12px rgba(196, 112, 79, 0.2)' : 'none'
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
