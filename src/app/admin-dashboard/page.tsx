@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ClientWithMetrics {
   id: string;
@@ -17,15 +18,30 @@ interface ClientWithMetrics {
   total_leads?: number;
 }
 
+interface MonthlyData {
+  month: string;
+  total_leads: number;
+  seo_forms: number;
+  gbp_calls: number;
+  ads_conversions: number;
+}
+
 export default function AdminDashboardPage() {
   const [clients, setClients] = useState<ClientWithMetrics[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [daysBack, setDaysBack] = useState(30);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchMonthlyData(daysBack);
+  }, [daysBack]);
 
   const fetchData = async () => {
     try {
@@ -41,6 +57,22 @@ export default function AdminDashboardPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMonthlyData = async (days: number) => {
+    try {
+      setMonthlyLoading(true);
+      const response = await fetch(`/api/metrics/monthly-performance?daysBack=${days}`);
+      const data = await response.json();
+
+      if (data.success && data.monthlyData) {
+        setMonthlyData(data.monthlyData);
+      }
+    } catch (err) {
+      console.error('Failed to load monthly data:', err);
+    } finally {
+      setMonthlyLoading(false);
     }
   };
 
@@ -94,6 +126,75 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 mt-12 pb-12">
+        {/* Monthly Performance Chart */}
+        <div className="bg-white rounded-2xl p-8 shadow-lg mb-8" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h2 className="text-2xl font-extrabold" style={{ color: '#2c2419' }}>
+              Monthly Performance Trend
+            </h2>
+
+            {/* Date Range Selector */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: '7 Days', value: 7 },
+                { label: '30 Days', value: 30 },
+                { label: '90 Days', value: 90 },
+                { label: '180 Days', value: 180 }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setDaysBack(option.value)}
+                  className="px-4 py-2 rounded-lg font-medium transition-all text-sm"
+                  style={{
+                    background: daysBack === option.value ? '#c4704f' : '#f5f1ed',
+                    color: daysBack === option.value ? '#fff' : '#2c2419',
+                    border: `1px solid ${daysBack === option.value ? '#c4704f' : 'rgba(44, 36, 25, 0.1)'}`
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart */}
+          {monthlyLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>Loading chart data...</div>
+          ) : monthlyData.length > 0 ? (
+            <div>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="month"
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="total_leads" fill="#c4704f" name="Total Leads" />
+                  <Bar dataKey="ads_conversions" fill="#d9a854" name="Ads Conversions" />
+                  <Bar dataKey="seo_forms" fill="#9db5a0" name="SEO Forms" />
+                  <Bar dataKey="gbp_calls" fill="#5c5850" name="GBP Calls" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>No data available for this period</div>
+          )}
+        </div>
+
+        {/* Clients Table */}
         <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-2xl font-extrabold" style={{ color: '#2c2419' }}>
