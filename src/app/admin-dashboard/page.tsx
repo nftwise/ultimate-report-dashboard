@@ -278,17 +278,17 @@ export default function AdminDashboardPage() {
                       <td className="py-4 text-center">
                         <div className="text-sm font-semibold" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</div>
                         <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {client.total_leads > 0 ? `${((client.seo_form_submits || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                          {(client.total_leads || 0) > 0 ? `${((client.seo_form_submits || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
                         </div>
                       </td>
                       <td className="py-4 text-center">
                         <div className="text-sm font-semibold" style={{ color: '#d9a854' }}>{client.ads_conversions || 0}</div>
                         <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {client.total_leads > 0 ? `${((client.ads_conversions || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                          {(client.total_leads || 0) > 0 ? `${((client.ads_conversions || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
                         </div>
                       </td>
                       <td className="py-4 text-center text-sm" style={{ color: '#5c5850' }}>
-                        {client.total_leads > 0 && client.ads_conversions > 0
+                        {(client.total_leads || 0) > 0 && (client.ads_conversions || 0) > 0
                           ? `$${(20618 / (client.ads_conversions || 1)).toFixed(0)}`
                           : '—'
                         }
@@ -296,7 +296,7 @@ export default function AdminDashboardPage() {
                       <td className="py-4 text-center">
                         <div className="text-sm font-semibold" style={{ color: '#60a5fa' }}>{client.gbp_calls || 0}</div>
                         <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {client.total_leads > 0 ? `${((client.gbp_calls || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                          {(client.total_leads || 0) > 0 ? `${((client.gbp_calls || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
                         </div>
                       </td>
                       <td className="py-4 text-center">
