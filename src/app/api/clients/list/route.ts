@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    // Fetch all active clients with their service configurations (if any)
+    // Fetch all clients (active and inactive) with their service configurations (if any)
     // Using left join to include clients even without service_configs
     const { data: clients, error } = await supabaseAdmin
       .from('clients')
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
           callrail_account_id
         )
       `)
-      .eq('is_active', true)
       .order('name', { ascending: true })
 
     if (error) {
@@ -30,9 +29,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    // Get metrics for last 30 days
+    // Get metrics for last 365 days (12 months)
     const dateFrom = new Date()
-    dateFrom.setDate(dateFrom.getDate() - 30)
+    dateFrom.setDate(dateFrom.getDate() - 365)
     const dateFromStr = dateFrom.toISOString().split('T')[0]
 
     const { data: metrics, error: metricsError } = await supabaseAdmin
