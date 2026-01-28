@@ -83,6 +83,17 @@ export default function AdminDashboardPage() {
   const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
   const totalAdsConversions = clients.reduce((sum, c) => sum + (c.ads_conversions || 0), 0);
 
+  // Calculate monthly stats for the trend section
+  const monthlyStats = monthlyData.length > 0 ? (() => {
+    const leads = monthlyData.map(m => m.total_leads);
+    const maxLeads = Math.max(...leads);
+    const minLeads = Math.min(...leads);
+    const avgLeads = Math.round(leads.reduce((a, b) => a + b, 0) / leads.length);
+    const highestMonth = monthlyData[monthlyData.findIndex(m => m.total_leads === maxLeads)];
+    const lowestMonth = monthlyData[monthlyData.findIndex(m => m.total_leads === minLeads)];
+    return { highestMonth, lowestMonth, avgLeads };
+  })() : { highestMonth: null, lowestMonth: null, avgLeads: 0 };
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Navigation */}
@@ -201,17 +212,21 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-3 gap-8 mt-12 pt-8" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
                 <div>
                   <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Highest Month</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#c4704f' }}>94</p>
-                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>OCT</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#c4704f' }}>{monthlyStats.highestMonth?.total_leads || 0}</p>
+                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>
+                    {monthlyStats.highestMonth?.month.split(' ')[0] || '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Lowest Month</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#2c2419' }}>53</p>
-                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>JAN</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#2c2419' }}>{monthlyStats.lowestMonth?.total_leads || 0}</p>
+                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>
+                    {monthlyStats.lowestMonth?.month.split(' ')[0] || '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Average</p>
-                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#d9a854' }}>74</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#d9a854' }}>{monthlyStats.avgLeads}</p>
                   <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>PER MONTH</p>
                 </div>
               </div>
