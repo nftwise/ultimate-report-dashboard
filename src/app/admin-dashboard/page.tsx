@@ -253,11 +253,11 @@ export default function AdminDashboardPage() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
                     <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Client Name</th>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>City</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Total Leads</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>SEO Forms</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>SEO Form Fill</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Google Ads Conv.</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>CPL</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>GBP Calls</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Ads Conv.</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Status</th>
                   </tr>
                 </thead>
@@ -265,20 +265,40 @@ export default function AdminDashboardPage() {
                   {filteredClients.map((client) => (
                     <tr
                       key={client.id}
-                      className="transition"
+                      className="transition hover:bg-slate-50"
                       style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(44, 36, 25, 0.02)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <td className="py-4">
+                      <td className="py-4 px-2">
                         <div className="font-bold text-sm" style={{ color: '#2c2419' }}>{client.name}</div>
                         <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
                       </td>
-                      <td className="py-4 text-sm" style={{ color: '#5c5850' }}>{client.city || '-'}</td>
-                      <td className="py-4 text-center font-semibold" style={{ color: '#c4704f' }}>{client.total_leads || 0}</td>
-                      <td className="py-4 text-center" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</td>
-                      <td className="py-4 text-center" style={{ color: '#d9a854' }}>{client.gbp_calls || 0}</td>
-                      <td className="py-4 text-center" style={{ color: '#5c5850' }}>{client.ads_conversions || 0}</td>
+                      <td className="py-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
+                        {client.total_leads || 0}
+                      </td>
+                      <td className="py-4 text-center">
+                        <div className="text-sm font-semibold" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</div>
+                        <div className="text-xs" style={{ color: '#9ca3af' }}>
+                          {client.total_leads > 0 ? `${((client.seo_form_submits || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                        </div>
+                      </td>
+                      <td className="py-4 text-center">
+                        <div className="text-sm font-semibold" style={{ color: '#d9a854' }}>{client.ads_conversions || 0}</div>
+                        <div className="text-xs" style={{ color: '#9ca3af' }}>
+                          {client.total_leads > 0 ? `${((client.ads_conversions || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                        </div>
+                      </td>
+                      <td className="py-4 text-center text-sm" style={{ color: '#5c5850' }}>
+                        {client.total_leads > 0 && client.ads_conversions > 0
+                          ? `$${(20618 / (client.ads_conversions || 1)).toFixed(0)}`
+                          : '—'
+                        }
+                      </td>
+                      <td className="py-4 text-center">
+                        <div className="text-sm font-semibold" style={{ color: '#60a5fa' }}>{client.gbp_calls || 0}</div>
+                        <div className="text-xs" style={{ color: '#9ca3af' }}>
+                          {client.total_leads > 0 ? `${((client.gbp_calls || 0) / client.total_leads * 100).toFixed(0)}%` : '—'}
+                        </div>
+                      </td>
                       <td className="py-4 text-center">
                         <span
                           className="text-xs font-bold px-3 py-1 rounded-full"
