@@ -9,27 +9,83 @@ interface Client {
   name: string;
   city: string;
   is_active: boolean;
+  services?: string[];
+  metrics?: {
+    leads: number;
+    conversions: number;
+    calls: number;
+    cpl: number;
+    healthScore: number;
+  };
+  trendChange?: number;
+}
+
+interface DashboardStats {
+  totalClients: number;
+  activeClients: number;
+  totalLeads: number;
+  totalAdSpend: number;
+  avgCPL: number;
+  changes: {
+    clients: number;
+    leads: number;
+    conversions: number;
+    calls: number;
+    cpl: number;
+  };
+}
+
+interface TrendData {
+  month: string;
+  value: number;
+}
+
+interface TrendSummary {
+  highest: number;
+  lowest: number;
+  average: number;
+  trend: 'up' | 'down' | 'stable';
 }
 
 export default function AdminDashboardPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [trendData, setTrendData] = useState<TrendData[]>([]);
+  const [trendSummary, setTrendSummary] = useState<TrendSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchClients();
+    fetchAllData();
   }, []);
 
-  const fetchClients = async () => {
+  const fetchAllData = async () => {
     try {
-      const response = await fetch('/api/clients/list');
-      const data = await response.json();
-      setClients(data.clients || []);
+      // Fetch all data in parallel
+      const [clientsRes, statsRes, trendRes] = await Promise.all([
+        fetch('/api/clients/list'),
+        fetch('/api/admin/dashboard-stats'),
+        fetch('/api/admin/monthly-leads-trend')
+      ]);
+
+      const clientsData = await clientsRes.json();
+      const statsData = await statsRes.json();
+      const trendDataRes = await trendRes.json();
+
+      if (clientsData.success) {
+        setClients(clientsData.clients || []);
+      }
+
+      if (statsData.success) {
+        setStats(statsData.data);
+      }
+
+      if (trendDataRes.success) {
+        setTrendData(trendDataRes.data || []);
+        setTrendSummary(trendDataRes.summary || null);
+      }
     } catch (error) {
-      console.error('Error fetching clients:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching data:', error);
     }
   };
 
@@ -38,11 +94,19 @@ export default function AdminDashboardPage() {
     client.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const stats = {
+  const displayStats = stats || {
     totalClients: clients.length,
     activeClients: clients.filter(c => c.is_active).length,
-    totalLeads: 443,
-    totalSpend: '$20,618'
+    totalLeads: 0,
+    totalAdSpend: 0,
+    avgCPL: 0,
+    changes: {
+      clients: 0,
+      leads: 0,
+      conversions: 0,
+      calls: 0,
+      cpl: 0
+    }
   };
 
   return (
@@ -72,10 +136,30 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-60px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pl-6 pr-6">
           {[
-            { label: 'TOTAL CLIENTS', value: stats.totalClients, change: '+12.5%', trend: 'up' },
-            { label: 'TOTAL LEADS', value: stats.totalLeads, change: '+8.3%', trend: 'up' },
-            { label: 'TOTAL AD SPEND', value: stats.totalSpend, change: '-2.1%', trend: 'down' },
-            { label: 'AVG. COST PER LEAD', value: '$58', change: '-5.7%', trend: 'down' }
+            {
+              label: 'TOTAL CLIENTS',
+              value: displayStats.totalClients,
+              change: `${displayStats.changes.clients > 0 ? '+' : ''}${displayStats.changes.clients.toFixed(1)}%`,
+              trend: displayStats.changes.clients >= 0 ? 'up' : 'down'
+            },
+            {
+              label: 'TOTAL LEADS',
+              value: displayStats.totalLeads,
+              change: `${displayStats.changes.leads > 0 ? '+' : ''}${displayStats.changes.leads.toFixed(1)}%`,
+              trend: displayStats.changes.leads >= 0 ? 'up' : 'down'
+            },
+            {
+              label: 'TOTAL AD SPEND',
+              value: `$${displayStats.totalAdSpend.toLocaleString()}`,
+              change: `${displayStats.changes.conversions > 0 ? '+' : ''}${displayStats.changes.conversions.toFixed(1)}%`,
+              trend: displayStats.changes.conversions >= 0 ? 'up' : 'down'
+            },
+            {
+              label: 'AVG. COST PER LEAD',
+              value: `$${displayStats.avgCPL.toFixed(2)}`,
+              change: `${displayStats.changes.cpl > 0 ? '+' : ''}${displayStats.changes.cpl.toFixed(1)}%`,
+              trend: displayStats.changes.cpl >= 0 ? 'up' : 'down'
+            }
           ].map((stat, i) => (
             <div key={i} className="bg-white rounded-3xl p-6 shadow-lg transition-all hover:shadow-xl hover:-translate-y-1" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850' }}>{stat.label}</p>
@@ -85,7 +169,7 @@ export default function AdminDashboardPage() {
                   {stat.trend === 'up' ? '↑' : '↓'} {stat.change}
                 </span>
                 <span style={{ color: '#5c5850' }}>vs last month</span>
-                <span style={{ color: '#5c5850', fontSize: '10px' }}>5m ago</span>
+                <span style={{ color: '#5c5850', fontSize: '10px' }}>now</span>
               </div>
             </div>
           ))}
@@ -97,31 +181,43 @@ export default function AdminDashboardPage() {
         {/* Monthly Leads Trend */}
         <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
           <h2 className="text-3xl font-extrabold mb-6" style={{ color: '#2c2419' }}>Monthly Leads Trend</h2>
-          <div className="h-80 mb-8 flex items-end justify-between">
-            {[{ month: 'Aug', value: 74 }, { month: 'Sep', value: 88 }, { month: 'Oct', value: 94 }, { month: 'Nov', value: 78 }, { month: 'Dec', value: 59 }, { month: 'Jan', value: 53 }].map((data, i) => (
-              <div key={i} className="flex flex-col items-center" style={{ flex: 1 }}>
-                <div className="w-8 rounded-t" style={{ height: `${(data.value / 94) * 100}%`, background: '#9db5a0' }}></div>
-                <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>{data.month}</p>
+          {trendData.length > 0 && trendSummary ? (
+            <>
+              <div className="h-80 mb-8 flex items-end justify-between">
+                {trendData.map((data, i) => (
+                  <div key={i} className="flex flex-col items-center" style={{ flex: 1 }}>
+                    <div className="w-8 rounded-t" style={{ height: `${trendSummary.highest > 0 ? (data.value / trendSummary.highest) * 100 : 0}%`, background: '#9db5a0' }}></div>
+                    <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>{data.month}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-8 border-t pt-6 text-center" style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}>
-            <div>
-              <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Highest Month</p>
-              <p className="text-xl font-bold" style={{ color: '#c4704f' }}>94</p>
-              <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>Oct</p>
+              <div className="grid grid-cols-3 gap-8 border-t pt-6 text-center" style={{ borderColor: 'rgba(44, 36, 25, 0.1)' }}>
+                <div>
+                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Highest Month</p>
+                  <p className="text-xl font-bold" style={{ color: '#c4704f' }}>{trendSummary.highest}</p>
+                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>
+                    {trendData.find(d => d.value === trendSummary.highest)?.month || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Lowest Month</p>
+                  <p className="text-xl font-bold" style={{ color: '#2c2419' }}>{trendSummary.lowest}</p>
+                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>
+                    {trendData.find(d => d.value === trendSummary.lowest)?.month || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Average</p>
+                  <p className="text-xl font-bold" style={{ color: '#9db5a0' }}>{trendSummary.average}</p>
+                  <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>per month</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5c5850' }}>
+              Loading trend data...
             </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Lowest Month</p>
-              <p className="text-xl font-bold" style={{ color: '#2c2419' }}>53</p>
-              <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>Jan</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: '#5c5850' }}>Average</p>
-              <p className="text-xl font-bold" style={{ color: '#9db5a0' }}>74</p>
-              <p className="text-[10px] uppercase" style={{ color: '#5c5850' }}>per month</p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Client Performance Table */}
