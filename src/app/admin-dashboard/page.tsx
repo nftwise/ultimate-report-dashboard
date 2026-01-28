@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ClientWithMetrics {
   id: string;
@@ -228,6 +228,84 @@ export default function AdminDashboardPage() {
                   <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Average</p>
                   <p className="text-3xl font-extrabold mb-1" style={{ color: '#d9a854' }}>{monthlyStats.avgLeads}</p>
                   <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>PER MONTH</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>No data available for this period</div>
+          )}
+        </div>
+
+        {/* Channel Breakdown Chart */}
+        <div className="bg-white rounded-3xl p-8 shadow-lg mb-12" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <h2 className="text-2xl font-extrabold mb-8" style={{ color: '#2c2419' }}>
+            Leads by Channel (Monthly)
+          </h2>
+
+          {monthlyData.length > 0 ? (
+            <div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      color: '#2c2419'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="seo_forms" fill="#9db5a0" name="SEO Forms" />
+                  <Bar dataKey="gbp_calls" fill="#60a5fa" name="GBP Calls" />
+                  <Bar dataKey="ads_conversions" fill="#d9a854" name="Ads Conversions" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Channel Summary Table */}
+              <div className="mt-12 pt-8" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Monthly Breakdown</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
+                        <th className="text-left py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Month</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Total Leads</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>SEO Forms</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>GBP Calls</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Ads Conv.</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>SEO %</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>GBP %</th>
+                        <th className="text-center py-3 px-4 font-bold" style={{ color: '#5c5850' }}>Ads %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyData.map((month, idx) => {
+                        const seoPercent = month.total_leads > 0 ? ((month.seo_forms / month.total_leads) * 100).toFixed(1) : '0';
+                        const gbpPercent = month.total_leads > 0 ? ((month.gbp_calls / month.total_leads) * 100).toFixed(1) : '0';
+                        const adsPercent = month.total_leads > 0 ? ((month.ads_conversions / month.total_leads) * 100).toFixed(1) : '0';
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
+                            <td className="py-3 px-4 font-semibold" style={{ color: '#2c2419' }}>{month.month}</td>
+                            <td className="py-3 px-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>{month.total_leads}</td>
+                            <td className="py-3 px-4 text-center" style={{ color: '#9db5a0' }}>{month.seo_forms}</td>
+                            <td className="py-3 px-4 text-center" style={{ color: '#60a5fa' }}>{month.gbp_calls}</td>
+                            <td className="py-3 px-4 text-center" style={{ color: '#d9a854' }}>{month.ads_conversions}</td>
+                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#9db5a0' }}>{seoPercent}%</td>
+                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#60a5fa' }}>{gbpPercent}%</td>
+                            <td className="py-3 px-4 text-center text-xs" style={{ color: '#d9a854' }}>{adsPercent}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 p-4 rounded" style={{ backgroundColor: '#f3f0ec' }}>
+                  <p className="text-xs" style={{ color: '#5c5850' }}>
+                    <strong>Note:</strong> Percentages show each channel's contribution to total leads. A lead may be counted in multiple channels if it comes from multiple sources.
+                  </p>
                 </div>
               </div>
             </div>
