@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ClientWithMetrics {
   id: string;
@@ -30,6 +30,8 @@ export default function AdminDashboardPage() {
     start.setDate(start.getDate() - 30);
     return { start, end };
   });
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   useEffect(() => {
     fetchData();
@@ -75,49 +77,95 @@ export default function AdminDashboardPage() {
     const start = new Date();
     start.setDate(start.getDate() - days);
     setDateRange({ start, end });
+    setShowCalendar(false);
   };
+
+  // Calendar helpers
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const getCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(calendarMonth);
+    const firstDay = getFirstDayOfMonth(calendarMonth);
+    const days = [];
+
+    // Empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    // Days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+
+    return days;
+  };
+
+  const isDateSelected = (day: number) => {
+    const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+    return (
+      checkDate.toDateString() === dateRange.start.toDateString() ||
+      checkDate.toDateString() === dateRange.end.toDateString()
+    );
+  };
+
+  const isDateInRange = (day: number) => {
+    const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+    return checkDate >= dateRange.start && checkDate <= dateRange.end;
+  };
+
+  const handleDayClick = (day: number) => {
+    const clickedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+
+    if (clickedDate < dateRange.start) {
+      setDateRange({ start: clickedDate, end: dateRange.end });
+    } else if (clickedDate > dateRange.end) {
+      setDateRange({ start: dateRange.start, end: clickedDate });
+    } else {
+      setDateRange({ start: clickedDate, end: clickedDate });
+    }
+  };
+
+  const calendarDays = getCalendarDays();
+  const monthName = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Navigation */}
-      <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50" style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-        <h1 className="text-2xl font-bold" style={{ color: '#2c2419' }}>Analytics</h1>
-        <div className="text-right hidden sm:block">
-          <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
-        </div>
-      </nav>
+      {/* Navigation Bar */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4" style={{ background: '#f5f1ed', borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
+        <h1 className="text-3xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
 
-      {/* Date Range Quick Select */}
-      <div className="py-8 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Selected Date Range Display */}
-          <div className="text-center mb-6">
-            <div className="inline-block px-6 py-3 rounded-lg" style={{ background: '#f5f1ed', border: '2px solid #c4704f' }}>
-              <p className="text-lg font-bold" style={{ color: '#2c2419' }}>
-                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Preset Buttons */}
-          <div className="flex justify-center gap-3 flex-wrap">
+        <div className="flex items-center gap-6">
+          {/* Quick Select Buttons */}
+          <div className="flex gap-2">
             {[
-              { label: '7 Days', days: 7 },
               { label: '30 Days', days: 30 },
-              { label: '90 Days', days: 90 }
+              { label: '90 Days', days: 90 },
+              { label: 'Last Month', days: -1 }
             ].map((preset) => {
-              const isActive = getDaysDifference() === preset.days;
+              const isActive = preset.days === -1 ? false : getDaysDifference() === preset.days;
               return (
                 <button
-                  key={preset.days}
-                  onClick={() => setPresetRange(preset.days)}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all"
+                  key={preset.label}
+                  onClick={() => {
+                    if (preset.days === -1) {
+                      const end = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
+                      const start = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+                      setDateRange({ start, end });
+                    } else {
+                      setPresetRange(preset.days);
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-semibold rounded transition"
                   style={{
-                    background: isActive ? '#c4704f' : '#fff',
-                    color: isActive ? '#fff' : '#2c2419',
-                    border: `2px solid ${isActive ? '#c4704f' : 'rgba(44, 36, 25, 0.1)'}`,
-                    boxShadow: isActive ? '0 4px 12px rgba(196, 112, 79, 0.2)' : 'none'
+                    background: isActive ? '#c4704f' : 'transparent',
+                    color: isActive ? '#fff' : '#5c5850'
                   }}
                 >
                   {preset.label}
@@ -125,8 +173,92 @@ export default function AdminDashboardPage() {
               );
             })}
           </div>
+
+          {/* Date Range Box */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="flex items-center gap-3 px-6 py-3 rounded-lg transition"
+              style={{
+                background: '#fff',
+                border: '2px solid #c4704f',
+                color: '#2c2419'
+              }}
+            >
+              <Calendar className="w-5 h-5" style={{ color: '#c4704f' }} />
+              <span className="font-bold text-sm">
+                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            </button>
+
+            {/* Calendar Popup */}
+            {showCalendar && (
+              <div className="absolute right-0 top-full mt-3 bg-white rounded-lg shadow-2xl p-6 z-50 w-80" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                {/* Month Navigation */}
+                <div className="flex items-center justify-between mb-6">
+                  <button
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                    className="p-2 hover:bg-gray-100 rounded transition"
+                  >
+                    <ChevronLeft className="w-5 h-5" style={{ color: '#2c2419' }} />
+                  </button>
+                  <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
+                    {monthName}
+                  </h3>
+                  <button
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                    className="p-2 hover:bg-gray-100 rounded transition"
+                  >
+                    <ChevronRight className="w-5 h-5" style={{ color: '#2c2419' }} />
+                  </button>
+                </div>
+
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 gap-2 mb-4">
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                    <div key={day} className="text-center text-xs font-bold py-2" style={{ color: '#5c5850' }}>
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-2">
+                  {calendarDays.map((day, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => day !== null && handleDayClick(day)}
+                      disabled={day === null}
+                      className="py-3 text-sm font-semibold rounded transition"
+                      style={{
+                        background:
+                          day === null
+                            ? 'transparent'
+                            : isDateSelected(day)
+                            ? '#c4704f'
+                            : isDateInRange(day)
+                            ? '#e8dfd7'
+                            : '#f5f1ed',
+                        color: day !== null && isDateSelected(day) ? '#fff' : '#2c2419',
+                        cursor: day !== null ? 'pointer' : 'default',
+                        opacity: day !== null ? 1 : 0
+                      }}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        {/* Admin Info */}
+        <div className="text-right hidden sm:block">
+          <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
+          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
+        </div>
+      </nav>
 
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 mt-12">
