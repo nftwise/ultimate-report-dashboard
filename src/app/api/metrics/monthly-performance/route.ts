@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const daysBack = parseInt(searchParams.get('daysBack') || '30')
+    const daysBack = parseInt(searchParams.get('daysBack') || '365')
 
     // Calculate date range
     const dateFrom = new Date()

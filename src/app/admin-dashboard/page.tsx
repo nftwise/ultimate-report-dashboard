@@ -32,16 +32,12 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
-  const [daysBack, setDaysBack] = useState(30);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
+    fetchMonthlyData();
   }, []);
-
-  useEffect(() => {
-    fetchMonthlyData(daysBack);
-  }, [daysBack]);
 
   const fetchData = async () => {
     try {
@@ -60,10 +56,10 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const fetchMonthlyData = async (days: number) => {
+  const fetchMonthlyData = async () => {
     try {
       setMonthlyLoading(true);
-      const response = await fetch(`/api/metrics/monthly-performance?daysBack=${days}`);
+      const response = await fetch('/api/metrics/monthly-performance?daysBack=365');
       const data = await response.json();
 
       if (data.success && data.monthlyData) {
@@ -116,38 +112,38 @@ export default function AdminDashboardPage() {
               value: clients.length,
               trend: '+12.5%',
               trendType: 'up',
-              trendLabel: 'vs last month',
-              timeLabel: '5m ago'
+              trendLabel: 'vs last month'
             },
             {
               label: 'TOTAL LEADS',
               value: totalLeads,
               trend: '+8.3%',
               trendType: 'up',
-              trendLabel: 'vs last month',
-              timeLabel: '5m ago'
+              trendLabel: 'vs last month'
             },
             {
               label: 'TOTAL AD SPEND',
               value: '$20,618',
               trend: '-2.1%',
               trendType: 'down',
-              trendLabel: 'optimization',
-              timeLabel: '5m ago'
+              trendLabel: 'optimization'
             },
             {
               label: 'AVG. COST PER LEAD',
               value: '$58',
               trend: '-5.7%',
               trendType: 'down',
-              trendLabel: 'efficiency',
-              timeLabel: '5m ago'
+              trendLabel: 'efficiency'
             }
           ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-xl cursor-pointer"
+              style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}
+            >
               <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850' }}>{stat.label}</p>
               <p className="text-4xl font-extrabold mb-4" style={{ color: '#2c2419' }}>{stat.value}</p>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1" style={{ color: stat.trendType === 'up' ? '#10b981' : '#ef4444' }}>
                   {stat.trendType === 'up' ? (
                     <TrendingUp className="w-4 h-4" />
@@ -158,7 +154,6 @@ export default function AdminDashboardPage() {
                 </div>
                 <span className="text-xs" style={{ color: '#9ca3af' }}>{stat.trendLabel}</span>
               </div>
-              <p className="text-xs" style={{ color: '#9ca3af' }}>{stat.timeLabel}</p>
             </div>
           ))}
         </div>
