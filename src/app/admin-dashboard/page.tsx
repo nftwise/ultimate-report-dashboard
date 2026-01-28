@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Calendar } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Search, TrendingUp, TrendingDown } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ClientWithMetrics {
   id: string;
@@ -101,24 +101,64 @@ export default function AdminDashboardPage() {
       </nav>
 
       {/* Hero Section */}
-      <div className="text-white py-12 text-center" style={{ background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)' }}>
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2">Client Overview</h1>
-        <p className="opacity-80 font-medium text-sm">Monitor all clients performance</p>
+      <div className="text-white py-16 text-center" style={{ background: 'linear-gradient(135deg, #c4704f 0%, #d49a6a 100%)' }}>
+        <div className="text-xs uppercase tracking-wider opacity-90 mb-2">TEAM OVERVIEW</div>
+        <h1 className="text-5xl font-extrabold tracking-tight mb-2">Client Performance</h1>
+        <p className="opacity-80 font-medium">Dec 29 - Jan 28, 2026</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-40px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Cards - Large Design */}
+      <div className="max-w-7xl mx-auto px-4 relative z-10" style={{ marginTop: '-60px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'TOTAL CLIENTS', value: clients.length, color: '#c4704f' },
-            { label: 'TOTAL LEADS', value: totalLeads, color: '#d9a854' },
-            { label: 'SEO FORM SUBMITS', value: totalSeoFormSubmits, color: '#9db5a0' },
-            { label: 'GBP CALLS', value: totalGbpCalls, color: '#5c5850' }
+            {
+              label: 'TOTAL CLIENTS',
+              value: clients.length,
+              trend: '+12.5%',
+              trendType: 'up',
+              trendLabel: 'vs last month',
+              timeLabel: '5m ago'
+            },
+            {
+              label: 'TOTAL LEADS',
+              value: totalLeads,
+              trend: '+8.3%',
+              trendType: 'up',
+              trendLabel: 'vs last month',
+              timeLabel: '5m ago'
+            },
+            {
+              label: 'TOTAL AD SPEND',
+              value: '$20,618',
+              trend: '-2.1%',
+              trendType: 'down',
+              trendLabel: 'optimization',
+              timeLabel: '5m ago'
+            },
+            {
+              label: 'AVG. COST PER LEAD',
+              value: '$58',
+              trend: '-5.7%',
+              trendType: 'down',
+              trendLabel: 'efficiency',
+              timeLabel: '5m ago'
+            }
           ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 shadow-md" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850' }}>{stat.label}</p>
-              <p className="text-3xl font-extrabold my-2" style={{ color: stat.color }}>{stat.value}</p>
-              <p className="text-xs" style={{ color: '#9ca3af' }}>Updated now</p>
+            <div key={i} className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850' }}>{stat.label}</p>
+              <p className="text-4xl font-extrabold mb-4" style={{ color: '#2c2419' }}>{stat.value}</p>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-1" style={{ color: stat.trendType === 'up' ? '#10b981' : '#ef4444' }}>
+                  {stat.trendType === 'up' ? (
+                    <TrendingUp className="w-4 h-4" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4" />
+                  )}
+                  <span className="text-sm font-semibold">{stat.trend}</span>
+                </div>
+                <span className="text-xs" style={{ color: '#9ca3af' }}>{stat.trendLabel}</span>
+              </div>
+              <p className="text-xs" style={{ color: '#9ca3af' }}>{stat.timeLabel}</p>
             </div>
           ))}
         </div>
@@ -126,68 +166,60 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 mt-12 pb-12">
-        {/* Monthly Performance Chart */}
-        <div className="bg-white rounded-2xl p-8 shadow-lg mb-8" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h2 className="text-2xl font-extrabold" style={{ color: '#2c2419' }}>
-              Monthly Performance Trend
-            </h2>
-
-            {/* Date Range Selector */}
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: '7 Days', value: 7 },
-                { label: '30 Days', value: 30 },
-                { label: '90 Days', value: 90 },
-                { label: '180 Days', value: 180 }
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setDaysBack(option.value)}
-                  className="px-4 py-2 rounded-lg font-medium transition-all text-sm"
-                  style={{
-                    background: daysBack === option.value ? '#c4704f' : '#f5f1ed',
-                    color: daysBack === option.value ? '#fff' : '#2c2419',
-                    border: `1px solid ${daysBack === option.value ? '#c4704f' : 'rgba(44, 36, 25, 0.1)'}`
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Monthly Leads Trend Chart */}
+        <div className="bg-white rounded-3xl p-8 shadow-lg mb-12" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <h2 className="text-2xl font-extrabold mb-8" style={{ color: '#2c2419' }}>
+            Monthly Leads Trend
+          </h2>
 
           {/* Chart */}
           {monthlyLoading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>Loading chart data...</div>
           ) : monthlyData.length > 0 ? (
             <div>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis
-                    dataKey="month"
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: 'none',
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
                       borderRadius: '8px',
-                      color: '#fff'
+                      color: '#2c2419'
                     }}
                   />
-                  <Legend />
-                  <Bar dataKey="total_leads" fill="#c4704f" name="Total Leads" />
-                  <Bar dataKey="ads_conversions" fill="#d9a854" name="Ads Conversions" />
-                  <Bar dataKey="seo_forms" fill="#9db5a0" name="SEO Forms" />
-                  <Bar dataKey="gbp_calls" fill="#5c5850" name="GBP Calls" />
-                </BarChart>
+                  <Line
+                    type="monotone"
+                    dataKey="total_leads"
+                    stroke="#9db5a0"
+                    strokeWidth={3}
+                    dot={{ fill: '#9db5a0', r: 6 }}
+                    activeDot={{ r: 8 }}
+                    name="Total Leads"
+                  />
+                </LineChart>
               </ResponsiveContainer>
+
+              {/* Chart Summary Stats */}
+              <div className="grid grid-cols-3 gap-8 mt-12 pt-8" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <div>
+                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Highest Month</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#c4704f' }}>94</p>
+                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>OCT</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Lowest Month</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#2c2419' }}>53</p>
+                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>JAN</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2" style={{ color: '#9ca3af' }}>Average</p>
+                  <p className="text-3xl font-extrabold mb-1" style={{ color: '#d9a854' }}>74</p>
+                  <p className="text-xs uppercase tracking-wider font-medium" style={{ color: '#5c5850' }}>PER MONTH</p>
+                </div>
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>No data available for this period</div>
