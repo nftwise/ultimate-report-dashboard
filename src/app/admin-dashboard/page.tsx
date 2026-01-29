@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Search, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ClientWithMetrics {
@@ -419,13 +420,17 @@ export default function AdminDashboardPage() {
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => (
+                    <Link key={client.id} href={`/admin-dashboard/${client.slug}`}>
                     <tr
-                      key={client.id}
-                      className="transition hover:bg-slate-50"
+                      className="transition hover:bg-slate-100 cursor-pointer"
                       style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}
                     >
                       <td className="py-4 px-2">
-                        <div className="font-bold text-sm" style={{ color: '#2c2419' }}>{client.name}</div>
+                        <Link href={`/admin-dashboard/${client.slug}`}>
+                          <div className="font-bold text-sm hover:underline cursor-pointer" style={{ color: '#c4704f' }}>
+                            {client.name}
+                          </div>
+                        </Link>
                         <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
                       </td>
                       <td className="py-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
@@ -468,6 +473,7 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                     </tr>
+                    </Link>
                   ))}
                 </tbody>
               </table>
