@@ -394,7 +394,7 @@ export default function AdminDashboardPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search clients by name or slug..."
               className="w-full pl-10 pr-4 py-3 border rounded-lg transition-all focus:outline-none focus:ring-2"
-              style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419', focusColor: '#c4704f' }}
+              style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419' }}
             />
           </div>
 
