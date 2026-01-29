@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Date range state
-  const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => {
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 30);
@@ -32,9 +32,13 @@ export default function AdminDashboardPage() {
   });
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [selectingStart, setSelectingStart] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    // Only fetch if both dates are selected AND they've been confirmed
+    if (dateRange.start && dateRange.end) {
+      fetchData();
+    }
   }, [dateRange]);
 
   const fetchData = async () => {
@@ -68,6 +72,7 @@ export default function AdminDashboardPage() {
 
   // Get days difference
   const getDaysDifference = () => {
+    if (!dateRange.start || !dateRange.end) return 0;
     return Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
   };
 
@@ -110,28 +115,38 @@ export default function AdminDashboardPage() {
   const isDateSelected = (day: number) => {
     const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
     return (
-      checkDate.toDateString() === dateRange.start.toDateString() ||
-      checkDate.toDateString() === dateRange.end.toDateString()
+      (dateRange.start && checkDate.toDateString() === dateRange.start.toDateString()) ||
+      (dateRange.end && checkDate.toDateString() === dateRange.end.toDateString())
     );
   };
 
   const isDateInRange = (day: number) => {
     const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+    if (!dateRange.start || !dateRange.end) return false;
     return checkDate >= dateRange.start && checkDate <= dateRange.end;
   };
 
   const handleDayClick = (day: number) => {
     const clickedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
 
-    if (clickedDate < dateRange.start) {
-      setDateRange({ start: clickedDate, end: dateRange.end });
-    } else if (clickedDate > dateRange.end) {
-      setDateRange({ start: dateRange.start, end: clickedDate });
+    if (!dateRange.start) {
+      // First click - select start date
+      setDateRange({ start: clickedDate, end: null });
+      setSelectingStart(false);
+    } else if (!dateRange.end) {
+      // Second click - select end date
+      if (clickedDate < dateRange.start) {
+        // If end date is before start, swap them
+        setDateRange({ start: clickedDate, end: dateRange.start });
+      } else {
+        setDateRange({ start: dateRange.start, end: clickedDate });
+      }
+      // Close calendar after both dates selected
+      setShowCalendar(false);
     } else {
-      setDateRange({ start: clickedDate, end: clickedDate });
+      // Both dates already selected - reset and start over
+      setDateRange({ start: clickedDate, end: null });
     }
-    // Close calendar after selection
-    setShowCalendar(false);
   };
 
   const calendarDays = getCalendarDays();
@@ -189,7 +204,7 @@ export default function AdminDashboardPage() {
             >
               <Calendar className="w-5 h-5" style={{ color: '#c4704f' }} />
               <span className="font-bold text-sm">
-                {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Start'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'End'}
               </span>
             </button>
 
@@ -257,9 +272,11 @@ export default function AdminDashboardPage() {
 
                 {/* Selected Range Info */}
                 <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: '#5c5850' }}>Selected Range:</p>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#5c5850' }}>
+                    {!dateRange.start ? '👆 Click to select start date' : !dateRange.end ? '👆 Click to select end date' : '✓ Date range selected'}
+                  </p>
                   <p className="text-sm font-bold" style={{ color: '#c4704f' }}>
-                    {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </p>
                 </div>
               </div>
