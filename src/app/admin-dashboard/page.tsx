@@ -44,11 +44,24 @@ export default function AdminDashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/clients/list');
+      setError(null);
+
+      // Format dates for API query
+      const dateFromStr = dateRange.start?.toISOString().split('T')[0] || '';
+      const dateToStr = dateRange.end?.toISOString().split('T')[0] || '';
+
+      // Build query string
+      const params = new URLSearchParams();
+      if (dateFromStr) params.append('dateFrom', dateFromStr);
+      if (dateToStr) params.append('dateTo', dateToStr);
+
+      const response = await fetch(`/api/clients/list?${params.toString()}`);
       const data = await response.json();
 
       if (data.success && data.clients) {
         setClients(data.clients);
+      } else {
+        setError(data.error || 'Failed to load clients');
       }
     } catch (err) {
       setError('Failed to load clients');
@@ -242,13 +255,13 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* Calendar Days */}
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-7 gap-2">
                   {calendarDays.map((day, idx) => (
                     <button
                       key={idx}
                       onClick={() => day !== null && handleDayClick(day)}
                       disabled={day === null}
-                      className="py-4 text-sm font-semibold rounded-lg transition-all duration-100"
+                      className="w-12 h-12 text-sm font-semibold rounded-lg transition-all duration-150 flex items-center justify-center"
                       style={{
                         background:
                           day === null
@@ -262,7 +275,21 @@ export default function AdminDashboardPage() {
                         cursor: day !== null ? 'pointer' : 'default',
                         opacity: day !== null ? 1 : 0,
                         fontWeight: day !== null && isDateInRange(day) ? '600' : '500',
-                        border: day !== null && isDateInRange(day) ? '1px solid #c4704f' : 'none'
+                        border: day !== null && isDateInRange(day) ? '2px solid #c4704f' : '1px solid rgba(44, 36, 25, 0.08)',
+                        boxShadow: day !== null && (isDateSelected(day) || isDateInRange(day)) ? '0 2px 8px rgba(196, 112, 79, 0.15)' : 'none',
+                        transform: day !== null && isDateInRange(day) ? 'scale(0.98)' : 'scale(1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (day !== null && !isDateSelected(day) && !isDateInRange(day)) {
+                          e.currentTarget.style.background = '#e8d8c8';
+                          e.currentTarget.style.transform = 'scale(0.95)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (day !== null && !isDateSelected(day) && !isDateInRange(day)) {
+                          e.currentTarget.style.background = '#f9f7f4';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }
                       }}
                     >
                       {day}
