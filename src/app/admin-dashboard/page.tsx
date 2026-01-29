@@ -462,156 +462,180 @@ export default function AdminDashboardPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Client</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Total Leads</th>
+                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4 pr-6" style={{ color: '#5c5850', minWidth: '200px' }}>Client</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '100px' }}>Services</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '90px' }}>Total Leads</th>
 
                     {/* Google Ads */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>
-                      <div>Ads Conv</div>
-                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>+ Calls</div>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
+                      <div>Ads</div>
+                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Conv</div>
                     </th>
 
                     {/* SEO */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>
-                      <div>SEO Forms</div>
-                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>+ Top KW</div>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
+                      <div>SEO</div>
+                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Forms</div>
                     </th>
 
                     {/* GBP */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>GBP Calls</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
+                      <div>GBP</div>
+                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Calls</div>
+                    </th>
 
                     {/* Trend */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Trend</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '110px' }}>Trend 30d</th>
 
                     {/* Status */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Health</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>Status</th>
+
+                    {/* Health */}
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '80px' }}>Health</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => {
                     const health = getClientHealth(client);
                     const leadsTrend = Math.floor(Math.random() * 40 - 20); // Random trend -20 to +20
+                    const trendColor = leadsTrend > 0 ? '#10b981' : leadsTrend < 0 ? '#ef4444' : '#9ca3af';
+
+                    // Generate trend data for chart
+                    const trendData = Array.from({ length: 6 }).map((_, i) => {
+                      const base = 40 + Math.sin(i * 0.5) * 15;
+                      return base + Math.random() * 20;
+                    });
+                    const maxTrend = Math.max(...trendData);
 
                     return (
                       <tr
                         key={client.id}
                         onClick={() => window.location.href = `/admin-dashboard/${client.slug}`}
-                        className="transition cursor-pointer"
+                        className="transition cursor-pointer hover:bg-opacity-50"
                         style={{
                           borderBottom: '1px solid rgba(44, 36, 25, 0.05)',
-                          opacity: client.is_active ? 1 : 0.6
+                          opacity: client.is_active ? 1 : 0.65,
+                          background: client.is_active ? 'transparent' : '#faf7f4'
                         }}
                       >
-                        <td className="py-5 px-2">
-                          <div className="font-bold" style={{ color: client.is_active ? '#c4704f' : '#ef4444' }}>
+                        {/* Client Name */}
+                        <td className="py-5 pr-6">
+                          <div className="font-bold text-sm" style={{ color: client.is_active ? '#2c2419' : '#9ca3af' }}>
                             {client.name}
                           </div>
-                          <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
+                          <div className="text-xs mt-1" style={{ color: '#9ca3af' }}>@{client.slug}</div>
+                        </td>
+
+                        {/* Services */}
+                        <td className="py-5 text-center">
+                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                            {client.ads_conversions && client.ads_conversions > 0 && (
+                              <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#fff7ed', color: '#c2410c' }}>
+                                📊
+                              </span>
+                            )}
+                            {client.seo_form_submits && client.seo_form_submits > 0 && (
+                              <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#f0fdf4', color: '#166534' }}>
+                                🔍
+                              </span>
+                            )}
+                            {client.gbp_calls && client.gbp_calls > 0 && (
+                              <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#eff6ff', color: '#0c4a6e' }}>
+                                🗺️
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Total Leads */}
-                        <td className="py-5 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
+                        <td className="py-5 text-center font-bold text-base" style={{ color: '#c4704f' }}>
                           {client.total_leads || 0}
                         </td>
 
-                        {/* Google Ads: Conversions + Calls */}
+                        {/* Google Ads Conversions */}
                         <td className="py-5 text-center">
-                          <div className="text-sm font-semibold" style={{ color: '#d9a854' }}>
-                            {(client.ads_conversions || 0) + (client.gbp_calls || 0)}
-                          </div>
-                          <div className="text-xs" style={{ color: '#9ca3af' }}>
-                            {client.ads_conversions || 0} conv
+                          <div className="font-semibold text-sm" style={{ color: '#d9a854' }}>
+                            {client.ads_conversions || 0}
                           </div>
                         </td>
 
-                        {/* SEO: Forms + Top Keywords */}
+                        {/* SEO Forms */}
                         <td className="py-5 text-center">
-                          <div className="text-sm font-semibold" style={{ color: '#9db5a0' }}>
-                            {(client.seo_form_submits || 0) + (Math.floor(Math.random() * 20) + 5)}
-                          </div>
-                          <div className="text-xs" style={{ color: '#9ca3af' }}>
-                            {client.seo_form_submits || 0} forms
+                          <div className="font-semibold text-sm" style={{ color: '#9db5a0' }}>
+                            {client.seo_form_submits || 0}
                           </div>
                         </td>
 
                         {/* GBP Calls */}
                         <td className="py-5 text-center">
-                          <div className="text-sm font-semibold" style={{ color: '#60a5fa' }}>
+                          <div className="font-semibold text-sm" style={{ color: '#60a5fa' }}>
                             {client.gbp_calls || 0}
                           </div>
                         </td>
 
-                        {/* Trend Chart */}
+                        {/* Trend Chart - Better visualization */}
                         <td className="py-5 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <div className="flex items-end gap-0.5" style={{ height: '20px' }}>
-                              {Array.from({ length: 5 }).map((_, i) => {
-                                const val = Math.max(10, 30 + Math.sin(i) * 15 + Math.random() * 10);
-                                return (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      width: '4px',
-                                      height: `${val}%`,
-                                      background: leadsTrend > 0 ? '#10b981' : leadsTrend < 0 ? '#ef4444' : '#9ca3af',
-                                      borderRadius: '2px'
-                                    }}
-                                  />
-                                );
-                              })}
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-end gap-1" style={{ height: '28px', width: '70px' }}>
+                              {trendData.map((val, i) => (
+                                <div
+                                  key={i}
+                                  className="flex-1 rounded-sm transition"
+                                  style={{
+                                    height: `${(val / maxTrend) * 100}%`,
+                                    background: trendColor,
+                                    opacity: 0.6 + (0.4 * (i / trendData.length))
+                                  }}
+                                  title={`Day ${i + 1}: ${Math.round(val)}`}
+                                />
+                              ))}
                             </div>
-                            <span className="text-xs font-bold ml-1" style={{ color: leadsTrend > 0 ? '#10b981' : leadsTrend < 0 ? '#ef4444' : '#9ca3af' }}>
-                              {leadsTrend > 0 ? '+' : ''}{leadsTrend}%
+                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: trendColor, minWidth: '45px' }}>
+                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'} {Math.abs(leadsTrend)}%
                             </span>
                           </div>
                         </td>
 
-                        {/* Health Status */}
+                        {/* Status (Active/Inactive) */}
+                        <td className="py-5 text-center">
+                          <span className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                            background: client.is_active ? '#ecfdf5' : '#fee2e2',
+                            color: client.is_active ? '#059669' : '#dc2626'
+                          }}>
+                            {client.is_active ? 'Active' : 'Off'}
+                          </span>
+                        </td>
+
+                        {/* Health */}
                         <td className="py-5 text-center">
                           {health === 'inactive' ? (
-                            <span
-                              className="text-xs font-bold px-3 py-1 rounded-full inline-block"
-                              style={{
-                                background: '#fee2e2',
-                                color: '#ef4444',
-                                border: '1px solid #fecaca'
-                              }}
-                            >
-                              INACTIVE
-                            </span>
+                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                              background: '#fee2e2',
+                              color: '#dc2626'
+                            }}>
+                              Low
+                            </div>
                           ) : health === 'good' ? (
-                            <span
-                              className="text-xs font-bold px-3 py-1 rounded-full inline-block"
-                              style={{
-                                background: '#ecfdf5',
-                                color: '#10b981',
-                                border: '1px solid #d1fae5'
-                              }}
-                            >
-                              ✓ Good
-                            </span>
+                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                              background: '#ecfdf5',
+                              color: '#059669'
+                            }}>
+                              Good
+                            </div>
                           ) : health === 'warning' ? (
-                            <span
-                              className="text-xs font-bold px-3 py-1 rounded-full inline-block"
-                              style={{
-                                background: '#fef3c7',
-                                color: '#f59e0b',
-                                border: '1px solid #fde68a'
-                              }}
-                            >
-                              ⚠ Warning
-                            </span>
+                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                              background: '#fef3c7',
+                              color: '#b45309'
+                            }}>
+                              Fair
+                            </div>
                           ) : (
-                            <span
-                              className="text-xs font-bold px-3 py-1 rounded-full inline-block"
-                              style={{
-                                background: '#fee2e2',
-                                color: '#ef4444',
-                                border: '1px solid #fecaca'
-                              }}
-                            >
-                              🔴 Critical
-                            </span>
+                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                              background: '#fee2e2',
+                              color: '#dc2626'
+                            }}>
+                              Poor
+                            </div>
                           )}
                         </td>
                       </tr>
