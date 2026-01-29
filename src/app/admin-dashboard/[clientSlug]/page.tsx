@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Calendar, TrendingUp, TrendingDown, BarChart3, PieChart } from 'lucide-react';
 
 interface ClientDetail {
   id: string;
@@ -41,7 +41,6 @@ export default function ClientDetailPage() {
   });
 
   useEffect(() => {
-    // Fetch client details
     const fetchClient = async () => {
       try {
         setLoading(true);
@@ -84,15 +83,27 @@ export default function ClientDetailPage() {
 
   const stats: MetricCard[] = [
     { label: 'Total Leads', value: client.total_leads || 0, trend: 12.5, trendLabel: 'vs last month' },
-    { label: 'Impressions', value: (client.total_leads || 0) * 5, trend: 8, trendLabel: 'vs last month' },
+    { label: 'Ad Spend', value: '$3,749', trend: -2.1, trendLabel: 'optimization' },
     { label: 'Form Fills', value: client.seo_form_submits || 0, trend: 45, trendLabel: 'vs last month' },
-    { label: 'Cost Per Lead', value: '$156', trend: -5.7, trendLabel: 'efficiency' },
+    { label: 'Cost Per Lead', value: '$58', trend: -5.7, trendLabel: 'efficiency' },
+  ];
+
+  const tabConfig = [
+    { id: 'overview', label: '📊 Overview' },
+    { id: 'seo', label: '🔍 SEO' },
+    { id: 'ads', label: '📢 Ads' },
+    { id: 'gbp', label: '🗺️ GBP' },
+    { id: 'notes', label: '📝 Notes' },
   ];
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Header */}
-      <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{ background: '#f5f1ed', borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
+      {/* Header Navigation */}
+      <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{
+        background: 'rgba(245, 241, 237, 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
+      }}>
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 hover:opacity-70 transition"
@@ -108,133 +119,194 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: '#fff', border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: '#fff', border: '1px solid rgba(44, 36, 25, 0.1)' }}>
             <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
             <span className="text-sm font-semibold" style={{ color: '#2c2419' }}>
-              {dateRange.start?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              Last 30 days
             </span>
           </div>
         </div>
       </nav>
 
-      {/* Tab Navigation */}
-      <div className="sticky top-16 z-40 flex items-center gap-8 px-8 py-4" style={{ background: '#f5f1ed', borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-        {['overview', 'seo', 'ads', 'gbp', 'notes'].map((tab) => {
-          const labels: { [key: string]: string } = {
-            overview: '📊 Overview',
-            seo: '🔍 SEO',
-            ads: '📢 Ads',
-            gbp: '🗺️ GBP',
-            notes: '📝 Notes',
-          };
-
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="py-2 px-3 font-semibold text-sm transition border-b-2"
-              style={{
-                color: activeTab === tab ? '#c4704f' : '#5c5850',
-                borderBottomColor: activeTab === tab ? '#c4704f' : 'transparent',
-              }}
-            >
-              {labels[tab]}
-            </button>
-          );
-        })}
+      {/* Hero Section */}
+      <div style={{
+        background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
+        color: 'white',
+        padding: '60px 20px 100px',
+        textAlign: 'center'
+      }}>
+        <h1 className="text-4xl font-black mb-2" style={{ letterSpacing: '-0.02em' }}>
+          Performance Dashboard
+        </h1>
+        <p className="text-lg opacity-90">
+          Comprehensive metrics and insights for {client.name}
+        </p>
       </div>
 
-      {/* Content */}
+      {/* Tab Navigation */}
+      <div className="sticky top-16 z-40 flex items-center gap-8 px-8 py-4" style={{
+        background: 'rgba(245, 241, 237, 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
+      }}>
+        {tabConfig.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="py-2 px-3 font-semibold text-sm transition border-b-2"
+            style={{
+              color: activeTab === tab.id ? '#c4704f' : '#5c5850',
+              borderBottomColor: activeTab === tab.id ? '#c4704f' : 'transparent',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Area */}
       <main className="max-w-7xl mx-auto px-4 py-8 pb-12">
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* Status Sections Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* What's Great */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '2px solid #10b981' }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#d1fae5' }}>
-                    <span style={{ color: '#10b981', fontSize: '20px' }}>✓</span>
+            {/* Stats Grid (Overlapping) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 -mt-4 mb-8">
+              {stats.map((stat, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-3xl p-8 shadow-lg transition hover:shadow-xl"
+                  style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}
+                >
+                  <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850' }}>
+                    {stat.label}
+                  </p>
+                  <p className="text-4xl font-extrabold mb-4" style={{ color: '#2c2419' }}>
+                    {stat.value}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-1"
+                      style={{ color: stat.trend > 0 ? '#10b981' : '#ef4444' }}
+                    >
+                      {stat.trend > 0 ? (
+                        <TrendingUp className="w-4 h-4" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4" />
+                      )}
+                      <span className="text-sm font-semibold">{Math.abs(stat.trend)}%</span>
+                    </div>
+                    <span className="text-xs" style={{ color: '#9ca3af' }}>
+                      {stat.trendLabel}
+                    </span>
                   </div>
-                  <h3 className="font-bold" style={{ color: '#2c2419' }}>What's Great</h3>
                 </div>
-                <ul className="space-y-2 text-sm" style={{ color: '#5c5850' }}>
-                  <li>✓ Strong SEO performance</li>
-                  <li>✓ Consistent lead generation</li>
-                  <li>✓ High Google Ads conversion</li>
-                </ul>
+              ))}
+            </div>
+
+            {/* Insight Grid: Top Performers, Needs Attention, Growth Opportunities */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Top Performers */}
+              <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>🏆 Top Performers</h3>
+                <div className="space-y-4">
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>Google Ads</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>2.8x ROAS</p>
+                  </div>
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>Organic Search</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>24 ranking keywords</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>Lead Quality</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>45% form completion</p>
+                  </div>
+                </div>
               </div>
 
               {/* Needs Attention */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '2px solid #f59e0b' }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#fef3c7' }}>
-                    <span style={{ color: '#f59e0b', fontSize: '20px' }}>!</span>
+              <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>⚠️ Needs Attention</h3>
+                <div className="space-y-4">
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#ef4444' }}>CPL Trending Up</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>↑ 12% from last month</p>
                   </div>
-                  <h3 className="font-bold" style={{ color: '#2c2419' }}>Needs Attention</h3>
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#ef4444' }}>GBP Calls Low</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>↓ 8% decrease</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm" style={{ color: '#f59e0b' }}>Budget Utilization</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>78% of monthly budget</p>
+                  </div>
                 </div>
-                <ul className="space-y-2 text-sm" style={{ color: '#5c5850' }}>
-                  <li>• CPL trending upward</li>
-                  <li>• GBP calls declining</li>
-                  <li>• Form submissions low</li>
-                </ul>
               </div>
 
-              {/* We're Working On It */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '2px solid #3b82f6' }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#dbeafe' }}>
-                    <span style={{ color: '#3b82f6', fontSize: '18px' }}>⚙</span>
+              {/* Growth Opportunities */}
+              <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>🚀 Growth Opportunities</h3>
+                <div className="space-y-4">
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>SEO Expansion</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>12 new keywords ready</p>
                   </div>
-                  <h3 className="font-bold" style={{ color: '#2c2419' }}>We're Working On It</h3>
+                  <div style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)', paddingBottom: '16px' }}>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>Audience Targeting</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Untapped demographics</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm" style={{ color: '#2c2419' }}>Retargeting</p>
+                    <p className="text-xs mt-1" style={{ color: '#5c5850' }}>+35% conversion potential</p>
+                  </div>
                 </div>
-                <ul className="space-y-2 text-sm" style={{ color: '#5c5850' }}>
-                  <li>• Optimizing ad spend</li>
-                  <li>• Testing new keywords</li>
-                  <li>• Improving landing pages</li>
-                </ul>
               </div>
             </div>
 
-            {/* Key Performance Metrics */}
-            <div>
-              <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>Key Performance Metrics</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl p-6 shadow-lg transition hover:shadow-xl"
-                    style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}
-                  >
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850' }}>
-                      {stat.label}
-                    </p>
-                    <p className="text-3xl font-extrabold mb-4" style={{ color: '#2c2419' }}>
-                      {stat.value}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex items-center gap-1"
-                        style={{ color: stat.trend > 0 ? '#10b981' : '#ef4444' }}
-                      >
-                        {stat.trend > 0 ? (
-                          <TrendingUp className="w-4 h-4" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4" />
-                        )}
-                        <span className="text-sm font-semibold">{Math.abs(stat.trend)}%</span>
-                      </div>
-                      <span className="text-xs" style={{ color: '#9ca3af' }}>
-                        {stat.trendLabel}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            {/* Large Chart Section */}
+            <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>
+                📈 Daily Leads Trend (30 Days)
+              </h3>
+              <div className="h-64 flex items-end gap-1 mb-8">
+                {Array.from({ length: 30 }).map((_, i) => {
+                  const value = Math.floor(Math.random() * 100);
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t transition hover:opacity-80"
+                      style={{
+                        background: '#c4704f',
+                        height: `${(value / 100) * 100}%`,
+                        minHeight: '4px',
+                      }}
+                      title={`Day ${i + 1}: ${value}`}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Summary Stats Below Chart */}
+              <div className="grid grid-cols-3 gap-4" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)', paddingTop: '24px' }}>
+                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                  <p className="text-xs uppercase font-bold" style={{ color: '#5c5850' }}>Highest</p>
+                  <p className="text-2xl font-bold mt-2" style={{ color: '#10b981' }}>98</p>
+                  <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Day 24</p>
+                </div>
+                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                  <p className="text-xs uppercase font-bold" style={{ color: '#5c5850' }}>Average</p>
+                  <p className="text-2xl font-bold mt-2" style={{ color: '#c4704f' }}>52</p>
+                  <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Daily Average</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p className="text-xs uppercase font-bold" style={{ color: '#5c5850' }}>Lowest</p>
+                  <p className="text-2xl font-bold mt-2" style={{ color: '#ef4444' }}>12</p>
+                  <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Day 8</p>
+                </div>
               </div>
             </div>
 
             {/* Lead Distribution by Channel */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+            <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
               <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Lead Distribution by Channel</h3>
               <div className="space-y-6">
                 {[
@@ -273,95 +345,10 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {/* Daily Traffic & Leads Analysis */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Daily Stats */}
-              <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Daily Traffic & Leads Analysis</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 rounded-xl" style={{ background: '#f9f7f4' }}>
-                    <div>
-                      <p className="text-xs font-semibold uppercase" style={{ color: '#9ca3af' }}>Avg Daily Leads</p>
-                      <p className="text-2xl font-bold" style={{ color: '#c4704f' }}>
-                        {Math.ceil((client.total_leads || 0) / 30)}
-                      </p>
-                    </div>
-                    <span style={{ fontSize: '32px' }}>📈</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 rounded-xl" style={{ background: '#f9f7f4' }}>
-                    <div>
-                      <p className="text-xs font-semibold uppercase" style={{ color: '#9ca3af' }}>Avg Daily Ad Spend</p>
-                      <p className="text-2xl font-bold" style={{ color: '#d9a854' }}>$125</p>
-                    </div>
-                    <span style={{ fontSize: '32px' }}>💰</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 rounded-xl" style={{ background: '#f9f7f4' }}>
-                    <div>
-                      <p className="text-xs font-semibold uppercase" style={{ color: '#9ca3af' }}>Avg Daily Sessions</p>
-                      <p className="text-2xl font-bold" style={{ color: '#60a5fa' }}>152</p>
-                    </div>
-                    <span style={{ fontSize: '32px' }}>👥</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Trend Chart */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>
-                  Daily Leads Trend (30 days)
-                </h3>
-                <div className="h-64 flex items-end gap-1">
-                  {Array.from({ length: 30 }).map((_, i) => {
-                    const value = Math.floor(Math.random() * 100);
-                    return (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-t transition hover:opacity-80"
-                        style={{
-                          background: '#c4704f',
-                          height: `${(value / 100) * 100}%`,
-                          minHeight: '4px',
-                        }}
-                        title={`Day ${i + 1}: ${value}`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* 6-Month Lead Performance */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>6-Month Lead Performance</h3>
-              <div className="space-y-3">
-                {['January', 'February', 'March', 'April', 'May', 'June'].map((month, i) => {
-                  const leads = Math.floor(Math.random() * 200) + 50;
-                  const maxLeads = 250;
-                  return (
-                    <div key={i}>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-semibold" style={{ color: '#2c2419' }}>{month}</span>
-                        <span className="text-sm font-bold" style={{ color: '#c4704f' }}>{leads} leads</span>
-                      </div>
-                      <div className="w-full h-3 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.1)' }}>
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${(leads / maxLeads) * 100}%`,
-                            background: 'linear-gradient(90deg, #c4704f 0%, #d9a854 100%)',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Channel Performance Breakdown */}
+            {/* Channel Performance Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Google Ads Performance */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              {/* Google Ads */}
+              <div className="bg-white rounded-3xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>📊 Google Ads</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -379,8 +366,8 @@ export default function ClientDetailPage() {
                 </div>
               </div>
 
-              {/* SEO Performance */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              {/* SEO */}
+              <div className="bg-white rounded-3xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>🔍 SEO</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -398,8 +385,8 @@ export default function ClientDetailPage() {
                 </div>
               </div>
 
-              {/* GBP Performance */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              {/* GBP */}
+              <div className="bg-white rounded-3xl p-6 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>🗺️ Google Business</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -421,7 +408,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === 'seo' && (
-          <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
               SEO Performance
             </h2>
@@ -430,7 +417,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === 'ads' && (
-          <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
               Google Ads Performance
             </h2>
@@ -439,7 +426,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === 'gbp' && (
-          <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
               Google Business Profile
             </h2>
@@ -448,7 +435,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === 'notes' && (
-          <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
               Internal Notes
             </h2>

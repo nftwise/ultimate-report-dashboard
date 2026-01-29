@@ -32,10 +32,8 @@ export default function AdminDashboardPage() {
   });
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [selectingStart, setSelectingStart] = useState(false);
 
   useEffect(() => {
-    // Only fetch if both dates are selected AND they've been confirmed
     if (dateRange.start && dateRange.end) {
       fetchData();
     }
@@ -46,11 +44,9 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Format dates for API query
       const dateFromStr = dateRange.start?.toISOString().split('T')[0] || '';
       const dateToStr = dateRange.end?.toISOString().split('T')[0] || '';
 
-      // Build query string
       const params = new URLSearchParams();
       if (dateFromStr) params.append('dateFrom', dateFromStr);
       if (dateToStr) params.append('dateTo', dateToStr);
@@ -71,25 +67,21 @@ export default function AdminDashboardPage() {
     }
   };
 
-
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Calculate aggregate stats
   const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
   const totalSeoFormSubmits = clients.reduce((sum, c) => sum + (c.seo_form_submits || 0), 0);
   const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
   const totalAdsConversions = clients.reduce((sum, c) => sum + (c.ads_conversions || 0), 0);
 
-  // Get days difference
   const getDaysDifference = () => {
     if (!dateRange.start || !dateRange.end) return 0;
     return Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  // Set date range by preset
   const setPresetRange = (days: number) => {
     const end = new Date();
     const start = new Date();
@@ -98,7 +90,6 @@ export default function AdminDashboardPage() {
     setShowCalendar(false);
   };
 
-  // Calendar helpers
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
@@ -112,12 +103,10 @@ export default function AdminDashboardPage() {
     const firstDay = getFirstDayOfMonth(calendarMonth);
     const days = [];
 
-    // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
     }
 
-    // Days of the month
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
@@ -143,21 +132,15 @@ export default function AdminDashboardPage() {
     const clickedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
 
     if (!dateRange.start) {
-      // First click - select start date
       setDateRange({ start: clickedDate, end: null });
-      setSelectingStart(false);
     } else if (!dateRange.end) {
-      // Second click - select end date
       if (clickedDate < dateRange.start) {
-        // If end date is before start, swap them
         setDateRange({ start: clickedDate, end: dateRange.start });
       } else {
         setDateRange({ start: dateRange.start, end: clickedDate });
       }
-      // Close calendar after both dates selected
       setShowCalendar(false);
     } else {
-      // Both dates already selected - reset and start over
       setDateRange({ start: clickedDate, end: null });
     }
   };
@@ -167,17 +150,21 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4" style={{ background: '#f5f1ed', borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-        <h1 className="text-3xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
+      {/* Sticky Navigation */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4" style={{
+        background: 'rgba(245, 241, 237, 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
+      }}>
+        <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
 
         <div className="flex items-center gap-6">
           {/* Quick Select Buttons */}
           <div className="flex gap-2">
             {[
-              { label: '30 Days', days: 30 },
-              { label: '90 Days', days: 90 },
-              { label: 'Last Month', days: -1 }
+              { label: '30D', days: 30 },
+              { label: '90D', days: 90 },
+              { label: 'MTD', days: -1 }
             ].map((preset) => {
               const isActive = preset.days === -1 ? false : getDaysDifference() === preset.days;
               return (
@@ -192,7 +179,7 @@ export default function AdminDashboardPage() {
                       setPresetRange(preset.days);
                     }
                   }}
-                  className="px-4 py-2 text-sm font-semibold rounded transition"
+                  className="px-4 py-2 text-sm font-semibold rounded-full transition"
                   style={{
                     background: isActive ? '#c4704f' : 'transparent',
                     color: isActive ? '#fff' : '#5c5850'
@@ -204,42 +191,42 @@ export default function AdminDashboardPage() {
             })}
           </div>
 
-          {/* Date Range Box */}
+          {/* Date Range Pill */}
           <div className="relative">
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className="flex items-center gap-3 px-6 py-3 rounded-lg transition"
+              className="flex items-center gap-2 px-6 py-2 rounded-full transition"
               style={{
                 background: '#fff',
                 border: '2px solid #c4704f',
                 color: '#2c2419'
               }}
             >
-              <Calendar className="w-5 h-5" style={{ color: '#c4704f' }} />
-              <span className="font-bold text-sm">
-                {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Start'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'End'}
+              <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
+              <span className="text-sm font-semibold">
+                {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Start'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'End'}
               </span>
             </button>
 
             {/* Calendar Popup */}
             {showCalendar && (
-              <div className="absolute right-0 top-full mt-3 bg-white rounded-xl shadow-2xl p-8 z-50 w-96" style={{ border: '1px solid rgba(196, 112, 79, 0.2)', animation: 'fadeIn 0.15s ease-out' }}>
+              <div className="absolute right-0 top-full mt-3 bg-white rounded-3xl shadow-2xl p-8 z-50 w-96" style={{ border: '1px solid rgba(196, 112, 79, 0.2)', animation: 'fadeIn 0.15s ease-out' }}>
                 <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
 
                 {/* Month Navigation */}
                 <div className="flex items-center justify-between mb-8">
                   <button
                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-                    className="p-2 hover:opacity-70 rounded transition"
+                    className="p-2 hover:opacity-70 rounded-full transition"
                   >
                     <ChevronLeft className="w-6 h-6" style={{ color: '#c4704f' }} />
                   </button>
-                  <h3 className="text-xl font-bold" style={{ color: '#2c2419', minWidth: '200px', textAlign: 'center' }}>
+                  <h3 className="text-lg font-bold" style={{ color: '#2c2419', minWidth: '200px', textAlign: 'center' }}>
                     {monthName}
                   </h3>
                   <button
                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-                    className="p-2 hover:opacity-70 rounded transition"
+                    className="p-2 hover:opacity-70 rounded-full transition"
                   >
                     <ChevronRight className="w-6 h-6" style={{ color: '#c4704f' }} />
                   </button>
@@ -314,46 +301,57 @@ export default function AdminDashboardPage() {
         {/* Admin Info */}
         <div className="text-right hidden sm:block">
           <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>All Clients</div>
+          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
         </div>
       </nav>
 
-      {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 mt-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      {/* Hero Section */}
+      <div style={{
+        background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
+        color: 'white',
+        padding: '80px 20px 120px',
+        textAlign: 'center'
+      }}>
+        <h1 className="text-5xl font-black mb-4" style={{ letterSpacing: '-0.02em' }}>
+          Client Performance
+        </h1>
+        <p className="text-lg opacity-90">
+          Monitor and optimize client campaigns across all channels
+        </p>
+      </div>
+
+      {/* Stats Grid (Overlapping) */}
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 -mt-20 mb-12 relative z-10">
           {[
             {
-              label: 'TOTAL CLIENTS',
+              label: 'Total Clients',
               value: clients.length,
               trend: '+12.5%',
               trendType: 'up',
-              trendLabel: 'vs last month'
             },
             {
-              label: 'TOTAL LEADS',
+              label: 'Total Leads',
               value: totalLeads,
               trend: '+8.3%',
               trendType: 'up',
-              trendLabel: 'vs last month'
             },
             {
-              label: 'TOTAL AD SPEND',
-              value: '$20,618',
-              trend: '-2.1%',
-              trendType: 'down',
-              trendLabel: 'optimization'
-            },
-            {
-              label: 'AVG. COST PER LEAD',
+              label: 'Avg CPL',
               value: '$58',
               trend: '-5.7%',
               trendType: 'down',
-              trendLabel: 'efficiency'
+            },
+            {
+              label: 'GBP Calls',
+              value: totalGbpCalls,
+              trend: '+3.2%',
+              trendType: 'up',
             }
           ].map((stat, i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-xl cursor-pointer"
+              className="bg-white rounded-3xl p-8 shadow-lg transition hover:shadow-xl cursor-pointer"
               style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}
             >
               <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850' }}>{stat.label}</p>
@@ -367,7 +365,6 @@ export default function AdminDashboardPage() {
                   )}
                   <span className="text-sm font-semibold">{stat.trend}</span>
                 </div>
-                <span className="text-xs" style={{ color: '#9ca3af' }}>{stat.trendLabel}</span>
               </div>
             </div>
           ))}
@@ -376,25 +373,27 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 pb-12">
-
-        {/* Clients Table */}
-        <div className="bg-white rounded-2xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h2 className="text-2xl font-extrabold" style={{ color: '#2c2419' }}>
-              All Clients ({filteredClients.length}/{clients.length})
+        {/* Data Table Section */}
+        <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h2 className="text-3xl font-extrabold" style={{ color: '#2c2419' }}>
+              All Clients
             </h2>
+            <span className="text-sm font-semibold px-4 py-2 rounded-full" style={{ background: '#f9f7f4', color: '#5c5850' }}>
+              {filteredClients.length} of {clients.length}
+            </span>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: '#9ca3af' }} />
+          {/* Search Bar */}
+          <div className="relative mb-8">
+            <Search className="absolute left-4 top-4 w-5 h-5" style={{ color: '#9ca3af' }} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search clients by name or slug..."
-              className="w-full pl-10 pr-4 py-3 border rounded-lg transition-all focus:outline-none focus:ring-2"
-              style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419' }}
+              placeholder="Search clients by name..."
+              className="w-full pl-12 pr-4 py-3 border-2 rounded-full transition-all focus:outline-none"
+              style={{ background: '#f5f1ed', borderColor: 'transparent', color: '#2c2419' }}
             />
           </div>
 
@@ -413,15 +412,14 @@ export default function AdminDashboardPage() {
           ) : error ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#c5221f' }}>{error}</div>
           ) : (
-            <div className="overflow-x-auto -mx-8 px-8">
+            <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Client Name</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Total Leads</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>SEO Form Fill</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Google Ads Conv.</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>CPL</th>
+                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Client</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Leads</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Ads Conv</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>SEO Form</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>GBP Calls</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Status</th>
                   </tr>
@@ -431,45 +429,30 @@ export default function AdminDashboardPage() {
                     <tr
                       key={client.id}
                       onClick={() => window.location.href = `/admin-dashboard/${client.slug}`}
-                      className="transition hover:bg-slate-100 cursor-pointer"
+                      className="transition cursor-pointer"
                       style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}
                     >
-                      <td className="py-4 px-2">
-                        <div className="font-bold text-sm" style={{ color: '#c4704f' }}>
+                      <td className="py-5 px-2">
+                        <div className="font-bold" style={{ color: '#c4704f' }}>
                           {client.name}
                         </div>
                         <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
                       </td>
-                      <td className="py-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
+                      <td className="py-5 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
                         {client.total_leads || 0}
                       </td>
-                      <td className="py-4 text-center">
-                        <div className="text-sm font-semibold" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</div>
-                        <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {(client.total_leads || 0) > 0 ? `${((client.seo_form_submits || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
-                        </div>
-                      </td>
-                      <td className="py-4 text-center">
+                      <td className="py-5 text-center">
                         <div className="text-sm font-semibold" style={{ color: '#d9a854' }}>{client.ads_conversions || 0}</div>
-                        <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {(client.total_leads || 0) > 0 ? `${((client.ads_conversions || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
-                        </div>
                       </td>
-                      <td className="py-4 text-center text-sm" style={{ color: '#5c5850' }}>
-                        {(client.total_leads || 0) > 0 && (client.ads_conversions || 0) > 0
-                          ? `$${(20618 / (client.ads_conversions || 1)).toFixed(0)}`
-                          : '—'
-                        }
+                      <td className="py-5 text-center">
+                        <div className="text-sm font-semibold" style={{ color: '#9db5a0' }}>{client.seo_form_submits || 0}</div>
                       </td>
-                      <td className="py-4 text-center">
+                      <td className="py-5 text-center">
                         <div className="text-sm font-semibold" style={{ color: '#60a5fa' }}>{client.gbp_calls || 0}</div>
-                        <div className="text-xs" style={{ color: '#9ca3af' }}>
-                          {(client.total_leads || 0) > 0 ? `${((client.gbp_calls || 0) / (client.total_leads || 1) * 100).toFixed(0)}%` : '—'}
-                        </div>
                       </td>
-                      <td className="py-4 text-center">
+                      <td className="py-5 text-center">
                         <span
-                          className="text-xs font-bold px-3 py-1 rounded-full"
+                          className="text-xs font-bold px-3 py-1 rounded-full inline-block"
                           style={{
                             background: client.is_active ? '#ecfdf5' : '#f3f4f6',
                             color: client.is_active ? '#10b981' : '#6b7280',
