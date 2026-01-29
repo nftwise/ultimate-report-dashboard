@@ -15,6 +15,12 @@ interface ClientWithMetrics {
   ads_conversions?: number;
   ads_cpl?: number;
   total_leads?: number;
+  services?: {
+    googleAds: boolean;
+    seo: boolean;
+    googleLocalService: boolean;
+    fbAds: boolean;
+  };
 }
 
 export default function AdminDashboardPage() {
@@ -423,9 +429,9 @@ export default function AdminDashboardPage() {
             <div className="flex gap-2 flex-wrap">
               {[
                 { id: 'all', label: 'All', color: '#5c5850' },
-                { id: 'good', label: '✓ Good', color: '#10b981' },
-                { id: 'warning', label: '⚠ Warning', color: '#f59e0b' },
-                { id: 'critical', label: '🔴 Critical', color: '#ef4444' },
+                { id: 'good', label: 'Good', color: '#10b981' },
+                { id: 'warning', label: 'Warning', color: '#f59e0b' },
+                { id: 'critical', label: 'Critical', color: '#ef4444' },
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -529,19 +535,19 @@ export default function AdminDashboardPage() {
                         {/* Services */}
                         <td className="py-5 text-center">
                           <div className="flex items-center justify-center gap-1 flex-wrap">
-                            {client.ads_conversions && client.ads_conversions > 0 && (
+                            {client.services?.googleAds && (
                               <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#fff7ed', color: '#c2410c' }}>
-                                📊
+                                Ads
                               </span>
                             )}
-                            {client.seo_form_submits && client.seo_form_submits > 0 && (
+                            {client.services?.seo && (
                               <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#f0fdf4', color: '#166534' }}>
-                                🔍
+                                SEO
                               </span>
                             )}
-                            {client.gbp_calls && client.gbp_calls > 0 && (
+                            {client.services?.googleLocalService && (
                               <span className="px-2 py-1 rounded-md text-xs font-semibold" style={{ background: '#eff6ff', color: '#0c4a6e' }}>
-                                🗺️
+                                GBP
                               </span>
                             )}
                           </div>
@@ -573,25 +579,26 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
 
-                        {/* Trend Chart - Better visualization */}
+                        {/* Trend Chart - Sharp visualization */}
                         <td className="py-5 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="flex items-end gap-1" style={{ height: '28px', width: '70px' }}>
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="flex items-end gap-0.5" style={{ height: '32px', width: '65px' }}>
                               {trendData.map((val, i) => (
                                 <div
                                   key={i}
-                                  className="flex-1 rounded-sm transition"
                                   style={{
-                                    height: `${(val / maxTrend) * 100}%`,
+                                    flex: 1,
+                                    height: `${Math.max((val / maxTrend) * 100, 8)}%`,
                                     background: trendColor,
-                                    opacity: 0.6 + (0.4 * (i / trendData.length))
+                                    borderRadius: '2px'
                                   }}
                                   title={`Day ${i + 1}: ${Math.round(val)}`}
+                                  className="transition-all"
                                 />
                               ))}
                             </div>
-                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: trendColor, minWidth: '45px' }}>
-                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'} {Math.abs(leadsTrend)}%
+                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: trendColor, minWidth: '40px', letterSpacing: '-0.5px' }}>
+                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'}{Math.abs(leadsTrend)}%
                             </span>
                           </div>
                         </td>
