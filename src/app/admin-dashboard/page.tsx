@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Search, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ClientWithMetrics {
@@ -256,13 +255,26 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* Calendar Days */}
+                <style>{`
+                  .calendar-day {
+                    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+                  }
+                  .calendar-day:not(:disabled):hover {
+                    background-color: #f3e8df !important;
+                    transform: translateY(-2px) !important;
+                    box-shadow: 0 4px 12px rgba(196, 112, 79, 0.12) !important;
+                  }
+                  .calendar-day:not(:disabled):active {
+                    transform: translateY(0) !important;
+                  }
+                `}</style>
                 <div className="grid grid-cols-7 gap-2">
                   {calendarDays.map((day, idx) => (
                     <button
                       key={idx}
                       onClick={() => day !== null && handleDayClick(day)}
                       disabled={day === null}
-                      className="w-12 h-12 text-sm font-semibold rounded-lg transition-all duration-150 flex items-center justify-center"
+                      className="calendar-day w-12 h-12 text-sm font-semibold rounded-lg flex items-center justify-center"
                       style={{
                         background:
                           day === null
@@ -278,19 +290,6 @@ export default function AdminDashboardPage() {
                         fontWeight: day !== null && isDateInRange(day) ? '600' : '500',
                         border: day !== null && isDateInRange(day) ? '2px solid #c4704f' : '1px solid rgba(44, 36, 25, 0.08)',
                         boxShadow: day !== null && (isDateSelected(day) || isDateInRange(day)) ? '0 2px 8px rgba(196, 112, 79, 0.15)' : 'none',
-                        transform: day !== null && isDateInRange(day) ? 'scale(0.98)' : 'scale(1)'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (day !== null && !isDateSelected(day) && !isDateInRange(day)) {
-                          e.currentTarget.style.background = '#e8d8c8';
-                          e.currentTarget.style.transform = 'scale(0.95)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (day !== null && !isDateSelected(day) && !isDateInRange(day)) {
-                          e.currentTarget.style.background = '#f9f7f4';
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }
                       }}
                     >
                       {day}
@@ -395,9 +394,18 @@ export default function AdminDashboardPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search clients by name or slug..."
               className="w-full pl-10 pr-4 py-3 border rounded-lg transition-all focus:outline-none focus:ring-2"
-              style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419' }}
+              style={{ background: '#f5f1ed', borderColor: 'rgba(44, 36, 25, 0.1)', color: '#2c2419', focusColor: '#c4704f' }}
             />
           </div>
+
+          <style>{`
+            table tbody tr {
+              transition: background-color 150ms ease-out;
+            }
+            table tbody tr:hover {
+              background-color: #faf7f4;
+            }
+          `}</style>
 
           {/* Table */}
           {loading ? (
@@ -405,32 +413,31 @@ export default function AdminDashboardPage() {
           ) : error ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#c5221f' }}>{error}</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-8 px-8">
               <table className="w-full">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Client Name</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Total Leads</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>SEO Form Fill</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Google Ads Conv.</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>CPL</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>GBP Calls</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider pb-4" style={{ color: '#5c5850' }}>Status</th>
+                  <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
+                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Client Name</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Total Leads</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>SEO Form Fill</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Google Ads Conv.</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>CPL</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>GBP Calls</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => (
-                    <Link key={client.id} href={`/admin-dashboard/${client.slug}`}>
                     <tr
+                      key={client.id}
+                      onClick={() => window.location.href = `/admin-dashboard/${client.slug}`}
                       className="transition hover:bg-slate-100 cursor-pointer"
                       style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}
                     >
                       <td className="py-4 px-2">
-                        <Link href={`/admin-dashboard/${client.slug}`}>
-                          <div className="font-bold text-sm hover:underline cursor-pointer" style={{ color: '#c4704f' }}>
-                            {client.name}
-                          </div>
-                        </Link>
+                        <div className="font-bold text-sm" style={{ color: '#c4704f' }}>
+                          {client.name}
+                        </div>
                         <div className="text-xs" style={{ color: '#5c5850' }}>@{client.slug}</div>
                       </td>
                       <td className="py-4 text-center font-bold text-lg" style={{ color: '#c4704f' }}>
@@ -473,7 +480,6 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                     </tr>
-                    </Link>
                   ))}
                 </tbody>
               </table>
