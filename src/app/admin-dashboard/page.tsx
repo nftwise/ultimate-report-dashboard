@@ -130,6 +130,8 @@ export default function AdminDashboardPage() {
     } else {
       setDateRange({ start: clickedDate, end: clickedDate });
     }
+    // Close calendar after selection
+    setShowCalendar(false);
   };
 
   const calendarDays = getCalendarDays();
@@ -193,43 +195,45 @@ export default function AdminDashboardPage() {
 
             {/* Calendar Popup */}
             {showCalendar && (
-              <div className="absolute right-0 top-full mt-3 bg-white rounded-lg shadow-2xl p-6 z-50 w-80" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+              <div className="absolute right-0 top-full mt-3 bg-white rounded-xl shadow-2xl p-8 z-50 w-96" style={{ border: '1px solid rgba(196, 112, 79, 0.2)', animation: 'fadeIn 0.15s ease-out' }}>
+                <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+
                 {/* Month Navigation */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-8">
                   <button
                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-                    className="p-2 hover:bg-gray-100 rounded transition"
+                    className="p-2 hover:opacity-70 rounded transition"
                   >
-                    <ChevronLeft className="w-5 h-5" style={{ color: '#2c2419' }} />
+                    <ChevronLeft className="w-6 h-6" style={{ color: '#c4704f' }} />
                   </button>
-                  <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
+                  <h3 className="text-xl font-bold" style={{ color: '#2c2419', minWidth: '200px', textAlign: 'center' }}>
                     {monthName}
                   </h3>
                   <button
                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-                    className="p-2 hover:bg-gray-100 rounded transition"
+                    className="p-2 hover:opacity-70 rounded transition"
                   >
-                    <ChevronRight className="w-5 h-5" style={{ color: '#2c2419' }} />
+                    <ChevronRight className="w-6 h-6" style={{ color: '#c4704f' }} />
                   </button>
                 </div>
 
                 {/* Day Headers */}
-                <div className="grid grid-cols-7 gap-2 mb-4">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                    <div key={day} className="text-center text-xs font-bold py-2" style={{ color: '#5c5850' }}>
+                <div className="grid grid-cols-7 gap-1 mb-3">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <div key={day} className="text-center text-xs font-bold py-3" style={{ color: '#9ca3af' }}>
                       {day}
                     </div>
                   ))}
                 </div>
 
                 {/* Calendar Days */}
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1">
                   {calendarDays.map((day, idx) => (
                     <button
                       key={idx}
                       onClick={() => day !== null && handleDayClick(day)}
                       disabled={day === null}
-                      className="py-3 text-sm font-semibold rounded transition"
+                      className="py-4 text-sm font-semibold rounded-lg transition-all duration-100"
                       style={{
                         background:
                           day === null
@@ -237,16 +241,26 @@ export default function AdminDashboardPage() {
                             : isDateSelected(day)
                             ? '#c4704f'
                             : isDateInRange(day)
-                            ? '#e8dfd7'
-                            : '#f5f1ed',
-                        color: day !== null && isDateSelected(day) ? '#fff' : '#2c2419',
+                            ? '#f0e5dc'
+                            : '#f9f7f4',
+                        color: day !== null && isDateSelected(day) ? '#fff' : day !== null && isDateInRange(day) ? '#c4704f' : '#2c2419',
                         cursor: day !== null ? 'pointer' : 'default',
-                        opacity: day !== null ? 1 : 0
+                        opacity: day !== null ? 1 : 0,
+                        fontWeight: day !== null && isDateInRange(day) ? '600' : '500',
+                        border: day !== null && isDateInRange(day) ? '1px solid #c4704f' : 'none'
                       }}
                     >
                       {day}
                     </button>
                   ))}
+                </div>
+
+                {/* Selected Range Info */}
+                <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#5c5850' }}>Selected Range:</p>
+                  <p className="text-sm font-bold" style={{ color: '#c4704f' }}>
+                    {dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
                 </div>
               </div>
             )}
