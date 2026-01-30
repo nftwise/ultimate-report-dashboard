@@ -1047,10 +1047,21 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const clientId = urlParams.get('clientId');
+        const clientSlug = urlParams.get('slug');
 
         async function loadReport() {
             try {
-                const response = await fetch(`/api/client-report?clientId=${clientId || 'default'}`);
+                let apiUrl = '/api/client-report?';
+                if (clientId) {
+                    apiUrl += `clientId=${clientId}`;
+                } else if (clientSlug) {
+                    apiUrl += `slug=${clientSlug}`;
+                } else {
+                    document.getElementById('loading').textContent = 'Error loading report: Missing clientId or slug parameter';
+                    return;
+                }
+
+                const response = await fetch(apiUrl);
                 const result = await response.json();
 
                 if (!result.success) {

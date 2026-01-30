@@ -4,14 +4,32 @@ import { supabaseAdmin } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const clientId = searchParams.get('clientId');
+    let clientId = searchParams.get('clientId');
+    const clientSlug = searchParams.get('slug');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+
+    // If slug is provided instead of ID, fetch the client ID first
+    if (!clientId && clientSlug) {
+      const { data: slugData, error: slugError } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('slug', clientSlug)
+        .single();
+
+      if (slugError || !slugData) {
+        return NextResponse.json({
+          success: false,
+          error: 'Client not found'
+        }, { status: 404 });
+      }
+      clientId = slugData.id;
+    }
 
     if (!clientId) {
       return NextResponse.json({
         success: false,
-        error: 'Missing clientId parameter'
+        error: 'Missing clientId or slug parameter'
       }, { status: 400 });
     }
 
