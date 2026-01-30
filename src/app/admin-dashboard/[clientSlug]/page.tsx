@@ -158,6 +158,19 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-4">
+          <a
+            href={`/client-report.html?slug=${clientSlug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
+            style={{
+              background: '#c4704f',
+              color: '#fff',
+              textDecoration: 'none'
+            }}
+          >
+            📊 Full Report
+          </a>
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
             style={{
