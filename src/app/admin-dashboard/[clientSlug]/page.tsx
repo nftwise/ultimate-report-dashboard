@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import DateRangePicker from '@/components/admin/DateRangePicker';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
@@ -50,12 +51,18 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedView, setSelectedView] = useState<'Daily' | 'Weekly' | 'Monthly'>('Monthly');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
     const from = new Date();
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
+
+  // Update daily data when date range changes
+  const handleDateRangeChange = (newRange: { from: Date; to: Date }) => {
+    setDateRange(newRange);
+  };
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -156,67 +163,34 @@ export default function ClientDetailPage() {
           <p className="text-sm" style={{ color: '#5c5850' }}>{client.city || 'Location'}</p>
         </div>
 
-        <div className="ml-auto">
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold" style={{
-            background: 'rgba(44, 36, 25, 0.05)',
-            color: '#2c2419'
-          }}>
-            <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
-            {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </span>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
+            {(['Daily', 'Weekly', 'Monthly'] as const).map((view) => (
+              <button
+                key={view}
+                onClick={() => setSelectedView(view)}
+                className="px-3 py-1 rounded-full text-xs font-semibold transition"
+                style={{
+                  background: view === selectedView ? '#fff' : 'transparent',
+                  color: view === selectedView ? '#2c2419' : '#5c5850'
+                }}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+          <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
         </div>
       </nav>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Section 1: Header & Controls (Full Width) */}
+          {/* Section 1: Header (Full Width) */}
           <div className="mb-8">
-            <div className="flex items-end justify-between mb-6">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>Performance Dashboard</span>
-                <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
-              </div>
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold" style={{
-                background: 'linear-gradient(135deg, #2c2419 0%, #5c5850 100%)',
-                color: '#fff'
-              }}>
-                ✨ AI-POWERED ANALYTICS
-              </span>
-            </div>
-
-            {/* Control Panel */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <button className="flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition" style={{
-                background: '#fff',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                color: '#2c2419'
-              }}>
-                <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
-                {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </button>
-
-              <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-                {['Daily', 'Weekly', 'Monthly'].map((view) => (
-                  <button key={view} className="px-4 py-1 rounded-full text-xs font-semibold transition" style={{
-                    background: view === 'Monthly' ? '#fff' : 'transparent',
-                    color: view === 'Monthly' ? '#2c2419' : '#5c5850'
-                  }}>
-                    {view}
-                  </button>
-                ))}
-              </div>
-
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Compare to:</span>
-                <button className="px-4 py-2 rounded-full text-xs font-semibold" style={{
-                  background: '#fff',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  color: '#2c2419'
-                }}>
-                  Previous Period
-                </button>
-              </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>Performance Dashboard</span>
+              <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
             </div>
           </div>
 
