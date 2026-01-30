@@ -535,7 +535,6 @@ export default function AdminDashboardPage() {
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px', letterSpacing: '0.05em' }}>Trend 30d</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px', letterSpacing: '0.05em' }}>Status</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px', letterSpacing: '0.05em' }}>Health</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#c4704f', minWidth: '75px', letterSpacing: '0.05em' }}>Report</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -705,20 +704,6 @@ export default function AdminDashboardPage() {
                           )}
                         </td>
 
-                        {/* Report Link */}
-                        <td className="py-5 text-center">
-                          <a
-                            href={`/admin-dashboard/${client.slug}/report`}
-                            className="inline-block px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
-                            style={{
-                              background: '#c4704f',
-                              color: '#fff',
-                              textDecoration: 'none'
-                            }}
-                          >
-                            View
-                          </a>
-                        </td>
                       </tr>
                     );
                   })}
