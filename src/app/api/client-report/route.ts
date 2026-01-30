@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
       clientId = slugData.id;
+      console.log('[client-report] Found client ID:', clientId);
     }
 
     if (!clientId) {
@@ -43,6 +44,8 @@ export async function GET(request: NextRequest) {
     const dateFromISO = start.toISOString().split('T')[0];
     const dateToISO = end.toISOString().split('T')[0];
 
+    console.log('[client-report] Date range:', { dateFromISO, dateToISO });
+
     // Fetch client data
     const { data: clientData, error: clientError } = await supabaseAdmin
       .from('clients')
@@ -51,11 +54,14 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (clientError) {
+      console.error('[client-report] Client fetch error:', clientError);
       return NextResponse.json({
         success: false,
         error: 'Client not found'
       }, { status: 404 });
     }
+
+    console.log('[client-report] Client data:', clientData);
 
     // Fetch metrics data for date range
     const { data: metricsData, error: metricsError } = await supabaseAdmin
@@ -67,7 +73,7 @@ export async function GET(request: NextRequest) {
       .order('date', { ascending: true });
 
     if (metricsError) {
-      console.error('Error fetching metrics:', metricsError);
+      console.error('[client-report] Metrics fetch error:', metricsError);
       return NextResponse.json({
         success: false,
         error: 'Error fetching metrics'
