@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import MonthlyLeadsTrendChart from '@/components/admin/MonthlyLeadsTrendChart';
+import InsightCards from '@/components/admin/InsightCards';
 
 interface ClientWithMetrics {
   id: string;
@@ -337,12 +339,13 @@ export default function AdminDashboardPage() {
         background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
         color: 'white',
         padding: '80px 20px 120px',
-        textAlign: 'center'
+        textAlign: 'center',
+        fontFamily: '"Outfit", sans-serif'
       }}>
-        <h1 className="text-5xl font-black mb-4" style={{ letterSpacing: '-0.02em' }}>
+        <h1 className="mb-4" style={{ fontSize: '3.5rem', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: '"Outfit", sans-serif' }}>
           Client Performance
         </h1>
-        <p className="text-lg opacity-90">
+        <p className="text-lg opacity-90" style={{ fontFamily: '"Inter", sans-serif' }}>
           Monitor and optimize client campaigns across all channels
         </p>
       </div>
@@ -375,35 +378,63 @@ export default function AdminDashboardPage() {
               trend: '+3.2%',
               trendType: 'up',
             }
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-3xl p-8 shadow-lg transition hover:shadow-xl cursor-pointer"
-              style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}
-            >
-              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850' }}>{stat.label}</p>
-              <p className="text-4xl font-extrabold mb-4" style={{ color: '#2c2419' }}>{stat.value}</p>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1" style={{ color: stat.trendType === 'up' ? '#10b981' : '#ef4444' }}>
-                  {stat.trendType === 'up' ? (
-                    <TrendingUp className="w-4 h-4" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4" />
-                  )}
-                  <span className="text-sm font-semibold">{stat.trend}</span>
+          ].map((stat, i) => {
+            const trendColor = stat.trendType === 'up' ? '#10b981' : '#ef4444';
+            const badgeBgColor = stat.trendType === 'up' ? '#e6f4ea' : '#fce8e6';
+
+            return (
+              <div
+                key={i}
+                className="card-hover rounded-3xl p-8 transition"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}
+              >
+                <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>
+                  {stat.label}
+                </p>
+                <p className="text-5xl font-bold mb-4 tabular-nums" style={{ color: '#2c2419', fontFamily: '"Outfit", sans-serif' }}>
+                  {stat.value}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs font-bold px-2.5 py-1 rounded-full tabular-nums"
+                    style={{
+                      background: badgeBgColor,
+                      color: trendColor
+                    }}
+                  >
+                    {stat.trend}
+                  </span>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 pb-12">
+        {/* Monthly Leads Trend Chart */}
+        <MonthlyLeadsTrendChart months={12} />
+
+        {/* Insight Cards */}
+        <InsightCards clients={clients} />
+
         {/* Data Table Section */}
-        <div className="bg-white rounded-3xl p-8 shadow-lg" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
+        <div className="rounded-3xl p-8" style={{
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(44, 36, 25, 0.1)',
+          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+        }}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h2 className="text-3xl font-extrabold" style={{ color: '#2c2419' }}>
+            <h2 className="text-3xl font-bold" style={{ color: '#2c2419', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
               All Clients
             </h2>
             <span className="text-sm font-semibold px-4 py-2 rounded-full" style={{ background: '#f9f7f4', color: '#5c5850' }}>
@@ -414,14 +445,30 @@ export default function AdminDashboardPage() {
           {/* Search Bar and Filters */}
           <div className="mb-8 space-y-4">
             <div className="relative">
-              <Search className="absolute left-4 top-4 w-5 h-5" style={{ color: '#9ca3af' }} />
+              <Search className="absolute left-4 top-3.5 w-5 h-5" style={{ color: '#9ca3af' }} />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search clients by name..."
-                className="w-full pl-12 pr-4 py-3 border-2 rounded-full transition-all focus:outline-none"
-                style={{ background: '#f5f1ed', borderColor: 'transparent', color: '#2c2419' }}
+                className="w-full pl-12 pr-4 py-3 border-2 rounded-full transition-all focus:outline-none focus:ring-2"
+                style={{
+                  background: '#f5f1ed',
+                  borderColor: 'transparent',
+                  color: '#2c2419',
+                  fontSize: '0.95rem',
+                  fontFamily: '"Inter", sans-serif'
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.background = '#ffffff';
+                  e.currentTarget.style.borderColor = '#c4704f';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(196, 112, 79, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.background = '#f5f1ed';
+                  e.currentTarget.style.borderColor = 'transparent';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
             </div>
 
@@ -467,37 +514,28 @@ export default function AdminDashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
+                  {/* Row 1: Section Group Headers */}
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
-                    <th className="text-left text-xs font-bold uppercase tracking-wider py-4 pr-6" style={{ color: '#5c5850', minWidth: '200px' }}>Client</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '100px' }}>Services</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '90px' }}>Total Leads</th>
+                    <th rowSpan={2} className="text-left text-xs font-bold uppercase tracking-wider py-4 pr-6" style={{ color: '#5c5850', minWidth: '200px', borderBottom: 'none' }}>Client</th>
+                    <th colSpan={2} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#2c2419', minWidth: '190px', borderBottom: '3px solid #2c2419' }}>Overview</th>
+                    <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#b45309', minWidth: '255px', borderBottom: '3px solid #b45309' }}>SEO</th>
+                    <th colSpan={2} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#047857', minWidth: '170px', borderBottom: '3px solid #047857' }}>GBP</th>
+                    <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#6b7280', minWidth: '255px', borderBottom: '3px solid #6b7280' }}>Google Ads</th>
+                  </tr>
 
-                    {/* Google Ads */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
-                      <div>Ads</div>
-                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Conv</div>
-                    </th>
-
-                    {/* SEO */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
-                      <div>SEO</div>
-                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Forms</div>
-                    </th>
-
-                    {/* GBP */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>
-                      <div>GBP</div>
-                      <div style={{ fontSize: '9px', fontWeight: 'normal' }}>Calls</div>
-                    </th>
-
-                    {/* Trend */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '110px' }}>Trend 30d</th>
-
-                    {/* Status */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '85px' }}>Status</th>
-
-                    {/* Health */}
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '80px' }}>Health</th>
+                  {/* Row 2: Individual Metric Headers */}
+                  <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px', letterSpacing: '0.05em' }}>Services</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px', letterSpacing: '0.05em' }}>Leads</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Forms</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Top 10 KW</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Traffic</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#047857', minWidth: '85px', letterSpacing: '0.05em' }}>Calls</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#047857', minWidth: '85px', letterSpacing: '0.05em' }}>Views</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px', letterSpacing: '0.05em' }}>Conv</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px', letterSpacing: '0.05em' }}>Trend 30d</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>Status</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>Health</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -517,7 +555,7 @@ export default function AdminDashboardPage() {
                       <tr
                         key={client.id}
                         onClick={() => window.location.href = `/admin-dashboard/${client.slug}`}
-                        className="transition cursor-pointer hover:bg-opacity-50"
+                        className="table-row cursor-pointer"
                         style={{
                           borderBottom: '1px solid rgba(44, 36, 25, 0.05)',
                           opacity: client.is_active ? 1 : 0.65,
@@ -553,29 +591,50 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
 
-                        {/* Total Leads */}
-                        <td className="py-5 text-center font-bold text-base" style={{ color: '#c4704f' }}>
+                        {/* Total Leads (Overview) */}
+                        <td className="py-5 text-center font-bold text-base tabular-nums" style={{ color: '#c4704f' }}>
                           {client.total_leads || 0}
-                        </td>
-
-                        {/* Google Ads Conversions */}
-                        <td className="py-5 text-center">
-                          <div className="font-semibold text-sm" style={{ color: '#d9a854' }}>
-                            {client.ads_conversions || 0}
-                          </div>
                         </td>
 
                         {/* SEO Forms */}
                         <td className="py-5 text-center">
-                          <div className="font-semibold text-sm" style={{ color: '#9db5a0' }}>
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#b45309' }}>
                             {client.seo_form_submits || 0}
+                          </div>
+                        </td>
+
+                        {/* Top 10 Keywords */}
+                        <td className="py-5 text-center">
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#b45309' }}>
+                            —
+                          </div>
+                        </td>
+
+                        {/* Organic Traffic */}
+                        <td className="py-5 text-center">
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#b45309' }}>
+                            —
                           </div>
                         </td>
 
                         {/* GBP Calls */}
                         <td className="py-5 text-center">
-                          <div className="font-semibold text-sm" style={{ color: '#60a5fa' }}>
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#047857' }}>
                             {client.gbp_calls || 0}
+                          </div>
+                        </td>
+
+                        {/* GBP Profile Views */}
+                        <td className="py-5 text-center">
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#047857' }}>
+                            —
+                          </div>
+                        </td>
+
+                        {/* Google Ads Conversions */}
+                        <td className="py-5 text-center">
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#6b7280' }}>
+                            {client.ads_conversions || 0}
                           </div>
                         </td>
 
@@ -605,9 +664,10 @@ export default function AdminDashboardPage() {
 
                         {/* Status (Active/Inactive) */}
                         <td className="py-5 text-center">
-                          <span className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                          <span className="status-pill text-xs font-bold px-2 py-1 rounded-full" style={{
                             background: client.is_active ? '#ecfdf5' : '#fee2e2',
-                            color: client.is_active ? '#059669' : '#dc2626'
+                            color: client.is_active ? '#059669' : '#dc2626',
+                            border: `1px solid ${client.is_active ? '#d1fae5' : '#fee2e2'}`
                           }}>
                             {client.is_active ? 'Active' : 'Off'}
                           </span>
@@ -616,33 +676,37 @@ export default function AdminDashboardPage() {
                         {/* Health */}
                         <td className="py-5 text-center">
                           {health === 'inactive' ? (
-                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{
                               background: '#fee2e2',
-                              color: '#dc2626'
+                              color: '#dc2626',
+                              border: '1px solid #fecaca'
                             }}>
                               Low
-                            </div>
+                            </span>
                           ) : health === 'good' ? (
-                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{
                               background: '#ecfdf5',
-                              color: '#059669'
+                              color: '#059669',
+                              border: '1px solid #d1fae5'
                             }}>
                               Good
-                            </div>
+                            </span>
                           ) : health === 'warning' ? (
-                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{
                               background: '#fef3c7',
-                              color: '#b45309'
+                              color: '#b45309',
+                              border: '1px solid #fde68a'
                             }}>
                               Fair
-                            </div>
+                            </span>
                           ) : (
-                            <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{
+                            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{
                               background: '#fee2e2',
-                              color: '#dc2626'
+                              color: '#dc2626',
+                              border: '1px solid #fecaca'
                             }}>
                               Poor
-                            </div>
+                            </span>
                           )}
                         </td>
                       </tr>

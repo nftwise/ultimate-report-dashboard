@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
 :root {
@@ -96,6 +98,66 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-inter);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Utility Classes */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.letter-spacing-wide {
+  letter-spacing: 0.2em;
+}
+
+.letter-spacing-normal {
+  letter-spacing: 0.05em;
+}
+
+/* Card Hover Effects */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(44, 36, 25, 0.12);
+}
+
+/* Table Row Hover */
+.table-row {
+  transition: background-color 150ms ease-out, transform 100ms ease;
+}
+
+.table-row:hover {
+  background-color: rgba(245, 241, 237, 0.4);
+}
+
+/* Status Pill Scale */
+.status-pill {
+  transition: transform 150ms ease;
+}
+
+.table-row:hover .status-pill {
+  transform: scale(1.02);
+}
+
+/* Glassmorphism Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Background Gradient */
+.bg-gradient-warm {
+  background: linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%);
 }
 
 /* React DatePicker Custom Styles */
