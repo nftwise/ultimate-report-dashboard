@@ -51,7 +51,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedView, setSelectedView] = useState<'Daily' | 'Weekly' | 'Monthly'>('Monthly');
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
     const from = new Date();
@@ -59,9 +59,20 @@ export default function ClientDetailPage() {
     return { from, to };
   });
 
+  // Handle preset time period selection
+  const handlePresetDays = (days: 7 | 30 | 90) => {
+    setSelectedDays(days);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    setDateRange({ from, to });
+  };
+
   // Update daily data when date range changes
   const handleDateRangeChange = (newRange: { from: Date; to: Date }) => {
     setDateRange(newRange);
+    // Don't update selectedDays when using custom calendar picker
+    // to allow flexibility for any date range
   };
 
   useEffect(() => {
@@ -165,17 +176,18 @@ export default function ClientDetailPage() {
 
         <div className="ml-auto flex items-center gap-3">
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-            {(['Daily', 'Weekly', 'Monthly'] as const).map((view) => (
+            {[7, 30, 90].map((days) => (
               <button
-                key={view}
-                onClick={() => setSelectedView(view)}
+                key={days}
+                onClick={() => handlePresetDays(days as 7 | 30 | 90)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition"
                 style={{
-                  background: view === selectedView ? '#fff' : 'transparent',
-                  color: view === selectedView ? '#2c2419' : '#5c5850'
+                  background: days === selectedDays ? '#fff' : 'transparent',
+                  color: days === selectedDays ? '#2c2419' : '#5c5850',
+                  cursor: 'pointer'
                 }}
               >
-                {view}
+                {days} days
               </button>
             ))}
           </div>

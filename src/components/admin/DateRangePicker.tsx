@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface DateRangePickerProps {
   dateRange: { from: Date; to: Date };
@@ -19,23 +19,40 @@ const getFirstDayOfMonth = (date: Date) => {
 export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [selectingStart, setSelectingStart] = useState(true);
+  const [tempFromDate, setTempFromDate] = useState<Date | null>(null);
+  const [tempToDate, setTempToDate] = useState<Date | null>(null);
 
   const handleDateClick = (day: number) => {
     const selectedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
 
-    if (selectingStart) {
-      onDateRangeChange({ from: selectedDate, to: dateRange.to });
-      setSelectingStart(false);
-    } else {
-      if (selectedDate < dateRange.from) {
-        onDateRangeChange({ from: selectedDate, to: dateRange.from });
+    if (tempFromDate === null) {
+      // First date selected
+      setTempFromDate(selectedDate);
+    } else if (tempToDate === null) {
+      // Second date selected
+      if (selectedDate < tempFromDate) {
+        // If selected date is before start date, swap them
+        setTempToDate(tempFromDate);
+        setTempFromDate(selectedDate);
       } else {
-        onDateRangeChange({ from: dateRange.from, to: selectedDate });
+        setTempToDate(selectedDate);
       }
-      setShowCalendar(false);
-      setSelectingStart(true);
     }
+  };
+
+  const handleConfirm = () => {
+    if (tempFromDate && tempToDate) {
+      onDateRangeChange({ from: tempFromDate, to: tempToDate });
+      setShowCalendar(false);
+      setTempFromDate(null);
+      setTempToDate(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setShowCalendar(false);
+    setTempFromDate(null);
+    setTempToDate(null);
   };
 
   const monthName = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -45,18 +62,21 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
 
   const isDateInRange = (day: number) => {
     const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    return date >= dateRange.from && date <= dateRange.to;
+    if (tempFromDate === null || tempToDate === null) return false;
+    return date >= tempFromDate && date <= tempToDate;
   };
 
   const isDateStart = (day: number) => {
     const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    return date.toDateString() === dateRange.from.toDateString();
+    return tempFromDate && date.toDateString() === tempFromDate.toDateString();
   };
 
   const isDateEnd = (day: number) => {
     const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    return date.toDateString() === dateRange.to.toDateString();
+    return tempToDate && date.toDateString() === tempToDate.toDateString();
   };
+
+  const isBothSelected = tempFromDate !== null && tempToDate !== null;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -126,7 +146,7 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
           </div>
 
           {/* Calendar days */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1 mb-4">
             {Array.from({ length: firstDay }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
@@ -143,7 +163,8 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
                   cursor: 'pointer',
                   background: isDateStart(day) || isDateEnd(day) ? '#c4704f' : isDateInRange(day) ? 'rgba(196, 112, 79, 0.2)' : 'transparent',
                   color: isDateStart(day) || isDateEnd(day) ? '#fff' : '#2c2419',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  opacity: isDateStart(day) || isDateEnd(day) ? 1 : 0.7
                 }}
               >
                 {day}
@@ -152,8 +173,53 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
           </div>
 
           {/* Info text */}
-          <div style={{ marginTop: '12px', fontSize: '11px', color: '#5c5850', textAlign: 'center' }}>
-            {selectingStart ? 'Select start date' : 'Select end date'}
+          <div style={{ marginBottom: '12px', fontSize: '11px', color: '#5c5850', textAlign: 'center', minHeight: '20px' }}>
+            {tempFromDate === null && 'Select start date'}
+            {tempFromDate !== null && tempToDate === null && 'Select end date'}
+            {tempFromDate !== null && tempToDate !== null && (
+              <span style={{ color: '#c4704f', fontWeight: '600' }}>
+                {tempFromDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {tempToDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleCancel}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'rgba(44, 36, 25, 0.05)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#5c5850',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={!isBothSelected}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: isBothSelected ? '#c4704f' : 'rgba(196, 112, 79, 0.3)',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: isBothSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                cursor: isBothSelected ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s'
+              }}
+            >
+              Apply
+            </button>
           </div>
         </div>
       )}
