@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
+    console.log('[daily-traffic] Request params:', { clientId, dateFrom, dateTo });
+
     if (!clientId || !dateFrom || !dateTo) {
+      console.error('[daily-traffic] Missing parameters');
       return NextResponse.json({
         success: false,
         error: 'Missing required parameters: clientId, dateFrom, dateTo'
@@ -25,15 +28,17 @@ export async function GET(request: NextRequest) {
       .order('date', { ascending: true });
 
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('[daily-traffic] Supabase error:', error);
       return NextResponse.json({
         success: false,
         error: error.message
       }, { status: 500 });
     }
 
+    console.log('[daily-traffic] Query returned', data?.length || 0, 'records');
+
     if (!data || data.length === 0) {
-      console.warn(`No data found for client ${clientId} between ${dateFrom} and ${dateTo}`);
+      console.warn(`[daily-traffic] No data found for client ${clientId} between ${dateFrom} and ${dateTo}`);
       return NextResponse.json({
         success: true,
         data: []
@@ -48,12 +53,13 @@ export async function GET(request: NextRequest) {
       leads: item.total_leads || 0
     }));
 
+    console.log('[daily-traffic] Returning formatted data:', formattedData.length, 'records');
     return NextResponse.json({
       success: true,
       data: formattedData
     });
   } catch (error: any) {
-    console.error('Error fetching daily traffic:', error);
+    console.error('[daily-traffic] Error fetching daily traffic:', error);
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to fetch daily traffic data'

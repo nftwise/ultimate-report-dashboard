@@ -70,20 +70,27 @@ export default function ClientDetailPage() {
         const dateFromISO = start.toISOString().split('T')[0];
         const dateToISO = end.toISOString().split('T')[0];
 
+        console.log('Fetching daily traffic for:', { clientId: client.id, dateFromISO, dateToISO });
+
         const response = await fetch(
           `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${dateFromISO}&dateTo=${dateToISO}`
         );
         const data = await response.json();
+
+        console.log('Daily traffic API response:', { status: response.status, data });
 
         if (!response.ok) {
           console.error('API error:', data.error);
           return;
         }
 
-        if (data.success && data.data) {
+        if (data.success && data.data && data.data.length > 0) {
+          console.log('Setting daily traffic data with', data.data.length, 'records');
           setDailyTraffic(data.data);
         } else {
-          console.warn('No data returned from daily traffic API');
+          console.warn('No data returned from daily traffic API or empty array');
+          // Set empty array to trigger "no data" state
+          setDailyTraffic([]);
         }
       } catch (error) {
         console.error('Error fetching daily traffic:', error);
@@ -300,23 +307,25 @@ export default function ClientDetailPage() {
               {dailyTraffic && dailyTraffic.length > 0 ? (
                 <div>
                   <div style={{ height: '200px', marginBottom: '24px' }}>
-                    <svg width="100%" height="100%" style={{ maxWidth: '100%' }}>
+                    <svg width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet" style={{ maxWidth: '100%' }}>
                       {(() => {
                         const data = dailyTraffic.slice(0, 30);
-                        const maxTraffic = Math.max(...data.map(d => d.traffic));
-                        const maxLeads = Math.max(...data.map(d => d.leads));
-                        const width = 100;
-                        const height = 200;
-                        const padding = 20;
-                        const chartWidth = width - (padding * 2);
-                        const chartHeight = height - (padding * 2);
+                        if (data.length === 0) return null;
+
+                        const maxTraffic = Math.max(...data.map(d => d.traffic), 1);
+                        const maxLeads = Math.max(...data.map(d => d.leads), 1);
+                        const viewBoxWidth = 800;
+                        const viewBoxHeight = 200;
+                        const padding = 30;
+                        const chartWidth = viewBoxWidth - (padding * 2);
+                        const chartHeight = viewBoxHeight - (padding * 2);
 
                         // Generate traffic points
                         const trafficPoints = data
                           .map((d, i) => {
                             const x = padding + (i / (data.length - 1 || 1)) * chartWidth;
                             const y = padding + chartHeight - ((d.traffic / maxTraffic) * chartHeight);
-                            return `${x}%,${y}`;
+                            return `${x},${y}`;
                           })
                           .join(' ');
 
@@ -325,7 +334,7 @@ export default function ClientDetailPage() {
                           .map((d, i) => {
                             const x = padding + (i / (data.length - 1 || 1)) * chartWidth;
                             const y = padding + chartHeight - ((d.leads / maxLeads) * chartHeight);
-                            return `${x}%,${y}`;
+                            return `${x},${y}`;
                           })
                           .join(' ');
 
@@ -381,9 +390,14 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
               ) : (
-                <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>
-                  Loading daily traffic data...
-                </p>
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p style={{ color: '#9ca3af', marginBottom: '12px' }}>
+                    No daily traffic data available for the selected period
+                  </p>
+                  <p style={{ color: '#d1d5db', fontSize: '12px' }}>
+                    Data may be loading or no records exist in the database for this client
+                  </p>
+                </div>
               )}
             </div>
 
