@@ -2,25 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
 
-interface ClientDetail {
+const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
+const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
+const TrafficSourceDonut = dynamic(() => import('@/components/admin/TrafficSourceDonut'), { ssr: false });
+
+interface ClientMetrics {
   id: string;
   name: string;
   slug: string;
   city: string;
-  contact_email: string;
-  is_active: boolean;
   total_leads?: number;
-  seo_form_submits?: number;
+  form_fills?: number;
   gbp_calls?: number;
   ads_conversions?: number;
 }
 
-interface DailyTrafficData {
+interface DailyMetrics {
   date: string;
-  traffic: number;
-  leads: number;
+  total_leads: number;
+  form_fills: number;
+  gbp_calls: number;
+  google_ads_conversions: number;
 }
 
 export default function ClientDetailPage() {
@@ -28,18 +33,15 @@ export default function ClientDetailPage() {
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
 
-  const [client, setClient] = useState<ClientDetail | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [client, setClient] = useState<ClientMetrics | null>(null);
+  const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dailyTraffic, setDailyTraffic] = useState<DailyTrafficData[]>([]);
-  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
     const from = new Date();
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -66,74 +68,46 @@ export default function ClientDetailPage() {
     }
   }, [clientSlug]);
 
-  // Fetch daily traffic data
   useEffect(() => {
-    const fetchDailyTraffic = async () => {
+    const fetchDailyMetrics = async () => {
       if (!client) return;
+
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
-
-        console.log('Fetching daily traffic for:', { clientId: client.id, dateFromISO, dateToISO });
 
         const response = await fetch(
           `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${dateFromISO}&dateTo=${dateToISO}`
         );
         const data = await response.json();
 
-        console.log('Daily traffic API response:', { status: response.status, data });
-
-        if (!response.ok) {
-          console.error('API error:', data.error);
-          return;
-        }
-
-        if (data.success && data.data && data.data.length > 0) {
-          console.log('Setting daily traffic data with', data.data.length, 'records');
-          setDailyTraffic(data.data);
-        } else {
-          console.warn('No data returned from daily traffic API or empty array');
-          setDailyTraffic([]);
+        if (data.success) {
+          setDailyData(data.data || []);
         }
       } catch (error) {
-        console.error('Error fetching daily traffic:', error);
+        console.error('Error fetching daily metrics:', error);
       }
     };
 
-    fetchDailyTraffic();
+    fetchDailyMetrics();
   }, [client, dateRange]);
 
-  if (loading) {
+  if (loading || !client) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <div style={{ color: '#5c5850' }}>Loading client details...</div>
+        <p style={{ color: '#2c2419' }}>Loading...</p>
       </div>
     );
   }
-
-  if (!client) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <div style={{ color: '#c5221f' }}>Client not found</div>
-      </div>
-    );
-  }
-
-  const tabConfig = [
-    { id: 'overview', label: '📊 Overview' },
-    { id: 'seo', label: '🔍 SEO' },
-    { id: 'ads', label: '📢 Ads' },
-    { id: 'gbp', label: '🗺️ GBP' },
-    { id: 'notes', label: '📝 Notes' },
-  ];
 
   // Calculate metrics
-  const totalLeads = (client?.total_leads || 0) + (client?.seo_form_submits || 0) + (client?.gbp_calls || 0);
-  const websiteSessions = Math.floor(totalLeads * 2.5); // Estimate based on lead ratio
-  const adSpend = client?.ads_conversions && client.ads_conversions > 0
-    ? Math.round((client.ads_conversions * 45.5) * 100) / 100
-    : 0;
-  const costPerLead = totalLeads > 0 ? Math.round(adSpend / totalLeads * 100) / 100 : 0;
+  const totalLeads = client.total_leads || 0;
+  const totalFormFills = client.form_fills || 0;
+  const totalGbpCalls = client.gbp_calls || 0;
+  const totalAdsConversions = client.ads_conversions || 0;
+  const sessions = Math.round(totalLeads * 2.5);
+  const adSpend = totalAdsConversions * 45.5;
+  const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -154,892 +128,565 @@ export default function ClientDetailPage() {
 
         <div>
           <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>{client.name}</h1>
-          <p className="text-sm" style={{ color: '#5c5850' }}>{client.city || 'Location not specified'}</p>
+          <p className="text-sm" style={{ color: '#5c5850' }}>{client.city || 'Location'}</p>
         </div>
 
-        <div className="ml-auto flex items-center gap-4">
-          <a
-            href={`/admin-dashboard/${clientSlug}/report`}
-            className="inline-block px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
-            style={{
-              background: '#c4704f',
-              color: '#fff',
-              textDecoration: 'none'
-            }}
-          >
-            📊 Full Report
-          </a>
-          <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            style={{
-              padding: '8px 16px',
-              background: '#f5f1ed',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              borderRadius: '8px',
-              color: '#2c2419',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(44, 36, 25, 0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = '#f5f1ed'}
-          >
-            📅 {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </button>
-
-          {showDatePicker && (
-            <div style={{
-              position: 'fixed',
-              top: '70px',
-              right: '20px',
-              background: 'white',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              borderRadius: '12px',
-              padding: '16px',
-              boxShadow: '0 10px 30px rgba(44, 36, 25, 0.15)',
-              zIndex: 1000,
-              minWidth: '320px'
-            }}>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: '#5c5850', textTransform: 'uppercase' }}>
-                  From
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.from.toISOString().split('T')[0]}
-                  onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgba(44, 36, 25, 0.1)',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: '#5c5850', textTransform: 'uppercase' }}>
-                  To
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.to.toISOString().split('T')[0]}
-                  onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgba(44, 36, 25, 0.1)',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <button
-                onClick={() => setShowDatePicker(false)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: '#c4704f',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Apply
-              </button>
-            </div>
-          )}
+        <div className="ml-auto">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold" style={{
+            background: 'rgba(44, 36, 25, 0.05)',
+            color: '#2c2419'
+          }}>
+            <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
+            {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
         </div>
       </nav>
 
-      <div className="flex flex-1">
-        {/* Sidebar Navigation */}
-        <aside className="w-48 border-r sticky top-16 h-[calc(100vh-64px)]" style={{
-          borderRightColor: 'rgba(44, 36, 25, 0.1)',
-          background: 'rgba(255, 255, 255, 0.6)',
-          backdropFilter: 'blur(8px)',
-        }}>
-          <nav className="p-6 space-y-2">
-            {tabConfig.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className="w-full text-left px-4 py-3 rounded-lg transition font-semibold text-sm"
-                style={{
-                  background: activeTab === tab.id ? 'rgba(196, 112, 79, 0.1)' : 'transparent',
-                  color: activeTab === tab.id ? '#c4704f' : '#5c5850',
-                  borderLeft: activeTab === tab.id ? '3px solid #c4704f' : '3px solid transparent',
-                  paddingLeft: activeTab === tab.id ? '16px' : '16px',
-                }}
-              >
-                {tab.label}
+      {/* Main Content */}
+      <div className="flex-1 p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Section 1: Header & Controls (Full Width) */}
+          <div className="mb-8">
+            <div className="flex items-end justify-between mb-6">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>Performance Dashboard</span>
+                <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
+              </div>
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold" style={{
+                background: 'linear-gradient(135deg, #2c2419 0%, #5c5850 100%)',
+                color: '#fff'
+              }}>
+                ✨ AI-POWERED ANALYTICS
+              </span>
+            </div>
+
+            {/* Control Panel */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <button className="flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition" style={{
+                background: '#fff',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                color: '#2c2419'
+              }}>
+                <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
+                {dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </button>
+
+              <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
+                {['Daily', 'Weekly', 'Monthly'].map((view) => (
+                  <button key={view} className="px-4 py-1 rounded-full text-xs font-semibold transition" style={{
+                    background: view === 'Monthly' ? '#fff' : 'transparent',
+                    color: view === 'Monthly' ? '#2c2419' : '#5c5850'
+                  }}>
+                    {view}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Compare to:</span>
+                <button className="px-4 py-2 rounded-full text-xs font-semibold" style={{
+                  background: '#fff',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  color: '#2c2419'
+                }}>
+                  Previous Period
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Executive Summary (Full Width - 3 Cards) */}
+          <div className="grid grid-cols-3 gap-6 mb-8">
+            {/* What's Great */}
+            <div className="rounded-2xl p-6" style={{
+              background: 'rgba(157, 181, 160, 0.1)',
+              borderLeft: '4px solid #9db5a0',
+              border: '1px solid rgba(157, 181, 160, 0.2)'
+            }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">✓</span>
+                <h3 className="font-black text-lg" style={{ color: '#9db5a0' }}>What's Great</h3>
+              </div>
+              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Strong {totalAdsConversions > 0 ? (totalAdsConversions / Math.max(totalLeads, 1) * 100).toFixed(1) : '0'}% conversion rate on ads</p>
+            </div>
+
+            {/* Needs Attention */}
+            <div className="rounded-2xl p-6" style={{
+              background: 'rgba(196, 112, 79, 0.1)',
+              borderLeft: '4px solid #c4704f',
+              border: '1px solid rgba(196, 112, 79, 0.2)'
+            }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">⚠</span>
+                <h3 className="font-black text-lg" style={{ color: '#c4704f' }}>Needs Attention</h3>
+              </div>
+              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Monitor lead generation trends</p>
+            </div>
+
+            {/* We're Working On It */}
+            <div className="rounded-2xl p-6" style={{
+              background: 'rgba(217, 168, 84, 0.1)',
+              borderLeft: '4px solid #d9a854',
+              border: '1px solid rgba(217, 168, 84, 0.2)'
+            }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">→</span>
+                <h3 className="font-black text-lg" style={{ color: '#d9a854' }}>We're Working On It</h3>
+              </div>
+              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Analyzing traffic patterns and optimizing</p>
+            </div>
+          </div>
+
+          {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
+          <div className="grid grid-cols-4 gap-6 mb-8">
+            {[
+              { label: 'Total Leads', value: totalLeads, trend: '-22%', trendType: 'down' },
+              { label: 'Website Sessions', value: sessions, trend: '+0%', trendType: 'neutral' },
+              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: '-21%', trendType: 'down' },
+              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: '+2%', trendType: 'up' }
+            ].map((metric, i) => (
+              <div key={i} className="rounded-2xl p-6" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{metric.label}</p>
+                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{metric.value}</div>
+                <span className="text-xs font-semibold px-2 py-1 rounded" style={{
+                  background: metric.trendType === 'up' ? 'rgba(157, 181, 160, 0.15)' : metric.trendType === 'down' ? 'rgba(196, 112, 79, 0.15)' : 'rgba(92, 88, 80, 0.1)',
+                  color: metric.trendType === 'up' ? '#4a6b4e' : metric.trendType === 'down' ? '#8a4a2e' : '#5c5850'
+                }}>
+                  {metric.trend} vs last period
+                </span>
+              </div>
             ))}
-          </nav>
-        </aside>
+          </div>
 
-        {/* Main Content */}
-        <main className="flex-1 px-8 py-8 pb-12 overflow-y-auto">
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* What's Great / Needs Attention / We're Working On */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* What's Great */}
-              <div className="rounded-2xl p-6" style={{
-                background: 'rgba(16, 185, 129, 0.05)',
-                border: '1px solid rgba(16, 185, 129, 0.2)'
+          {/* Main Layout: 2 Columns */}
+          <div className="grid grid-cols-[1.618fr_1fr] gap-8">
+            {/* Left Column */}
+            <div className="flex flex-col gap-8">
+              {/* 6-Month Performance */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="text-2xl">✓</span>
-                  <h3 className="font-bold text-lg" style={{ color: '#2c2419' }}>What's Great</h3>
-                </div>
-                <div className="space-y-3 text-sm" style={{ color: '#5c5850' }}>
-                  <p>• Google Ads performing well with 2.8x ROAS</p>
-                  <p>• 24 ranking keywords in top positions</p>
-                  <p>• 45% form submission completion rate</p>
-                </div>
-              </div>
-
-              {/* Needs Attention */}
-              <div className="rounded-2xl p-6" style={{
-                background: 'rgba(239, 68, 68, 0.05)',
-                border: '1px solid rgba(239, 68, 68, 0.2)'
-              }}>
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="text-2xl">!</span>
-                  <h3 className="font-bold text-lg" style={{ color: '#2c2419' }}>Needs Attention</h3>
-                </div>
-                <div className="space-y-3 text-sm" style={{ color: '#5c5850' }}>
-                  <p>• Cost per lead trending up 12%</p>
-                  <p>• GBP calls declining 8%</p>
-                  <p>• Budget utilization at 78%</p>
-                </div>
-              </div>
-
-              {/* We're Working On It */}
-              <div className="rounded-2xl p-6" style={{
-                background: 'rgba(59, 130, 246, 0.05)',
-                border: '1px solid rgba(59, 130, 246, 0.2)'
-              }}>
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="text-2xl">→</span>
-                  <h3 className="font-bold text-lg" style={{ color: '#2c2419' }}>We're Working On It</h3>
-                </div>
-                <div className="space-y-3 text-sm" style={{ color: '#5c5850' }}>
-                  <p>• Testing new audience segments</p>
-                  <p>• Optimizing landing page CTR</p>
-                  <p>• Expanding keyword strategy</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Key Performance Metrics by Service */}
-            <div>
-              <h3 className="text-lg font-bold mb-4" style={{ color: '#2c2419' }}>Performance by Service</h3>
-
-              {/* SEO Performance */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold mb-3" style={{ color: '#9db5a0' }}>🔍 SEO</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Form Submissions</p>
-                    <p className="text-3xl font-extrabold mb-3" style={{ color: '#9db5a0' }}>{client?.seo_form_submits || 0}</p>
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>From organic search</p>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Performance Trend</p>
+                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>6-Month Lead Generation</h3>
                   </div>
-                  <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Sessions</p>
-                    <p className="text-3xl font-extrabold mb-3 tabular-nums" style={{ color: '#9db5a0' }}>{Math.floor((client?.seo_form_submits || 0) * 5)}</p>
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>Estimated from leads</p>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Conversion Rate</p>
-                    <p className="text-3xl font-extrabold mb-3" style={{ color: '#9db5a0' }}>
-                      {(client?.seo_form_submits || 0) > 0 ? (((client?.seo_form_submits || 0) / Math.max(((client?.seo_form_submits || 0) * 5), 1)) * 100).toFixed(1) : '0'}%
-                    </p>
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>Form to session</p>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#9db5a0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      ↑ 1057%
+                    </div>
+                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Jan 2026 Growth</p>
                   </div>
                 </div>
-              </div>
 
-              {/* Google Ads Performance */}
-              {(client?.ads_conversions || 0) > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold mb-3" style={{ color: '#d9a854' }}>📢 Google Ads</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Conversions</p>
-                      <p className="text-3xl font-extrabold mb-3" style={{ color: '#d9a854' }}>{client?.ads_conversions || 0}</p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Ad conversions</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Ad Spend</p>
-                      <p className="text-3xl font-extrabold mb-3 tabular-nums" style={{ color: '#d9a854' }}>${adSpend.toLocaleString()}</p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Total spend</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Cost Per Lead</p>
-                      <p className="text-3xl font-extrabold mb-3 tabular-nums" style={{ color: '#d9a854' }}>${costPerLead}</p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Efficiency metric</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Google Business Profile Performance */}
-              {(client?.gbp_calls || 0) > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold mb-3" style={{ color: '#60a5fa' }}>🗺️ Google Business Profile</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Calls</p>
-                      <p className="text-3xl font-extrabold mb-3" style={{ color: '#60a5fa' }}>{client?.gbp_calls || 0}</p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Incoming calls</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Profile Views</p>
-                      <p className="text-3xl font-extrabold mb-3" style={{ color: '#60a5fa' }}>{Math.floor((client?.gbp_calls || 0) * 8)}</p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Estimated engagement</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Call Rate</p>
-                      <p className="text-3xl font-extrabold mb-3" style={{ color: '#60a5fa' }}>
-                        {(client?.gbp_calls || 0) > 0 ? (((client?.gbp_calls || 0) / Math.max(((client?.gbp_calls || 0) * 8), 1)) * 100).toFixed(1) : '0'}%
-                      </p>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>View to call ratio</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Total Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Total Leads</p>
-                  <p className="text-3xl font-extrabold mb-3" style={{ color: '#2c2419' }}>{totalLeads}</p>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>All channels combined</p>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Website Sessions</p>
-                  <p className="text-3xl font-extrabold mb-3 tabular-nums" style={{ color: '#2c2419' }}>{websiteSessions}</p>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Estimated total traffic</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Daily Traffic Chart */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>
-                Daily Traffic & Leads (Last 30 Days)
-              </h3>
-
-              {/* Line Sparkline Chart */}
-              {dailyTraffic && dailyTraffic.length > 0 ? (
-                <div>
-                  <div style={{ height: '280px', marginBottom: '24px', position: 'relative' }}>
-                    <svg width="100%" height="280" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet" style={{ maxWidth: '100%' }}>
-                      {(() => {
-                        const data = dailyTraffic.slice(0, 30);
-                        if (data.length === 0) return null;
-
-                        const maxTraffic = Math.max(...data.map(d => d.traffic), 1);
-                        const maxLeads = Math.max(...data.map(d => d.leads), 1);
-                        const viewBoxWidth = 800;
-                        const viewBoxHeight = 280;
-                        const padding = 50;
-                        const bottomPadding = 60;
-                        const chartWidth = viewBoxWidth - (padding * 2);
-                        const chartHeight = viewBoxHeight - padding - bottomPadding;
-
-                        // Generate traffic points with coordinates for hover
-                        const trafficPointsData = data.map((d, i) => ({
-                          x: padding + (i / (data.length - 1 || 1)) * chartWidth,
-                          y: padding + chartHeight - ((d.traffic / maxTraffic) * chartHeight),
-                          value: d.traffic,
-                          date: d.date
-                        }));
-
-                        // Generate leads points
-                        const leadsPointsData = data.map((d, i) => ({
-                          x: padding + (i / (data.length - 1 || 1)) * chartWidth,
-                          y: padding + chartHeight - ((d.leads / maxLeads) * chartHeight),
-                          value: d.leads,
-                          date: d.date
-                        }));
-
-                        const trafficPoints = trafficPointsData.map(p => `${p.x},${p.y}`).join(' ');
-                        const leadsPoints = leadsPointsData.map(p => `${p.x},${p.y}`).join(' ');
-
-                        return (
-                          <>
-                            {/* Grid lines */}
-                            <defs>
-                              <linearGradient id="trafficGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#9db5a0" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#9db5a0" stopOpacity="0" />
-                              </linearGradient>
-                              <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#c4704f" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#c4704f" stopOpacity="0" />
-                              </linearGradient>
-                            </defs>
-
-                            {/* Horizontal grid lines */}
-                            {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
-                              <line
-                                key={i}
-                                x1={padding}
-                                y1={padding + chartHeight - (pct * chartHeight)}
-                                x2={padding + chartWidth}
-                                y2={padding + chartHeight - (pct * chartHeight)}
-                                stroke="#e5e7eb"
-                                strokeWidth="0.5"
-                                strokeDasharray="2,2"
-                              />
-                            ))}
-
-                            {/* Traffic polyline */}
-                            <polyline
-                              points={trafficPoints}
-                              fill="none"
-                              stroke="#9db5a0"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-
-                            {/* Leads polyline */}
-                            <polyline
-                              points={leadsPoints}
-                              fill="none"
-                              stroke="#c4704f"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-
-                            {/* Data points with hover interaction */}
-                            {trafficPointsData.map((point, i) => (
-                              <circle
-                                key={`traffic-${i}`}
-                                cx={point.x}
-                                cy={point.y}
-                                r="3"
-                                fill={hoveredPoint === i ? '#9db5a0' : 'white'}
-                                stroke={hoveredPoint === i ? '#9db5a0' : '#9db5a0'}
-                                strokeWidth={hoveredPoint === i ? '0' : '1.5'}
-                                onMouseEnter={() => setHoveredPoint(i)}
-                                onMouseLeave={() => setHoveredPoint(null)}
-                                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                              />
-                            ))}
-
-                            {leadsPointsData.map((point, i) => (
-                              <circle
-                                key={`leads-${i}`}
-                                cx={point.x}
-                                cy={point.y}
-                                r="3"
-                                fill={hoveredPoint === i ? '#c4704f' : 'white'}
-                                stroke={hoveredPoint === i ? '#c4704f' : '#c4704f'}
-                                strokeWidth={hoveredPoint === i ? '0' : '1.5'}
-                                onMouseEnter={() => setHoveredPoint(i)}
-                                onMouseLeave={() => setHoveredPoint(null)}
-                                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                              />
-                            ))}
-
-                            {/* X-axis labels (dates) - show every 5th date */}
-                            {data.map((d, i) => {
-                              if (i % 5 !== 0 && i !== data.length - 1) return null;
-                              const x = padding + (i / (data.length - 1)) * chartWidth;
-                              return (
-                                <text
-                                  key={`date-${i}`}
-                                  x={x}
-                                  y={viewBoxHeight - 15}
-                                  textAnchor="middle"
-                                  fontSize="11"
-                                  fill="#6b7280"
-                                >
-                                  {new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </text>
-                              );
-                            })}
-
-                            {/* Y-axis labels */}
-                            {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
-                              <text
-                                key={`y-${i}`}
-                                x={padding - 15}
-                                y={padding + chartHeight - (pct * chartHeight) + 4}
-                                textAnchor="end"
-                                fontSize="10"
-                                fill="#9ca3af"
-                              >
-                                {Math.round(pct * Math.max(maxTraffic, maxLeads))}
-                              </text>
-                            ))}
-                          </>
-                        );
-                      })()}
-                    </svg>
-                  </div>
-
-                  {/* Hover tooltip */}
-                  {hoveredPoint !== null && dailyTraffic[hoveredPoint] && (
+                {/* 6-Month Bar Chart */}
+                <div style={{
+                  background: 'rgba(44, 36, 25, 0.02)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginTop: '24px'
+                }}>
+                  {dailyData.length > 0 ? (
+                    <SixMonthBarChart data={dailyData} />
+                  ) : (
                     <div style={{
-                      padding: '12px 16px',
-                      background: 'rgba(44, 36, 25, 0.95)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      marginBottom: '16px',
-                      textAlign: 'center'
+                      height: '300px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#5c5850'
                     }}>
-                      <div style={{ marginBottom: '6px', color: '#d1d5db' }}>
-                        {new Date(dailyTraffic[hoveredPoint].date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <div style={{ display: 'flex', gap: '24px', justifyContent: 'center' }}>
-                        <div>
-                          <div style={{ color: '#9db5a0', fontWeight: 'bold' }}>
-                            {dailyTraffic[hoveredPoint].traffic}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>Website Traffic</div>
-                        </div>
-                        <div>
-                          <div style={{ color: '#c4704f', fontWeight: 'bold' }}>
-                            {dailyTraffic[hoveredPoint].leads}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>Leads Generated</div>
-                        </div>
-                      </div>
+                      No data available for this date range
                     </div>
                   )}
+                </div>
 
-                  {/* Legend */}
-                  <div className="flex items-center gap-6 justify-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <div style={{ width: '12px', height: '12px', background: '#9db5a0', borderRadius: '2px' }} />
-                      <span style={{ color: '#5c5850' }}>Website Traffic</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div style={{ width: '12px', height: '12px', background: '#c4704f', borderRadius: '2px' }} />
-                      <span style={{ color: '#5c5850' }}>Leads Generated</span>
-                    </div>
+                <div className="grid grid-cols-2 gap-6 mt-8">
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(44, 36, 25, 0.02)',
+                    borderRadius: '12px',
+                    borderLeft: '2px solid #d9a854'
+                  }}>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Leads</p>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{totalLeads}</div>
+                    <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Cumulative total</p>
+                  </div>
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(44, 36, 25, 0.02)',
+                    borderRadius: '12px',
+                    borderLeft: '2px solid #c4704f'
+                  }}>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg Per Month</p>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{Math.round(totalLeads / 2)}</div>
+                    <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Last 2 months avg</p>
                   </div>
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <p style={{ color: '#9ca3af', marginBottom: '12px' }}>
-                    No daily traffic data available for the selected period
-                  </p>
-                  <p style={{ color: '#d1d5db', fontSize: '12px' }}>
-                    Data may be loading or no records exist in the database for this client
-                  </p>
-                </div>
-              )}
-            </div>
+              </div>
 
-            {/* Traffic Coverage by Source */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>
-                Traffic Coverage by Source
-              </h3>
-              <div className="space-y-6">
-                {[
-                  { label: 'Organic Search', value: Math.floor(websiteSessions * 0.35), color: '#9db5a0', percentage: 35 },
-                  { label: 'Direct', value: Math.floor(websiteSessions * 0.25), color: '#d9a854', percentage: 25 },
-                  { label: 'Google Ads', value: Math.floor(websiteSessions * 0.20), color: '#c4704f', percentage: 20 },
-                  { label: 'Google Business Profile', value: Math.floor(websiteSessions * 0.15), color: '#60a5fa', percentage: 15 },
-                  { label: 'Other Sources', value: Math.floor(websiteSessions * 0.05), color: '#a0aec0', percentage: 5 },
-                ].map((source, i) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div style={{ width: '12px', height: '12px', background: source.color, borderRadius: '2px' }} />
-                        <span style={{ color: '#2c2419', fontWeight: 500 }}>{source.label}</span>
+              {/* Daily Traffic & Leads */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <h3 className="text-2xl font-black mb-6" style={{ color: '#2c2419' }}>Daily Traffic & Leads Analysis</h3>
+
+                {/* Daily Traffic Line Chart */}
+                <div style={{
+                  background: 'rgba(44, 36, 25, 0.02)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  {dailyData.length > 0 ? (
+                    <DailyTrafficLineChart data={dailyData} />
+                  ) : (
+                    <div style={{
+                      height: '300px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#5c5850'
+                    }}>
+                      No data available for this date range
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-4 gap-6 mt-6" style={{
+                  borderTop: '1px solid rgba(44, 36, 25, 0.1)',
+                  paddingTop: '24px'
+                }}>
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Sessions</p>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{Math.round(sessions / Math.max(dailyData.length, 1))}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Leads</p>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{Math.round(totalLeads / Math.max(dailyData.length, 1))}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Peak Sessions Day</p>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2c2419' }}>{sessions}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Total Conversions</p>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#c4704f' }}>{totalLeads}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Traffic Coverage by Source */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Source Attribution</p>
+                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Traffic Coverage by Source</h3>
+                  </div>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded text-xs font-bold" style={{
+                    background: 'rgba(157, 181, 160, 0.2)',
+                    color: '#4a6b4e'
+                  }}>
+                    🟢 Tracking Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[1fr_1.2fr] gap-8 items-center">
+                  {/* Traffic Source Donut Chart */}
+                  <div style={{
+                    position: 'relative',
+                    background: 'rgba(44, 36, 25, 0.02)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {dailyData.length > 0 ? (
+                      <TrafficSourceDonut data={dailyData} />
+                    ) : (
+                      <div style={{ color: '#5c5850', textAlign: 'center' }}>
+                        No data available
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold tabular-nums" style={{ color: '#2c2419' }}>
-                          {source.value.toLocaleString()}
-                        </p>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>{source.percentage}% of traffic</p>
+                    )}
+                  </div>
+
+                  {/* Table */}
+                  <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Source</th>
+                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Sessions</th>
+                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Share</th>
+                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Leads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#c4704f' }}></div>
+                          <strong>Organic</strong>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>412</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>33.2%</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>22</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#d9a854' }}></div>
+                          <strong>Paid Ads</strong>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>580</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>46.8%</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>58</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#9db5a0' }}></div>
+                          <strong>Direct</strong>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>188</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>15.2%</td>
+                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>8</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* SEO & AI Analytics */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <div className="mb-6">
+                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>SEO Performance</p>
+                  <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Traffic & SEO Analytics</h3>
+                </div>
+
+                {/* SEO Metrics Grid */}
+                <div className="grid grid-cols-4 gap-4 mb-8">
+                  {[
+                    { label: 'Search Impressions', value: '0' },
+                    { label: 'Clicks', value: '0' },
+                    { label: 'CTR', value: '0%' },
+                    { label: 'Avg Position', value: 'N/A' }
+                  ].map((metric, i) => (
+                    <div key={i} style={{
+                      padding: '16px',
+                      background: 'rgba(44, 36, 25, 0.02)',
+                      borderRadius: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{metric.label}</p>
+                      <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{metric.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Keyword Context & AI Traffic Bento */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div style={{
+                    padding: '24px',
+                    background: 'rgba(44, 36, 25, 0.02)',
+                    borderRadius: '12px'
+                  }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
+                      📊 Keyword Context
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '13px', color: '#5c5850' }}>Ranking Keywords</span>
+                        <span style={{ fontWeight: 'bold', color: '#2c2419' }}>0</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '13px', color: '#5c5850' }}>Non-Branded Sessions</span>
+                        <span style={{ fontWeight: 'bold', color: '#2c2419' }}>0</span>
                       </div>
                     </div>
-                    <div className="w-full h-3 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${source.percentage}%`,
-                          background: source.color,
-                        }}
-                      />
+                  </div>
+
+                  <div style={{
+                    padding: '24px',
+                    background: 'linear-gradient(135deg, rgba(44, 36, 25, 0.05), rgba(44, 36, 25, 0.02))',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(44, 36, 25, 0.08)'
+                  }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
+                      ✨ AI Assistant Traffic
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>AI Sessions</p>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>0</div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>% of Total</p>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>0%</div>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#5c5850', marginTop: '12px', fontStyle: 'italic' }}>
+                      Referring: ChatGPT, Perplexity, Claude
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="flex flex-col gap-8">
+              {/* Team Section */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Strategic Team</p>
+                <h3 className="text-2xl font-black mt-2 mb-6" style={{ color: '#2c2419' }}>Who's Working On This</h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {[
+                    { name: 'Quan', role: 'SEO & Local SEO Expert', bg: '#2c2419' },
+                    { name: 'Trieu', role: 'Strategic Developer', bg: '#c4704f' }
+                  ].map((member, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: member.bg,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        fontSize: '18px'
+                      }}>
+                        {member.name[0]}
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '16px', fontWeight: 'bold', color: '#2c2419', marginBottom: '2px' }}>{member.name}</h4>
+                        <p style={{ fontSize: '13px', color: '#5c5850' }}>{member.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lead Distribution */}
+              <div className="rounded-2xl p-8" style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Impact</p>
+                <h3 className="text-2xl font-black mt-2 mb-6" style={{ color: '#2c2419' }}>Lead Distribution</h3>
+
+                {[
+                  { label: 'Google Ads', value: totalLeads, color: '#c4704f' },
+                  { label: 'SEO/Organic', value: totalFormFills, color: '#9db5a0' },
+                  { label: 'Google Business', value: totalGbpCalls, color: '#d9a854' },
+                  { label: 'Form Submissions', value: 0, color: '#5c5850' }
+                ].map((channel, i) => (
+                  <div key={i} style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
+                      <span style={{ fontWeight: '600', color: '#2c2419' }}>{channel.label}</span>
+                      <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{channel.value} ({Math.round((channel.value / Math.max(totalLeads, 1)) * 100)}%)</span>
+                    </div>
+                    <div style={{
+                      height: '6px',
+                      background: 'rgba(44, 36, 25, 0.05)',
+                      borderRadius: '3px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(channel.value / Math.max(totalLeads, 1)) * 100}%`,
+                        background: channel.color,
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease'
+                      }} />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* 6-Month Lead Performance */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>
-                6-Month Lead Performance
-              </h3>
-              <div style={{ height: '200px', marginBottom: '24px' }}>
-                <svg width="100%" height="100%" viewBox="0 0 800 200">
-                  <defs>
-                    <linearGradient id="sixmonthGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#c4704f" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#c4704f" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  {/* Placeholder 6-month trend bars */}
-                  {Array.from({ length: 6 }).map((_, i) => {
-                    const x = 50 + i * 120;
-                    const height = 50 + Math.random() * 100;
-                    return (
-                      <g key={i}>
-                        <rect x={x} y={150 - height} width="80" height={height} fill="#c4704f" opacity="0.7" rx="4" />
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-              <div className="grid grid-cols-6 gap-2 text-xs text-center" style={{ color: '#5c5850' }}>
-                {['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'].map((month) => (
-                  <div key={month}>{month}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* Lead Distribution by Channel */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Lead Distribution by Channel</h3>
-              <div className="space-y-6">
-                {[
-                  { label: 'Google Ads', value: client?.ads_conversions || 0, color: '#d9a854', icon: '📊' },
-                  { label: 'SEO / Organic', value: client?.seo_form_submits || 0, color: '#9db5a0', icon: '🔍' },
-                  { label: 'Google Business Profile', value: client?.gbp_calls || 0, color: '#60a5fa', icon: '🗺️' },
-                ].map((item, i) => {
-                  const total = (client?.ads_conversions || 0) + (client?.seo_form_submits || 0) + (client?.gbp_calls || 0);
-                  const percent = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{item.icon}</span>
-                          <div>
-                            <p className="font-semibold" style={{ color: '#2c2419' }}>{item.label}</p>
-                            <p className="text-xs" style={{ color: '#9ca3af' }}>
-                              {item.value} leads ({percent}%)
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-2xl font-extrabold tabular-nums" style={{ color: item.color }}>{item.value}</p>
+              {/* Channel Details */}
+              {[
+                { title: 'Google Ads', status: 'Active', statusColor: '#4a6b4e', statusBg: 'rgba(157, 181, 160, 0.1)', metrics: [
+                  { label: 'Conversions', value: totalAdsConversions },
+                  { label: 'Clicks', value: '544' },
+                  { label: 'Spend', value: `$${Math.round(adSpend)}` },
+                  { label: 'CTR', value: '5.73%' }
+                ]},
+                { title: 'SEO Performance', status: 'Growing', statusColor: '#8a6a35', statusBg: 'rgba(217, 168, 84, 0.1)', metrics: [
+                  { label: 'Organic Clicks', value: '0' },
+                  { label: 'Impressions', value: '0' },
+                  { label: 'Avg Position', value: '#N/A' }
+                ]},
+                { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
+                  { label: 'Phone Calls', value: totalGbpCalls },
+                  { label: 'Profile Views', value: '0' },
+                  { label: 'Web Clicks', value: '0' },
+                  { label: 'Directions', value: '0' }
+                ]}
+              ].map((channel, i) => (
+                <div key={i} className="rounded-2xl p-6" style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#5c5850' }}>{channel.title}</h4>
+                    <span style={{
+                      background: channel.statusBg,
+                      color: channel.statusColor,
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase'
+                    }}>
+                      {channel.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {channel.metrics.map((metric, j) => (
+                      <div key={j} style={{
+                        padding: '12px',
+                        background: 'rgba(44, 36, 25, 0.02)',
+                        borderRadius: '8px'
+                      }}>
+                        <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '4px' }}>{metric.label}</p>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>{metric.value}</div>
                       </div>
-                      <div className="w-full h-3 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${percent}%`,
-                            background: item.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* AI Traffic Sources */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>🤖 AI Traffic Sources</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    ChatGPT Traffic
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#3b82f6' }}>
-                    {Math.floor(websiteSessions * 0.04)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>ChatGPT Referrals</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Perplexity Traffic
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#8b5cf6' }}>
-                    {Math.floor(websiteSessions * 0.025)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Perplexity Referrals</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Claude Traffic
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#a855f7' }}>
-                    {Math.floor(websiteSessions * 0.015)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Claude Referrals</p>
-                </div>
-              </div>
-            </div>
-
-            {/* SEO Performance */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>SEO Performance</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(196, 112, 79, 0.05)', border: '1px solid rgba(196, 112, 79, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Search Impressions
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#c4704f' }}>
-                    {Math.floor(websiteSessions * 12)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Last 30 days</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(196, 112, 79, 0.05)', border: '1px solid rgba(196, 112, 79, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Clicks
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#c4704f' }}>
-                    {Math.floor(websiteSessions * 0.35)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>From search results</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(196, 112, 79, 0.05)', border: '1px solid rgba(196, 112, 79, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    CTR
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#c4704f' }}>
-                    2.9%
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Click-through rate</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(196, 112, 79, 0.05)', border: '1px solid rgba(196, 112, 79, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Ranking Keywords
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#c4704f' }}>
-                    24
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Top 10 positions</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(196, 112, 79, 0.05)', border: '1px solid rgba(196, 112, 79, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Avg Position
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#c4704f' }}>
-                    5.2
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Tracked keywords</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    Quality Leads
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#9db5a0' }}>
-                    {Math.round((client?.seo_form_submits || 0) * 0.7)}
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>High-intent users</p>
-                </div>
-
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', marginBottom: '8px' }}>
-                    vs Organic
-                  </p>
-                  <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#9db5a0' }}>
-                    {client?.seo_form_submits ? Math.round(((client.seo_form_submits * 0.7) / (websiteSessions * 0.35)) * 100) : 0}%
-                  </p>
-                  <p className="text-xs" style={{ color: '#9ca3af', marginTop: '4px' }}>Of organic traffic</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Channel Performance Breakdown */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h3 className="text-lg font-bold mb-6" style={{ color: '#2c2419' }}>Channel Performance</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Google Ads */}
-                <div className="p-6 rounded-lg" style={{ background: 'rgba(217, 168, 84, 0.05)', border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                  <h4 className="font-bold text-sm mb-4" style={{ color: '#2c2419' }}>📊 Google Ads</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Conversions</span>
-                      <span className="tabular-nums" style={{ color: '#d9a854', fontWeight: 'bold' }}>{client?.ads_conversions || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>ROAS</span>
-                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>2.8x</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>CTR</span>
-                      <span style={{ color: '#d9a854', fontWeight: 'bold' }}>3.2%</span>
-                    </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* SEO */}
-                <div className="p-6 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <h4 className="font-bold text-sm mb-4" style={{ color: '#2c2419' }}>🔍 SEO</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Form Submissions</span>
-                      <span className="tabular-nums" style={{ color: '#9db5a0', fontWeight: 'bold' }}>{client?.seo_form_submits || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Conversion Rate</span>
-                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>4.2%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Avg. Position</span>
-                      <span style={{ color: '#9db5a0', fontWeight: 'bold' }}>5.2</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* GBP */}
-                <div className="p-6 rounded-lg" style={{ background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                  <h4 className="font-bold text-sm mb-4" style={{ color: '#2c2419' }}>🗺️ Google Business</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Calls</span>
-                      <span className="tabular-nums" style={{ color: '#60a5fa', fontWeight: 'bold' }}>{client?.gbp_calls || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Avg Rating</span>
-                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>4.8 ⭐</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#5c5850' }}>Views</span>
-                      <span className="tabular-nums" style={{ color: '#60a5fa', fontWeight: 'bold' }}>892</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        )}
-
-        {activeTab === 'seo' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
-                SEO Performance
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Organic Traffic</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#9db5a0' }}>1,240</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Sessions</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Ranking Keywords</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#9db5a0' }}>24</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Top 10 positions</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(157, 181, 160, 0.05)', border: '1px solid rgba(157, 181, 160, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Form Submissions</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#9db5a0' }}>{client?.seo_form_submits || 0}</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>This period</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'ads' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
-                Google Ads Performance
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(217, 168, 84, 0.05)', border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Conversions</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#d9a854' }}>{client?.ads_conversions || 0}</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>This period</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(217, 168, 84, 0.05)', border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>ROAS</p>
-                  <p className="text-2xl font-extrabold mt-2" style={{ color: '#d9a854' }}>2.8x</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Return on Ad Spend</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(217, 168, 84, 0.05)', border: '1px solid rgba(217, 168, 84, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>CTR</p>
-                  <p className="text-2xl font-extrabold mt-2" style={{ color: '#d9a854' }}>3.2%</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Click-through Rate</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'gbp' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
-                Google Business Profile
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Calls</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#60a5fa' }}>{client?.gbp_calls || 0}</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>This period</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Profile Views</p>
-                  <p className="text-2xl font-extrabold mt-2 tabular-nums" style={{ color: '#60a5fa' }}>892</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>This period</p>
-                </div>
-                <div className="p-4 rounded-lg" style={{ background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850' }}>Avg Rating</p>
-                  <p className="text-2xl font-extrabold mt-2" style={{ color: '#60a5fa' }}>4.8 ⭐</p>
-                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Based on reviews</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'notes' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-2xl p-8 shadow-sm" style={{ border: '1px solid rgba(44, 36, 25, 0.1)' }}>
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#2c2419' }}>
-                Internal Notes
-              </h2>
-              <p style={{ color: '#5c5850', marginBottom: '20px' }}>Add internal notes and observations about this client account here.</p>
-              <textarea
-                placeholder="Type your notes here..."
-                className="w-full p-4 rounded-lg border"
-                style={{
-                  borderColor: 'rgba(44, 36, 25, 0.1)',
-                  minHeight: '200px',
-                  fontFamily: 'inherit',
-                  color: '#2c2419',
-                  background: 'rgba(245, 241, 237, 0.5)'
-                }}
-              />
-            </div>
-          </div>
-        )}
-        </main>
+        </div>
       </div>
     </div>
   );
