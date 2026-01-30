@@ -1,14 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
@@ -21,9 +16,9 @@ export async function GET(request: Request) {
     }
 
     // Fetch daily metrics for the client within the date range
-    const { data, error } = await supabase
-      .from('client_metrics_daily')
-      .select('date, website_sessions, total_leads')
+    const { data, error } = await supabaseAdmin
+      .from('client_metrics_summary')
+      .select('date, total_leads, form_fills, gbp_calls, google_ads_conversions')
       .eq('client_id', clientId)
       .gte('date', dateFrom)
       .lte('date', dateTo)
@@ -37,10 +32,19 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
+    if (!data || data.length === 0) {
+      console.warn(`No data found for client ${clientId} between ${dateFrom} and ${dateTo}`);
+      return NextResponse.json({
+        success: true,
+        data: []
+      });
+    }
+
     // Transform data to match expected format
+    // Using total_leads as proxy for traffic (sessions data not directly available)
     const formattedData = (data || []).map((item: any) => ({
       date: item.date,
-      traffic: item.website_sessions || 0,
+      traffic: (item.total_leads || 0) + (item.form_fills || 0) + (item.gbp_calls || 0),
       leads: item.total_leads || 0
     }));
 
