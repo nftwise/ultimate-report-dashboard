@@ -179,17 +179,48 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
+      <style>{`
+        /* Navigation Enhanced Styling */
+        nav {
+          box-shadow: 0 4px 20px rgba(44, 36, 25, 0.05);
+        }
+      `}</style>
       {/* Sticky Navigation */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4" style={{
-        background: 'rgba(245, 241, 237, 0.95)',
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4" style={{
+        background: 'rgba(245, 241, 237, 0.98)',
         backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
+        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44, 36, 25, 0.08)'
       }}>
         <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 md:gap-6">
           {/* Quick Select Buttons */}
-          <div className="flex gap-2">
+          <style>{`
+            .preset-button {
+              transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+              position: relative;
+              overflow: hidden;
+            }
+            .preset-button::after {
+              content: '';
+              position: absolute;
+              inset: 0;
+              background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+              opacity: 0;
+              transition: opacity 200ms ease;
+            }
+            .preset-button:hover {
+              transform: translateY(-2px);
+            }
+            .preset-button:active {
+              transform: translateY(0);
+            }
+            .preset-button.active::after {
+              opacity: 1;
+            }
+          `}</style>
+          <div className="flex gap-1 md:gap-2 bg-white/40 p-1 rounded-full backdrop-blur-md">
             {[
               { label: '30D', days: 30 },
               { label: '90D', days: 90 },
@@ -208,7 +239,7 @@ export default function AdminDashboardPage() {
                       setPresetRange(preset.days);
                     }
                   }}
-                  className="px-4 py-2 text-sm font-semibold rounded-full transition"
+                  className={`preset-button ${isActive ? 'active' : ''} px-3 md:px-4 py-2 text-xs md:text-sm font-semibold rounded-full`}
                   style={{
                     background: isActive ? '#c4704f' : 'transparent',
                     color: isActive ? '#fff' : '#5c5850'
@@ -222,9 +253,22 @@ export default function AdminDashboardPage() {
 
           {/* Date Range Pill */}
           <div className="relative">
+            <style>{`
+              .date-button {
+                transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+              }
+              .date-button:hover {
+                border-color: #d4805e;
+                box-shadow: 0 4px 16px rgba(196, 112, 79, 0.2);
+                transform: translateY(-2px);
+              }
+              .date-button:active {
+                transform: translateY(0);
+              }
+            `}</style>
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className="flex items-center gap-2 px-6 py-2 rounded-full transition"
+              className="date-button flex items-center gap-2 px-3 md:px-6 py-2 rounded-full hidden md:flex"
               style={{
                 background: '#fff',
                 border: '2px solid #c4704f',
@@ -338,20 +382,43 @@ export default function AdminDashboardPage() {
       <div style={{
         background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
         color: 'white',
-        padding: '80px 20px 120px',
+        padding: 'clamp(60px, 15vw, 100px) 20px clamp(100px, 20vw, 140px)',
         textAlign: 'center',
         fontFamily: '"Outfit", sans-serif'
       }}>
-        <h1 className="mb-4" style={{ fontSize: '3.5rem', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: '"Outfit", sans-serif' }}>
+        <h1 className="mb-4" style={{ fontSize: 'clamp(2rem, 7vw, 3.5rem)', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: '"Outfit", sans-serif', lineHeight: 1.1 }}>
           Client Performance
         </h1>
-        <p className="text-lg opacity-90" style={{ fontFamily: '"Inter", sans-serif' }}>
+        <p className="text-base md:text-lg opacity-90" style={{ fontFamily: '"Inter", sans-serif' }}>
           Monitor and optimize client campaigns across all channels
         </p>
       </div>
 
       {/* Stats Grid (Overlapping) */}
       <div className="max-w-7xl mx-auto px-4">
+        <style>{`
+          .stat-card {
+            transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+          }
+          .stat-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(196, 112, 79, 0.1) 0%, transparent 100%);
+            border-radius: 24px;
+            opacity: 0;
+            transition: opacity 300ms ease;
+          }
+          .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(44, 36, 25, 0.15) !important;
+            border-color: rgba(196, 112, 79, 0.2) !important;
+          }
+          .stat-card:hover::before {
+            opacity: 1;
+          }
+        `}</style>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 -mt-20 mb-12 relative z-10">
           {[
             {
@@ -385,12 +452,12 @@ export default function AdminDashboardPage() {
             return (
               <div
                 key={i}
-                className="card-hover rounded-3xl p-8 transition"
+                className="stat-card rounded-3xl p-8"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
+                  background: 'rgba(255, 255, 255, 0.95)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  border: '1px solid rgba(44, 36, 25, 0.08)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}
               >
@@ -418,7 +485,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 pb-12">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20">
         {/* Monthly Leads Trend Chart */}
         <MonthlyLeadsTrendChart months={12} />
 
@@ -426,24 +493,66 @@ export default function AdminDashboardPage() {
         <InsightCards clients={clients} />
 
         {/* Data Table Section */}
-        <div className="rounded-3xl p-8" style={{
-          background: 'rgba(255, 255, 255, 0.8)',
+        <style>{`
+          .table-container {
+            transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+          }
+          .table-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top right, rgba(196, 112, 79, 0.05) 0%, transparent 100%);
+            pointer-events: none;
+            border-radius: 24px;
+          }
+        `}</style>
+        <div className="table-container rounded-3xl p-8" style={{
+          background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(44, 36, 25, 0.1)',
-          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+          border: '1px solid rgba(44, 36, 25, 0.08)',
+          boxShadow: '0 8px 32px rgba(44, 36, 25, 0.08)'
         }}>
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h2 className="text-3xl font-bold" style={{ color: '#2c2419', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
-              All Clients
-            </h2>
-            <span className="text-sm font-semibold px-4 py-2 rounded-full" style={{ background: '#f9f7f4', color: '#5c5850' }}>
+          <style>{`
+            .client-count-badge {
+              transition: all 200ms ease;
+              background: linear-gradient(135deg, #f9f7f4 0%, #f0ece5 100%);
+            }
+          `}</style>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold" style={{ color: '#2c2419', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
+                All Clients
+              </h2>
+              <p className="text-xs md:text-sm mt-1" style={{ color: '#9ca3af' }}>
+                Manage and monitor {clients.length} active client{clients.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <span className="client-count-badge text-sm font-bold px-4 py-2 rounded-full" style={{ color: '#5c5850' }}>
               {filteredClients.length}/{clients.length}
             </span>
           </div>
 
           {/* Search Bar and Filters */}
           <div className="mb-8 space-y-4">
+            <style>{`
+              .search-input {
+                transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+              }
+              .search-input:focus {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgba(196, 112, 79, 0.15) !important;
+              }
+
+              .filter-button {
+                transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+              }
+              .filter-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(44, 36, 25, 0.1);
+              }
+            `}</style>
             <div className="relative">
               <Search className="absolute left-4 top-3.5 w-5 h-5" style={{ color: '#9ca3af' }} />
               <input
@@ -451,7 +560,7 @@ export default function AdminDashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search clients by name..."
-                className="w-full pl-12 pr-4 py-3 border-2 rounded-full transition-all focus:outline-none focus:ring-2"
+                className="search-input w-full pl-12 pr-4 py-3 border-2 rounded-full focus:outline-none"
                 style={{
                   background: '#f5f1ed',
                   borderColor: 'transparent',
@@ -483,7 +592,7 @@ export default function AdminDashboardPage() {
                 <button
                   key={filter.id}
                   onClick={() => setHealthFilter(filter.id as any)}
-                  className="px-4 py-2 rounded-full text-sm font-semibold transition"
+                  className="filter-button px-4 py-2 rounded-full text-sm font-semibold transition"
                   style={{
                     background: healthFilter === filter.id ? filter.color : '#f9f7f4',
                     color: healthFilter === filter.id ? '#fff' : filter.color,
@@ -497,11 +606,66 @@ export default function AdminDashboardPage() {
           </div>
 
           <style>{`
-            table tbody tr {
-              transition: background-color 150ms ease-out;
+            /* Enhanced Table Styling */
+            table {
+              border-collapse: separate;
+              border-spacing: 0;
             }
+
+            table thead {
+              position: sticky;
+              top: 0;
+              z-index: 10;
+              background: rgba(245, 241, 237, 0.5);
+              backdrop-filter: blur(4px);
+            }
+
+            table th {
+              font-weight: 700;
+              letter-spacing: 0.05em;
+            }
+
+            /* Enhanced Row Styling */
+            table tbody tr {
+              transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+              background-color: transparent;
+            }
+
             table tbody tr:hover {
-              background-color: #faf7f4;
+              background-color: rgba(196, 112, 79, 0.04);
+              box-shadow: inset 0 0 0 1px rgba(196, 112, 79, 0.08);
+              transform: translateY(-1px);
+            }
+
+            /* Cell Spacing and Alignment */
+            table td {
+              padding: 16px 12px;
+              vertical-align: middle;
+            }
+
+            table th {
+              padding: 16px 12px;
+              background: transparent;
+            }
+
+            /* Row Separator Lines */
+            table tbody tr {
+              border-bottom: 1px solid rgba(44, 36, 25, 0.05);
+            }
+
+            table tbody tr:last-child {
+              border-bottom: none;
+            }
+
+            /* Active/Hover Effects on Status Pills */
+            table tbody tr:hover .status-pill {
+              transform: scale(1.05);
+              box-shadow: 0 2px 8px rgba(44, 36, 25, 0.12);
+            }
+
+            /* Smoother Interactions */
+            table tbody tr * {
+              transition: color 150ms ease, background-color 150ms ease;
             }
           `}</style>
 
@@ -511,8 +675,19 @@ export default function AdminDashboardPage() {
           ) : error ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#c5221f' }}>{error}</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-8 md:mx-0 md:rounded-2xl" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <style>{`
+                /* Smooth scrolling for mobile */
+                @media (max-width: 768px) {
+                  .overflow-x-auto {
+                    margin-left: calc(-2rem - 32px);
+                    margin-right: calc(-2rem - 32px);
+                    padding-left: 2rem;
+                    padding-right: 2rem;
+                  }
+                }
+              `}</style>
+              <table className="w-full" style={{ minWidth: '1000px' }}>
                 <thead>
                   {/* Row 1: Section Group Headers */}
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
@@ -627,13 +802,25 @@ export default function AdminDashboardPage() {
 
                         {/* Trend Chart - Line Sparkline visualization */}
                         <td className="py-5 text-center">
+                          <style>{`
+                            .trend-sparkline {
+                              transition: all 200ms ease;
+                            }
+                            table tbody tr:hover .trend-sparkline {
+                              filter: drop-shadow(0 2px 6px ${trendColor}30);
+                              transform: scale(1.05);
+                            }
+                          `}</style>
                           <div className="flex items-center justify-center gap-2">
-                            <svg width="70" height="28" style={{ verticalAlign: 'middle' }}>
+                            <svg width="70" height="28" style={{ verticalAlign: 'middle' }} className="trend-sparkline">
                               <defs>
                                 <linearGradient id={`grad-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
-                                  <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
+                                  <stop offset="0%" stopColor={trendColor} stopOpacity={0.25} />
+                                  <stop offset="100%" stopColor={trendColor} stopOpacity={0.02} />
                                 </linearGradient>
+                                <filter id={`shadow-${client.id}`}>
+                                  <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                </filter>
                               </defs>
                               {/* Gradient fill */}
                               <polygon
@@ -645,13 +832,13 @@ export default function AdminDashboardPage() {
                                 points={trendData.map((val, i) => `${(i / (trendData.length - 1)) * 70},${28 - (val / maxTrend) * 28}`).join(' ')}
                                 fill="none"
                                 stroke={trendColor}
-                                strokeWidth="1.5"
+                                strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
                             </svg>
-                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: trendColor, minWidth: '40px', letterSpacing: '-0.5px' }}>
-                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'}{Math.abs(leadsTrend)}%
+                            <span className="text-xs font-bold whitespace-nowrap tabular-nums" style={{ color: trendColor, minWidth: '45px', letterSpacing: '-0.5px' }}>
+                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'} {Math.abs(leadsTrend)}%
                             </span>
                           </div>
                         </td>
