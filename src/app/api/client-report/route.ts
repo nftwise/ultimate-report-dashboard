@@ -9,8 +9,11 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
+    console.log('[client-report] Received params:', { clientId, clientSlug, dateFrom, dateTo });
+
     // If slug is provided instead of ID, fetch the client ID first
     if (!clientId && clientSlug) {
+      console.log('[client-report] Looking up client by slug:', clientSlug);
       const { data: slugData, error: slugError } = await supabaseAdmin
         .from('clients')
         .select('id')
