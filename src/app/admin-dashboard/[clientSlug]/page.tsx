@@ -351,7 +351,7 @@ export default function ClientDetailPage() {
                   <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(157, 181, 160, 0.2)' }}>
                     <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Conversion Rate</p>
                     <p className="text-3xl font-extrabold mb-3" style={{ color: '#9db5a0' }}>
-                      {(client?.seo_form_submits || 0) > 0 ? ((client.seo_form_submits / Math.max((client.seo_form_submits * 5), 1)) * 100).toFixed(1) : '0'}%
+                      {(client?.seo_form_submits || 0) > 0 ? (((client?.seo_form_submits || 0) / Math.max(((client?.seo_form_submits || 0) * 5), 1)) * 100).toFixed(1) : '0'}%
                     </p>
                     <p className="text-xs" style={{ color: '#9ca3af' }}>Form to session</p>
                   </div>
@@ -400,7 +400,7 @@ export default function ClientDetailPage() {
                     <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ border: '1px solid rgba(96, 165, 250, 0.2)' }}>
                       <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#5c5850' }}>Call Rate</p>
                       <p className="text-3xl font-extrabold mb-3" style={{ color: '#60a5fa' }}>
-                        {Math.max((client?.gbp_calls || 0) > 0 ? ((client.gbp_calls / Math.max((client.gbp_calls * 8), 1)) * 100).toFixed(1) : 0, 0)}%
+                        {(client?.gbp_calls || 0) > 0 ? (((client?.gbp_calls || 0) / Math.max(((client?.gbp_calls || 0) * 8), 1)) * 100).toFixed(1) : '0'}%
                       </p>
                       <p className="text-xs" style={{ color: '#9ca3af' }}>View to call ratio</p>
                     </div>
