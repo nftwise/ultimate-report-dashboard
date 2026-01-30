@@ -708,9 +708,7 @@ export default function AdminDashboardPage() {
                         {/* Report Link */}
                         <td className="py-5 text-center">
                           <a
-                            href={`/client-report.html?slug=${client.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={`/admin-dashboard/${client.slug}/report`}
                             className="inline-block px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
                             style={{
                               background: '#c4704f',

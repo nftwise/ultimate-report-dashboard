@@ -159,9 +159,7 @@ export default function ClientDetailPage() {
 
         <div className="ml-auto flex items-center gap-4">
           <a
-            href={`/client-report.html?slug=${clientSlug}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/admin-dashboard/${clientSlug}/report`}
             className="inline-block px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
             style={{
               background: '#c4704f',
