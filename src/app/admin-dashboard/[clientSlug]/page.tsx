@@ -26,6 +26,20 @@ interface DailyMetrics {
   form_fills: number;
   gbp_calls: number;
   google_ads_conversions: number;
+  sessions?: number;
+  seo_impressions?: number;
+  seo_clicks?: number;
+  seo_ctr?: number;
+  traffic_organic?: number;
+  traffic_paid?: number;
+  traffic_direct?: number;
+  traffic_referral?: number;
+  traffic_ai?: number;
+  ads_impressions?: number;
+  ads_clicks?: number;
+  ads_ctr?: number;
+  health_score?: number;
+  budget_utilization?: number;
 }
 
 export default function ClientDetailPage() {
@@ -100,7 +114,7 @@ export default function ClientDetailPage() {
     );
   }
 
-  // Calculate metrics
+  // Calculate metrics from client data
   const totalLeads = client.total_leads || 0;
   const totalFormFills = client.form_fills || 0;
   const totalGbpCalls = client.gbp_calls || 0;
@@ -108,6 +122,17 @@ export default function ClientDetailPage() {
   const sessions = Math.round(totalLeads * 2.5);
   const adSpend = totalAdsConversions * 45.5;
   const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
+
+  // Calculate metrics from daily data
+  const seoImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
+  const seoClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
+  const seoCtr = seoImpressions > 0 ? ((seoClicks / seoImpressions) * 100).toFixed(2) : '0.00';
+  const healthScore = dailyData.length > 0 ? dailyData[dailyData.length - 1].health_score || 0 : 0;
+  const budgetUtilization = dailyData.length > 0 ? dailyData[dailyData.length - 1].budget_utilization || 0 : 0;
+  const trafficOrganic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
+  const trafficPaid = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_paid || 0), 0);
+  const trafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
+  const trafficAi = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -481,22 +506,25 @@ export default function ClientDetailPage() {
                   <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Traffic & SEO Analytics</h3>
                 </div>
 
-                {/* SEO Metrics Grid */}
+                {/* SEO Metrics Grid - Real Data from Database */}
                 <div className="grid grid-cols-4 gap-4 mb-8">
                   {[
-                    { label: 'Search Impressions', value: '0' },
-                    { label: 'Clicks', value: '0' },
-                    { label: 'CTR', value: '0%' },
-                    { label: 'Avg Position', value: 'N/A' }
+                    { label: 'Search Impressions', value: seoImpressions.toLocaleString(), color: '#9db5a0' },
+                    { label: 'Clicks', value: seoClicks.toLocaleString(), color: '#d9a854' },
+                    { label: 'CTR', value: `${seoCtr}%`, color: '#c4704f' },
+                    { label: 'Health Score', value: `${healthScore}%`, color: '#2c2419' }
                   ].map((metric, i) => (
                     <div key={i} style={{
                       padding: '16px',
-                      background: 'rgba(44, 36, 25, 0.02)',
+                      background: seoImpressions > 0 || seoCtr !== '0.00' ? 'rgba(44, 36, 25, 0.02)' : 'rgba(44, 36, 25, 0.02)',
                       borderRadius: '12px',
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      borderLeft: `3px solid ${metric.color}`
                     }}>
                       <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{metric.label}</p>
-                      <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{metric.value}</div>
+                      <div style={{ fontSize: '20px', fontWeight: 'bold', color: metric.color }}>
+                        {metric.value === '0' || metric.value === '0.00%' ? '—' : metric.value}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -506,19 +534,20 @@ export default function ClientDetailPage() {
                   <div style={{
                     padding: '24px',
                     background: 'rgba(44, 36, 25, 0.02)',
-                    borderRadius: '12px'
+                    borderRadius: '12px',
+                    borderLeft: '4px solid #d9a854'
                   }}>
                     <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
-                      📊 Keyword Context
+                      📊 Organic Search Performance
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', color: '#5c5850' }}>Ranking Keywords</span>
-                        <span style={{ fontWeight: 'bold', color: '#2c2419' }}>0</span>
+                        <span style={{ fontSize: '13px', color: '#5c5850' }}>Organic Traffic</span>
+                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{trafficOrganic > 0 ? trafficOrganic.toLocaleString() : '—'}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', color: '#5c5850' }}>Non-Branded Sessions</span>
-                        <span style={{ fontWeight: 'bold', color: '#2c2419' }}>0</span>
+                        <span style={{ fontSize: '13px', color: '#5c5850' }}>% of Total</span>
+                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{(trafficOrganic / (trafficOrganic + trafficPaid + trafficDirect) * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
@@ -535,11 +564,11 @@ export default function ClientDetailPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>AI Sessions</p>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>0</div>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{trafficAi > 0 ? trafficAi.toLocaleString() : '—'}</div>
                       </div>
                       <div>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>% of Total</p>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>0%</div>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{((trafficAi / (trafficOrganic + trafficPaid + trafficDirect + trafficAi) * 100) || 0).toFixed(1)}%</div>
                       </div>
                     </div>
                     <p style={{ fontSize: '11px', color: '#5c5850', marginTop: '12px', fontStyle: 'italic' }}>
