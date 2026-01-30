@@ -67,12 +67,23 @@ export default function ClientDetailPage() {
         const start = new Date();
         start.setDate(start.getDate() - 30);
 
+        const dateFromISO = start.toISOString().split('T')[0];
+        const dateToISO = end.toISOString().split('T')[0];
+
         const response = await fetch(
-          `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${start.toISOString()}&dateTo=${end.toISOString()}`
+          `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${dateFromISO}&dateTo=${dateToISO}`
         );
         const data = await response.json();
+
+        if (!response.ok) {
+          console.error('API error:', data.error);
+          return;
+        }
+
         if (data.success && data.data) {
           setDailyTraffic(data.data);
+        } else {
+          console.warn('No data returned from daily traffic API');
         }
       } catch (error) {
         console.error('Error fetching daily traffic:', error);
