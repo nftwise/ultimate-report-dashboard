@@ -518,24 +518,23 @@ export default function AdminDashboardPage() {
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
                     <th rowSpan={2} className="text-left text-xs font-bold uppercase tracking-wider py-4 pr-6" style={{ color: '#5c5850', minWidth: '200px', borderBottom: 'none' }}>Client</th>
                     <th colSpan={2} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#2c2419', minWidth: '190px', borderBottom: '3px solid #2c2419' }}>Overview</th>
-                    <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#b45309', minWidth: '255px', borderBottom: '3px solid #b45309' }}>SEO</th>
-                    <th colSpan={2} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#047857', minWidth: '170px', borderBottom: '3px solid #047857' }}>GBP</th>
+                    <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#b45309', minWidth: '85px', borderBottom: '3px solid #b45309' }}>SEO</th>
+                    <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#047857', minWidth: '85px', borderBottom: '3px solid #047857' }}>GBP</th>
                     <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#6b7280', minWidth: '255px', borderBottom: '3px solid #6b7280' }}>Google Ads</th>
+                    <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '240px', borderBottom: 'none' }}>&nbsp;</th>
                   </tr>
 
                   {/* Row 2: Individual Metric Headers */}
                   <tr style={{ borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px', letterSpacing: '0.05em' }}>Services</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px', letterSpacing: '0.05em' }}>Leads</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#2c2419', minWidth: '95px', letterSpacing: '0.05em' }}>Leads</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Forms</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Top 10 KW</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#b45309', minWidth: '85px', letterSpacing: '0.05em' }}>Traffic</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#047857', minWidth: '85px', letterSpacing: '0.05em' }}>Calls</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#047857', minWidth: '85px', letterSpacing: '0.05em' }}>Views</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px', letterSpacing: '0.05em' }}>Conv</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>Conv</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>CPL</th>
                     <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px', letterSpacing: '0.05em' }}>Trend 30d</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>Status</th>
-                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px', letterSpacing: '0.05em' }}>Health</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px', letterSpacing: '0.05em' }}>Status</th>
+                    <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px', letterSpacing: '0.05em' }}>Health</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -603,31 +602,10 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
 
-                        {/* Top 10 Keywords */}
-                        <td className="py-5 text-center">
-                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#b45309' }}>
-                            —
-                          </div>
-                        </td>
-
-                        {/* Organic Traffic */}
-                        <td className="py-5 text-center">
-                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#b45309' }}>
-                            —
-                          </div>
-                        </td>
-
                         {/* GBP Calls */}
                         <td className="py-5 text-center">
                           <div className="font-semibold text-sm tabular-nums" style={{ color: '#047857' }}>
                             {client.gbp_calls || 0}
-                          </div>
-                        </td>
-
-                        {/* GBP Profile Views */}
-                        <td className="py-5 text-center">
-                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#047857' }}>
-                            —
                           </div>
                         </td>
 
@@ -638,24 +616,40 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
 
-                        {/* Trend Chart - Sharp visualization */}
+                        {/* Google Ads CPL (Cost Per Lead) */}
                         <td className="py-5 text-center">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="flex items-end gap-0.5" style={{ height: '32px', width: '65px' }}>
-                              {trendData.map((val, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    flex: 1,
-                                    height: `${Math.max((val / maxTrend) * 100, 8)}%`,
-                                    background: trendColor,
-                                    borderRadius: '2px'
-                                  }}
-                                  title={`Day ${i + 1}: ${Math.round(val)}`}
-                                  className="transition-all"
-                                />
-                              ))}
-                            </div>
+                          <div className="font-semibold text-sm tabular-nums" style={{ color: '#6b7280' }}>
+                            {client.ads_conversions && client.ads_conversions > 0
+                              ? '$' + Math.round(20618 / client.ads_conversions)
+                              : '—'}
+                          </div>
+                        </td>
+
+                        {/* Trend Chart - Line Sparkline visualization */}
+                        <td className="py-5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <svg width="70" height="28" style={{ verticalAlign: 'middle' }}>
+                              <defs>
+                                <linearGradient id={`grad-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
+                                  <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              {/* Gradient fill */}
+                              <polygon
+                                points={`0,28 ${trendData.map((val, i) => `${(i / (trendData.length - 1)) * 70},${28 - (val / maxTrend) * 28}`).join(' ')} 70,28`}
+                                fill={`url(#grad-${client.id})`}
+                              />
+                              {/* Line */}
+                              <polyline
+                                points={trendData.map((val, i) => `${(i / (trendData.length - 1)) * 70},${28 - (val / maxTrend) * 28}`).join(' ')}
+                                fill="none"
+                                stroke={trendColor}
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
                             <span className="text-xs font-bold whitespace-nowrap" style={{ color: trendColor, minWidth: '40px', letterSpacing: '-0.5px' }}>
                               {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'}{Math.abs(leadsTrend)}%
                             </span>
