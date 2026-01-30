@@ -139,6 +139,19 @@ h1, h2, h3, h4, h5, h6 {
   background-color: rgba(245, 241, 237, 0.4);
 }
 
+/* Table Cell Text Alignment */
+table {
+  border-collapse: collapse;
+}
+
+table thead tr {
+  background-color: rgba(245, 241, 237, 0.2);
+}
+
+table tbody tr:last-child {
+  border-bottom: none;
+}
+
 /* Status Pill Scale */
 .status-pill {
   transition: transform 150ms ease;
