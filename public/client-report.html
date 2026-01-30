@@ -4,364 +4,579 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Client Report - High-End Marketing Performance Dashboard</title>
+    <title>Client Performance Report</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
         rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/lib/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-gradient-start: #f5f1ed;
-            --bg-gradient-end: #ede8e3;
-            --color-chocolate: #2c2419;
-            --color-slate: #5c5850;
-            --color-coral: #c4704f;
-            --color-gold: #d9a854;
+            --bg-primary: #f5f1ed;
+            --bg-secondary: #ede8e3;
+            --text-primary: #2c2419;
+            --text-secondary: #5c5850;
             --color-sage: #9db5a0;
-            --surface-white: rgba(255, 255, 255, 0.82);
-            --border-subtle: rgba(44, 36, 25, 0.08);
-            --border-med: rgba(44, 36, 25, 0.12);
+            --color-gold: #d9a854;
+            --color-coral: #c4704f;
+            --surface: rgba(255, 255, 255, 0.85);
+            --border: rgba(44, 36, 25, 0.08);
+            --shadow: 0 4px 16px rgba(44, 36, 25, 0.06);
             --font-primary: 'Outfit', sans-serif;
             --font-secondary: 'Inter', sans-serif;
-            --radius-lg: 24px;
-            --radius-md: 16px;
-            --radius-sm: 12px;
-            --shadow-soft: 0 10px 30px -10px rgba(44, 36, 25, 0.05);
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-font-smoothing: antialiased;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
         }
 
         body {
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-            color: var(--color-chocolate);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
             font-family: var(--font-secondary);
+            font-size: 14px;
+            line-height: 1.6;
             min-height: 100vh;
-            padding: 40px 60px;
-            line-height: 1.5;
+            padding: 40px;
         }
 
         h1, h2, h3, h4 {
             font-family: var(--font-primary);
             font-weight: 700;
             letter-spacing: -0.02em;
-            color: var(--color-chocolate);
         }
 
         .label {
-            font-family: var(--font-secondary);
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: var(--color-slate);
-            margin-bottom: 8px;
+            letter-spacing: 0.12em;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
             display: block;
         }
 
-        .data-num {
-            font-variant-numeric: tabular-nums;
-            font-weight: 600;
-        }
-
-        .dashboard-container {
-            max-width: 1400px;
+        .container {
+            max-width: 1600px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1.618fr 1fr;
-            gap: 32px;
         }
 
-        .full-width {
-            grid-column: 1 / -1;
-        }
-
-        .glass-card {
-            background: var(--surface-white);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            box-shadow: var(--shadow-soft);
-            transition: var(--transition);
-        }
-
-        .glass-card:hover {
-            border-color: var(--border-med);
-            transform: translateY(-2px);
-        }
-
-        .control-panel {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            margin-bottom: 32px;
-            flex-wrap: wrap;
-        }
-
-        .date-picker-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            background: var(--surface-white);
-            border: 1px solid var(--border-subtle);
-            border-radius: 100px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--color-chocolate);
-            transition: var(--transition);
-        }
-
-        .date-picker-btn:hover {
-            background: white;
-            border-color: var(--color-gold);
-        }
-
-        .view-toggle {
-            display: flex;
-            background: rgba(44, 36, 25, 0.05);
-            border-radius: 100px;
-            padding: 4px;
-        }
-
-        .toggle-tab {
-            padding: 6px 20px;
-            border-radius: 100px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            color: var(--color-slate);
-            transition: var(--transition);
-        }
-
-        .toggle-tab.active {
-            background: white;
-            color: var(--color-chocolate);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        header {
+        /* Header */
+        .header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 48px;
+            align-items: flex-start;
+            margin-bottom: 40px;
         }
 
-        .client-info h1 {
-            font-size: 42px;
-            margin-bottom: 8px;
+        .header-left h1 {
+            font-size: 48px;
+            margin-bottom: 12px;
         }
 
         .date-badge {
             display: inline-flex;
             align-items: center;
             padding: 8px 16px;
-            background: rgba(44, 36, 25, 0.05);
-            border-radius: 100px;
-            font-size: 14px;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
             font-weight: 500;
-            color: var(--color-slate);
         }
 
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--text-primary);
+            color: white;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn-pill {
+            padding: 10px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .btn-pill:hover {
+            background: white;
+            border-color: var(--color-gold);
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.04);
+            padding: 4px;
+            border-radius: 20px;
+        }
+
+        .toggle-btn {
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Summary Cards */
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            margin-bottom: 32px;
+            gap: 16px;
+            margin-bottom: 40px;
         }
 
-        .summary-item {
-            padding: 24px;
-            border-radius: var(--radius-md);
+        .summary-card {
+            padding: 20px 24px;
+            border-radius: 16px;
+            border-left: 4px solid;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .summary-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-        }
-
-        .item-great {
-            background: rgba(157, 181, 160, 0.1);
-        }
-
-        .item-great::before {
-            background: var(--color-sage);
-        }
-
-        .item-attention {
-            background: rgba(196, 112, 79, 0.1);
-        }
-
-        .item-attention::before {
-            background: var(--color-coral);
-        }
-
-        .item-working {
-            background: rgba(217, 168, 84, 0.1);
-        }
-
-        .item-working::before {
-            background: var(--color-gold);
-        }
-
-        .summary-title {
-            display: flex;
-            align-items: center;
             gap: 8px;
-            font-weight: 700;
-            font-size: 14px;
         }
 
-        .summary-text {
-            font-size: 14px;
-            color: var(--color-slate);
-            font-weight: 400;
+        .summary-card.great {
+            background: rgba(157, 181, 160, 0.08);
+            border-left-color: var(--color-sage);
         }
 
+        .summary-card.attention {
+            background: rgba(196, 112, 79, 0.08);
+            border-left-color: var(--color-coral);
+        }
+
+        .summary-card.working {
+            background: rgba(217, 168, 84, 0.08);
+            border-left-color: var(--color-gold);
+        }
+
+        .summary-card .label {
+            color: var(--text-secondary);
+        }
+
+        .summary-card p {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        /* Metrics Grid */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 24px;
-            margin-bottom: 32px;
+            gap: 16px;
+            margin-bottom: 40px;
         }
 
         .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
             padding: 24px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            backdrop-filter: blur(12px);
+            transition: all 0.2s;
+        }
+
+        .metric-card:hover {
+            border-color: rgba(44, 36, 25, 0.12);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
         }
 
         .metric-value {
-            font-size: 32px;
+            font-size: 40px;
             font-family: var(--font-primary);
             font-weight: 700;
-            margin: 8px 0;
+            color: var(--text-primary);
+            margin: 12px 0;
         }
 
-        .trend-tag {
+        .metric-trend {
             font-size: 12px;
             font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
             padding: 4px 8px;
-            border-radius: 6px;
+            border-radius: 4px;
             width: fit-content;
         }
 
-        .trend-up {
-            color: var(--color-sage);
-            background: rgba(157, 181, 160, 0.15);
-        }
-
         .trend-down {
+            background: rgba(196, 112, 79, 0.1);
             color: var(--color-coral);
-            background: rgba(196, 112, 79, 0.15);
         }
 
         .trend-neutral {
-            color: var(--color-slate);
             background: rgba(92, 88, 80, 0.1);
+            color: var(--text-secondary);
         }
 
-        .team-section {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        .trend-up {
+            background: rgba(157, 181, 160, 0.1);
+            color: var(--color-sage);
         }
 
-        .team-member {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+            margin-bottom: 40px;
         }
 
-        .avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: var(--color-coral);
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            backdrop-filter: blur(12px);
+        }
+
+        .card-title {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 24px;
+        }
+
+        .card-title h2 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .growth-badge {
+            font-size: 28px;
             font-weight: 700;
-            font-size: 18px;
+            color: var(--color-sage);
         }
 
-        .avatar.alt {
-            background: var(--color-gold);
+        .growth-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
-        .member-info h4 {
-            font-size: 16px;
-            margin-bottom: 2px;
+        /* 6-Month Chart */
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            height: 180px;
+            margin: 24px 0;
         }
 
-        .member-info p {
-            font-size: 13px;
-            color: var(--color-slate);
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, var(--color-coral), #e08c6d);
+            border-radius: 4px 4px 0 0;
+            opacity: 0.2;
+            transition: all 0.2s;
+            position: relative;
+            min-height: 20px;
         }
 
-        .table-container {
+        .bar.active {
+            opacity: 1;
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .sub-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
             margin-top: 24px;
-            overflow-x: auto;
         }
 
+        .sub-metric {
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 12px;
+        }
+
+        .sub-metric .label {
+            margin-bottom: 8px;
+        }
+
+        .sub-metric .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .sub-metric p {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 24px 0;
+        }
+
+        /* Table */
         table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 13px;
         }
 
         th {
             text-align: left;
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border-subtle);
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: var(--color-slate);
+            color: var(--text-secondary);
+            font-weight: 600;
         }
 
         td {
-            padding: 16px;
-            border-bottom: 1px solid var(--border-subtle);
-            font-size: 14px;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
         }
 
         tr:last-child td {
             border-bottom: none;
         }
 
-        .status-pill {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11px;
+        .source-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-weight: 600;
-            text-transform: uppercase;
         }
 
+        .source-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        /* Progress Bars */
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .progress-header strong {
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .fill-coral { background: var(--color-coral); }
+        .fill-sage { background: var(--color-sage); }
+        .fill-gold { background: var(--color-gold); }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .sidebar .card {
+            padding: 24px;
+        }
+
+        .sidebar h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        /* Team */
+        .team-member {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .team-member:last-child {
+            border-bottom: none;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--color-coral), var(--color-gold));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .member-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .member-role {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Channel Cards */
+        .channel-card {
+            padding: 24px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .channel-card:last-child {
+            border-bottom: none;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .channel-name {
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: var(--color-sage);
+            background: rgba(157, 181, 160, 0.1);
+        }
+
+        .status-badge.growing {
+            color: var(--color-gold);
+            background: rgba(217, 168, 84, 0.1);
+        }
+
+        .status-badge.local {
+            color: var(--text-secondary);
+            background: rgba(92, 88, 80, 0.1);
+        }
+
+        .channel-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .channel-metric {
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .channel-metric .label {
+            font-size: 9px;
+        }
+
+        .channel-metric .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        /* Status Pills */
         .status-good {
             background: rgba(157, 181, 160, 0.2);
             color: #4a6b4e;
@@ -372,114 +587,43 @@
             color: #8a6a35;
         }
 
-        .progress-container {
-            flex: 1;
-            margin-top: 20px;
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-
-        .progress-bar {
-            height: 6px;
-            background: rgba(44, 36, 25, 0.05);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--color-coral);
-            border-radius: 3px;
-        }
-
-        .chart-placeholder {
-            height: 200px;
-            width: 100%;
-            display: flex;
-            align-items: flex-end;
-            gap: 12px;
-            padding-bottom: 10px;
-            margin-top: 24px;
-        }
-
-        .chart-bar {
-            flex: 1;
-            background: var(--color-slate);
-            border-radius: 4px 4px 0 0;
-            opacity: 0.1;
-            transition: var(--transition);
-            position: relative;
-        }
-
-        .chart-bar.active {
-            opacity: 1;
-            background: linear-gradient(to top, var(--color-coral), #e08c6d);
-        }
-
-        .chart-bar:hover {
-            opacity: 0.8;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 24px;
-        }
-
-        .sub-metrics {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 24px;
-        }
-
-        .sub-metric-item {
-            padding: 16px;
-            background: rgba(44, 36, 25, 0.03);
-            border-radius: var(--radius-sm);
-        }
-
-        .sub-metric-item .value {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--color-chocolate);
-        }
-
-        .ai-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            background: linear-gradient(45deg, #2c2419, #5c5850);
-            color: white;
-            border-radius: 100px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-        }
-
         .loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-size: 18px;
-            color: var(--color-slate);
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            font-size: 16px;
         }
 
-        @media (max-width: 1100px) {
-            .dashboard-container {
+        @media (max-width: 1200px) {
+            .main-grid {
                 grid-template-columns: 1fr;
             }
 
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
             body {
-                padding: 24px;
+                padding: 20px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .header-left h1 {
+                font-size: 32px;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -487,274 +631,415 @@
 
 <body>
 
-    <div class="loading" id="loading">
-        <span>Loading report...</span>
-    </div>
+    <div class="loading" id="loading">Loading report...</div>
 
-    <div class="dashboard-container" id="dashboard" style="display: none;">
+    <div class="container" id="dashboard" style="display: none;">
 
         <!-- Header -->
-        <header class="full-width">
-            <div class="client-info">
-                <span class="label">Performance Dashboard</span>
-                <h1 id="clientName">Client Name</h1>
-                <div class="date-badge">
-                    <i data-lucide="calendar" style="width: 14px; margin-right: 8px;"></i>
-                    <span id="dateRange">Loading...</span>
-                </div>
+        <div class="header">
+            <div class="header-left">
+                <div class="label">Performance Dashboard</div>
+                <h1>Marketing Overview</h1>
+                <div class="date-badge" id="dateRange">Dec 31, 2025 - Jan 30, 2026</div>
             </div>
-            <div class="ai-badge">
-                <i data-lucide="sparkles" style="width: 12px;"></i>
-                AI-POWERED ANALYTICS
-            </div>
-        </header>
-
-        <!-- Executive Summary Highlights -->
-        <section class="full-width summary-grid">
-            <div class="summary-item item-great">
-                <div class="summary-title" style="color: var(--color-sage);">
-                    <i data-lucide="check" style="width: 18px;"></i>
-                    What's Great
-                </div>
-                <p class="summary-text" style="font-weight: 500; font-size: 15px; color: var(--color-chocolate);" id="whatGreat">Strong conversion rate</p>
-            </div>
-            <div class="summary-item item-attention">
-                <div class="summary-title" style="color: var(--color-coral);">
-                    <i data-lucide="alert-circle" style="width: 18px;"></i>
-                    Needs Attention
-                </div>
-                <p class="summary-text" style="font-weight: 500; font-size: 15px; color: var(--color-chocolate);" id="needsAttention">Growth opportunities</p>
-            </div>
-            <div class="summary-item item-working">
-                <div class="summary-title" style="color: var(--color-gold);">
-                    <i data-lucide="arrow-right" style="width: 18px;"></i>
-                    We're Working On It
-                </div>
-                <p class="summary-text" style="font-weight: 500; font-size: 15px; color: var(--color-chocolate);">Analyzing traffic patterns and adjusting targeting</p>
-            </div>
-        </section>
-
-        <!-- Key Metrics Grid -->
-        <section class="full-width metrics-grid">
-            <div class="glass-card metric-card">
-                <span class="label">Total Leads</span>
-                <div class="metric-value data-num" id="totalLeads">0</div>
-                <span class="trend-tag trend-down" id="leadsTrend">
-                    <i data-lucide="arrow-down-right" style="width: 12px;"></i>
-                    <span id="leadsPercent">0%</span> vs last period
-                </span>
-            </div>
-            <div class="glass-card metric-card">
-                <span class="label">Website Sessions</span>
-                <div class="metric-value data-num" id="websiteSessions">0</div>
-                <span class="trend-tag trend-neutral">
-                    Avg <span id="avgSessions">0</span>/day
-                </span>
-            </div>
-            <div class="glass-card metric-card">
-                <span class="label">Ad Spend</span>
-                <div class="metric-value data-num" id="adSpend">$0</div>
-                <span class="trend-tag trend-down" id="adSpendTrend">
-                    <i data-lucide="arrow-down-right" style="width: 12px;"></i>
-                    Cost per lead
-                </span>
-            </div>
-            <div class="glass-card metric-card">
-                <span class="label">Cost Per Lead</span>
-                <div class="metric-value data-num" id="costPerLead">$0</div>
-                <span class="trend-tag trend-up">
-                    <i data-lucide="trending-up" style="width: 12px;"></i>
-                    Efficiency metric
-                </span>
-            </div>
-        </section>
-
-        <!-- Main Content: Trend & SEO -->
-        <div class="main-content" style="display: flex; flex-direction: column; gap: 32px;">
-
-            <!-- Daily Traffic & Leads Analysis -->
-            <section class="glass-card">
-                <div class="section-header" style="align-items: center;">
-                    <h3>Daily Traffic & Leads Analysis</h3>
-                    <div style="display: flex; gap: 20px; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--color-sage);">
-                            </div>
-                            <span style="font-size: 12px; font-weight: 600; color: var(--color-slate);">Sessions</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--color-gold);">
-                            </div>
-                            <span style="font-size: 12px; font-weight: 600; color: var(--color-slate);">Leads</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="height: 300px; width: 100%; margin: 24px 0;">
-                    <canvas id="trafficLineChart"></canvas>
-                </div>
-
-                <div
-                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; border-top: 1px solid var(--border-subtle); padding-top: 24px;">
-                    <div>
-                        <span class="label" style="font-size: 10px;">Avg. Daily Sessions</span>
-                        <div class="value data-num" style="font-size: 24px; color: var(--color-sage);" id="avgDailySessions">0</div>
-                    </div>
-                    <div>
-                        <span class="label" style="font-size: 10px;">Avg. Daily Leads</span>
-                        <div class="value data-num" style="font-size: 24px; color: var(--color-gold);" id="avgDailyLeads">0</div>
-                    </div>
-                    <div>
-                        <span class="label" style="font-size: 10px;">Peak Sessions Day</span>
-                        <div class="value data-num" style="font-size: 24px; color: var(--color-chocolate);" id="peakDay">0</div>
-                    </div>
-                    <div>
-                        <span class="label" style="font-size: 10px;">Total Conversions</span>
-                        <div class="value data-num" style="font-size: 24px; color: var(--color-coral);" id="totalConversions">0</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Traffic Coverage by Source -->
-            <section class="glass-card">
-                <div class="section-header">
-                    <div>
-                        <span class="label">Source Attribution</span>
-                        <h3>Traffic Coverage by Source</h3>
-                    </div>
-                    <div class="status-pill status-good" style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></div>
-                        Tracking Active
-                    </div>
-                </div>
-
-                <div
-                    style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; align-items: center; margin-top: 24px;">
-                    <div style="position: relative; height: 240px; width: 240px; margin: 0 auto;">
-                        <canvas id="trafficPieChart"></canvas>
-                        <div
-                            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-                            <div
-                                style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-slate); letter-spacing: 0.1em;">
-                                Total</div>
-                            <div style="font-size: 24px; font-weight: 700; color: var(--color-chocolate);" id="totalTraffic">0</div>
-                        </div>
-                    </div>
-
-                    <div class="table-container" style="margin-top: 0;">
-                        <table style="font-size: 13px;">
-                            <thead>
-                                <tr>
-                                    <th>Source</th>
-                                    <th style="text-align: right;">Sessions</th>
-                                    <th style="text-align: right;">Share</th>
-                                    <th style="text-align: right;">Leads</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sourceTable">
-                                <tr><td colspan="4" style="text-align: center; color: var(--color-slate);">Loading data...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
+            <div class="ai-badge">🤖 AI-POWERED ANALYTICS</div>
         </div>
 
-        <!-- Sidebar Content -->
-        <div class="sidebar-content" style="display: flex; flex-direction: column; gap: 32px;">
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <button class="btn-pill">📅 <span id="controlDate">Dec 31, 2025 - Jan 30, 2026</span> ▼</button>
+            </div>
+            <div class="toggle-group">
+                <button class="toggle-btn">Daily</button>
+                <button class="toggle-btn">Weekly</button>
+                <button class="toggle-btn active">Monthly</button>
+            </div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                <span class="label" style="margin-bottom: 0;">Compare to:</span>
+                <button class="btn-pill">Previous Period</button>
+            </div>
+        </div>
 
-            <!-- Team Section -->
-            <section class="glass-card">
-                <span class="label">Strategic Team</span>
-                <h3>Who's Working On This</h3>
-                <div class="team-section" style="margin-top: 24px;">
-                    <div class="team-member">
-                        <div class="avatar" style="background: var(--color-chocolate)">Q</div>
-                        <div class="member-info">
-                            <h4>Quan</h4>
-                            <p>SEO & Local SEO Expert</p>
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card great">
+                <div class="label">✓ What's Great</div>
+                <p id="whatGreat">Strong 16.2% conversion rate on ads</p>
+            </div>
+            <div class="summary-card attention">
+                <div class="label">⚠ Needs Attention</div>
+                <p id="needsAttention">Leads declined 22%</p>
+            </div>
+            <div class="summary-card working">
+                <div class="label">→ We're Working On It</div>
+                <p>Analyzing traffic patterns and adjusting targeting</p>
+            </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="label">Total Leads</div>
+                <div class="metric-value" id="totalLeads">88</div>
+                <div class="metric-trend trend-down" id="leadsTrend">↓ 22% vs last period</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Website Sessions</div>
+                <div class="metric-value" id="sessions">0</div>
+                <div class="metric-trend trend-neutral">+0% engagement</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Ad Spend</div>
+                <div class="metric-value" id="adSpend">$1,834</div>
+                <div class="metric-trend trend-down">↓ 21% vs last period</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Cost Per Lead</div>
+                <div class="metric-value" id="costPerLead">$21</div>
+                <div class="metric-trend trend-up">↑ 2% efficiency</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Left Column -->
+            <div>
+                <!-- 6-Month Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <div>
+                            <div class="label">Performance Trend</div>
+                            <h2>6-Month Lead Generation</h2>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="growth-badge" id="growthPercent">1057%</div>
+                            <div class="growth-label">Jan 2026 Growth</div>
                         </div>
                     </div>
-                    <div class="team-member">
-                        <div class="avatar" style="background: var(--color-coral)">T</div>
-                        <div class="member-info">
-                            <h4>Trieu</h4>
-                            <p>Strategic Developer</p>
+
+                    <div class="bar-chart">
+                        <div class="bar" style="height: 10%;">
+                            <span class="bar-value">7</span>
+                            <span class="bar-label">Aug '25</span>
+                        </div>
+                        <div class="bar" style="height: 12%;">
+                            <span class="bar-value">13</span>
+                            <span class="bar-label">Sep '25</span>
+                        </div>
+                        <div class="bar" style="height: 15%;">
+                            <span class="bar-value">19</span>
+                            <span class="bar-label">Oct '25</span>
+                        </div>
+                        <div class="bar" style="height: 14%;">
+                            <span class="bar-value">31</span>
+                            <span class="bar-label">Nov '25</span>
+                        </div>
+                        <div class="bar" style="height: 10%;">
+                            <span class="bar-value">7</span>
+                            <span class="bar-label" style="color: var(--color-coral);">Dec '25</span>
+                        </div>
+                        <div class="bar active" style="height: 100%;">
+                            <span class="bar-value" style="color: var(--color-coral);">81</span>
+                            <span class="bar-label" style="color: var(--text-primary); font-weight: 700;">Jan '26</span>
+                        </div>
+                    </div>
+
+                    <div class="sub-metrics">
+                        <div class="sub-metric" style="border-left: 2px solid var(--color-gold);">
+                            <div class="label">Total Leads</div>
+                            <div class="value" id="subTotalLeads">88</div>
+                            <p>Cumulative total</p>
+                        </div>
+                        <div class="sub-metric" style="border-left: 2px solid var(--color-coral);">
+                            <div class="label">Avg Per Month</div>
+                            <div class="value" id="avgPerMonth">44</div>
+                            <p>Last 2 months avg</p>
                         </div>
                     </div>
                 </div>
-            </section>
 
-            <!-- Lead Distribution -->
-            <section class="glass-card">
-                <span class="label">Channel Impact</span>
-                <h3>Lead Distribution</h3>
-
-                <div style="padding: 20px 0;">
-                    <div class="progress-container" style="margin-top: 0; margin-bottom: 20px;">
-                        <div class="progress-label">
-                            <span style="font-weight: 600;">Google Ads</span>
-                            <span class="data-num" id="adsLeads">0 leads</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="adsFill" style="width: 0%; background: var(--color-coral);"></div>
+                <!-- Daily Traffic Chart -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <h2>Daily Traffic & Leads Analysis</h2>
+                        <div style="display: flex; gap: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 10px; height: 10px; background: var(--color-sage); border-radius: 50%;"></div>
+                                <span style="font-size: 12px; font-weight: 600;">Sessions</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 10px; height: 10px; background: var(--color-gold); border-radius: 50%;"></div>
+                                <span style="font-size: 12px; font-weight: 600;">Leads</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="progress-container" style="margin-top: 0; margin-bottom: 20px;">
-                        <div class="progress-label">
-                            <span>SEO/Organic</span>
-                            <span class="data-num" id="seoLeads">0 leads</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="seoFill" style="width: 0%; background: var(--color-sage);"></div>
-                        </div>
+                    <div class="chart-container">
+                        <canvas id="trafficChart"></canvas>
                     </div>
 
-                    <div class="progress-container" style="margin-top: 0; margin-bottom: 20px;">
-                        <div class="progress-label">
-                            <span>Google Business</span>
-                            <span class="data-num" id="gbpLeads">0 leads</span>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; border-top: 1px solid var(--border); padding-top: 24px;">
+                        <div>
+                            <div class="label">Avg. Daily Sessions</div>
+                            <div style="font-size: 24px; font-weight: 700; margin-top: 8px; color: var(--color-sage);" id="avgDailySessions">42</div>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="gbpFill" style="width: 0%; background: var(--color-gold);"></div>
+                        <div>
+                            <div class="label">Avg. Daily Leads</div>
+                            <div style="font-size: 24px; font-weight: 700; margin-top: 8px; color: var(--color-gold);" id="avgDailyLeads">3</div>
                         </div>
-                    </div>
-
-                    <div class="progress-container" style="margin-top: 0;">
-                        <div class="progress-label">
-                            <span>Form Submissions</span>
-                            <span class="data-num" id="formLeads">0 leads</span>
+                        <div>
+                            <div class="label">Peak Sessions Day</div>
+                            <div style="font-size: 24px; font-weight: 700; margin-top: 8px;" id="peakDay">78</div>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="formFill" style="width: 0%; background: var(--color-slate);"></div>
+                        <div>
+                            <div class="label">Total Conversions</div>
+                            <div style="font-size: 24px; font-weight: 700; margin-top: 8px; color: var(--color-coral);" id="totalConversions">88</div>
                         </div>
                     </div>
                 </div>
-            </section>
 
-            <!-- Google Ads Performance -->
-            <section class="glass-card" style="padding: 24px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                    <h4
-                        style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-slate);">
-                        Google Ads</h4>
-                    <span class="status-pill status-good"
-                        style="background: rgba(157, 181, 160, 0.1); color: var(--color-sage);">Active</span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div style="padding: 12px; background: rgba(44, 36, 25, 0.02); border-radius: 8px;">
-                        <span class="label" style="font-size: 9px;">Conversions</span>
-                        <div class="data-num" style="font-size: 18px; color: var(--color-chocolate);" id="adsConversions">0</div>
+                <!-- Traffic Coverage -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <div>
+                            <div class="label">Source Attribution</div>
+                            <h2>Traffic Coverage by Source</h2>
+                        </div>
+                        <div class="status-good" style="padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;">🟢 Tracking Active</div>
                     </div>
-                    <div style="padding: 12px; background: rgba(44, 36, 25, 0.02); border-radius: 8px;">
-                        <span class="label" style="font-size: 9px;">Spend</span>
-                        <div class="data-num" style="font-size: 18px; color: var(--color-chocolate);" id="adSpendCard">$0</div>
-                    </div>
-                </div>
-            </section>
 
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th style="text-align: right;">Sessions</th>
+                                <th style="text-align: right;">Share</th>
+                                <th style="text-align: right;">Leads</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sourceTable">
+                            <tr>
+                                <td><div class="source-name"><div class="source-dot" style="background: var(--color-coral);"></div>Organic</div></td>
+                                <td style="text-align: right; color: var(--text-secondary);">412</td>
+                                <td style="text-align: right;">33.2%</td>
+                                <td style="text-align: right; font-weight: 700;">22</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center;">
+                        <div class="label">Total</div>
+                        <div style="font-size: 28px; font-weight: 700; color: var(--text-primary);" id="totalTraffic">1,240</div>
+                    </div>
+                </div>
+
+                <!-- SEO Analytics -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <div>
+                            <div class="label">SEO Performance</div>
+                            <h2>Traffic & SEO Analytics</h2>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+                        <div style="padding: 12px; background: rgba(0, 0, 0, 0.02); border-radius: 8px; text-align: center;">
+                            <div class="label">Search Impressions</div>
+                            <div style="font-size: 20px; font-weight: 700; margin-top: 8px;" id="seoImpressions">0</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(0, 0, 0, 0.02); border-radius: 8px; text-align: center;">
+                            <div class="label">Clicks</div>
+                            <div style="font-size: 20px; font-weight: 700; margin-top: 8px;" id="seoClicks">0</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(0, 0, 0, 0.02); border-radius: 8px; text-align: center;">
+                            <div class="label">CTR</div>
+                            <div style="font-size: 20px; font-weight: 700; margin-top: 8px;" id="seoCtr">0%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(0, 0, 0, 0.02); border-radius: 8px; text-align: center;">
+                            <div class="label">Avg Position</div>
+                            <div style="font-size: 20px; font-weight: 700; margin-top: 8px;" id="seoPosition">N/A</div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="padding: 16px; background: rgba(0, 0, 0, 0.02); border-radius: 12px;">
+                            <h4 style="font-size: 14px; margin-bottom: 12px;">📊 Keyword Context</h4>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="font-size: 13px; color: var(--text-secondary);">Ranking Keywords</span>
+                                <span style="font-weight: 600;" id="rankingKeywords">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 13px; color: var(--text-secondary);">Non-Branded Sessions</span>
+                                <span style="font-weight: 600;" id="nonBranded">0</span>
+                            </div>
+                        </div>
+
+                        <div style="padding: 16px; background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01)); border-radius: 12px; border: 1px solid var(--border);">
+                            <h4 style="font-size: 14px; margin-bottom: 12px;">✨ AI Assistant Traffic</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div>
+                                    <div class="label">AI Sessions</div>
+                                    <div style="font-size: 18px; font-weight: 700; margin-top: 4px;" id="aiSessions">0</div>
+                                </div>
+                                <div>
+                                    <div class="label">% of Total</div>
+                                    <div style="font-size: 18px; font-weight: 700; margin-top: 4px;" id="aiPercent">0%</div>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 12px; font-style: italic;">
+                                Referring: ChatGPT, Perplexity, Claude
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column (Sidebar) -->
+            <div class="sidebar">
+                <!-- Team -->
+                <div class="card">
+                    <div class="label">Strategic Team</div>
+                    <h3>Who's Working On This</h3>
+                    <div style="margin-top: 16px;">
+                        <div class="team-member">
+                            <div class="avatar" style="background: var(--text-primary);">Q</div>
+                            <div>
+                                <div class="member-name">Quan</div>
+                                <div class="member-role">SEO & Local SEO Expert</div>
+                            </div>
+                        </div>
+                        <div class="team-member">
+                            <div class="avatar" style="background: var(--color-coral);">T</div>
+                            <div>
+                                <div class="member-name">Trieu</div>
+                                <div class="member-role">Strategic Developer</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lead Distribution -->
+                <div class="card">
+                    <div class="label">Channel Impact</div>
+                    <h3>Lead Distribution</h3>
+                    <div style="margin-top: 16px;">
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <strong>Google Ads</strong>
+                                <span id="adsLeads">88 leads (100%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill fill-coral" id="adsFill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <strong>SEO/Organic</strong>
+                                <span id="seoLeads">0 leads (0%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill fill-sage" id="seoFill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <strong>Google Business</strong>
+                                <span id="gbpLeads">0 leads (0%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill fill-gold" id="gbpFill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <strong>Form Submissions</strong>
+                                <span id="formLeads">0 leads (0%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%; background: var(--text-secondary);"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Ads -->
+                <div class="card">
+                    <div class="channel-header">
+                        <div class="channel-name">Google Ads</div>
+                        <div class="status-badge">Active</div>
+                    </div>
+                    <div class="channel-metrics">
+                        <div class="channel-metric">
+                            <div class="label">Conversions</div>
+                            <div class="value" id="adsConversions">88</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Clicks</div>
+                            <div class="value">544</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Spend</div>
+                            <div class="value" id="adsSpend">$1,834</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">CTR</div>
+                            <div class="value">5.73%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEO -->
+                <div class="card">
+                    <div class="channel-header">
+                        <div class="channel-name">SEO Performance</div>
+                        <div class="status-badge growing">Growing</div>
+                    </div>
+                    <div class="channel-metrics">
+                        <div class="channel-metric">
+                            <div class="label">Organic Clicks</div>
+                            <div class="value" id="seoChannelClicks">0</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Impressions</div>
+                            <div class="value" id="seoChannelImpressions">0</div>
+                        </div>
+                        <div class="channel-metric" style="grid-column: span 2;">
+                            <div class="label">Avg. Position</div>
+                            <div class="value" id="seoChannelPosition">#N/A</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Business -->
+                <div class="card">
+                    <div class="channel-header">
+                        <div class="channel-name">Google Business</div>
+                        <div class="status-badge local">Local</div>
+                    </div>
+                    <div class="channel-metrics">
+                        <div class="channel-metric">
+                            <div class="label">Phone Calls</div>
+                            <div class="value" id="gbpCalls">0</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Profile Views</div>
+                            <div class="value" id="gbpViews">0</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Web Clicks</div>
+                            <div class="value" id="gbpClicks">0</div>
+                        </div>
+                        <div class="channel-metric">
+                            <div class="label">Directions</div>
+                            <div class="value" id="gbpDirections">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -763,13 +1048,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         const clientId = urlParams.get('clientId');
 
-        async function loadReportData() {
+        async function loadReport() {
             try {
                 const response = await fetch(`/api/client-report?clientId=${clientId || 'default'}`);
                 const result = await response.json();
 
                 if (!result.success) {
-                    document.getElementById('loading').innerHTML = 'Error loading report: ' + (result.error || 'Unknown error');
+                    document.getElementById('loading').textContent = 'Error loading report: ' + (result.error || 'Unknown error');
                     return;
                 }
 
@@ -777,15 +1062,16 @@
                 const client = result.client;
 
                 // Update header
-                document.getElementById('clientName').textContent = client.name;
-                document.getElementById('dateRange').textContent = `${data.dateRange.from} - ${data.dateRange.to}`;
+                const dateRangeText = `${data.dateRange.from} - ${data.dateRange.to}`;
+                document.getElementById('dateRange').textContent = dateRangeText;
+                document.getElementById('controlDate').textContent = dateRangeText;
 
                 // Update metrics
                 document.getElementById('totalLeads').textContent = data.totalLeads;
-                document.getElementById('websiteSessions').textContent = Math.round(data.totalLeads * 2.5);
-                document.getElementById('avgSessions').textContent = data.avgDailySessions;
-                document.getElementById('adSpend').textContent = '$' + data.adSpend.toLocaleString();
+                document.getElementById('sessions').textContent = Math.round(data.totalLeads * 2.5);
+                document.getElementById('adSpend').textContent = '$' + Math.round(data.adSpend).toLocaleString();
                 document.getElementById('costPerLead').textContent = '$' + data.costPerLead;
+
                 document.getElementById('avgDailySessions').textContent = data.avgDailySessions;
                 document.getElementById('avgDailyLeads').textContent = data.avgDailyLeads;
                 document.getElementById('totalConversions').textContent = data.totalLeads;
@@ -794,105 +1080,59 @@
                 const peakDay = Math.max(...data.dailyData.map(d => d.sessions));
                 document.getElementById('peakDay').textContent = peakDay;
 
-                // Summary insights
-                const conversionRate = (data.totalLeads / (data.avgDailySessions * (data.dailyData.length || 1)) * 100).toFixed(1);
-                document.getElementById('whatGreat').textContent = `Strong ${conversionRate}% conversion rate`;
+                // Sub metrics
+                document.getElementById('subTotalLeads').textContent = data.totalLeads;
+                document.getElementById('avgPerMonth').textContent = Math.round(data.totalLeads / 2);
 
-                // Traffic distribution
+                // Total traffic
                 const totalTraffic = data.totalLeads + data.totalFormFills + data.totalGbpCalls;
-                document.getElementById('totalTraffic').textContent = totalTraffic;
+                document.getElementById('totalTraffic').textContent = totalTraffic.toLocaleString();
 
-                // Lead distribution progress bars
+                // Lead distribution
                 const totalLeads = data.totalLeads + data.totalSeoForms + data.totalGbpCalls;
                 const adsPercent = totalLeads > 0 ? (data.totalAdsConversions / totalLeads * 100) : 0;
                 const seoPercent = totalLeads > 0 ? (data.totalSeoForms / totalLeads * 100) : 0;
                 const gbpPercent = totalLeads > 0 ? (data.totalGbpCalls / totalLeads * 100) : 0;
-                const formPercent = totalLeads > 0 ? (data.totalFormFills / totalLeads * 100) : 0;
 
                 document.getElementById('adsFill').style.width = adsPercent + '%';
                 document.getElementById('seoFill').style.width = seoPercent + '%';
                 document.getElementById('gbpFill').style.width = gbpPercent + '%';
-                document.getElementById('formFill').style.width = formPercent + '%';
 
                 document.getElementById('adsLeads').textContent = data.totalAdsConversions + ' leads (' + adsPercent.toFixed(0) + '%)';
                 document.getElementById('seoLeads').textContent = data.totalSeoForms + ' leads (' + seoPercent.toFixed(0) + '%)';
                 document.getElementById('gbpLeads').textContent = data.totalGbpCalls + ' leads (' + gbpPercent.toFixed(0) + '%)';
-                document.getElementById('formLeads').textContent = data.totalFormFills + ' leads (' + formPercent.toFixed(0) + '%)';
 
                 // Channel cards
                 document.getElementById('adsConversions').textContent = data.totalAdsConversions;
-                document.getElementById('adSpendCard').textContent = '$' + data.adSpend.toLocaleString();
-
-                // Source table
-                const sourceRows = `
-                    <tr>
-                        <td><div style="display: flex; align-items: center; gap: 8px;"><div style="width: 8px; height: 8px; border-radius: 2px; background: var(--color-coral);"></div><strong>Organic</strong></div></td>
-                        <td class="data-num" style="text-align: right; color: var(--color-slate);">${Math.round(data.totalSeoForms * 2.5)}</td>
-                        <td class="data-num" style="text-align: right;">${data.organicShare.toFixed(1)}%</td>
-                        <td class="data-num" style="text-align: right; font-weight: 700;">${data.totalSeoForms}</td>
-                    </tr>
-                    <tr>
-                        <td><div style="display: flex; align-items: center; gap: 8px;"><div style="width: 8px; height: 8px; border-radius: 2px; background: var(--color-gold);"></div><strong>Paid Ads</strong></div></td>
-                        <td class="data-num" style="text-align: right; color: var(--color-slate);">${Math.round(data.totalAdsConversions * 2.5)}</td>
-                        <td class="data-num" style="text-align: right;">${data.adsShare.toFixed(1)}%</td>
-                        <td class="data-num" style="text-align: right; font-weight: 700;">${data.totalAdsConversions}</td>
-                    </tr>
-                    <tr>
-                        <td><div style="display: flex; align-items: center; gap: 8px;"><div style="width: 8px; height: 8px; border-radius: 2px; background: var(--color-sage);"></div><strong>Direct</strong></div></td>
-                        <td class="data-num" style="text-align: right; color: var(--color-slate);">${Math.round(data.totalGbpCalls * 2.5)}</td>
-                        <td class="data-num" style="text-align: right;">${data.directShare.toFixed(1)}%</td>
-                        <td class="data-num" style="text-align: right; font-weight: 700;">${data.totalGbpCalls}</td>
-                    </tr>
-                `;
-                document.getElementById('sourceTable').innerHTML = sourceRows;
+                document.getElementById('adsSpend').textContent = '$' + Math.round(data.adSpend).toLocaleString();
+                document.getElementById('seoChannelClicks').textContent = '0';
+                document.getElementById('seoChannelImpressions').textContent = '0';
+                document.getElementById('gbpCalls').textContent = data.totalGbpCalls;
+                document.getElementById('gbpViews').textContent = Math.round(data.totalGbpCalls * 8);
 
                 // Initialize charts
-                initializeCharts(data);
+                initCharts(data);
 
                 // Show dashboard
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('dashboard').style.display = 'grid';
-
-                // Initialize Lucide icons
-                lucide.createIcons();
+                document.getElementById('dashboard').style.display = 'block';
             } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('loading').innerHTML = 'Error loading report: ' + error.message;
+                document.getElementById('loading').textContent = 'Error: ' + error.message;
             }
         }
 
-        function initializeCharts(data) {
-            // Pie Chart
-            const pieCtx = document.getElementById('trafficPieChart').getContext('2d');
-            new Chart(pieCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Paid Ads', 'Organic', 'Direct'],
-                    datasets: [{
-                        data: [data.totalAdsConversions || 1, data.totalSeoForms || 1, data.totalGbpCalls || 1],
-                        backgroundColor: ['#d9a854', '#c4704f', '#9db5a0'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    cutout: '70%',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
+        function initCharts(data) {
+            // Traffic Chart
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            const sessionsGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            sessionsGrad.addColorStop(0, 'rgba(157, 181, 160, 0.2)');
+            sessionsGrad.addColorStop(1, 'rgba(157, 181, 160, 0)');
 
-            // Line Chart
-            const lineCtx = document.getElementById('trafficLineChart').getContext('2d');
-            const leadsGradient = lineCtx.createLinearGradient(0, 0, 0, 300);
-            leadsGradient.addColorStop(0, 'rgba(217, 168, 84, 0.2)');
-            leadsGradient.addColorStop(1, 'rgba(217, 168, 84, 0)');
+            const leadsGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            leadsGrad.addColorStop(0, 'rgba(217, 168, 84, 0.2)');
+            leadsGrad.addColorStop(1, 'rgba(217, 168, 84, 0)');
 
-            const sessionsGradient = lineCtx.createLinearGradient(0, 0, 0, 300);
-            sessionsGradient.addColorStop(0, 'rgba(157, 181, 160, 0.2)');
-            sessionsGradient.addColorStop(1, 'rgba(157, 181, 160, 0)');
-
-            new Chart(lineCtx, {
+            new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: data.dailyData.map(d => d.date.substring(5)),
@@ -901,7 +1141,7 @@
                             label: 'Sessions',
                             data: data.dailyData.map(d => d.sessions),
                             borderColor: '#9db5a0',
-                            backgroundColor: sessionsGradient,
+                            backgroundColor: sessionsGrad,
                             fill: true,
                             tension: 0.4,
                             borderWidth: 2,
@@ -912,7 +1152,7 @@
                             label: 'Leads',
                             data: data.dailyData.map(d => d.leads),
                             borderColor: '#d9a854',
-                            backgroundColor: leadsGradient,
+                            backgroundColor: leadsGrad,
                             fill: true,
                             tension: 0.4,
                             borderWidth: 3,
@@ -930,15 +1170,14 @@
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { display: false } },
-                        y: { position: 'left', beginAtZero: true },
+                        y: { beginAtZero: true },
                         y1: { position: 'right', beginAtZero: true, grid: { display: false } }
                     }
                 }
             });
         }
 
-        // Load data on page load
-        loadReportData();
+        loadReport();
     </script>
 
 </body>
