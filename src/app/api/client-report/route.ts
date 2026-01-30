@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     // Fetch metrics data for date range
     const { data: metricsData, error: metricsError } = await supabaseAdmin
       .from('client_metrics_summary')
-      .select('date, total_leads, form_fills, gbp_calls, google_ads_conversions, seo_form_submits')
+      .select('date, total_leads, form_fills, gbp_calls, google_ads_conversions')
       .eq('client_id', clientId)
       .gte('date', dateFromISO)
       .lte('date', dateToISO)
@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
     const totalFormFills = (metricsData || []).reduce((sum: number, m: any) => sum + (m.form_fills || 0), 0);
     const totalGbpCalls = (metricsData || []).reduce((sum: number, m: any) => sum + (m.gbp_calls || 0), 0);
     const totalAdsConversions = (metricsData || []).reduce((sum: number, m: any) => sum + (m.google_ads_conversions || 0), 0);
-    const totalSeoForms = (metricsData || []).reduce((sum: number, m: any) => sum + (m.seo_form_submits || 0), 0);
+    // Note: seo_form_submits column doesn't exist, use form_fills as proxy
+    const totalSeoForms = (metricsData || []).reduce((sum: number, m: any) => sum + (m.form_fills || 0), 0);
 
     // Calculate daily averages
     const days = (metricsData || []).length || 1;
