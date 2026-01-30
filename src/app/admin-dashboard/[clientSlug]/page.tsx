@@ -32,6 +32,7 @@ export default function ClientDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [dailyTraffic, setDailyTraffic] = useState<DailyTrafficData[]>([]);
+  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -306,8 +307,8 @@ export default function ClientDetailPage() {
               {/* Line Sparkline Chart */}
               {dailyTraffic && dailyTraffic.length > 0 ? (
                 <div>
-                  <div style={{ height: '200px', marginBottom: '24px' }}>
-                    <svg width="100%" height="200" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet" style={{ maxWidth: '100%' }}>
+                  <div style={{ height: '280px', marginBottom: '24px', position: 'relative' }}>
+                    <svg width="100%" height="280" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet" style={{ maxWidth: '100%' }}>
                       {(() => {
                         const data = dailyTraffic.slice(0, 30);
                         if (data.length === 0) return null;
@@ -315,32 +316,34 @@ export default function ClientDetailPage() {
                         const maxTraffic = Math.max(...data.map(d => d.traffic), 1);
                         const maxLeads = Math.max(...data.map(d => d.leads), 1);
                         const viewBoxWidth = 800;
-                        const viewBoxHeight = 200;
-                        const padding = 30;
+                        const viewBoxHeight = 280;
+                        const padding = 50;
+                        const bottomPadding = 60;
                         const chartWidth = viewBoxWidth - (padding * 2);
-                        const chartHeight = viewBoxHeight - (padding * 2);
+                        const chartHeight = viewBoxHeight - padding - bottomPadding;
 
-                        // Generate traffic points
-                        const trafficPoints = data
-                          .map((d, i) => {
-                            const x = padding + (i / (data.length - 1 || 1)) * chartWidth;
-                            const y = padding + chartHeight - ((d.traffic / maxTraffic) * chartHeight);
-                            return `${x},${y}`;
-                          })
-                          .join(' ');
+                        // Generate traffic points with coordinates for hover
+                        const trafficPointsData = data.map((d, i) => ({
+                          x: padding + (i / (data.length - 1 || 1)) * chartWidth,
+                          y: padding + chartHeight - ((d.traffic / maxTraffic) * chartHeight),
+                          value: d.traffic,
+                          date: d.date
+                        }));
 
                         // Generate leads points
-                        const leadsPoints = data
-                          .map((d, i) => {
-                            const x = padding + (i / (data.length - 1 || 1)) * chartWidth;
-                            const y = padding + chartHeight - ((d.leads / maxLeads) * chartHeight);
-                            return `${x},${y}`;
-                          })
-                          .join(' ');
+                        const leadsPointsData = data.map((d, i) => ({
+                          x: padding + (i / (data.length - 1 || 1)) * chartWidth,
+                          y: padding + chartHeight - ((d.leads / maxLeads) * chartHeight),
+                          value: d.leads,
+                          date: d.date
+                        }));
+
+                        const trafficPoints = trafficPointsData.map(p => `${p.x},${p.y}`).join(' ');
+                        const leadsPoints = leadsPointsData.map(p => `${p.x},${p.y}`).join(' ');
 
                         return (
                           <>
-                            {/* Gradient definitions */}
+                            {/* Grid lines */}
                             <defs>
                               <linearGradient id="trafficGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#9db5a0" stopOpacity="0.3" />
@@ -352,12 +355,26 @@ export default function ClientDetailPage() {
                               </linearGradient>
                             </defs>
 
+                            {/* Horizontal grid lines */}
+                            {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+                              <line
+                                key={i}
+                                x1={padding}
+                                y1={padding + chartHeight - (pct * chartHeight)}
+                                x2={padding + chartWidth}
+                                y2={padding + chartHeight - (pct * chartHeight)}
+                                stroke="#e5e7eb"
+                                strokeWidth="0.5"
+                                strokeDasharray="2,2"
+                              />
+                            ))}
+
                             {/* Traffic polyline */}
                             <polyline
                               points={trafficPoints}
                               fill="none"
                               stroke="#9db5a0"
-                              strokeWidth="2"
+                              strokeWidth="2.5"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
@@ -367,15 +384,109 @@ export default function ClientDetailPage() {
                               points={leadsPoints}
                               fill="none"
                               stroke="#c4704f"
-                              strokeWidth="2"
+                              strokeWidth="2.5"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
+
+                            {/* Data points with hover interaction */}
+                            {trafficPointsData.map((point, i) => (
+                              <circle
+                                key={`traffic-${i}`}
+                                cx={point.x}
+                                cy={point.y}
+                                r="3"
+                                fill={hoveredPoint === i ? '#9db5a0' : 'white'}
+                                stroke={hoveredPoint === i ? '#9db5a0' : '#9db5a0'}
+                                strokeWidth={hoveredPoint === i ? '0' : '1.5'}
+                                onMouseEnter={() => setHoveredPoint(i)}
+                                onMouseLeave={() => setHoveredPoint(null)}
+                                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                              />
+                            ))}
+
+                            {leadsPointsData.map((point, i) => (
+                              <circle
+                                key={`leads-${i}`}
+                                cx={point.x}
+                                cy={point.y}
+                                r="3"
+                                fill={hoveredPoint === i ? '#c4704f' : 'white'}
+                                stroke={hoveredPoint === i ? '#c4704f' : '#c4704f'}
+                                strokeWidth={hoveredPoint === i ? '0' : '1.5'}
+                                onMouseEnter={() => setHoveredPoint(i)}
+                                onMouseLeave={() => setHoveredPoint(null)}
+                                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                              />
+                            ))}
+
+                            {/* X-axis labels (dates) - show every 5th date */}
+                            {data.map((d, i) => {
+                              if (i % 5 !== 0 && i !== data.length - 1) return null;
+                              const x = padding + (i / (data.length - 1)) * chartWidth;
+                              return (
+                                <text
+                                  key={`date-${i}`}
+                                  x={x}
+                                  y={viewBoxHeight - 15}
+                                  textAnchor="middle"
+                                  fontSize="11"
+                                  fill="#6b7280"
+                                >
+                                  {new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </text>
+                              );
+                            })}
+
+                            {/* Y-axis labels */}
+                            {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+                              <text
+                                key={`y-${i}`}
+                                x={padding - 15}
+                                y={padding + chartHeight - (pct * chartHeight) + 4}
+                                textAnchor="end"
+                                fontSize="10"
+                                fill="#9ca3af"
+                              >
+                                {Math.round(pct * Math.max(maxTraffic, maxLeads))}
+                              </text>
+                            ))}
                           </>
                         );
                       })()}
                     </svg>
                   </div>
+
+                  {/* Hover tooltip */}
+                  {hoveredPoint !== null && dailyTraffic[hoveredPoint] && (
+                    <div style={{
+                      padding: '12px 16px',
+                      background: 'rgba(44, 36, 25, 0.95)',
+                      color: 'white',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      marginBottom: '16px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ marginBottom: '6px', color: '#d1d5db' }}>
+                        {new Date(dailyTraffic[hoveredPoint].date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div style={{ display: 'flex', gap: '24px', justifyContent: 'center' }}>
+                        <div>
+                          <div style={{ color: '#9db5a0', fontWeight: 'bold' }}>
+                            {dailyTraffic[hoveredPoint].traffic}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>Website Traffic</div>
+                        </div>
+                        <div>
+                          <div style={{ color: '#c4704f', fontWeight: 'bold' }}>
+                            {dailyTraffic[hoveredPoint].leads}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>Leads Generated</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Legend */}
                   <div className="flex items-center gap-6 justify-center text-sm">
