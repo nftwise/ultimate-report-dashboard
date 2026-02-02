@@ -30,8 +30,7 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [healthFilter, setHealthFilter] = useState<'all' | 'good' | 'warning' | 'critical'>('all');
-  const [showInactiveClients, setShowInactiveClients] = useState(false);
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'both' | 'seo' | 'ads'>('all');
 
   // Date range state
   // Default: Yesterday to 30 days back (to match when data is typically available)
@@ -87,17 +86,24 @@ export default function AdminDashboardPage() {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Active/Inactive filter (default: show only active unless toggled)
-    const matchesActiveStatus = showInactiveClients ? true : client.is_active;
+    // Service type filter logic
+    let matchesServiceFilter = true;
+    if (serviceFilter !== 'all') {
+      const hasAds = client.services?.googleAds || false;
+      const hasSeo = client.services?.seo || false;
 
-    // Health status logic
-    const cpl = client.ads_conversions && client.ads_conversions > 0
-      ? 20618 / client.ads_conversions
-      : 0;
-    const cplTrend = cpl < 50 ? 'good' : cpl < 75 ? 'warning' : 'critical';
+      if (serviceFilter === 'active') {
+        matchesServiceFilter = client.is_active;
+      } else if (serviceFilter === 'both') {
+        matchesServiceFilter = hasAds && hasSeo;
+      } else if (serviceFilter === 'seo') {
+        matchesServiceFilter = hasSeo && !hasAds;
+      } else if (serviceFilter === 'ads') {
+        matchesServiceFilter = hasAds && !hasSeo;
+      }
+    }
 
-    if (healthFilter === 'all') return matchesSearch && matchesActiveStatus;
-    return matchesSearch && matchesActiveStatus && cplTrend === healthFilter;
+    return matchesSearch && matchesServiceFilter;
   });
 
   const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
@@ -590,55 +596,55 @@ export default function AdminDashboardPage() {
               />
             </div>
 
-            {/* Filter Buttons Row */}
+            {/* Filter Buttons Row - Service Type Filters */}
             <div className="flex gap-2 flex-wrap items-center">
-              {/* Active/All Clients Filter */}
-              <div className="flex gap-1 md:gap-2 bg-white/20 p-1 rounded-full backdrop-blur-sm">
-                <button
-                  onClick={() => setShowInactiveClients(false)}
-                  className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
-                  style={{
-                    background: !showInactiveClients ? '#10b981' : '#f9f7f4',
-                    color: !showInactiveClients ? '#fff' : '#10b981',
-                    border: `2px solid ${!showInactiveClients ? '#10b981' : '#10b98120'}`
-                  }}
-                >
-                  Active Only
-                </button>
-                <button
-                  onClick={() => setShowInactiveClients(true)}
-                  className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
-                  style={{
-                    background: showInactiveClients ? '#6b7280' : '#f9f7f4',
-                    color: showInactiveClients ? '#fff' : '#6b7280',
-                    border: `2px solid ${showInactiveClients ? '#6b7280' : '#6b728020'}`
-                  }}
-                >
-                  All Clients
-                </button>
-              </div>
-
-              {/* Health Status Filter */}
-              <div className="flex gap-1 md:gap-2">
+              <div className="flex gap-1 md:gap-2 flex-wrap">
                 {[
-                  { id: 'all', label: 'All Health', color: '#5c5850' },
-                  { id: 'good', label: 'Good', color: '#10b981' },
-                  { id: 'warning', label: 'Fair', color: '#f59e0b' },
-                  { id: 'critical', label: 'Critical', color: '#ef4444' },
-                ].map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setHealthFilter(filter.id as any)}
-                    className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
-                    style={{
-                      background: healthFilter === filter.id ? filter.color : '#f9f7f4',
-                      color: healthFilter === filter.id ? '#fff' : filter.color,
-                      border: `2px solid ${filter.color}20`
-                    }}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
+                  { id: 'all', label: 'All Clients', color: '#5c5850', icon: '👥' },
+                  { id: 'active', label: 'Active clients', color: '#10b981', icon: '✓' },
+                  { id: 'both', label: 'Both Services', color: '#10b981', icon: '⭐' },
+                  { id: 'seo', label: 'SEO Only', color: '#f59e0b', icon: '📈' },
+                  { id: 'ads', label: 'Ads Only', color: '#3b82f6', icon: '💰' },
+                ].map((filter) => {
+                  // Count clients for each filter
+                  let count = 0;
+                  if (filter.id === 'all') {
+                    count = clients.length;
+                  } else if (filter.id === 'active') {
+                    count = clients.filter(c => c.is_active).length;
+                  } else if (filter.id === 'both') {
+                    count = clients.filter(c => c.services?.googleAds && c.services?.seo).length;
+                  } else if (filter.id === 'seo') {
+                    count = clients.filter(c => c.services?.seo && !c.services?.googleAds).length;
+                  } else if (filter.id === 'ads') {
+                    count = clients.filter(c => c.services?.googleAds && !c.services?.seo).length;
+                  }
+
+                  return (
+                    <button
+                      key={filter.id}
+                      onClick={() => setServiceFilter(filter.id as any)}
+                      className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition flex items-center gap-2"
+                      style={{
+                        background: serviceFilter === filter.id ? filter.color : '#f9f7f4',
+                        color: serviceFilter === filter.id ? '#fff' : filter.color,
+                        border: `2px solid ${filter.color}30`
+                      }}
+                    >
+                      <span>{filter.icon}</span>
+                      <span>{filter.label}</span>
+                      <span style={{
+                        background: serviceFilter === filter.id ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '700'
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
