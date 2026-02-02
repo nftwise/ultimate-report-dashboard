@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const dateFromParam = searchParams.get('dateFrom')
     const dateToParam = searchParams.get('dateTo')
 
+    console.log('[clients/list] Date range params:', { dateFromParam, dateToParam })
+
     // Parallel fetch: clients and metrics at the same time for better performance
     const [clientsResult, metricsResult] = await Promise.all([
       // Fetch all clients (active and inactive) with their service configurations
@@ -56,6 +58,13 @@ export async function GET(request: NextRequest) {
 
     if (metricsError) {
       console.error('Error fetching metrics:', metricsError)
+    }
+
+    console.log('[clients/list] Metrics fetched:', metrics?.length, 'records')
+    if (metrics && metrics.length > 0) {
+      const gbpSample = metrics.filter((m: any) => m.gbp_calls && m.gbp_calls > 0)
+      console.log('[clients/list] Records with GBP calls:', gbpSample.length)
+      console.log('[clients/list] Sample GBP records:', gbpSample.slice(0, 3))
     }
 
     // Build optimized metrics map with aggregation
@@ -108,9 +117,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Return with cache headers (cache for 5 minutes since data updates daily)
+    // Return with cache headers
+    // Don't cache when date range is specified (usually for filtered views)
+    // Cache only for full date range requests
     const response = NextResponse.json({ success: true, clients: clientsWithServices })
-    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
+    if (!dateFromParam || !dateToParam) {
+      // Cache for 5 minutes for default requests
+      response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
+    } else {
+      // No cache for filtered date ranges (for real-time data)
+      response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=120')
+    }
     return response
   } catch (error: any) {
     console.error('Fatal error:', error)

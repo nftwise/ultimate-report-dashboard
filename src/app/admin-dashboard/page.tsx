@@ -34,10 +34,12 @@ export default function AdminDashboardPage() {
   const [showInactiveClients, setShowInactiveClients] = useState(false);
 
   // Date range state
+  // NOTE: GBP data starts Feb 10, 2025 and ends Mar 7, 2025
+  // Default to Feb 10 - Mar 7, 2025 to show all available GBP data
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 30);
+    // Default date range: Feb 10, 2025 - Mar 7, 2025 (contains GBP data)
+    const start = new Date(2025, 1, 10); // Feb 10, 2025
+    const end = new Date(2025, 2, 7);   // Mar 7, 2025
     return { start, end };
   });
   const [showCalendar, setShowCalendar] = useState(false);
