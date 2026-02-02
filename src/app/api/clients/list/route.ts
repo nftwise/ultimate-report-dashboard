@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     console.log('[clients/list] Date range params:', { dateFromParam, dateToParam })
 
     // Parallel fetch: clients and metrics at the same time for better performance
-    const [clientsResult, metricsResult] = await Promise.all([
+    const [clientsResult, metricsResult, gbpMetricsResult] = await Promise.all([
       // Fetch all clients (active and inactive) with their service configurations
       supabaseAdmin
         .from('clients')
@@ -31,11 +31,27 @@ export async function GET(request: NextRequest) {
         `)
         .order('name', { ascending: true }),
 
-      // Fetch metrics with date range filter
+      // Fetch metrics with date range filter (for leads, forms, ads)
       (() => {
         let query = supabaseAdmin
           .from('client_metrics_summary')
-          .select('client_id, total_leads, form_fills, gbp_calls, google_ads_conversions, date')
+          .select('client_id, total_leads, form_fills, google_ads_conversions, date')
+
+        if (dateFromParam) {
+          query = query.gte('date', dateFromParam)
+        }
+        if (dateToParam) {
+          query = query.lte('date', dateToParam)
+        }
+
+        return query
+      })(),
+
+      // Fetch GBP phone calls from gbp_location_daily_metrics table
+      (() => {
+        let query = supabaseAdmin
+          .from('gbp_location_daily_metrics')
+          .select('client_id, phone_calls, date')
 
         if (dateFromParam) {
           query = query.gte('date', dateFromParam)
@@ -50,6 +66,7 @@ export async function GET(request: NextRequest) {
 
     const { data: clients, error } = clientsResult
     const { data: metrics, error: metricsError } = metricsResult
+    const { data: gbpMetrics, error: gbpError } = gbpMetricsResult
 
     if (error) {
       console.error('Error fetching clients:', error)
@@ -60,10 +77,15 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching metrics:', metricsError)
     }
 
+    if (gbpError) {
+      console.error('Error fetching GBP metrics:', gbpError)
+    }
+
     console.log('[clients/list] Metrics fetched:', metrics?.length, 'records')
-    if (metrics && metrics.length > 0) {
-      const gbpSample = metrics.filter((m: any) => m.gbp_calls && m.gbp_calls > 0)
-      console.log('[clients/list] Records with GBP calls:', gbpSample.length)
+    console.log('[clients/list] GBP metrics fetched:', gbpMetrics?.length, 'records')
+    if (gbpMetrics && gbpMetrics.length > 0) {
+      const gbpSample = gbpMetrics.filter((m: any) => m.phone_calls && m.phone_calls > 0)
+      console.log('[clients/list] Records with phone calls:', gbpSample.length)
       console.log('[clients/list] Sample GBP records:', gbpSample.slice(0, 3))
     }
 
@@ -80,8 +102,20 @@ export async function GET(request: NextRequest) {
       }
       metricsMap[metric.client_id].total_leads += metric.total_leads || 0
       metricsMap[metric.client_id].seo_form_submits += metric.form_fills || 0
-      metricsMap[metric.client_id].gbp_calls += metric.gbp_calls || 0
       metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0
+    })
+
+    // Add GBP phone calls from gbp_location_daily_metrics table
+    ;(gbpMetrics || []).forEach((gbpMetric: any) => {
+      if (!metricsMap[gbpMetric.client_id]) {
+        metricsMap[gbpMetric.client_id] = {
+          total_leads: 0,
+          seo_form_submits: 0,
+          gbp_calls: 0,
+          ads_conversions: 0
+        }
+      }
+      metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0
     })
 
     // Process clients to determine which services they have
