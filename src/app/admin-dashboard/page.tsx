@@ -757,6 +757,8 @@ export default function AdminDashboardPage() {
                     const trendData = [40, 45, 42, 48, 44, 46];
                     const maxTrend = Math.max(...trendData);
                     const trendColor = client.total_leads && client.total_leads > 0 ? '#10b981' : '#9ca3af';
+                    // Calculate simple trend: compare last vs first value
+                    const trendPercent = trendData.length > 1 ? Math.round(((trendData[trendData.length - 1] - trendData[0]) / trendData[0]) * 100) : 0;
 
                     return (
                       <tr
@@ -871,7 +873,7 @@ export default function AdminDashboardPage() {
                               />
                             </svg>
                             <span className="text-xs font-bold whitespace-nowrap tabular-nums" style={{ color: trendColor, minWidth: '45px', letterSpacing: '-0.5px' }}>
-                              {leadsTrend > 0 ? '↑' : leadsTrend < 0 ? '↓' : '→'} {Math.abs(leadsTrend)}%
+                              {trendPercent > 0 ? '↑' : trendPercent < 0 ? '↓' : '→'} {Math.abs(trendPercent)}%
                             </span>
                           </div>
                         </td>
