@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       (() => {
         let query = supabaseAdmin
           .from('client_metrics_summary')
-          .select('client_id, total_leads, form_fills, google_ads_conversions, date')
+          .select('client_id, total_leads, form_fills, google_ads_conversions, cpl, date')
 
         if (dateFromParam) {
           query = query.gte('date', dateFromParam)
@@ -97,12 +97,19 @@ export async function GET(request: NextRequest) {
           total_leads: 0,
           seo_form_submits: 0,
           gbp_calls: 0,
-          ads_conversions: 0
+          ads_conversions: 0,
+          ads_cpl: 0,
+          ads_cpl_count: 0
         }
       }
       metricsMap[metric.client_id].total_leads += metric.total_leads || 0
       metricsMap[metric.client_id].seo_form_submits += metric.form_fills || 0
       metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0
+      // Track CPL average (sum of CPL values and count)
+      if (metric.cpl && metric.cpl > 0) {
+        metricsMap[metric.client_id].ads_cpl += metric.cpl
+        metricsMap[metric.client_id].ads_cpl_count += 1
+      }
     })
 
     // Add GBP phone calls from gbp_location_daily_metrics table
@@ -112,7 +119,9 @@ export async function GET(request: NextRequest) {
           total_leads: 0,
           seo_form_submits: 0,
           gbp_calls: 0,
-          ads_conversions: 0
+          ads_conversions: 0,
+          ads_cpl: 0,
+          ads_cpl_count: 0
         }
       }
       metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0
@@ -128,8 +137,15 @@ export async function GET(request: NextRequest) {
         total_leads: 0,
         seo_form_submits: 0,
         gbp_calls: 0,
-        ads_conversions: 0
+        ads_conversions: 0,
+        ads_cpl: 0,
+        ads_cpl_count: 0
       }
+
+      // Calculate average CPL if we have data
+      const avgCpl = clientMetrics.ads_cpl_count > 0
+        ? clientMetrics.ads_cpl / clientMetrics.ads_cpl_count
+        : 0
 
       return {
         id: client.id,
@@ -142,6 +158,7 @@ export async function GET(request: NextRequest) {
         seo_form_submits: clientMetrics.seo_form_submits,
         gbp_calls: clientMetrics.gbp_calls,
         ads_conversions: clientMetrics.ads_conversions,
+        ads_cpl: avgCpl,
         services: {
           googleAds: !!(config.gads_customer_id && config.gads_customer_id.trim()),
           seo: !!(config.gsc_site_url && config.gsc_site_url.trim()),

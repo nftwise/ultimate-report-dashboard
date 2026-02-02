@@ -753,15 +753,10 @@ export default function AdminDashboardPage() {
                 <tbody>
                   {filteredClients.map((client) => {
                     const health = getClientHealth(client);
-                    const leadsTrend = Math.floor(Math.random() * 40 - 20); // Random trend -20 to +20
-                    const trendColor = leadsTrend > 0 ? '#10b981' : leadsTrend < 0 ? '#ef4444' : '#9ca3af';
-
-                    // Generate trend data for chart
-                    const trendData = Array.from({ length: 6 }).map((_, i) => {
-                      const base = 40 + Math.sin(i * 0.5) * 15;
-                      return base + Math.random() * 20;
-                    });
+                    // Trend data: static placeholder (real data would come from detailed metrics API)
+                    const trendData = [40, 45, 42, 48, 44, 46];
                     const maxTrend = Math.max(...trendData);
+                    const trendColor = client.total_leads && client.total_leads > 0 ? '#10b981' : '#9ca3af';
 
                     return (
                       <tr
@@ -829,11 +824,11 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
 
-                        {/* Google Ads CPL (Cost Per Lead) */}
+                        {/* Google Ads CPL (Cost Per Conversion) */}
                         <td className="py-5 text-center">
                           <div className="font-semibold text-sm tabular-nums" style={{ color: '#6b7280' }}>
-                            {client.ads_conversions && client.ads_conversions > 0
-                              ? '$' + Math.round(20618 / client.ads_conversions)
+                            {client.ads_cpl && client.ads_cpl > 0
+                              ? '$' + Math.round(client.ads_cpl)
                               : '—'}
                           </div>
                         </td>
