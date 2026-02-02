@@ -71,6 +71,27 @@ export default function AdminDashboardPage() {
 
       if (data.success && data.clients) {
         setClients(data.clients);
+        // Debug: Log service config distribution
+        const withAds = data.clients.filter((c: any) => c.services?.googleAds).length
+        const withSeo = data.clients.filter((c: any) => c.services?.seo).length
+        const withBoth = data.clients.filter((c: any) => c.services?.googleAds && c.services?.seo).length
+        const adsOnly = data.clients.filter((c: any) => c.services?.googleAds && !c.services?.seo).length
+        const seoOnly = data.clients.filter((c: any) => c.services?.seo && !c.services?.googleAds).length
+        console.log('[Dashboard] Service config distribution:', {
+          total: data.clients.length,
+          withAds,
+          withSeo,
+          withBoth,
+          adsOnly,
+          seoOnly
+        });
+        if (adsOnly === 0) {
+          console.log('[Dashboard] Ads-only clients - sample data:', data.clients.slice(0, 5).map((c: any) => ({
+            name: c.name,
+            googleAds: c.services?.googleAds,
+            seo: c.services?.seo
+          })));
+        }
       } else {
         setError(data.error || 'Failed to load clients');
       }

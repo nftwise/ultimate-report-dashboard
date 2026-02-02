@@ -133,6 +133,19 @@ export async function GET(request: NextRequest) {
         ? client.service_configs[0]
         : client.service_configs || {}
 
+      const hasGoogleAds = !!(config.gads_customer_id && config.gads_customer_id.trim())
+      const hasSeo = !!(config.gsc_site_url && config.gsc_site_url.trim())
+
+      // Debug: Log first few clients
+      if (clients.indexOf(client) < 3) {
+        console.log(`[API] Client: ${client.name}`, {
+          gads_customer_id: config.gads_customer_id,
+          hasGoogleAds,
+          gsc_site_url: config.gsc_site_url,
+          hasSeo
+        })
+      }
+
       const clientMetrics = metricsMap[client.id] || {
         total_leads: 0,
         seo_form_submits: 0,
@@ -160,13 +173,25 @@ export async function GET(request: NextRequest) {
         ads_conversions: clientMetrics.ads_conversions,
         ads_cpl: avgCpl,
         services: {
-          googleAds: !!(config.gads_customer_id && config.gads_customer_id.trim()),
-          seo: !!(config.gsc_site_url && config.gsc_site_url.trim()),
+          googleAds: hasGoogleAds,
+          seo: hasSeo,
           googleLocalService: !!(config.gbp_location_id && config.gbp_location_id.trim()),
           fbAds: false,
         }
       }
     })
+
+    // Log service distribution for debugging
+    const serviceDistribution = {
+      total: clientsWithServices.length,
+      withAds: clientsWithServices.filter((c: any) => c.services.googleAds).length,
+      withSeo: clientsWithServices.filter((c: any) => c.services.seo).length,
+      withBoth: clientsWithServices.filter((c: any) => c.services.googleAds && c.services.seo).length,
+      adsOnly: clientsWithServices.filter((c: any) => c.services.googleAds && !c.services.seo).length,
+      seoOnly: clientsWithServices.filter((c: any) => c.services.seo && !c.services.googleAds).length,
+      neither: clientsWithServices.filter((c: any) => !c.services.googleAds && !c.services.seo).length,
+    }
+    console.log('[API] Service distribution:', serviceDistribution)
 
     // Return with cache headers
     // Don't cache when date range is specified (usually for filtered views)
