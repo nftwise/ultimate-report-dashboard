@@ -193,6 +193,12 @@ export async function GET(request: NextRequest) {
     }
     console.log('[API] Service distribution:', serviceDistribution)
 
+    // Log ALL clients with their service flags for detailed debugging
+    console.log('[API] Full service config list:')
+    clientsWithServices.forEach((c: any) => {
+      console.log(`  ${c.name}: googleAds=${c.services.googleAds}, seo=${c.services.seo}`)
+    })
+
     // Return with cache headers
     // Don't cache when date range is specified (usually for filtered views)
     // Cache only for full date range requests
