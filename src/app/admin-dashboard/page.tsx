@@ -31,6 +31,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [healthFilter, setHealthFilter] = useState<'all' | 'good' | 'warning' | 'critical'>('all');
+  const [showInactiveClients, setShowInactiveClients] = useState(false);
 
   // Date range state
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
@@ -80,14 +81,17 @@ export default function AdminDashboardPage() {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
 
+    // Active/Inactive filter (default: show only active unless toggled)
+    const matchesActiveStatus = showInactiveClients ? true : client.is_active;
+
     // Health status logic
     const cpl = client.ads_conversions && client.ads_conversions > 0
       ? 20618 / client.ads_conversions
       : 0;
     const cplTrend = cpl < 50 ? 'good' : cpl < 75 ? 'warning' : 'critical';
 
-    if (healthFilter === 'all') return matchesSearch;
-    return matchesSearch && cplTrend === healthFilter;
+    if (healthFilter === 'all') return matchesSearch && matchesActiveStatus;
+    return matchesSearch && matchesActiveStatus && cplTrend === healthFilter;
   });
 
   const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
@@ -581,27 +585,56 @@ export default function AdminDashboardPage() {
               />
             </div>
 
-            {/* Health Status Filter */}
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { id: 'all', label: 'All', color: '#5c5850' },
-                { id: 'good', label: 'Good', color: '#10b981' },
-                { id: 'warning', label: 'Warning', color: '#f59e0b' },
-                { id: 'critical', label: 'Critical', color: '#ef4444' },
-              ].map((filter) => (
+            {/* Filter Buttons Row */}
+            <div className="flex gap-2 flex-wrap items-center">
+              {/* Active/All Clients Filter */}
+              <div className="flex gap-1 md:gap-2 bg-white/20 p-1 rounded-full backdrop-blur-sm">
                 <button
-                  key={filter.id}
-                  onClick={() => setHealthFilter(filter.id as any)}
-                  className="filter-button px-4 py-2 rounded-full text-sm font-semibold transition"
+                  onClick={() => setShowInactiveClients(false)}
+                  className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
                   style={{
-                    background: healthFilter === filter.id ? filter.color : '#f9f7f4',
-                    color: healthFilter === filter.id ? '#fff' : filter.color,
-                    border: `2px solid ${filter.color}20`
+                    background: !showInactiveClients ? '#10b981' : '#f9f7f4',
+                    color: !showInactiveClients ? '#fff' : '#10b981',
+                    border: `2px solid ${!showInactiveClients ? '#10b981' : '#10b98120'}`
                   }}
                 >
-                  {filter.label}
+                  Active Only
                 </button>
-              ))}
+                <button
+                  onClick={() => setShowInactiveClients(true)}
+                  className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
+                  style={{
+                    background: showInactiveClients ? '#6b7280' : '#f9f7f4',
+                    color: showInactiveClients ? '#fff' : '#6b7280',
+                    border: `2px solid ${showInactiveClients ? '#6b7280' : '#6b728020'}`
+                  }}
+                >
+                  All Clients
+                </button>
+              </div>
+
+              {/* Health Status Filter */}
+              <div className="flex gap-1 md:gap-2">
+                {[
+                  { id: 'all', label: 'All Health', color: '#5c5850' },
+                  { id: 'good', label: 'Good', color: '#10b981' },
+                  { id: 'warning', label: 'Fair', color: '#f59e0b' },
+                  { id: 'critical', label: 'Critical', color: '#ef4444' },
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setHealthFilter(filter.id as any)}
+                    className="filter-button px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition"
+                    style={{
+                      background: healthFilter === filter.id ? filter.color : '#f9f7f4',
+                      color: healthFilter === filter.id ? '#fff' : filter.color,
+                      border: `2px solid ${filter.color}20`
+                    }}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
