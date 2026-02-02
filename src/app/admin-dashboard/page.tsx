@@ -34,12 +34,16 @@ export default function AdminDashboardPage() {
   const [showInactiveClients, setShowInactiveClients] = useState(false);
 
   // Date range state
-  // NOTE: All database metrics span Jan 1 - Feb 9, 2025
-  // Default to this range to show all available data (19.4% have GBP data)
+  // Default: Yesterday to 30 days back (to match when data is typically available)
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
-    // Default date range: Jan 1 - Feb 9, 2025 (full dataset range)
-    const start = new Date(2025, 0, 1);  // Jan 1, 2025
-    const end = new Date(2025, 1, 9);   // Feb 9, 2025
+    // Set end date to yesterday (data usually comes in by end of previous day)
+    const end = new Date();
+    end.setDate(end.getDate() - 1);
+
+    // Set start date to 30 days before end date
+    const start = new Date(end);
+    start.setDate(start.getDate() - 30);
+
     return { start, end };
   });
   const [showCalendar, setShowCalendar] = useState(false);
@@ -118,9 +122,14 @@ export default function AdminDashboardPage() {
   };
 
   const setPresetRange = (days: number) => {
+    // Use yesterday as end date (data typically available by end of previous day)
     const end = new Date();
-    const start = new Date();
+    end.setDate(end.getDate() - 1);
+
+    // Calculate start date from end date, not from today
+    const start = new Date(end);
     start.setDate(start.getDate() - days);
+
     setDateRange({ start, end });
     setShowCalendar(false);
   };
@@ -238,8 +247,11 @@ export default function AdminDashboardPage() {
                   key={preset.label}
                   onClick={() => {
                     if (preset.days === -1) {
-                      const end = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
-                      const start = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+                      // MTD: Month to date (from first day of current month to yesterday)
+                      const today = new Date();
+                      const end = new Date(today);
+                      end.setDate(end.getDate() - 1); // Yesterday
+                      const start = new Date(today.getFullYear(), today.getMonth(), 1); // First day of month
                       setDateRange({ start, end });
                     } else {
                       setPresetRange(preset.days);
