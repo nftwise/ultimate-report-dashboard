@@ -237,25 +237,16 @@ export default function AdminDashboardPage() {
           `}</style>
           <div className="flex gap-1 md:gap-2 bg-white/40 p-1 rounded-full backdrop-blur-md">
             {[
+              { label: '7D', days: 7 },
               { label: '30D', days: 30 },
-              { label: '90D', days: 90 },
-              { label: 'MTD', days: -1 }
+              { label: '90D', days: 90 }
             ].map((preset) => {
-              const isActive = preset.days === -1 ? false : getDaysDifference() === preset.days;
+              const isActive = getDaysDifference() === preset.days;
               return (
                 <button
                   key={preset.label}
                   onClick={() => {
-                    if (preset.days === -1) {
-                      // MTD: Month to date (from first day of current month to yesterday)
-                      const today = new Date();
-                      const end = new Date(today);
-                      end.setDate(end.getDate() - 1); // Yesterday
-                      const start = new Date(today.getFullYear(), today.getMonth(), 1); // First day of month
-                      setDateRange({ start, end });
-                    } else {
-                      setPresetRange(preset.days);
-                    }
+                    setPresetRange(preset.days);
                   }}
                   className={`preset-button ${isActive ? 'active' : ''} px-3 md:px-4 py-2 text-xs md:text-sm font-semibold rounded-full`}
                   style={{
