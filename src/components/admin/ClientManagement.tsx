@@ -11,12 +11,6 @@ interface Client {
   slug: string;
   city: string;
   is_active: boolean;
-  created_at: string;
-  contract_start_date?: string;
-  contract_end_date?: string;
-  plan_type?: string;
-  username?: string;
-  password?: string;
   service_configs?: {
     ga_property_id?: string;
     gads_customer_id?: string;
@@ -32,9 +26,6 @@ interface ClientStats {
   seoOnly: number;
   adsOnly: number;
   both: number;
-  churnRate: number;
-  expiringIn30Days: number;
-  expiringIn90Days: number;
 }
 
 export default function ClientManagement() {
@@ -50,9 +41,6 @@ export default function ClientManagement() {
     seoOnly: 0,
     adsOnly: 0,
     both: 0,
-    churnRate: 0,
-    expiringIn30Days: 0,
-    expiringIn90Days: 0,
   });
 
   useEffect(() => {
@@ -83,12 +71,6 @@ export default function ClientManagement() {
           slug,
           city,
           is_active,
-          created_at,
-          contract_start_date,
-          contract_end_date,
-          plan_type,
-          username,
-          password,
           service_configs (
             ga_property_id,
             gads_customer_id,
@@ -140,37 +122,6 @@ export default function ClientManagement() {
       else if (hasSeo && hasAds) both++;
     });
 
-    // Contract analysis
-    const now = new Date();
-    const thirtyDaysLater = new Date(now);
-    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-    const ninetyDaysLater = new Date(now);
-    ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90);
-
-    const expiringIn30Days = clientsList.filter(c => {
-      if (!c.contract_end_date) return false;
-      const endDate = new Date(c.contract_end_date);
-      return endDate > now && endDate <= thirtyDaysLater;
-    }).length;
-
-    const expiringIn90Days = clientsList.filter(c => {
-      if (!c.contract_end_date) return false;
-      const endDate = new Date(c.contract_end_date);
-      return endDate > thirtyDaysLater && endDate <= ninetyDaysLater;
-    }).length;
-
-    // Simple churn rate calculation (churned in last 30 days)
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const churned = clientsList.filter(c => {
-      if (!c.is_active || !c.contract_end_date) return false;
-      const endDate = new Date(c.contract_end_date);
-      return endDate > thirtyDaysAgo && endDate <= now;
-    }).length;
-
-    const churnRate = total > 0 ? Math.round((churned / total) * 100) : 0;
-
     setStats({
       total,
       active,
@@ -178,9 +129,6 @@ export default function ClientManagement() {
       seoOnly,
       adsOnly,
       both,
-      churnRate,
-      expiringIn30Days,
-      expiringIn90Days,
     });
   };
 
@@ -202,17 +150,6 @@ export default function ClientManagement() {
     };
   };
 
-  const getContractStatus = (client: Client) => {
-    if (!client.contract_end_date) return 'No contract';
-    const endDate = new Date(client.contract_end_date);
-    const now = new Date();
-    const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysLeft < 0) return `Expired ${Math.abs(daysLeft)}d ago`;
-    if (daysLeft < 30) return `⚠️ Expires in ${daysLeft}d`;
-    if (daysLeft < 90) return `Expires in ${daysLeft}d`;
-    return `Expires in ${daysLeft}d`;
-  };
 
   if (loading) {
     return (
@@ -299,13 +236,11 @@ export default function ClientManagement() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f5f1ed', borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>ID</th>
                 <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Client Name</th>
                 <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Email</th>
                 <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>City</th>
                 <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Services</th>
                 <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Status</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Contract</th>
                 <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GA</th>
                 <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GSC</th>
                 <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GBP</th>
@@ -334,9 +269,6 @@ export default function ClientManagement() {
                       }}
                       onClick={() => setExpandedClientId(isExpanded ? null : client.id)}
                     >
-                      <td style={{ padding: '14px 16px', color: '#5c5850', fontSize: '12px', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {client.id.substring(0, 8)}...
-                      </td>
                       <td style={{ padding: '14px 16px', color: '#2c2419', fontSize: '13px', fontWeight: '500' }}>
                         {client.name}
                       </td>
@@ -383,9 +315,6 @@ export default function ClientManagement() {
                           {client.is_active ? '✓ Active' : '○ Inactive'}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 16px', color: '#5c5850', fontSize: '12px' }}>
-                        {getContractStatus(client)}
-                      </td>
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         {client.service_configs?.[0]?.ga_property_id ? (
                           <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
@@ -416,162 +345,90 @@ export default function ClientManagement() {
                       </td>
                     </tr>
 
-                    {/* Expandable Detail Row */}
+                    {/* Expandable Detail Row - Backfill IDs */}
                     {isExpanded && (
                       <tr style={{ background: '#f9f7f4', borderBottom: '2px solid #e5e7eb' }}>
-                        <td colSpan={11} style={{ padding: '20px' }}>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Left Column */}
+                        <td colSpan={10} style={{ padding: '16px' }}>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                              <h4 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '12px', fontSize: '13px', textTransform: 'uppercase' }}>
-                                Account Details
-                              </h4>
-                              <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Email:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>{client.contact_email}</span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Username:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>{client.username || 'N/A'}</span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Password:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>{'*'.repeat(8)}</span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Plan:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>{client.plan_type || 'Standard'}</span>
-                                </div>
-                              </div>
+                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
+                                GA Property ID
+                              </label>
+                              <input
+                                type="text"
+                                value={client.service_configs?.[0]?.ga_property_id || ''}
+                                readOnly
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  background: '#f5f1ed',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  color: '#2c2419',
+                                  fontFamily: 'monospace'
+                                }}
+                              />
                             </div>
-
-                            {/* Right Column */}
                             <div>
-                              <h4 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '12px', fontSize: '13px', textTransform: 'uppercase' }}>
-                                Contract Info
-                              </h4>
-                              <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Start Date:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>
-                                    {client.contract_start_date ? new Date(client.contract_start_date).toLocaleDateString() : 'N/A'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>End Date:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>
-                                    {client.contract_end_date ? new Date(client.contract_end_date).toLocaleDateString() : 'N/A'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Duration:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>
-                                    {client.contract_start_date && client.contract_end_date
-                                      ? `${Math.round(
-                                          (new Date(client.contract_end_date).getTime() -
-                                            new Date(client.contract_start_date).getTime()) /
-                                            (1000 * 60 * 60 * 24 * 30)
-                                        )} months`
-                                      : 'N/A'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span style={{ color: '#5c5850' }}>Status:</span>{' '}
-                                  <span style={{ color: '#2c2419', fontWeight: '500' }}>
-                                    {getContractStatus(client)}
-                                  </span>
-                                </div>
-                              </div>
+                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
+                                Google Ads Customer ID
+                              </label>
+                              <input
+                                type="text"
+                                value={client.service_configs?.[0]?.gads_customer_id || ''}
+                                readOnly
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  background: '#f5f1ed',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  color: '#2c2419',
+                                  fontFamily: 'monospace'
+                                }}
+                              />
                             </div>
-                          </div>
-
-                          {/* Backfill IDs Section */}
-                          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
-                            <h4 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '12px', fontSize: '13px', textTransform: 'uppercase' }}>
-                              Backfill IDs
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                  GA Property ID
-                                </label>
-                                <input
-                                  type="text"
-                                  value={client.service_configs?.[0]?.ga_property_id || ''}
-                                  readOnly
-                                  style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    background: '#f5f1ed',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    color: '#2c2419',
-                                    fontFamily: 'monospace'
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                  Google Ads Customer ID
-                                </label>
-                                <input
-                                  type="text"
-                                  value={client.service_configs?.[0]?.gads_customer_id || ''}
-                                  readOnly
-                                  style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    background: '#f5f1ed',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    color: '#2c2419',
-                                    fontFamily: 'monospace'
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                  GSC Site URL
-                                </label>
-                                <input
-                                  type="text"
-                                  value={client.service_configs?.[0]?.gsc_site_url || ''}
-                                  readOnly
-                                  style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    background: '#f5f1ed',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    color: '#2c2419',
-                                    fontFamily: 'monospace'
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                  GBP Location ID
-                                </label>
-                                <input
-                                  type="text"
-                                  value={client.service_configs?.[0]?.gbp_location_id || ''}
-                                  readOnly
-                                  style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    background: '#f5f1ed',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    color: '#2c2419',
-                                    fontFamily: 'monospace'
-                                  }}
-                                />
-                              </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
+                                GSC Site URL
+                              </label>
+                              <input
+                                type="text"
+                                value={client.service_configs?.[0]?.gsc_site_url || ''}
+                                readOnly
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  background: '#f5f1ed',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  color: '#2c2419',
+                                  fontFamily: 'monospace'
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
+                                GBP Location ID
+                              </label>
+                              <input
+                                type="text"
+                                value={client.service_configs?.[0]?.gbp_location_id || ''}
+                                readOnly
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  background: '#f5f1ed',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  color: '#2c2419',
+                                  fontFamily: 'monospace'
+                                }}
+                              />
                             </div>
                           </div>
                         </td>
@@ -593,35 +450,6 @@ export default function ClientManagement() {
 
       {/* Bottom Insights Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-        {/* Churn Analysis */}
-        <div className="rounded-2xl p-6" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          border: '1px solid rgba(44, 36, 25, 0.1)',
-          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-        }}>
-          <h3 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '16px', fontSize: '14px', textTransform: 'uppercase' }}>
-            📉 Churn Analysis
-          </h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div>
-              <div style={{ color: '#5c5850', fontSize: '12px', marginBottom: '4px' }}>Churn Rate (30d)</div>
-              <div style={{ color: stats.churnRate > 10 ? '#ef4444' : stats.churnRate > 5 ? '#d97706' : '#10b981', fontSize: '28px', fontWeight: '700' }}>
-                {stats.churnRate}%
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-              <div>
-                <div style={{ color: '#5c5850', fontSize: '11px' }}>At Risk</div>
-                <div style={{ color: '#ef4444', fontSize: '18px', fontWeight: '600' }}>{stats.expiringIn30Days}</div>
-              </div>
-              <div>
-                <div style={{ color: '#5c5850', fontSize: '11px' }}>Watch List</div>
-                <div style={{ color: '#d97706', fontSize: '18px', fontWeight: '600' }}>{stats.expiringIn90Days}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Service Distribution */}
         <div className="rounded-2xl p-6" style={{
           background: 'rgba(255, 255, 255, 0.95)',
@@ -704,26 +532,6 @@ export default function ClientManagement() {
           </div>
         </div>
 
-        {/* Contract Timeline */}
-        <div className="rounded-2xl p-6" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          border: '1px solid rgba(44, 36, 25, 0.1)',
-          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-        }}>
-          <h3 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '16px', fontSize: '14px', textTransform: 'uppercase' }}>
-            📅 Contract Timeline
-          </h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div>
-              <div style={{ color: '#5c5850', fontSize: '12px', marginBottom: '4px' }}>Expiring in 30d (URGENT)</div>
-              <div style={{ color: '#ef4444', fontSize: '24px', fontWeight: '700' }}>{stats.expiringIn30Days}</div>
-            </div>
-            <div>
-              <div style={{ color: '#5c5850', fontSize: '12px', marginBottom: '4px' }}>Expiring in 90d</div>
-              <div style={{ color: '#d97706', fontSize: '24px', fontWeight: '700' }}>{stats.expiringIn90Days}</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
