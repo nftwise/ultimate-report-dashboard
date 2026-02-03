@@ -6,11 +6,20 @@ import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import ClientManagement from '@/components/admin/ClientManagement';
 
+interface ServiceConfig {
+  ga_property_id?: string;
+  gads_customer_id?: string;
+  gbp_location_id?: string;
+  gsc_site_url?: string;
+  callrail_account_id?: string;
+}
+
 interface ClientWithMetrics {
   id: string;
   name: string;
   slug: string;
   city: string;
+  contact_email?: string;
   is_active: boolean;
   seo_form_submits?: number;
   seo_top_keyword?: string;
@@ -18,6 +27,7 @@ interface ClientWithMetrics {
   ads_conversions?: number;
   ads_cpl?: number;
   total_leads?: number;
+  service_configs?: ServiceConfig[];
   services?: {
     googleAds: boolean;
     seo: boolean;
@@ -190,6 +200,7 @@ export default function AdminDashboardPage() {
           gbp_calls: clientMetrics.gbp_calls,
           ads_conversions: clientMetrics.ads_conversions,
           ads_cpl: avgCpl,
+          service_configs: Array.isArray(client.service_configs) ? client.service_configs : [],
           services: {
             googleAds: hasGoogleAds,
             seo: hasSeo,
@@ -545,6 +556,205 @@ export default function AdminDashboardPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+      )}
+
+      {/* Three Summary Sections - Service Distribution, Contract Status, Configuration Status */}
+      {activeTab === 'dashboard' && (
+      <div className="max-w-7xl mx-auto px-4 md:px-8 mt-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Service Distribution Card */}
+          <div className="rounded-2xl p-6" style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(44, 36, 25, 0.08)',
+            boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+            transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(-8px)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 40px rgba(44, 36, 25, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(44, 36, 25, 0.08)';
+          }}
+          >
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-6" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>
+              📊 Service Distribution
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>SEO Only</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#f59e0b' }}>
+                    {clients.filter(c => c.services?.seo && !c.services?.googleAds).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    ({((clients.filter(c => c.services?.seo && !c.services?.googleAds).length / clients.length) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>Ads Only</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#3b82f6' }}>
+                    {clients.filter(c => c.services?.googleAds && !c.services?.seo).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    ({((clients.filter(c => c.services?.googleAds && !c.services?.seo).length / clients.length) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>Both Services</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#10b981' }}>
+                    {clients.filter(c => c.services?.googleAds && c.services?.seo).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    ({((clients.filter(c => c.services?.googleAds && c.services?.seo).length / clients.length) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)', paddingTop: '12px', marginTop: '12px' }}>
+                <div className="flex justify-between items-center font-bold">
+                  <span style={{ color: '#2c2419' }}>Total Clients</span>
+                  <span className="text-2xl" style={{ color: '#2c2419' }}>{clients.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Contract Status Card */}
+          <div className="rounded-2xl p-6" style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(44, 36, 25, 0.08)',
+            boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+            transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(-8px)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 40px rgba(44, 36, 25, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(44, 36, 25, 0.08)';
+          }}
+          >
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-6" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>
+              📋 Contract Status
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>Active</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#10b981' }}>
+                    {clients.filter(c => c.is_active).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    ({((clients.filter(c => c.is_active).length / clients.length) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>Inactive</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#ef4444' }}>
+                    {clients.filter(c => !c.is_active).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    ({((clients.filter(c => !c.is_active).length / clients.length) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)', paddingTop: '12px', marginTop: '12px' }}>
+                <div className="flex justify-between items-center">
+                  <span style={{ color: '#5c5850', fontSize: '14px' }}>Churn Rate</span>
+                  <span className="text-2xl font-bold" style={{ color: '#d9a854' }}>
+                    {((clients.filter(c => !c.is_active).length / clients.length) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Configuration Status Card */}
+          <div className="rounded-2xl p-6" style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(44, 36, 25, 0.08)',
+            boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+            transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(-8px)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 40px rgba(44, 36, 25, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(44, 36, 25, 0.08)';
+          }}
+          >
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-6" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>
+              ⚙️ Configuration Status
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>GA Configured</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#10b981' }}>
+                    {clients.filter(c => {
+                      const config = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
+                      return config?.ga_property_id;
+                    }).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>✓</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>GSC Configured</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#3b82f6' }}>
+                    {clients.filter(c => {
+                      const config = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
+                      return config?.gsc_site_url;
+                    }).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>✓</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>GBP Configured</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#f59e0b' }}>
+                    {clients.filter(c => {
+                      const config = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
+                      return config?.gbp_location_id;
+                    }).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>✓</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: '#5c5850', fontSize: '14px' }}>ADS Configured</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: '#d9a854' }}>
+                    {clients.filter(c => {
+                      const config = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
+                      return config?.gads_customer_id;
+                    }).length}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       )}
