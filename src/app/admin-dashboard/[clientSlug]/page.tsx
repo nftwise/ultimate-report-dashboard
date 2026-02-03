@@ -39,6 +39,8 @@ interface DailyMetrics {
   ads_impressions?: number;
   ads_clicks?: number;
   ads_ctr?: number;
+  ads_spend?: number;
+  cpl?: number;
   health_score?: number;
   budget_utilization?: number;
 }
@@ -136,14 +138,14 @@ export default function ClientDetailPage() {
     );
   }
 
-  // Calculate metrics from client data
-  const totalLeads = client.total_leads || 0;
-  const totalFormFills = client.form_fills || 0;
-  const totalGbpCalls = client.gbp_calls || 0;
-  const totalAdsConversions = client.ads_conversions || 0;
-  const sessions = Math.round(totalLeads * 2.5);
-  const adSpend = totalAdsConversions * 45.5;
+  // Calculate metrics from daily data (respects date range changes)
+  const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+  const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
+  const totalGbpCalls = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0);
+  const totalAdsConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
+  const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ads_spend || 0)), 0);
   const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
+  const sessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
 
   // Calculate metrics from daily data
   const seoImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);

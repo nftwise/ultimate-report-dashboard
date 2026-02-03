@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
         ads_impressions,
         ads_clicks,
         ads_ctr,
+        ads_spend,
+        cpl,
         health_score,
         budget_utilization
       `)
@@ -84,6 +86,8 @@ export async function GET(request: NextRequest) {
       ads_impressions: item.ads_impressions || 0,
       ads_clicks: item.ads_clicks || 0,
       ads_ctr: item.ads_ctr || 0,
+      ads_spend: item.ads_spend || 0,
+      cpl: item.cpl || 0,
       health_score: item.health_score || 0,
       budget_utilization: item.budget_utilization || 0,
       // Legacy format for backward compatibility
