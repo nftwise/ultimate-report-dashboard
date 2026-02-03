@@ -9,7 +9,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
-const TrafficSourceDonut = dynamic(() => import('@/components/admin/TrafficSourceDonut'), { ssr: false });
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -235,6 +234,17 @@ export default function ClientDetailPage() {
   const trafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
   const trafficAi = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
 
+  // Calculate trend: compare first half vs second half of date range
+  const midpoint = Math.floor(dailyData.length / 2);
+  const firstHalf = dailyData.slice(0, midpoint);
+  const secondHalf = dailyData.slice(midpoint);
+  const firstHalfLeads = firstHalf.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+  const secondHalfLeads = secondHalf.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+  const leadTrend = firstHalfLeads > 0
+    ? (((secondHalfLeads - firstHalfLeads) / firstHalfLeads) * 100).toFixed(1)
+    : '0.0';
+  const isTrendUp = parseFloat(leadTrend) >= 0;
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Header Navigation */}
@@ -374,10 +384,10 @@ export default function ClientDetailPage() {
                     <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>6-Month Lead Generation</h3>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#9db5a0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      ↑ 1057%
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: isTrendUp ? '#9db5a0' : '#c4704f', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isTrendUp ? '↑' : '↓'} {Math.abs(parseFloat(leadTrend))}%
                     </div>
-                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Jan 2026 Growth</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Period vs Period</p>
                   </div>
                 </div>
 
@@ -480,7 +490,7 @@ export default function ClientDetailPage() {
                 </div>
               </div>
 
-              {/* Traffic Coverage by Source */}
+              {/* Channel Attribution */}
               <div className="rounded-2xl p-8" style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -489,71 +499,31 @@ export default function ClientDetailPage() {
               }}>
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Source Attribution</p>
-                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Traffic Coverage by Source</h3>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Performance</p>
+                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Lead Attribution by Channel</h3>
                   </div>
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded text-xs font-bold" style={{
-                    background: 'rgba(157, 181, 160, 0.2)',
-                    color: '#4a6b4e'
-                  }}>
-                    🟢 Tracking Active
-                  </span>
                 </div>
 
-                <div className="grid grid-cols-[1fr_1.2fr] gap-8 items-center">
-                  {/* Traffic Source Donut Chart */}
-                  <div style={{
-                    position: 'relative',
-                    background: 'rgba(44, 36, 25, 0.02)',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    {dailyData.length > 0 ? (
-                      <TrafficSourceDonut data={dailyData} />
-                    ) : (
-                      <div style={{ color: '#5c5850', textAlign: 'center' }}>
-                        No data available
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Table */}
-                  <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ textAlign: 'left', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Source</th>
-                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Sessions</th>
-                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Share</th>
-                        <th style={{ textAlign: 'right', padding: '12px', borderBottom: '1px solid rgba(44, 36, 25, 0.1)', color: '#5c5850', fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase' }}>Leads</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { label: 'Organic', color: '#c4704f', value: trafficOrganic },
-                        { label: 'Paid Ads', color: '#d9a854', value: trafficPaid },
-                        { label: 'Direct', color: '#9db5a0', value: trafficDirect }
-                      ].map((source, idx) => {
-                        const totalSessions = trafficOrganic + trafficPaid + trafficDirect + trafficAi;
-                        const share = totalSessions > 0 ? ((source.value / totalSessions) * 100).toFixed(1) : '0.0';
-                        return (
-                          <tr key={idx}>
-                            <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: source.color }}></div>
-                              <strong>{source.label}</strong>
-                            </td>
-                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>{source.value}</td>
-                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>{share}%</td>
-                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>
-                              {Math.round((source.value / totalSessions) * totalLeads) || 0}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                {/* Channel Breakdown */}
+                <div className="grid grid-cols-3 gap-6">
+                  {[
+                    { label: 'Google Ads', value: totalAdsConversions, icon: '📊', color: '#c4704f' },
+                    { label: 'SEO/Organic', value: seoClicks, icon: '🔍', color: '#9db5a0' },
+                    { label: 'Google Business', value: totalGbpCalls, icon: '📍', color: '#d9a854' }
+                  ].map((channel, idx) => (
+                    <div key={idx} style={{
+                      padding: '20px',
+                      background: 'rgba(44, 36, 25, 0.02)',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      borderLeft: `4px solid ${channel.color}`
+                    }}>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>{channel.icon}</div>
+                      <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>{channel.label}</p>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: channel.color }}>{channel.value}</div>
+                      <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Conversions</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -696,8 +666,7 @@ export default function ClientDetailPage() {
                 {[
                   { label: 'Google Ads', value: totalLeads, color: '#c4704f' },
                   { label: 'SEO/Organic', value: totalFormFills, color: '#9db5a0' },
-                  { label: 'Google Business', value: totalGbpCalls, color: '#d9a854' },
-                  { label: 'Form Submissions', value: 0, color: '#5c5850' }
+                  { label: 'Google Business', value: totalGbpCalls, color: '#d9a854' }
                 ].map((channel, i) => (
                   <div key={i} style={{ marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
@@ -737,7 +706,6 @@ export default function ClientDetailPage() {
                 ]},
                 { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
                   { label: 'Phone Calls', value: totalGbpCalls },
-                  { label: 'Profile Views', value: totalGbpProfileViews },
                   { label: 'Web Clicks', value: totalGbpWebsiteClicks },
                   { label: 'Directions', value: totalGbpDirections }
                 ]}
