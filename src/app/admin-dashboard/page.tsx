@@ -307,34 +307,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-4 border-b-2 mb-4" style={{ borderColor: '#e5e7eb' }}>
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className="px-6 py-3 font-semibold text-sm md:text-base transition-all"
-            style={{
-              color: activeTab === 'dashboard' ? '#c4704f' : '#5c5850',
-              borderBottom: activeTab === 'dashboard' ? '3px solid #c4704f' : '3px solid transparent',
-              marginBottom: '-5px',
-              background: 'transparent'
-            }}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('clients')}
-            className="px-6 py-3 font-semibold text-sm md:text-base transition-all"
-            style={{
-              color: activeTab === 'clients' ? '#c4704f' : '#5c5850',
-              borderBottom: activeTab === 'clients' ? '3px solid #c4704f' : '3px solid transparent',
-              marginBottom: '-5px',
-              background: 'transparent'
-            }}
-          >
-            📋 Client Management
-          </button>
-        </div>
-
         {/* Date/Filter Controls */}
         <div className="flex items-center gap-2 md:gap-6">
           {/* Quick Select Buttons */}
@@ -413,9 +385,57 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
-      {activeTab === 'dashboard' && (
-      <div className="max-w-7xl mx-auto px-4">
+      {/* Main Content with Sidebar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '0', minHeight: 'calc(100vh - 300px)' }}>
+        {/* SIDEBAR NAVIGATION */}
+        <div style={{
+          background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
+          borderRight: '1px solid rgba(44, 36, 25, 0.1)',
+          padding: '24px 0',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            style={{
+              padding: '16px 20px',
+              margin: '0 8px 8px 8px',
+              background: activeTab === 'dashboard' ? 'rgba(196, 112, 79, 0.1)' : 'transparent',
+              border: activeTab === 'dashboard' ? '2px solid #c4704f' : '2px solid transparent',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: activeTab === 'dashboard' ? '#c4704f' : '#5c5850',
+              cursor: 'pointer',
+              transition: 'all 200ms ease'
+            }}
+          >
+            📊 Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('clients')}
+            style={{
+              padding: '16px 20px',
+              margin: '0 8px 8px 8px',
+              background: activeTab === 'clients' ? 'rgba(196, 112, 79, 0.1)' : 'transparent',
+              border: activeTab === 'clients' ? '2px solid #c4704f' : '2px solid transparent',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: activeTab === 'clients' ? '#c4704f' : '#5c5850',
+              cursor: 'pointer',
+              transition: 'all 200ms ease'
+            }}
+          >
+            📋 Clients
+          </button>
+        </div>
+
+        {/* MAIN CONTENT AREA */}
+        <div style={{ overflowY: 'auto' }}>
+          {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
+          {activeTab === 'dashboard' && (
+          <div className="max-w-7xl mx-auto px-4">
         <style>{`
           .stat-card {
             transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -950,12 +970,14 @@ export default function AdminDashboardPage() {
       </main>
       )}
 
-      {/* Client Management Tab */}
-      {activeTab === 'clients' && (
-        <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20 mt-12">
-          <ClientManagement />
-        </main>
-      )}
+          {/* Client Management Tab */}
+          {activeTab === 'clients' && (
+            <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20 pt-12">
+              <ClientManagement />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
