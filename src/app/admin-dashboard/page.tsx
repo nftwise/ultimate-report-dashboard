@@ -129,6 +129,18 @@ export default function AdminDashboardPage() {
         console.warn('Warning fetching GBP metrics:', gbpError.message);
       }
 
+      // Fetch form success events (submit_form_successful, Appointment_Successful, etc.)
+      const { data: formSuccessData, error: formSuccessError } = await supabase
+        .from('ga4_events')
+        .select('client_id, event_count')
+        .gte('date', dateFromStr)
+        .lte('date', dateToStr)
+        .or('event_name.ilike.%successful%,event_name.ilike.%success%');
+
+      if (formSuccessError) {
+        console.warn('Warning fetching form success events:', formSuccessError.message);
+      }
+
       // Build metrics map
       const metricsMap: { [key: string]: any } = {};
       (metricsData || []).forEach((metric: any) => {
@@ -143,7 +155,6 @@ export default function AdminDashboardPage() {
           };
         }
         metricsMap[metric.client_id].total_leads += metric.total_leads || 0;
-        metricsMap[metric.client_id].seo_form_submits += metric.form_fills || 0;
         metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0;
         if (metric.cpl && metric.cpl > 0) {
           metricsMap[metric.client_id].ads_cpl += metric.cpl;
@@ -164,6 +175,21 @@ export default function AdminDashboardPage() {
           };
         }
         metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0;
+      });
+
+      // Add form success events (submit_form_successful, Appointment_Successful, etc.)
+      (formSuccessData || []).forEach((formEvent: any) => {
+        if (!metricsMap[formEvent.client_id]) {
+          metricsMap[formEvent.client_id] = {
+            total_leads: 0,
+            seo_form_submits: 0,
+            gbp_calls: 0,
+            ads_conversions: 0,
+            ads_cpl: 0,
+            ads_cpl_count: 0
+          };
+        }
+        metricsMap[formEvent.client_id].seo_form_submits += formEvent.event_count || 0;
       });
 
       // Process clients with service configurations
