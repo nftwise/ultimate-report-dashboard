@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
+import ClientManagement from '@/components/admin/ClientManagement';
 
 interface ClientWithMetrics {
   id: string;
@@ -31,6 +32,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'both' | 'seo' | 'ads'>('all');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients'>('dashboard');
 
   // Date range state
   // Default: Yesterday to 30 days back (to match when data is typically available)
@@ -380,7 +382,38 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid (Overlapping) */}
+      {/* Tab Navigation */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="flex gap-4 border-b-2" style={{ borderColor: '#e5e7eb', marginTop: '-1px' }}>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className="px-6 py-4 font-semibold text-sm md:text-base transition-all"
+            style={{
+              color: activeTab === 'dashboard' ? '#c4704f' : '#5c5850',
+              borderBottom: activeTab === 'dashboard' ? '3px solid #c4704f' : '3px solid transparent',
+              marginBottom: '-2px',
+              background: 'transparent'
+            }}
+          >
+            📊 Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('clients')}
+            className="px-6 py-4 font-semibold text-sm md:text-base transition-all"
+            style={{
+              color: activeTab === 'clients' ? '#c4704f' : '#5c5850',
+              borderBottom: activeTab === 'clients' ? '3px solid #c4704f' : '3px solid transparent',
+              marginBottom: '-2px',
+              background: 'transparent'
+            }}
+          >
+            📋 Client Management
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
+      {activeTab === 'dashboard' && (
       <div className="max-w-7xl mx-auto px-4">
         <style>{`
           .stat-card {
@@ -469,8 +502,10 @@ export default function AdminDashboardPage() {
           })}
         </div>
       </div>
+      )}
 
-      {/* Main Content */}
+      {/* Main Content - Dashboard Tab */}
+      {activeTab === 'dashboard' && (
       <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20">
         {/* Data Table Section */}
         <style>{`
@@ -912,6 +947,14 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </main>
+      )}
+
+      {/* Client Management Tab */}
+      {activeTab === 'clients' && (
+        <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20 mt-12">
+          <ClientManagement />
+        </main>
+      )}
     </div>
   );
 }
