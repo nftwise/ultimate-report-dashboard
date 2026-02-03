@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ChevronRight, MapPin, Phone, Globe, BarChart3, Zap, Settings } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -10,6 +10,7 @@ interface Client {
   contact_email: string;
   slug: string;
   city: string;
+  owner?: string;
   is_active: boolean;
   service_configs?: {
     ga_property_id?: string;
@@ -17,6 +18,15 @@ interface Client {
     gbp_location_id?: string;
     gsc_site_url?: string;
   }[];
+}
+
+interface GBPLocation {
+  id: string;
+  client_id: string;
+  name: string;
+  address: string;
+  phone: string;
+  website: string;
 }
 
 interface ClientStats {
@@ -30,10 +40,11 @@ interface ClientStats {
 
 export default function ClientManagement() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [gbpLocations, setGbpLocations] = useState<Map<string, GBPLocation>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [stats, setStats] = useState<ClientStats>({
     total: 0,
     active: 0,
@@ -70,6 +81,7 @@ export default function ClientManagement() {
           contact_email,
           slug,
           city,
+          owner,
           is_active,
           service_configs (
             ga_property_id,
@@ -86,6 +98,19 @@ export default function ClientManagement() {
 
       const typedClients = (clientsData || []) as Client[];
       setClients(typedClients);
+
+      // Fetch GBP locations for websites and phone numbers
+      const { data: gbpData, error: gbpError } = await supabase
+        .from('gbp_locations')
+        .select('id, client_id, name, address, phone, website');
+
+      if (!gbpError && gbpData) {
+        const gbpMap = new Map<string, GBPLocation>();
+        (gbpData as GBPLocation[]).forEach(location => {
+          gbpMap.set(location.client_id, location);
+        });
+        setGbpLocations(gbpMap);
+      }
 
       // Calculate stats
       calculateStats(typedClients);
@@ -115,7 +140,6 @@ export default function ClientManagement() {
       const config = client.service_configs[0];
       const hasSeo = !!config?.gsc_site_url;
       const hasAds = !!config?.gads_customer_id;
-      const hasGa = !!config?.ga_property_id;
 
       if (hasSeo && !hasAds) seoOnly++;
       else if (hasAds && !hasSeo) adsOnly++;
@@ -138,21 +162,28 @@ export default function ClientManagement() {
     client.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getServiceStatus = (client: Client) => {
-    if (!client.service_configs || client.service_configs.length === 0) {
-      return { seo: false, ads: false, gbp: false };
-    }
+  const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
+  const selectedGbp = selectedClientId ? gbpLocations.get(selectedClientId) : null;
+
+  const getServiceType = (client: Client) => {
+    if (!client.service_configs || client.service_configs.length === 0) return 'None';
     const config = client.service_configs[0];
-    if (!config) {
-      return { seo: false, ads: false, gbp: false };
-    }
-    return {
-      seo: !!config.gsc_site_url,
-      ads: !!config.gads_customer_id,
-      gbp: !!config.gbp_location_id,
-    };
+    const hasSeo = !!config?.gsc_site_url;
+    const hasAds = !!config?.gads_customer_id;
+    if (hasSeo && hasAds) return 'SEO + ADS';
+    if (hasSeo) return 'SEO';
+    if (hasAds) return 'ADS';
+    return 'None';
   };
 
+  const getServiceColor = (type: string) => {
+    switch (type) {
+      case 'SEO + ADS': return { bg: '#fff8e1', text: '#b45309' };
+      case 'SEO': return { bg: '#fef3c7', text: '#d97706' };
+      case 'ADS': return { bg: '#e0e7ff', text: '#2563eb' };
+      default: return { bg: '#f3f4f6', text: '#6b7280' };
+    }
+  };
 
   if (loading) {
     return (
@@ -171,370 +202,323 @@ export default function ClientManagement() {
   }
 
   return (
-    <div>
-      {/* Quick Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-8">
-        {[
-          { label: 'Total', value: stats.total, color: '#2c2419' },
-          { label: 'Active', value: stats.active, color: '#10b981' },
-          { label: 'Inactive', value: stats.inactive, color: '#ef4444' },
-          { label: 'SEO+ADS', value: stats.both, color: '#c4704f' },
-          { label: 'SEO Only', value: stats.seoOnly, color: '#b45309' },
-          { label: 'ADS Only', value: stats.adsOnly, color: '#2563eb' },
-        ].map((stat, i) => (
-          <div
-            key={i}
-            className="rounded-lg p-4"
-            style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              textAlign: 'center'
-            }}
-          >
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: stat.color }}>
-              {stat.value}
+    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '0', minHeight: 'calc(100vh - 200px)' }}>
+      {/* LEFT SIDEBAR */}
+      <div style={{
+        background: 'linear-gradient(135deg, #f9f7f4 0%, #f5f1ed 100%)',
+        borderRight: '1px solid rgba(44, 36, 25, 0.1)',
+        padding: '24px 0',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Search Bar */}
+        <div style={{ padding: '0 16px', marginBottom: '24px' }}>
+          <div style={{ position: 'relative' }}>
+            <Search style={{ position: 'absolute', left: '12px', top: '10px', width: '16px', height: '16px', color: '#9ca3af' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search clients..."
+              style={{
+                width: '100%',
+                paddingLeft: '36px',
+                paddingRight: '12px',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: '#2c2419',
+                background: 'rgba(255, 255, 255, 0.7)'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div style={{ padding: '0 16px', marginBottom: '24px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#5c5850', fontWeight: '600', marginBottom: '8px' }}>Stats</div>
+          <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#5c5850' }}>Total</span>
+              <span style={{ fontWeight: '600', color: '#2c2419' }}>{stats.total}</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#5c5850', marginTop: '4px' }}>
-              {stat.label}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#5c5850' }}>Active</span>
+              <span style={{ fontWeight: '600', color: '#10b981' }}>{stats.active}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#5c5850' }}>SEO+ADS</span>
+              <span style={{ fontWeight: '600', color: '#b45309' }}>{stats.both}</span>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
 
-      {/* Search Bar */}
-      <div className="mb-8">
-        <div className="relative">
-          <Search className="absolute left-4 top-3.5 w-5 h-5" style={{ color: '#9ca3af' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search clients by name, email, or slug..."
-            className="w-full pl-12 pr-4 py-3 border-2 rounded-full focus:outline-none"
-            style={{
-              background: '#f5f1ed',
-              borderColor: 'transparent',
-              color: '#2c2419',
-              fontSize: '0.95rem',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.background = '#ffffff';
-              e.currentTarget.style.borderColor = '#c4704f';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.background = '#f5f1ed';
-              e.currentTarget.style.borderColor = 'transparent';
-            }}
-          />
+        {/* Clients List */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '16px' }}>
+          {filteredClients.map((client) => {
+            const serviceType = getServiceType(client);
+            const isSelected = selectedClientId === client.id;
+            const colors = getServiceColor(serviceType);
+
+            return (
+              <div
+                key={client.id}
+                onClick={() => setSelectedClientId(client.id)}
+                style={{
+                  padding: '12px 16px',
+                  marginLeft: '8px',
+                  marginRight: '8px',
+                  marginBottom: '4px',
+                  cursor: 'pointer',
+                  borderLeft: isSelected ? '4px solid #c4704f' : '4px solid transparent',
+                  background: isSelected ? 'rgba(196, 112, 79, 0.1)' : 'transparent',
+                  transition: 'all 200ms ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {client.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                      {client.city || 'No city'}
+                    </div>
+                  </div>
+                  {isSelected && <ChevronRight style={{ width: '16px', height: '16px', color: '#c4704f', flexShrink: 0, marginLeft: '8px' }} />}
+                </div>
+                <div style={{
+                  background: colors.bg,
+                  color: colors.text,
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: '600',
+                  marginTop: '6px',
+                  textAlign: 'center',
+                  display: 'inline-block'
+                }}>
+                  {serviceType}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Clients Table */}
-      <div className="rounded-2xl overflow-hidden" style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid rgba(44, 36, 25, 0.1)',
-        boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-      }}>
-        <div className="overflow-x-auto">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f5f1ed', borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Client Name</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Email</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>City</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Services</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>Status</th>
-                <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GA</th>
-                <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GSC</th>
-                <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>GBP</th>
-                <th style={{ padding: '16px', textAlign: 'center', color: '#2c2419', fontWeight: '600', fontSize: '13px' }}>ADS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => {
-                const services = getServiceStatus(client);
-                const isExpanded = expandedClientId === client.id;
+      {/* RIGHT CONTENT AREA */}
+      <div style={{ padding: '24px', overflowY: 'auto', background: '#ffffff' }}>
+        {selectedClient ? (
+          <div>
+            {/* Header */}
+            <div style={{ marginBottom: '32px', paddingBottom: '24px', borderBottom: '2px solid rgba(44, 36, 25, 0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                  <h1 style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 8px 0' }}>
+                    {selectedClient.name}
+                  </h1>
+                  <p style={{ fontSize: '14px', color: '#5c5850', margin: 0 }}>
+                    {selectedClient.owner ? `Owner: ${selectedClient.owner}` : 'Client'}
+                  </p>
+                </div>
+                <div style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  background: selectedClient.is_active ? '#ecfdf5' : '#fee2e2',
+                  color: selectedClient.is_active ? '#059669' : '#dc2626'
+                }}>
+                  {selectedClient.is_active ? '✓ Active' : '○ Inactive'}
+                </div>
+              </div>
+            </div>
 
-                return (
-                  <React.Fragment key={client.id}>
-                    <tr
-                      style={{
-                        borderBottom: '1px solid #e5e7eb',
-                        background: isExpanded ? '#f9f7f4' : 'transparent',
-                        cursor: 'pointer',
-                        transition: 'background 200ms ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isExpanded) (e.currentTarget as HTMLTableRowElement).style.background = '#fafaf8';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isExpanded) (e.currentTarget as HTMLTableRowElement).style.background = 'transparent';
-                      }}
-                      onClick={() => setExpandedClientId(isExpanded ? null : client.id)}
-                    >
-                      <td style={{ padding: '14px 16px', color: '#2c2419', fontSize: '13px', fontWeight: '500' }}>
-                        {client.name}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: '#5c5850', fontSize: '12px' }}>
-                        {client.contact_email}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: '#5c5850', fontSize: '12px' }}>
-                        {client.city || '-'}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {services.seo && (
-                            <span style={{ background: '#fff8e1', color: '#b45309', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                              SEO
-                            </span>
-                          )}
-                          {services.ads && (
-                            <span style={{ background: '#e0e7ff', color: '#2563eb', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                              ADS
-                            </span>
-                          )}
-                          {services.gbp && (
-                            <span style={{ background: '#ecfdf5', color: '#047857', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                              GBP
-                            </span>
-                          )}
-                          {!services.seo && !services.ads && !services.gbp && (
-                            <span style={{ color: '#9ca3af', fontSize: '11px' }}>None</span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span
-                          style={{
-                            background: client.is_active ? '#e6f4ea' : '#f3f4f6',
-                            color: client.is_active ? '#10b981' : '#6b7280',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: '500',
-                            display: 'inline-block'
-                          }}
-                        >
-                          {client.is_active ? '✓ Active' : '○ Inactive'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        {client.service_configs?.[0]?.ga_property_id ? (
-                          <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
-                        ) : (
-                          <span style={{ color: '#d1d5db', fontSize: '16px' }}>✗</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        {client.service_configs?.[0]?.gsc_site_url ? (
-                          <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
-                        ) : (
-                          <span style={{ color: '#d1d5db', fontSize: '16px' }}>✗</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        {client.service_configs?.[0]?.gbp_location_id ? (
-                          <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
-                        ) : (
-                          <span style={{ color: '#d1d5db', fontSize: '16px' }}>✗</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        {client.service_configs?.[0]?.gads_customer_id ? (
-                          <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
-                        ) : (
-                          <span style={{ color: '#d1d5db', fontSize: '16px' }}>✗</span>
-                        )}
-                      </td>
-                    </tr>
+            {/* Contact & Location Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Basic Info */}
+              <div style={{
+                background: '#f9f7f4',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(44, 36, 25, 0.08)'
+              }}>
+                <h3 style={{ fontSize: '12px', textTransform: 'uppercase', fontWeight: '600', color: '#5c5850', marginBottom: '12px', margin: 0 }}>
+                  📧 Contact Information
+                </h3>
+                <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Email</div>
+                    <a href={`mailto:${selectedClient.contact_email}`} style={{ fontSize: '13px', color: '#c4704f', textDecoration: 'none', wordBreak: 'break-all' }}>
+                      {selectedClient.contact_email}
+                    </a>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Location</div>
+                    <div style={{ fontSize: '13px', color: '#2c2419', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <MapPin style={{ width: '14px', height: '14px' }} />
+                      {selectedClient.city || 'Not specified'}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                    {/* Expandable Detail Row - Backfill IDs */}
-                    {isExpanded && (
-                      <tr style={{ background: '#f9f7f4', borderBottom: '2px solid #e5e7eb' }}>
-                        <td colSpan={10} style={{ padding: '16px' }}>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                GA Property ID
-                              </label>
-                              <input
-                                type="text"
-                                value={client.service_configs?.[0]?.ga_property_id || ''}
-                                readOnly
-                                style={{
-                                  width: '100%',
-                                  padding: '8px 12px',
-                                  background: '#f5f1ed',
-                                  border: '1px solid #e5e7eb',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  color: '#2c2419',
-                                  fontFamily: 'monospace'
-                                }}
-                              />
+              {/* GBP Location Info */}
+              {selectedGbp && (
+                <div style={{
+                  background: '#f0fdf4',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(16, 185, 129, 0.1)'
+                }}>
+                  <h3 style={{ fontSize: '12px', textTransform: 'uppercase', fontWeight: '600', color: '#047857', marginBottom: '12px', margin: 0 }}>
+                    📍 Google Business Profile
+                  </h3>
+                  <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#047857', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Location</div>
+                      <div style={{ fontSize: '13px', color: '#2c2419' }}>{selectedGbp.name}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#047857', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Address</div>
+                      <div style={{ fontSize: '13px', color: '#2c2419' }}>{selectedGbp.address}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#047857', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Phone</div>
+                      <a href={`tel:${selectedGbp.phone}`} style={{ fontSize: '13px', color: '#047857', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Phone style={{ width: '14px', height: '14px' }} />
+                        {selectedGbp.phone}
+                      </a>
+                    </div>
+                    {selectedGbp.website && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#047857', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Website</div>
+                        <a href={selectedGbp.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#047857', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all' }}>
+                          <Globe style={{ width: '14px', height: '14px' }} />
+                          {selectedGbp.website}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Service Details */}
+            <div style={{
+              background: '#f9f7f4',
+              padding: '24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(44, 36, 25, 0.08)'
+            }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '600', color: '#2c2419', marginBottom: '16px', marginTop: 0 }}>
+                🔧 Service Configuration
+              </h2>
+
+              {selectedClient.service_configs && selectedClient.service_configs.length > 0 ? (
+                <div>
+                  {(() => {
+                    const config = selectedClient.service_configs[0];
+                    const hasSeo = !!config?.gsc_site_url;
+                    const hasAds = !!config?.gads_customer_id;
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* SEO Services */}
+                        {hasSeo && (
+                          <div style={{
+                            background: '#fef3c7',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            border: '1px solid #fde68a'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                              <BarChart3 style={{ width: '18px', height: '18px', color: '#b45309' }} />
+                              <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#b45309', margin: 0, textTransform: 'uppercase' }}>
+                                SEO Services
+                              </h3>
                             </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                Google Ads Customer ID
-                              </label>
-                              <input
-                                type="text"
-                                value={client.service_configs?.[0]?.gads_customer_id || ''}
-                                readOnly
-                                style={{
-                                  width: '100%',
-                                  padding: '8px 12px',
-                                  background: '#f5f1ed',
-                                  border: '1px solid #e5e7eb',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  color: '#2c2419',
-                                  fontFamily: 'monospace'
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                GSC Site URL
-                              </label>
-                              <input
-                                type="text"
-                                value={client.service_configs?.[0]?.gsc_site_url || ''}
-                                readOnly
-                                style={{
-                                  width: '100%',
-                                  padding: '8px 12px',
-                                  background: '#f5f1ed',
-                                  border: '1px solid #e5e7eb',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  color: '#2c2419',
-                                  fontFamily: 'monospace'
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', color: '#5c5850', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
-                                GBP Location ID
-                              </label>
-                              <input
-                                type="text"
-                                value={client.service_configs?.[0]?.gbp_location_id || ''}
-                                readOnly
-                                style={{
-                                  width: '100%',
-                                  padding: '8px 12px',
-                                  background: '#f5f1ed',
-                                  border: '1px solid #e5e7eb',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  color: '#2c2419',
-                                  fontFamily: 'monospace'
-                                }}
-                              />
+                            <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+                              <div>
+                                <div style={{ color: '#92400e', fontWeight: '600', marginBottom: '2px' }}>Google Search Console</div>
+                                <div style={{ color: '#b45309', fontFamily: 'monospace', wordBreak: 'break-all' }}>{config.gsc_site_url}</div>
+                              </div>
+                              {config.ga_property_id && (
+                                <div>
+                                  <div style={{ color: '#92400e', fontWeight: '600', marginBottom: '2px' }}>GA Property ID</div>
+                                  <div style={{ color: '#b45309', fontFamily: 'monospace' }}>{config.ga_property_id}</div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        )}
 
-        {filteredClients.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#5c5850' }}>
-            No clients found
+                        {/* ADS Services */}
+                        {hasAds && (
+                          <div style={{
+                            background: '#e0e7ff',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            border: '1px solid #c7d2fe'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                              <Zap style={{ width: '18px', height: '18px', color: '#2563eb' }} />
+                              <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb', margin: 0, textTransform: 'uppercase' }}>
+                                Google Ads
+                              </h3>
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+                              <div>
+                                <div style={{ color: '#1e40af', fontWeight: '600', marginBottom: '2px' }}>Customer ID</div>
+                                <div style={{ color: '#2563eb', fontFamily: 'monospace' }}>{config.gads_customer_id}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* GBP Services */}
+                        {config.gbp_location_id && (
+                          <div style={{
+                            background: '#ecfdf5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            border: '1px solid #d1fae5'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                              <MapPin style={{ width: '18px', height: '18px', color: '#047857' }} />
+                              <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#047857', margin: 0, textTransform: 'uppercase' }}>
+                                Google Business Profile
+                              </h3>
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+                              <div>
+                                <div style={{ color: '#065f46', fontWeight: '600', marginBottom: '2px' }}>Location ID</div>
+                                <div style={{ color: '#047857', fontFamily: 'monospace' }}>{config.gbp_location_id}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontStyle: 'italic' }}>
+                  No services configured
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <div style={{ textAlign: 'center', color: '#5c5850' }}>
+              <Settings style={{ width: '48px', height: '48px', margin: '0 auto 16px', opacity: 0.3 }} />
+              <p>Select a client to view details</p>
+            </div>
           </div>
         )}
-      </div>
-
-      {/* Bottom Insights Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-        {/* Service Distribution */}
-        <div className="rounded-2xl p-6" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          border: '1px solid rgba(44, 36, 25, 0.1)',
-          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-        }}>
-          <h3 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '16px', fontSize: '14px', textTransform: 'uppercase' }}>
-            📊 Service Distribution
-          </h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#5c5850', fontSize: '12px' }}>Both (SEO+ADS)</span>
-                <span style={{ color: '#c4704f', fontWeight: '600', fontSize: '12px' }}>{stats.both}</span>
-              </div>
-              <div style={{ background: '#f3f4f6', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    background: '#c4704f',
-                    height: '100%',
-                    width: `${stats.total > 0 ? (stats.both / stats.total) * 100 : 0}%`,
-                    transition: 'width 400ms ease'
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#5c5850', fontSize: '12px' }}>SEO Only</span>
-                <span style={{ color: '#b45309', fontWeight: '600', fontSize: '12px' }}>{stats.seoOnly}</span>
-              </div>
-              <div style={{ background: '#f3f4f6', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    background: '#b45309',
-                    height: '100%',
-                    width: `${stats.total > 0 ? (stats.seoOnly / stats.total) * 100 : 0}%`,
-                    transition: 'width 400ms ease'
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#5c5850', fontSize: '12px' }}>ADS Only</span>
-                <span style={{ color: '#2563eb', fontWeight: '600', fontSize: '12px' }}>{stats.adsOnly}</span>
-              </div>
-              <div style={{ background: '#f3f4f6', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    background: '#2563eb',
-                    height: '100%',
-                    width: `${stats.total > 0 ? (stats.adsOnly / stats.total) * 100 : 0}%`,
-                    transition: 'width 400ms ease'
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Upsell Opportunities */}
-        <div className="rounded-2xl p-6" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          border: '1px solid rgba(44, 36, 25, 0.1)',
-          boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-        }}>
-          <h3 style={{ color: '#2c2419', fontWeight: '600', marginBottom: '16px', fontSize: '14px', textTransform: 'uppercase' }}>
-            🚀 Upsell Opportunities
-          </h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div>
-              <div style={{ color: '#5c5850', fontSize: '12px', marginBottom: '4px' }}>SEO Only → Add ADS</div>
-              <div style={{ color: '#2563eb', fontSize: '24px', fontWeight: '700' }}>{stats.seoOnly}</div>
-            </div>
-            <div>
-              <div style={{ color: '#5c5850', fontSize: '12px', marginBottom: '4px' }}>ADS Only → Add SEO</div>
-              <div style={{ color: '#b45309', fontSize: '24px', fontWeight: '700' }}>{stats.adsOnly}</div>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );
