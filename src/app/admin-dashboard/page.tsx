@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
-import MetricsViewer from '@/components/admin/MetricsViewer';
 
 interface ClientWithMetrics {
   id: string;
@@ -913,11 +912,6 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </main>
-
-      {/* Metrics Viewer - Show all team, employee, campaign, and health metrics */}
-      <div style={{ padding: '20px' }}>
-        <MetricsViewer />
-      </div>
     </div>
   );
 }
