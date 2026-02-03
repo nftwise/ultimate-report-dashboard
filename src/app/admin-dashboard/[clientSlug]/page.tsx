@@ -33,6 +33,9 @@ interface DailyMetrics {
   total_leads: number;
   form_fills: number;
   gbp_calls: number;
+  gbp_profile_views?: number;
+  gbp_website_clicks?: number;
+  gbp_direction_requests?: number;
   google_ads_conversions: number;
   sessions?: number;
   seo_impressions?: number;
@@ -119,7 +122,8 @@ export default function ClientDetailPage() {
 
         console.log('[Client Details] Fetching metrics from Supabase:', { clientId: client.id, dateFromISO, dateToISO });
 
-        const { data, error } = await supabase
+        // Fetch main metrics from client_metrics_summary
+        const { data: metricsData, error: metricsError } = await supabase
           .from('client_metrics_summary')
           .select(`
             date,
@@ -149,14 +153,45 @@ export default function ClientDetailPage() {
           .lte('date', dateToISO)
           .order('date', { ascending: true });
 
-        if (error) {
-          console.error('[Client Details] Supabase error:', error);
+        if (metricsError) {
+          console.error('[Client Details] Metrics error:', metricsError);
           setDailyData([]);
           return;
         }
 
-        console.log('[Client Details] Supabase response:', data?.length || 0, 'records');
-        setDailyData((data || []) as DailyMetrics[]);
+        // Fetch GBP data from gbp_location_daily_metrics
+        const { data: gbpData, error: gbpError } = await supabase
+          .from('gbp_location_daily_metrics')
+          .select(`
+            date,
+            phone_calls,
+            views,
+            website_clicks,
+            direction_requests
+          `)
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: true });
+
+        if (gbpError) {
+          console.warn('[Client Details] GBP data fetch warning:', gbpError);
+          // Don't fail if GBP data unavailable, just use metrics data
+        }
+
+        // Merge GBP data into metrics data
+        const merged = (metricsData || []).map((metric: any) => {
+          const gbp = gbpData?.find((g: any) => g.date === metric.date);
+          return {
+            ...metric,
+            gbp_profile_views: gbp?.views || 0,
+            gbp_website_clicks: gbp?.website_clicks || 0,
+            gbp_direction_requests: gbp?.direction_requests || 0
+          };
+        });
+
+        console.log('[Client Details] Merged data:', merged.length, 'records');
+        setDailyData((merged || []) as DailyMetrics[]);
       } catch (error) {
         console.error('[Client Details] Error fetching daily metrics:', error);
         setDailyData([]);
@@ -178,6 +213,9 @@ export default function ClientDetailPage() {
   const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
   const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
   const totalGbpCalls = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0);
+  const totalGbpProfileViews = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_profile_views || 0), 0);
+  const totalGbpWebsiteClicks = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_website_clicks || 0), 0);
+  const totalGbpDirections = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
   const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ad_spend || 0)), 0);
   const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
@@ -699,9 +737,9 @@ export default function ClientDetailPage() {
                 ]},
                 { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
                   { label: 'Phone Calls', value: totalGbpCalls },
-                  { label: 'Profile Views', value: '—' },
-                  { label: 'Web Clicks', value: '—' },
-                  { label: 'Directions', value: '—' }
+                  { label: 'Profile Views', value: totalGbpProfileViews },
+                  { label: 'Web Clicks', value: totalGbpWebsiteClicks },
+                  { label: 'Directions', value: totalGbpDirections }
                 ]}
               ].map((channel, i) => (
                 <div key={i} className="rounded-2xl p-6" style={{
