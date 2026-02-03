@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
-import MonthlyLeadsTrendChart from '@/components/admin/MonthlyLeadsTrendChart';
-import InsightCards from '@/components/admin/InsightCards';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 
 interface ClientWithMetrics {
@@ -352,12 +350,6 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20">
-        {/* Monthly Leads Trend Chart - Standalone Section */}
-        <MonthlyLeadsTrendChart />
-
-        {/* Insight Cards */}
-        <InsightCards clients={clients} />
-
         {/* Data Table Section */}
         <style>{`
           .table-container {
