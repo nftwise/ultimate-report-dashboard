@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const dateFromStr = dateFrom.toISOString().split('T')[0]
     const dateToStr = yesterday.toISOString().split('T')[0]
 
+    console.log('[Monthly Trends API] Date range:', { dateFromStr, dateToStr, monthsRequested: months })
+
     // Use Supabase RPC or raw SQL to aggregate by month directly
     // Fetch all metrics and let Supabase do the heavy lifting
     const { data: metrics, error } = await supabaseAdmin
@@ -30,6 +32,13 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    console.log('[Monthly Trends API] Raw metrics fetched:', {
+      count: metrics?.length || 0,
+      firstRecord: metrics?.[0],
+      lastRecord: metrics?.[metrics.length - 1],
+      sampleRecords: metrics?.slice(0, 5)
+    })
 
     // Group by month and aggregate on the backend
     // This combines/sums leads from ALL CLIENTS for each month
@@ -55,6 +64,12 @@ export async function GET(request: NextRequest) {
       monthlyData[monthKey] += metric.form_fills || 0
     })
 
+    console.log('[Monthly Trends API] After aggregation by month:', {
+      monthsFound: monthOrder,
+      monthlyData,
+      monthlyDataKeys: Object.keys(monthlyData)
+    })
+
     // Generate chart data
     const monthLabels: { [key: string]: string } = {
       '01': 'Jan',
@@ -78,6 +93,12 @@ export async function GET(request: NextRequest) {
         month: label,
         value: monthlyData[monthKey]
       }
+    })
+
+    console.log('[Monthly Trends API] Final chart data:', {
+      chartDataLength: chartData.length,
+      chartData,
+      monthOrder
     })
 
     // Calculate summary stats
