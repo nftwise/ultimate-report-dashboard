@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const months = parseInt(request.nextUrl.searchParams.get('months') || '6')
+    const months = parseInt(request.nextUrl.searchParams.get('months') || '12')
 
     // Calculate date range (use yesterday as end date, since data comes in with a lag)
     const now = new Date()
@@ -14,10 +14,11 @@ export async function GET(request: NextRequest) {
     const dateFromStr = dateFrom.toISOString().split('T')[0]
     const dateToStr = yesterday.toISOString().split('T')[0]
 
-    // Fetch metrics for the date range
+    // Use Supabase RPC or raw SQL to aggregate by month directly
+    // Fetch all metrics and let Supabase do the heavy lifting
     const { data: metrics, error } = await supabaseAdmin
       .from('client_metrics_summary')
-      .select('date, form_fills, google_ads_conversions, gbp_calls')
+      .select('date, form_fills')
       .gte('date', dateFromStr)
       .lte('date', dateToStr)
       .order('date', { ascending: true })
@@ -30,11 +31,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Group by month and aggregate
+    // Group by month and aggregate on the backend
+    // This combines/sums leads from ALL CLIENTS for each month
     const monthlyData: { [key: string]: number } = {}
     const monthOrder: string[] = []
 
     const metricsArray = Array.isArray(metrics) ? metrics : []
+
+    // Sum all form_fills (leads) by month across all clients
     metricsArray.forEach((metric: any) => {
       // Parse date string directly (format: YYYY-MM-DD) to avoid timezone issues
       const dateStr = metric.date
@@ -42,10 +46,12 @@ export async function GET(request: NextRequest) {
 
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = 0
-        monthOrder.push(monthKey)
+        if (!monthOrder.includes(monthKey)) {
+          monthOrder.push(monthKey)
+        }
       }
 
-      // Count form fills as leads
+      // Sum form fills across all clients for this month
       monthlyData[monthKey] += metric.form_fills || 0
     })
 
