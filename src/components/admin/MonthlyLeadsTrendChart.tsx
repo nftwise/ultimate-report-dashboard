@@ -87,7 +87,7 @@ export default function MonthlyLeadsTrendChart({ months = 6 }: MonthlyLeadsTrend
       </h3>
 
       <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
           <defs>
             <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#9db5a0" stopOpacity={0.3} />
@@ -98,7 +98,10 @@ export default function MonthlyLeadsTrendChart({ months = 6 }: MonthlyLeadsTrend
           <XAxis
             dataKey="month"
             stroke="#5c5850"
-            style={{ fontSize: '12px', fontFamily: '"Inter", sans-serif' }}
+            style={{ fontSize: '11px', fontFamily: '"Inter", sans-serif' }}
+            angle={-45}
+            textAnchor="end"
+            height={80}
           />
           <YAxis
             stroke="#5c5850"

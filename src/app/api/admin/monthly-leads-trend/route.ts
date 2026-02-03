@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const chartData = monthOrder.map(monthKey => {
       const [year, month] = monthKey.split('-')
-      const label = monthLabels[month] || month
+      const label = `${monthLabels[month] || month} '${year.slice(-2)}`
       return {
         month: label,
         value: monthlyData[monthKey]
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: chartData,
-      summary: {
+      stats: {
         highest,
         lowest,
         average,
