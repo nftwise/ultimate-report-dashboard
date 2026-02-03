@@ -5,11 +5,14 @@ export async function GET(request: NextRequest) {
   try {
     const months = parseInt(request.nextUrl.searchParams.get('months') || '6')
 
-    // Calculate date range
+    // Calculate date range (use yesterday as end date, since data comes in with a lag)
     const now = new Date()
-    const dateFrom = new Date(now.getFullYear(), now.getMonth() - months, 1)
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const dateFrom = new Date(yesterday.getFullYear(), yesterday.getMonth() - months, 1)
     const dateFromStr = dateFrom.toISOString().split('T')[0]
-    const dateToStr = now.toISOString().split('T')[0]
+    const dateToStr = yesterday.toISOString().split('T')[0]
 
     // Fetch metrics for the date range
     const { data: metrics, error } = await supabaseAdmin
@@ -33,8 +36,9 @@ export async function GET(request: NextRequest) {
 
     const metricsArray = Array.isArray(metrics) ? metrics : []
     metricsArray.forEach((metric: any) => {
-      const date = new Date(metric.date)
-      const monthKey = date.toISOString().split('T')[0].substring(0, 7) // YYYY-MM
+      // Parse date string directly (format: YYYY-MM-DD) to avoid timezone issues
+      const dateStr = metric.date
+      const monthKey = dateStr.substring(0, 7) // Extract YYYY-MM from YYYY-MM-DD
 
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = 0
