@@ -196,6 +196,9 @@ export default function ClientDetailPage() {
   const seoImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
   const seoClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
   const seoCtr = seoImpressions > 0 ? ((seoClicks / seoImpressions) * 100).toFixed(2) : '0.00';
+  const adsClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
+  const adsImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
+  const adsCtr = adsImpressions > 0 ? ((adsClicks / adsImpressions) * 100).toFixed(2) : '0.00';
   const healthScore = dailyData.length > 0 ? dailyData[dailyData.length - 1].health_score || 0 : 0;
   const budgetUtilization = dailyData.length > 0 ? dailyData[dailyData.length - 1].budget_utilization || 0 : 0;
   const trafficOrganic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
@@ -499,33 +502,27 @@ export default function ClientDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#c4704f' }}></div>
-                          <strong>Organic</strong>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>412</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>33.2%</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>22</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#d9a854' }}></div>
-                          <strong>Paid Ads</strong>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>580</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>46.8%</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>58</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#9db5a0' }}></div>
-                          <strong>Direct</strong>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>188</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>15.2%</td>
-                        <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>8</td>
-                      </tr>
+                      {[
+                        { label: 'Organic', color: '#c4704f', value: trafficOrganic },
+                        { label: 'Paid Ads', color: '#d9a854', value: trafficPaid },
+                        { label: 'Direct', color: '#9db5a0', value: trafficDirect }
+                      ].map((source, idx) => {
+                        const totalSessions = trafficOrganic + trafficPaid + trafficDirect + trafficAi;
+                        const share = totalSessions > 0 ? ((source.value / totalSessions) * 100).toFixed(1) : '0.0';
+                        return (
+                          <tr key={idx}>
+                            <td style={{ padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: source.color }}></div>
+                              <strong>{source.label}</strong>
+                            </td>
+                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', color: '#5c5850' }}>{source.value}</td>
+                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>{share}%</td>
+                            <td style={{ textAlign: 'right', padding: '16px', borderBottom: '1px solid rgba(44, 36, 25, 0.08)', fontWeight: 'bold' }}>
+                              {Math.round((source.value / totalSessions) * totalLeads) || 0}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -700,14 +697,14 @@ export default function ClientDetailPage() {
               {[
                 { title: 'Google Ads', status: 'Active', statusColor: '#4a6b4e', statusBg: 'rgba(157, 181, 160, 0.1)', metrics: [
                   { label: 'Conversions', value: totalAdsConversions },
-                  { label: 'Clicks', value: '544' },
+                  { label: 'Clicks', value: adsClicks },
                   { label: 'Spend', value: `$${Math.round(adSpend)}` },
-                  { label: 'CTR', value: '5.73%' }
+                  { label: 'CTR', value: `${adsCtr}%` }
                 ]},
                 { title: 'SEO Performance', status: 'Growing', statusColor: '#8a6a35', statusBg: 'rgba(217, 168, 84, 0.1)', metrics: [
-                  { label: 'Organic Clicks', value: '0' },
-                  { label: 'Impressions', value: '0' },
-                  { label: 'Avg Position', value: '#N/A' }
+                  { label: 'Organic Clicks', value: seoClicks },
+                  { label: 'Impressions', value: seoImpressions },
+                  { label: 'CTR', value: `${seoCtr}%` }
                 ]},
                 { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
                   { label: 'Phone Calls', value: totalGbpCalls },
