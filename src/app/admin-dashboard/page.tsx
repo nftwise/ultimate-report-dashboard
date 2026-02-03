@@ -386,7 +386,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Content with Sidebar */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '0', minHeight: 'calc(100vh - 300px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '0', minHeight: '100%' }}>
         {/* SIDEBAR NAVIGATION */}
         <div style={{
           background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
@@ -432,7 +432,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <div style={{ overflowY: 'auto' }}>
+        <div style={{ overflowY: 'auto', background: '#ffffff' }}>
           {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
           {activeTab === 'dashboard' && (
           <div className="max-w-7xl mx-auto px-4">
