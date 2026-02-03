@@ -108,10 +108,14 @@ export default function ClientDetailPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
+        console.log('[Client Details] Fetching metrics:', { clientId: client.id, dateFromISO, dateToISO });
+
         const response = await fetch(
           `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${dateFromISO}&dateTo=${dateToISO}`
         );
         const data = await response.json();
+
+        console.log('[Client Details] Response:', data);
 
         if (data.success) {
           setDailyData(data.data || []);
@@ -122,7 +126,7 @@ export default function ClientDetailPage() {
     };
 
     fetchDailyMetrics();
-  }, [client, dateRange]);
+  }, [client, dateRange.from, dateRange.to]);
 
   if (loading || !client) {
     return (
