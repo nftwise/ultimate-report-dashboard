@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { createClient } from '@supabase/supabase-js';
 
 interface ChartData {
   month: string;
@@ -26,18 +27,104 @@ export default function MonthlyLeadsTrendChart() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/monthly-leads-trend?months=12');
-        const result = await response.json();
 
-        if (result.data && Array.isArray(result.data)) {
-          setData(result.data);
-          if (result.stats) {
-            setStats(result.stats);
-          }
+        // Connect to Supabase directly from client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Missing Supabase credentials');
         }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Calculate date range: last 12 months from yesterday
+        const now = new Date();
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const dateFrom = new Date(yesterday.getFullYear(), yesterday.getMonth() - 12, 1);
+        const dateFromStr = dateFrom.toISOString().split('T')[0];
+        const dateToStr = yesterday.toISOString().split('T')[0];
+
+        console.log('[MonthlyLeadsTrendChart] Fetching directly from Supabase:', { dateFromStr, dateToStr });
+
+        // Fetch metrics directly from Supabase
+        const { data: metrics, error: fetchError } = await supabase
+          .from('client_metrics_summary')
+          .select('date, form_fills')
+          .gte('date', dateFromStr)
+          .lte('date', dateToStr)
+          .order('date', { ascending: true });
+
+        if (fetchError) {
+          throw new Error(fetchError.message);
+        }
+
+        console.log('[MonthlyLeadsTrendChart] Raw data from Supabase:', {
+          recordCount: metrics?.length || 0,
+          firstRecord: metrics?.[0],
+          lastRecord: metrics?.[metrics.length - 1],
+          sample: metrics?.slice(0, 5)
+        });
+
+        // Group by month and sum
+        const monthlyData: { [key: string]: number } = {};
+        const monthOrder: string[] = [];
+
+        metrics?.forEach((metric: any) => {
+          const dateStr = metric.date;
+          const monthKey = dateStr.substring(0, 7); // YYYY-MM
+
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = 0;
+            monthOrder.push(monthKey);
+          }
+
+          monthlyData[monthKey] += metric.form_fills || 0;
+        });
+
+        console.log('[MonthlyLeadsTrendChart] After aggregation:', {
+          monthsFound: monthOrder,
+          monthlyData
+        });
+
+        // Generate chart data
+        const monthLabels: { [key: string]: string } = {
+          '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
+          '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+        };
+
+        const chartData = monthOrder.map(monthKey => {
+          const [year, month] = monthKey.split('-');
+          const label = `${monthLabels[month] || month} '${year.slice(-2)}`;
+          return {
+            month: label,
+            value: monthlyData[monthKey]
+          };
+        });
+
+        console.log('[MonthlyLeadsTrendChart] Final chart data:', chartData);
+
+        // Calculate stats
+        const values = Object.values(monthlyData);
+        const highest = Math.max(...values, 0);
+        const lowest = values.length > 0 ? Math.min(...values) : 0;
+        const average = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
+
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (values.length >= 2) {
+          const lastValue = values[values.length - 1];
+          const prevValue = values[values.length - 2];
+          if (lastValue > prevValue) trend = 'up';
+          else if (lastValue < prevValue) trend = 'down';
+        }
+
+        setData(chartData);
+        setStats({ highest, lowest, average, trend });
       } catch (err) {
-        setError('Failed to load trend data');
-        console.error(err);
+        setError(`Failed to load trend data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        console.error('[MonthlyLeadsTrendChart] Error:', err);
       } finally {
         setLoading(false);
       }
