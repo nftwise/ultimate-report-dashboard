@@ -46,7 +46,7 @@ interface DailyMetrics {
   ads_impressions?: number;
   ads_clicks?: number;
   ads_ctr?: number;
-  ads_spend?: number;
+  ad_spend?: number;
   cpl?: number;
   health_score?: number;
   budget_utilization?: number;
@@ -139,7 +139,7 @@ export default function ClientDetailPage() {
             ads_impressions,
             ads_clicks,
             ads_ctr,
-            ads_spend,
+            ad_spend,
             cpl,
             health_score,
             budget_utilization
@@ -179,7 +179,7 @@ export default function ClientDetailPage() {
   const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
   const totalGbpCalls = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0);
   const totalAdsConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
-  const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ads_spend || 0)), 0);
+  const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ad_spend || 0)), 0);
   const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
   const sessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
 
