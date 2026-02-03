@@ -33,6 +33,9 @@ interface DailyMetrics {
   total_leads: number;
   form_fills: number;
   gbp_calls: number;
+  gbp_profile_views?: number;
+  gbp_website_clicks?: number;
+  gbp_direction_requests?: number;
   google_ads_conversions: number;
   sessions?: number;
   seo_impressions?: number;
@@ -126,6 +129,9 @@ export default function ClientDetailPage() {
             total_leads,
             form_fills,
             gbp_calls,
+            gbp_profile_views,
+            gbp_website_clicks,
+            gbp_direction_requests,
             google_ads_conversions,
             sessions,
             seo_impressions,
@@ -178,6 +184,9 @@ export default function ClientDetailPage() {
   const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
   const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
   const totalGbpCalls = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0);
+  const totalGbpProfileViews = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_profile_views || 0), 0);
+  const totalGbpWebsiteClicks = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_website_clicks || 0), 0);
+  const totalGbpDirections = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
   const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ad_spend || 0)), 0);
   const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
@@ -702,9 +711,9 @@ export default function ClientDetailPage() {
                 ]},
                 { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
                   { label: 'Phone Calls', value: totalGbpCalls },
-                  { label: 'Profile Views', value: '0' },
-                  { label: 'Web Clicks', value: '0' },
-                  { label: 'Directions', value: '0' }
+                  { label: 'Profile Views', value: totalGbpProfileViews },
+                  { label: 'Web Clicks', value: totalGbpWebsiteClicks },
+                  { label: 'Directions', value: totalGbpDirections }
                 ]}
               ].map((channel, i) => (
                 <div key={i} className="rounded-2xl p-6" style={{
