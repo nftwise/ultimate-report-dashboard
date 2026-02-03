@@ -216,6 +216,30 @@ export default function AdminDashboardPage() {
         adsOnly,
         seoOnly
       });
+
+      // Log detailed client services and credentials
+      console.group('📋 CLIENT SERVICES & CREDENTIALS');
+      processedClients.forEach((client: any) => {
+        const serviceList = [];
+        if (client.services?.seo) serviceList.push('SEO');
+        if (client.services?.googleAds) serviceList.push('Google Ads');
+        if (client.services?.googleLocalService) serviceList.push('GBP');
+
+        const services = serviceList.length > 0 ? serviceList.join(' + ') : 'None';
+
+        console.log(`✨ ${client.name}`, {
+          id: client.id,
+          email: client.contact_email,
+          city: client.city,
+          active: client.is_active,
+          services,
+          ga_id: client.service_configs?.ga_property_id || 'Not configured',
+          gsc_url: client.service_configs?.gsc_site_url || 'Not configured',
+          gads_id: client.service_configs?.gads_customer_id || 'Not configured',
+          gbp_id: client.service_configs?.gbp_location_id || 'Not configured'
+        });
+      });
+      console.groupEnd();
     } catch (err) {
       setError(`Failed to load clients: ${err instanceof Error ? err.message : 'Unknown error'}`);
       console.error('[Dashboard] Error fetching data:', err);
@@ -369,24 +393,8 @@ export default function AdminDashboardPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div style={{
-        background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
-        color: 'white',
-        padding: 'clamp(60px, 15vw, 100px) 20px clamp(100px, 20vw, 140px)',
-        textAlign: 'center',
-        fontFamily: '"Outfit", sans-serif'
-      }}>
-        <h1 className="mb-4" style={{ fontSize: 'clamp(2rem, 7vw, 3.5rem)', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: '"Outfit", sans-serif', lineHeight: 1.1 }}>
-          Client Performance
-        </h1>
-        <p className="text-base md:text-lg opacity-90" style={{ fontFamily: '"Inter", sans-serif' }}>
-          Monitor and optimize client campaigns across all channels
-        </p>
-      </div>
-
       {/* Main Content with Sidebar */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '0', minHeight: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '0', minHeight: 'calc(100vh - 80px)' }}>
         {/* SIDEBAR NAVIGATION */}
         <div style={{
           background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
@@ -432,10 +440,26 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <div style={{ overflowY: 'auto', background: '#ffffff' }}>
+        <div style={{ overflowY: 'auto', background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
+          {/* Hero Section */}
+          <div style={{
+            background: 'linear-gradient(135deg, #cc8b65 0%, #d49a6a 100%)',
+            color: 'white',
+            padding: '60px 20px 80px 20px',
+            textAlign: 'center',
+            fontFamily: '"Outfit", sans-serif'
+          }}>
+            <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: '"Outfit", sans-serif', lineHeight: 1.1, margin: '0 0 12px 0' }}>
+              Client Performance
+            </h1>
+            <p style={{ fontSize: '16px', opacity: 0.9, fontFamily: '"Inter", sans-serif', margin: 0 }}>
+              Monitor and optimize client campaigns across all channels
+            </p>
+          </div>
+
           {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
           {activeTab === 'dashboard' && (
-          <div className="max-w-7xl mx-auto px-4">
+          <div className="max-w-7xl mx-auto px-4" style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
         <style>{`
           .stat-card {
             transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
