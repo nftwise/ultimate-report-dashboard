@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown } from 'lucide-react';
 import MonthlyLeadsTrendChart from '@/components/admin/MonthlyLeadsTrendChart';
 import InsightCards from '@/components/admin/InsightCards';
+import DateRangePicker from '@/components/admin/DateRangePicker';
 
 interface ClientWithMetrics {
   id: string;
@@ -34,22 +35,20 @@ export default function AdminDashboardPage() {
 
   // Date range state
   // Default: Yesterday to 30 days back (to match when data is typically available)
-  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>(() => {
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     // Set end date to yesterday (data usually comes in by end of previous day)
-    const end = new Date();
-    end.setDate(end.getDate() - 1);
+    const to = new Date();
+    to.setDate(to.getDate() - 1);
 
     // Set start date to 30 days before end date
-    const start = new Date(end);
-    start.setDate(start.getDate() - 30);
+    const from = new Date(to);
+    from.setDate(from.getDate() - 30);
 
-    return { start, end };
+    return { from, to };
   });
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   useEffect(() => {
-    if (dateRange.start && dateRange.end) {
+    if (dateRange.from && dateRange.to) {
       fetchData();
     }
   }, [dateRange]);
@@ -59,8 +58,8 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const dateFromStr = dateRange.start?.toISOString().split('T')[0] || '';
-      const dateToStr = dateRange.end?.toISOString().split('T')[0] || '';
+      const dateFromStr = dateRange.from?.toISOString().split('T')[0] || '';
+      const dateToStr = dateRange.to?.toISOString().split('T')[0] || '';
 
       const params = new URLSearchParams();
       if (dateFromStr) params.append('dateFrom', dateFromStr);
@@ -144,80 +143,22 @@ export default function AdminDashboardPage() {
   };
 
   const getDaysDifference = () => {
-    if (!dateRange.start || !dateRange.end) return 0;
-    return Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+    if (!dateRange.from || !dateRange.to) return 0;
+    return Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const setPresetRange = (days: number) => {
     // Use yesterday as end date (data typically available by end of previous day)
-    const end = new Date();
-    end.setDate(end.getDate() - 1);
+    const to = new Date();
+    to.setDate(to.getDate() - 1);
 
     // Calculate start date from end date, not from today
-    const start = new Date(end);
-    start.setDate(start.getDate() - days);
+    const from = new Date(to);
+    from.setDate(from.getDate() - days);
 
-    setDateRange({ start, end });
-    setShowCalendar(false);
+    setDateRange({ from, to });
   };
 
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-
-  const getCalendarDays = () => {
-    const daysInMonth = getDaysInMonth(calendarMonth);
-    const firstDay = getFirstDayOfMonth(calendarMonth);
-    const days = [];
-
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
-    }
-
-    return days;
-  };
-
-  const isDateSelected = (day: number) => {
-    const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    return (
-      (dateRange.start && checkDate.toDateString() === dateRange.start.toDateString()) ||
-      (dateRange.end && checkDate.toDateString() === dateRange.end.toDateString())
-    );
-  };
-
-  const isDateInRange = (day: number) => {
-    const checkDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    if (!dateRange.start || !dateRange.end) return false;
-    return checkDate >= dateRange.start && checkDate <= dateRange.end;
-  };
-
-  const handleDayClick = (day: number) => {
-    const clickedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-
-    if (!dateRange.start) {
-      setDateRange({ start: clickedDate, end: null });
-    } else if (!dateRange.end) {
-      if (clickedDate < dateRange.start) {
-        setDateRange({ start: clickedDate, end: dateRange.start });
-      } else {
-        setDateRange({ start: dateRange.start, end: clickedDate });
-      }
-      setShowCalendar(false);
-    } else {
-      setDateRange({ start: clickedDate, end: null });
-    }
-  };
-
-  const calendarDays = getCalendarDays();
-  const monthName = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -287,123 +228,12 @@ export default function AdminDashboardPage() {
             })}
           </div>
 
-          {/* Date Range Pill */}
-          <div className="relative">
-            <style>{`
-              .date-button {
-                transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-              }
-              .date-button:hover {
-                border-color: #d4805e;
-                box-shadow: 0 4px 16px rgba(196, 112, 79, 0.2);
-                transform: translateY(-2px);
-              }
-              .date-button:active {
-                transform: translateY(0);
-              }
-            `}</style>
-            <button
-              onClick={() => setShowCalendar(!showCalendar)}
-              className="date-button flex items-center gap-2 px-3 md:px-6 py-2 rounded-full hidden md:flex"
-              style={{
-                background: '#fff',
-                border: '2px solid #c4704f',
-                color: '#2c2419'
-              }}
-            >
-              <Calendar className="w-4 h-4" style={{ color: '#c4704f' }} />
-              <span className="text-sm font-semibold">
-                {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Start'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'End'}
-              </span>
-            </button>
-
-            {/* Calendar Popup */}
-            {showCalendar && (
-              <div className="absolute right-0 top-full mt-3 bg-white rounded-3xl shadow-2xl p-8 z-50 w-96" style={{ border: '1px solid rgba(196, 112, 79, 0.2)', animation: 'fadeIn 0.15s ease-out' }}>
-                <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-
-                {/* Month Navigation */}
-                <div className="flex items-center justify-between mb-8">
-                  <button
-                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-                    className="p-2 hover:opacity-70 rounded-full transition"
-                  >
-                    <ChevronLeft className="w-6 h-6" style={{ color: '#c4704f' }} />
-                  </button>
-                  <h3 className="text-lg font-bold" style={{ color: '#2c2419', minWidth: '200px', textAlign: 'center' }}>
-                    {monthName}
-                  </h3>
-                  <button
-                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-                    className="p-2 hover:opacity-70 rounded-full transition"
-                  >
-                    <ChevronRight className="w-6 h-6" style={{ color: '#c4704f' }} />
-                  </button>
-                </div>
-
-                {/* Day Headers */}
-                <div className="grid grid-cols-7 gap-1 mb-3">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-center text-xs font-bold py-3" style={{ color: '#9ca3af' }}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Calendar Days */}
-                <style>{`
-                  .calendar-day {
-                    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-                  }
-                  .calendar-day:not(:disabled):hover {
-                    background-color: #f3e8df !important;
-                    transform: translateY(-2px) !important;
-                    box-shadow: 0 4px 12px rgba(196, 112, 79, 0.12) !important;
-                  }
-                  .calendar-day:not(:disabled):active {
-                    transform: translateY(0) !important;
-                  }
-                `}</style>
-                <div className="grid grid-cols-7 gap-2">
-                  {calendarDays.map((day, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => day !== null && handleDayClick(day)}
-                      disabled={day === null}
-                      className="calendar-day w-12 h-12 text-sm font-semibold rounded-lg flex items-center justify-center"
-                      style={{
-                        background:
-                          day === null
-                            ? 'transparent'
-                            : isDateSelected(day)
-                            ? '#c4704f'
-                            : isDateInRange(day)
-                            ? '#f0e5dc'
-                            : '#f9f7f4',
-                        color: day !== null && isDateSelected(day) ? '#fff' : day !== null && isDateInRange(day) ? '#c4704f' : '#2c2419',
-                        cursor: day !== null ? 'pointer' : 'default',
-                        opacity: day !== null ? 1 : 0,
-                        fontWeight: day !== null && isDateInRange(day) ? '600' : '500',
-                        border: day !== null && isDateInRange(day) ? '2px solid #c4704f' : '1px solid rgba(44, 36, 25, 0.08)',
-                        boxShadow: day !== null && (isDateSelected(day) || isDateInRange(day)) ? '0 2px 8px rgba(196, 112, 79, 0.15)' : 'none',
-                      }}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Selected Range Info */}
-                <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: '#5c5850' }}>
-                    {!dateRange.start ? '👆 Click to select start date' : !dateRange.end ? '👆 Click to select end date' : '✓ Date range selected'}
-                  </p>
-                  <p className="text-sm font-bold" style={{ color: '#c4704f' }}>
-                    {dateRange.start ? dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} - {dateRange.end ? dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                  </p>
-                </div>
-              </div>
-            )}
+          {/* Date Range Picker */}
+          <div className="hidden md:block">
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+            />
           </div>
         </div>
 
