@@ -5,10 +5,17 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import DateRangePicker from '@/components/admin/DateRangePicker';
+import { createClient } from '@supabase/supabase-js';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
 const TrafficSourceDonut = dynamic(() => import('@/components/admin/TrafficSourceDonut'), { ssr: false });
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 interface ClientMetrics {
   id: string;
@@ -110,20 +117,49 @@ export default function ClientDetailPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        console.log('[Client Details] Fetching metrics:', { clientId: client.id, dateFromISO, dateToISO });
+        console.log('[Client Details] Fetching metrics from Supabase:', { clientId: client.id, dateFromISO, dateToISO });
 
-        const response = await fetch(
-          `/api/metrics/daily-traffic?clientId=${client.id}&dateFrom=${dateFromISO}&dateTo=${dateToISO}`
-        );
-        const data = await response.json();
+        const { data, error } = await supabase
+          .from('client_metrics_summary')
+          .select(`
+            date,
+            total_leads,
+            form_fills,
+            gbp_calls,
+            google_ads_conversions,
+            sessions,
+            seo_impressions,
+            seo_clicks,
+            seo_ctr,
+            traffic_organic,
+            traffic_paid,
+            traffic_direct,
+            traffic_referral,
+            traffic_ai,
+            ads_impressions,
+            ads_clicks,
+            ads_ctr,
+            ads_spend,
+            cpl,
+            health_score,
+            budget_utilization
+          `)
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: true });
 
-        console.log('[Client Details] Response:', data);
-
-        if (data.success) {
-          setDailyData(data.data || []);
+        if (error) {
+          console.error('[Client Details] Supabase error:', error);
+          setDailyData([]);
+          return;
         }
+
+        console.log('[Client Details] Supabase response:', data?.length || 0, 'records');
+        setDailyData((data || []) as DailyMetrics[]);
       } catch (error) {
         console.error('Error fetching daily metrics:', error);
+        setDailyData([]);
       }
     };
 
