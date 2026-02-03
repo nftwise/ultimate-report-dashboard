@@ -143,6 +143,9 @@ export default function ClientManagement() {
       return { seo: false, ads: false, gbp: false };
     }
     const config = client.service_configs[0];
+    if (!config) {
+      return { seo: false, ads: false, gbp: false };
+    }
     return {
       seo: !!config.gsc_site_url,
       ads: !!config.gads_customer_id,
