@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 
 interface ClientWithMetrics {
@@ -56,45 +57,166 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Missing Supabase credentials');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       const dateFromStr = dateRange.from?.toISOString().split('T')[0] || '';
       const dateToStr = dateRange.to?.toISOString().split('T')[0] || '';
 
-      const params = new URLSearchParams();
-      if (dateFromStr) params.append('dateFrom', dateFromStr);
-      if (dateToStr) params.append('dateTo', dateToStr);
+      console.log('[Dashboard] Fetching data directly from Supabase:', { dateFromStr, dateToStr });
 
-      const response = await fetch(`/api/clients/list?${params.toString()}`);
-      const data = await response.json();
+      // Fetch clients and their service configurations
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select(`
+          id,
+          name,
+          slug,
+          city,
+          contact_email,
+          is_active,
+          service_configs (
+            ga_property_id,
+            gads_customer_id,
+            gbp_location_id,
+            gsc_site_url,
+            callrail_account_id
+          )
+        `)
+        .order('name', { ascending: true });
 
-      if (data.success && data.clients) {
-        setClients(data.clients);
-        // Debug: Log service config distribution
-        const withAds = data.clients.filter((c: any) => c.services?.googleAds).length
-        const withSeo = data.clients.filter((c: any) => c.services?.seo).length
-        const withBoth = data.clients.filter((c: any) => c.services?.googleAds && c.services?.seo).length
-        const adsOnly = data.clients.filter((c: any) => c.services?.googleAds && !c.services?.seo).length
-        const seoOnly = data.clients.filter((c: any) => c.services?.seo && !c.services?.googleAds).length
-        console.log('[Dashboard] Service config distribution:', {
-          total: data.clients.length,
-          withAds,
-          withSeo,
-          withBoth,
-          adsOnly,
-          seoOnly
-        });
-        if (adsOnly === 0) {
-          console.log('[Dashboard] Ads-only clients - sample data:', data.clients.slice(0, 5).map((c: any) => ({
-            name: c.name,
-            googleAds: c.services?.googleAds,
-            seo: c.services?.seo
-          })));
-        }
-      } else {
-        setError(data.error || 'Failed to load clients');
+      if (clientsError) {
+        throw new Error(`Failed to fetch clients: ${clientsError.message}`);
       }
+
+      // Fetch metrics for the date range
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('client_metrics_summary')
+        .select('client_id, total_leads, form_fills, google_ads_conversions, cpl, date')
+        .gte('date', dateFromStr)
+        .lte('date', dateToStr);
+
+      if (metricsError) {
+        throw new Error(`Failed to fetch metrics: ${metricsError.message}`);
+      }
+
+      // Fetch GBP phone calls
+      const { data: gbpMetricsData, error: gbpError } = await supabase
+        .from('gbp_location_daily_metrics')
+        .select('client_id, phone_calls, date')
+        .gte('date', dateFromStr)
+        .lte('date', dateToStr);
+
+      if (gbpError) {
+        console.warn('Warning fetching GBP metrics:', gbpError.message);
+      }
+
+      // Build metrics map
+      const metricsMap: { [key: string]: any } = {};
+      (metricsData || []).forEach((metric: any) => {
+        if (!metricsMap[metric.client_id]) {
+          metricsMap[metric.client_id] = {
+            total_leads: 0,
+            seo_form_submits: 0,
+            gbp_calls: 0,
+            ads_conversions: 0,
+            ads_cpl: 0,
+            ads_cpl_count: 0
+          };
+        }
+        metricsMap[metric.client_id].total_leads += metric.total_leads || 0;
+        metricsMap[metric.client_id].seo_form_submits += metric.form_fills || 0;
+        metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0;
+        if (metric.cpl && metric.cpl > 0) {
+          metricsMap[metric.client_id].ads_cpl += metric.cpl;
+          metricsMap[metric.client_id].ads_cpl_count += 1;
+        }
+      });
+
+      // Add GBP phone calls
+      (gbpMetricsData || []).forEach((gbpMetric: any) => {
+        if (!metricsMap[gbpMetric.client_id]) {
+          metricsMap[gbpMetric.client_id] = {
+            total_leads: 0,
+            seo_form_submits: 0,
+            gbp_calls: 0,
+            ads_conversions: 0,
+            ads_cpl: 0,
+            ads_cpl_count: 0
+          };
+        }
+        metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0;
+      });
+
+      // Process clients with service configurations
+      const processedClients = (clientsData || []).map((client: any) => {
+        const config = Array.isArray(client.service_configs)
+          ? client.service_configs[0]
+          : client.service_configs || {};
+
+        const hasGoogleAds = !!(config.gads_customer_id && config.gads_customer_id.trim());
+        const hasSeo = !!(config.gsc_site_url && config.gsc_site_url.trim());
+
+        const clientMetrics = metricsMap[client.id] || {
+          total_leads: 0,
+          seo_form_submits: 0,
+          gbp_calls: 0,
+          ads_conversions: 0,
+          ads_cpl: 0,
+          ads_cpl_count: 0
+        };
+
+        const avgCpl = clientMetrics.ads_cpl_count > 0
+          ? clientMetrics.ads_cpl / clientMetrics.ads_cpl_count
+          : 0;
+
+        return {
+          id: client.id,
+          name: client.name,
+          slug: client.slug,
+          city: client.city,
+          contact_email: client.contact_email,
+          is_active: client.is_active,
+          total_leads: clientMetrics.total_leads,
+          seo_form_submits: clientMetrics.seo_form_submits,
+          gbp_calls: clientMetrics.gbp_calls,
+          ads_conversions: clientMetrics.ads_conversions,
+          ads_cpl: avgCpl,
+          services: {
+            googleAds: hasGoogleAds,
+            seo: hasSeo,
+            googleLocalService: !!(config.gbp_location_id && config.gbp_location_id.trim()),
+            fbAds: false,
+          }
+        };
+      });
+
+      setClients(processedClients);
+
+      // Log service config distribution
+      const withAds = processedClients.filter((c: any) => c.services?.googleAds).length;
+      const withSeo = processedClients.filter((c: any) => c.services?.seo).length;
+      const withBoth = processedClients.filter((c: any) => c.services?.googleAds && c.services?.seo).length;
+      const adsOnly = processedClients.filter((c: any) => c.services?.googleAds && !c.services?.seo).length;
+      const seoOnly = processedClients.filter((c: any) => c.services?.seo && !c.services?.googleAds).length;
+
+      console.log('[Dashboard] Service config distribution:', {
+        total: processedClients.length,
+        withAds,
+        withSeo,
+        withBoth,
+        adsOnly,
+        seoOnly
+      });
     } catch (err) {
-      setError('Failed to load clients');
-      console.error(err);
+      setError(`Failed to load clients: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('[Dashboard] Error fetching data:', err);
     } finally {
       setLoading(false);
     }
