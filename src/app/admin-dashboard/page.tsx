@@ -291,14 +291,51 @@ export default function AdminDashboardPage() {
         }
       `}</style>
       {/* Sticky Navigation */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4" style={{
+      <nav className="sticky top-0 z-50 px-4 md:px-8 py-4" style={{
         background: 'rgba(245, 241, 237, 0.98)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44, 36, 25, 0.08)'
       }}>
-        <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
 
+          {/* Admin Info */}
+          <div className="text-right hidden sm:block">
+            <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-4 border-b-2 mb-4" style={{ borderColor: '#e5e7eb' }}>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className="px-6 py-3 font-semibold text-sm md:text-base transition-all"
+            style={{
+              color: activeTab === 'dashboard' ? '#c4704f' : '#5c5850',
+              borderBottom: activeTab === 'dashboard' ? '3px solid #c4704f' : '3px solid transparent',
+              marginBottom: '-5px',
+              background: 'transparent'
+            }}
+          >
+            📊 Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('clients')}
+            className="px-6 py-3 font-semibold text-sm md:text-base transition-all"
+            style={{
+              color: activeTab === 'clients' ? '#c4704f' : '#5c5850',
+              borderBottom: activeTab === 'clients' ? '3px solid #c4704f' : '3px solid transparent',
+              marginBottom: '-5px',
+              background: 'transparent'
+            }}
+          >
+            📋 Client Management
+          </button>
+        </div>
+
+        {/* Date/Filter Controls */}
         <div className="flex items-center gap-2 md:gap-6">
           {/* Quick Select Buttons */}
           <style>{`
@@ -358,12 +395,6 @@ export default function AdminDashboardPage() {
             />
           </div>
         </div>
-
-        {/* Admin Info */}
-        <div className="text-right hidden sm:block">
-          <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
-        </div>
       </nav>
 
       {/* Hero Section */}
@@ -380,36 +411,6 @@ export default function AdminDashboardPage() {
         <p className="text-base md:text-lg opacity-90" style={{ fontFamily: '"Inter", sans-serif' }}>
           Monitor and optimize client campaigns across all channels
         </p>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <div className="flex gap-4 border-b-2" style={{ borderColor: '#e5e7eb', marginTop: '-1px' }}>
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className="px-6 py-4 font-semibold text-sm md:text-base transition-all"
-            style={{
-              color: activeTab === 'dashboard' ? '#c4704f' : '#5c5850',
-              borderBottom: activeTab === 'dashboard' ? '3px solid #c4704f' : '3px solid transparent',
-              marginBottom: '-2px',
-              background: 'transparent'
-            }}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('clients')}
-            className="px-6 py-4 font-semibold text-sm md:text-base transition-all"
-            style={{
-              color: activeTab === 'clients' ? '#c4704f' : '#5c5850',
-              borderBottom: activeTab === 'clients' ? '3px solid #c4704f' : '3px solid transparent',
-              marginBottom: '-2px',
-              background: 'transparent'
-            }}
-          >
-            📋 Client Management
-          </button>
-        </div>
       </div>
 
       {/* Stats Grid (Overlapping) - Only show on Dashboard tab */}
