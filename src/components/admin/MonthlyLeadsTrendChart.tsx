@@ -16,35 +16,23 @@ interface ChartData {
   value: number;
 }
 
-interface MonthlyLeadsTrendChartProps {
-  months?: number;
-}
-
-export default function MonthlyLeadsTrendChart({ months = 6 }: MonthlyLeadsTrendChartProps) {
+export default function MonthlyLeadsTrendChart() {
   const [data, setData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({ highest: 0, lowest: 0, average: 0 });
+  const [stats, setStats] = useState({ highest: 0, lowest: 0, average: 0, trend: 'stable' as 'up' | 'down' | 'stable' });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/admin/monthly-leads-trend?months=${months}`);
+        const response = await fetch('/api/admin/monthly-leads-trend?months=12');
         const result = await response.json();
 
         if (result.data && Array.isArray(result.data)) {
           setData(result.data);
           if (result.stats) {
             setStats(result.stats);
-          } else {
-            // Calculate stats locally
-            const values = result.data.map((d: ChartData) => d.value);
-            setStats({
-              highest: Math.max(...values),
-              lowest: Math.min(...values),
-              average: Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length),
-            });
           }
         }
       } catch (err) {
@@ -56,7 +44,7 @@ export default function MonthlyLeadsTrendChart({ months = 6 }: MonthlyLeadsTrend
     };
 
     fetchData();
-  }, [months]);
+  }, []);
 
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center', color: '#5c5850' }}>Loading chart...</div>;
@@ -78,13 +66,26 @@ export default function MonthlyLeadsTrendChart({ months = 6 }: MonthlyLeadsTrend
       border: '1px solid rgba(44, 36, 25, 0.1)',
       boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
     }}>
-      <h3 className="text-2xl font-bold mb-8" style={{
-        color: '#2c2419',
-        fontFamily: '"Outfit", sans-serif',
-        letterSpacing: '-0.02em'
-      }}>
-        Monthly Leads Trend
-      </h3>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h3 className="text-2xl font-bold" style={{
+            color: '#2c2419',
+            fontFamily: '"Outfit", sans-serif',
+            letterSpacing: '-0.02em'
+          }}>
+            12-Month Leads Trend
+          </h3>
+          <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Combined performance of all clients</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#5c5850' }}>Trend</p>
+          <p className="text-lg font-bold" style={{
+            color: stats.trend === 'up' ? '#10b981' : stats.trend === 'down' ? '#ef4444' : '#9ca3af'
+          }}>
+            {stats.trend === 'up' ? '↑ Growing' : stats.trend === 'down' ? '↓ Declining' : '→ Stable'}
+          </p>
+        </div>
+      </div>
 
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>

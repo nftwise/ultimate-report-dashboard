@@ -352,8 +352,8 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-20">
-        {/* Monthly Leads Trend Chart */}
-        <MonthlyLeadsTrendChart months={12} />
+        {/* Monthly Leads Trend Chart - Standalone Section */}
+        <MonthlyLeadsTrendChart />
 
         {/* Insight Cards */}
         <InsightCards clients={clients} />
