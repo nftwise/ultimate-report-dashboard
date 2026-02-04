@@ -8,7 +8,6 @@ import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
-import GoogleAdsCallMetrics from '@/components/admin/GoogleAdsCallMetrics';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import { createClient } from '@supabase/supabase-js';
 
@@ -62,16 +61,6 @@ interface AdGroup {
   cost: number;
   conversions: number;
   cpl: number;
-}
-
-interface CallRecord {
-  id: string;
-  date: string;
-  phone_number?: string;
-  call_duration?: number;
-  call_type?: string;
-  call_source?: string;
-  qualified_lead?: boolean;
 }
 
 // Helper function: Aggregate search terms with conversions
@@ -198,7 +187,6 @@ export default function GoogleAdsPage() {
   const [convertingTerms, setConvertingTerms] = useState<ConvertingSearchTerm[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
-  const [callMetrics, setCallMetrics] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -359,55 +347,8 @@ export default function GoogleAdsPage() {
     fetchAdGroups();
   }, [client, dateRange]);
 
-  // Fetch call metrics (from google_ads_call_metrics or fallback to synthesized from dailyData)
-  useEffect(() => {
-    const fetchCallMetrics = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
-
-        // Try to fetch from google_ads_call_metrics first
-        const { data } = await supabase
-          .from('google_ads_call_metrics')
-          .select('id, date, phone_number, call_duration, call_type, call_source, qualified_lead')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: false });
-
-        if (data && data.length > 0) {
-          setCallMetrics(data as CallRecord[]);
-        } else {
-          // Fallback: Synthesize call records from dailyData ads_phone_calls
-          const syntheticCalls: CallRecord[] = [];
-          dailyData.forEach((day: any, idx: number) => {
-            if (day.ads_phone_calls && day.ads_phone_calls > 0) {
-              // Create one call record per phone call
-              for (let i = 0; i < day.ads_phone_calls; i++) {
-                syntheticCalls.push({
-                  id: `${day.date}-call-${i}`,
-                  date: day.date,
-                  phone_number: undefined,
-                  call_duration: Math.floor(Math.random() * 300) + 30, // Random 30-330 seconds
-                  call_type: 'Google Ads',
-                  call_source: 'Google Ads Call Extension',
-                  qualified_lead: true
-                });
-              }
-            }
-          });
-          setCallMetrics(syntheticCalls);
-        }
-      } catch (error) {
-        console.error('Error fetching call metrics:', error);
-        setCallMetrics([]);
-      }
-    };
-
-    fetchCallMetrics();
-  }, [client, dateRange, dailyData]);
+  // No separate fetch needed - use ads_phone_calls directly from dailyData
+  // calculateCallMetrics happens after dailyData loads
 
   if (loading || !client) {
     return (
@@ -513,11 +454,197 @@ export default function GoogleAdsPage() {
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
-              {/* Right Column: Google Ads Call Metrics */}
-              <GoogleAdsCallMetrics
-                calls={callMetrics}
-                totalLeads={totalLeads}
-              />
+              {/* Right Column: Google Ads Call Metrics - from ads_phone_calls */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                {/* Header */}
+                <div style={{ marginBottom: '24px' }}>
+                  <p style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: '#5c5850',
+                    margin: '0 0 8px 0'
+                  }}>
+                    ☎️ Call Metrics
+                  </p>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    color: '#2c2419',
+                    margin: '0 0 16px 0',
+                    letterSpacing: '-0.02em'
+                  }}>
+                    Google Ads Phone Calls
+                  </h3>
+
+                  {/* Summary Stats */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '12px',
+                    marginTop: '12px'
+                  }}>
+                    {/* Total Calls */}
+                    <div style={{
+                      background: 'rgba(196, 112, 79, 0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      borderLeft: '3px solid #c4704f'
+                    }}>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '0 0 4px 0',
+                        fontWeight: '600'
+                      }}>
+                        Total Calls
+                      </p>
+                      <p style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#c4704f',
+                        margin: 0
+                      }}>
+                        {totalPhoneCalls}
+                      </p>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '4px 0 0 0',
+                        fontWeight: '500'
+                      }}>
+                        {totalLeads > 0 ? ((totalPhoneCalls / totalLeads) * 100).toFixed(1) : 0}% of leads
+                      </p>
+                    </div>
+
+                    {/* Form Fills */}
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      borderLeft: '3px solid #10b981'
+                    }}>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '0 0 4px 0',
+                        fontWeight: '600'
+                      }}>
+                        Form Fills
+                      </p>
+                      <p style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#10b981',
+                        margin: 0
+                      }}>
+                        {totalFormFills}
+                      </p>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '4px 0 0 0',
+                        fontWeight: '500'
+                      }}>
+                        {totalLeads > 0 ? ((totalFormFills / totalLeads) * 100).toFixed(1) : 0}% of leads
+                      </p>
+                    </div>
+
+                    {/* Call Conversion Rate */}
+                    <div style={{
+                      background: 'rgba(217, 168, 84, 0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      borderLeft: '3px solid #d9a854'
+                    }}>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '0 0 4px 0',
+                        fontWeight: '600'
+                      }}>
+                        Call Conv Rate
+                      </p>
+                      <p style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#d9a854',
+                        margin: 0
+                      }}>
+                        {totalPhoneCalls > 0 ? ((totalPhoneCalls / (totalPhoneCalls + totalFormFills)) * 100).toFixed(1) : 0}%
+                      </p>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '4px 0 0 0',
+                        fontWeight: '500'
+                      }}>
+                        Of total leads
+                      </p>
+                    </div>
+
+                    {/* Quality Score */}
+                    <div style={{
+                      background: 'rgba(157, 181, 160, 0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      borderLeft: '3px solid #9db5a0'
+                    }}>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '0 0 4px 0',
+                        fontWeight: '600'
+                      }}>
+                        Lead Quality
+                      </p>
+                      <p style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#9db5a0',
+                        margin: 0
+                      }}>
+                        {totalLeads > 0 ? (totalLeads > 10 ? '⭐⭐⭐⭐⭐' : totalLeads > 5 ? '⭐⭐⭐⭐' : '⭐⭐⭐') : '—'}
+                      </p>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '4px 0 0 0',
+                        fontWeight: '500'
+                      }}>
+                        Based on volume
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div style={{
+                  padding: '12px',
+                  background: 'rgba(44, 36, 25, 0.03)',
+                  borderRadius: '8px',
+                  borderLeft: '3px solid #2c2419'
+                }}>
+                  <p style={{
+                    fontSize: '11px',
+                    color: '#5c5850',
+                    margin: 0,
+                    lineHeight: '1.5'
+                  }}>
+                    💡 <strong>Overview:</strong> {totalPhoneCalls > 0
+                      ? `${totalPhoneCalls} phone calls and ${totalFormFills} form submissions across ${totalLeads} total leads. Focus on call follow-up speed for better conversion.`
+                      : 'No call or form data available for this period.'}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Section 5: Campaign Breakdown Table */}
