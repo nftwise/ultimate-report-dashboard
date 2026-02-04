@@ -177,8 +177,12 @@ export default function ClientDetailPage() {
           console.warn('[Client Details] GBP data fetch warning:', gbpError);
           // Don't fail if GBP data unavailable, just use metrics data
         } else {
+          const latestGbpDate = gbpData && gbpData.length > 0
+            ? gbpData[gbpData.length - 1].date
+            : 'No data';
           console.log('[Client Details] GBP data received:', {
             count: gbpData?.length || 0,
+            dateRange: `${gbpData?.[0]?.date} to ${latestGbpDate}`,
             sample: gbpData?.[0] || null
           });
         }
