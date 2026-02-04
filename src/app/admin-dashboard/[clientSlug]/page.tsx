@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import DateRangePicker from '@/components/admin/DateRangePicker';
+import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import { createClient } from '@supabase/supabase-js';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
@@ -274,13 +275,18 @@ export default function ClientDetailPage() {
   const isTrendUp = parseFloat(leadTrend) >= 0;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Header Navigation */}
-      <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{
-        background: 'rgba(245, 241, 237, 0.95)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
-      }}>
+    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
+      {/* Sidebar */}
+      <ClientDetailsSidebar clientSlug={clientSlug} />
+
+      {/* Main Content */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {/* Header Navigation */}
+        <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{
+          background: 'rgba(245, 241, 237, 0.95)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
+        }}>
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 hover:opacity-70 transition"
@@ -775,6 +781,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
