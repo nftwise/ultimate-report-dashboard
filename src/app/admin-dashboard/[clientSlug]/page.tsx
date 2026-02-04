@@ -119,7 +119,7 @@ export default function ClientDetailPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        console.log('[Client Details] Fetching metrics from Supabase:', { clientId: client.id, dateFromISO, dateToISO });
+        console.log('[Client Details] Fetching metrics from Supabase:', { clientId: client.id, dateFromISO, dateToISO, clientName: client.name });
 
         // Fetch main metrics from client_metrics_summary
         const { data: metricsData, error: metricsError } = await supabase
@@ -176,6 +176,11 @@ export default function ClientDetailPage() {
         if (gbpError) {
           console.warn('[Client Details] GBP data fetch warning:', gbpError);
           // Don't fail if GBP data unavailable, just use metrics data
+        } else {
+          console.log('[Client Details] GBP data received:', {
+            count: gbpData?.length || 0,
+            sample: gbpData?.[0] || null
+          });
         }
 
         // Merge GBP data into metrics data
@@ -183,13 +188,28 @@ export default function ClientDetailPage() {
           const gbp = gbpData?.find((g: any) => g.date === metric.date);
           return {
             ...metric,
+            // Prefer location-level GBP data (more reliable) over client-level
+            gbp_calls: gbp?.phone_calls || metric.gbp_calls || 0,
             gbp_profile_views: gbp?.views || 0,
             gbp_website_clicks: gbp?.website_clicks || 0,
             gbp_direction_requests: gbp?.direction_requests || 0
           };
         });
 
-        console.log('[Client Details] Merged data:', merged.length, 'records');
+        // Debug logging
+        if (merged.length > 0) {
+          const gbpMetricsCount = merged.filter((d: any) => d.gbp_calls > 0).length;
+          const gbpWebClicksCount = merged.filter((d: any) => d.gbp_website_clicks > 0).length;
+          const gbpDirectionsCount = merged.filter((d: any) => d.gbp_direction_requests > 0).length;
+
+          console.log('[Client Details] Merged data stats:', {
+            total: merged.length,
+            gbpCalls: { count: gbpMetricsCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) },
+            gbpWebClicks: { count: gbpWebClicksCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_website_clicks || 0), 0) },
+            gbpDirections: { count: gbpDirectionsCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0) },
+            sample: merged[0]
+          });
+        }
         setDailyData((merged || []) as DailyMetrics[]);
       } catch (error) {
         console.error('[Client Details] Error fetching daily metrics:', error);
