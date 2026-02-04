@@ -235,7 +235,7 @@ export default function GoogleAdsPage() {
     }
   }, [clientSlug]);
 
-  // Fetch daily metrics from ads_campaign_metrics (Google Ads API)
+  // Fetch daily metrics from ads_campaign_metrics + conversions (Google Ads API)
   useEffect(() => {
     const fetchMetrics = async () => {
       if (!client) return;
@@ -252,6 +252,14 @@ export default function GoogleAdsPage() {
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
+
+        // Fetch conversions by date
+        const { data: conversionsData } = await supabase
+          .from('campaign_conversion_actions')
+          .select('date, conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
 
         // Aggregate by date
         const dateMap = new Map();
@@ -279,11 +287,35 @@ export default function GoogleAdsPage() {
           entry.ad_spend += row.cost || 0;
         });
 
+        // Add conversions
+        (conversionsData || []).forEach(row => {
+          const date = row.date;
+          if (!dateMap.has(date)) {
+            dateMap.set(date, {
+              date,
+              ads_impressions: 0,
+              ads_clicks: 0,
+              ads_ctr: 0,
+              ad_spend: 0,
+              cpl: 0,
+              google_ads_conversions: 0,
+              total_leads: 0,
+              ads_phone_calls: 0,
+              form_fills: 0,
+              sessions_mobile: 0,
+              sessions_desktop: 0
+            });
+          }
+          const entry = dateMap.get(date);
+          entry.total_leads += row.conversions || 0;
+        });
+
         const aggregated = Array.from(dateMap.values());
 
-        // Calculate CTR for each day
+        // Calculate CTR and CPL for each day
         aggregated.forEach(d => {
           d.ads_ctr = d.ads_impressions > 0 ? (d.ads_clicks / d.ads_impressions) * 100 : 0;
+          d.cpl = d.total_leads > 0 ? d.ad_spend / d.total_leads : 0;
         });
 
         setDailyData(aggregated as DailyMetrics[]);
