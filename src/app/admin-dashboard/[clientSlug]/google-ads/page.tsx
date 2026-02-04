@@ -187,6 +187,7 @@ export default function GoogleAdsPage() {
   const [convertingTerms, setConvertingTerms] = useState<ConvertingSearchTerm[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
+  const [formConversions, setFormConversions] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -234,7 +235,7 @@ export default function GoogleAdsPage() {
     }
   }, [clientSlug]);
 
-  // Fetch daily metrics
+  // Fetch daily metrics from ads_campaign_metrics (Google Ads API)
   useEffect(() => {
     const fetchMetrics = async () => {
       if (!client) return;
@@ -243,15 +244,49 @@ export default function GoogleAdsPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        const { data: metricsData } = await supabase
-          .from('client_metrics_summary')
-          .select('date, ads_impressions, ads_clicks, ads_ctr, ad_spend, cpl, google_ads_conversions, total_leads, ads_phone_calls, form_fills, sessions_mobile, sessions_desktop')
+        // Fetch campaign metrics data
+        const { data: campaignMetricsData } = await supabase
+          .from('ads_campaign_metrics')
+          .select('date, impressions, clicks, cost')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
 
-        setDailyData((metricsData || []) as DailyMetrics[]);
+        // Aggregate by date
+        const dateMap = new Map();
+        (campaignMetricsData || []).forEach(row => {
+          const date = row.date;
+          if (!dateMap.has(date)) {
+            dateMap.set(date, {
+              date,
+              ads_impressions: 0,
+              ads_clicks: 0,
+              ads_ctr: 0,
+              ad_spend: 0,
+              cpl: 0,
+              google_ads_conversions: 0,
+              total_leads: 0,
+              ads_phone_calls: 0,
+              form_fills: 0,
+              sessions_mobile: 0,
+              sessions_desktop: 0
+            });
+          }
+          const entry = dateMap.get(date);
+          entry.ads_impressions += row.impressions || 0;
+          entry.ads_clicks += row.clicks || 0;
+          entry.ad_spend += row.cost || 0;
+        });
+
+        const aggregated = Array.from(dateMap.values());
+
+        // Calculate CTR for each day
+        aggregated.forEach(d => {
+          d.ads_ctr = d.ads_impressions > 0 ? (d.ads_clicks / d.ads_impressions) * 100 : 0;
+        });
+
+        setDailyData(aggregated as DailyMetrics[]);
       } catch (error) {
         console.error('Error fetching metrics:', error);
       }
@@ -347,8 +382,37 @@ export default function GoogleAdsPage() {
     fetchAdGroups();
   }, [client, dateRange]);
 
-  // No separate fetch needed - use ads_phone_calls directly from dailyData
-  // calculateCallMetrics happens after dailyData loads
+  // Fetch ALL conversions from campaign_conversion_actions (Google Ads API)
+  useEffect(() => {
+    const fetchConversions = async () => {
+      if (!client) return;
+
+      try {
+        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateToISO = dateRange.to.toISOString().split('T')[0];
+
+        const { data } = await supabase
+          .from('campaign_conversion_actions')
+          .select('conversions, conversion_action_name')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        if (data && data.length > 0) {
+          // Total all conversions
+          const totalConversions = data.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0);
+          setFormConversions(totalConversions);
+        } else {
+          setFormConversions(0);
+        }
+      } catch (error) {
+        console.error('Error fetching conversions:', error);
+        setFormConversions(0);
+      }
+    };
+
+    fetchConversions();
+  }, [client, dateRange]);
 
   if (loading || !client) {
     return (
@@ -358,16 +422,18 @@ export default function GoogleAdsPage() {
     );
   }
 
-  // Calculate KPIs - ALL from client_metrics_summary (aggregated daily data)
+  // Calculate KPIs - ALL from Google Ads API data
   const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
-  const totalPhoneCalls = dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0);
-  const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
+  const totalConversions = formConversions; // From campaign_conversion_actions (Google Ads API)
 
-  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-  const conversionRate = totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0;
+  const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
+  const cpc = totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0.00';
+  const cpa = totalConversions > 0 ? (totalSpend / totalConversions).toFixed(2) : '0.00';
+
+  // For display purposes, use totalConversions as the conversion rate
+  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
   // Device data
   const totalMobileSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_mobile || 0), 0);
@@ -434,8 +500,8 @@ export default function GoogleAdsPage() {
             {/* Section 2: Executive Summary */}
             <ExecutiveSummaryCards
               totalSpend={totalSpend}
-              totalConversions={totalLeads}
-              costPerLead={cpl}
+              totalConversions={totalConversions}
+              costPerLead={parseFloat(cpa)}
               conversionRate={conversionRate}
             />
 
@@ -454,7 +520,7 @@ export default function GoogleAdsPage() {
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
-              {/* Right Column: Google Ads Call Metrics - from ads_phone_calls */}
+              {/* Right Column: Google Ads Conversions - from campaign_conversion_actions */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -473,7 +539,7 @@ export default function GoogleAdsPage() {
                     color: '#5c5850',
                     margin: '0 0 8px 0'
                   }}>
-                    ☎️ Call Metrics
+                    📊 Conversions
                   </p>
                   <h3 style={{
                     fontSize: '18px',
@@ -482,8 +548,15 @@ export default function GoogleAdsPage() {
                     margin: '0 0 16px 0',
                     letterSpacing: '-0.02em'
                   }}>
-                    Google Ads Phone Calls
+                    Total Conversions
                   </h3>
+                  <p style={{
+                    fontSize: '10px',
+                    color: '#9ca3af',
+                    margin: '0 0 16px 0'
+                  }}>
+                    From Google Ads API
+                  </p>
 
                   {/* Summary Stats */}
                   <div style={{
@@ -492,7 +565,7 @@ export default function GoogleAdsPage() {
                     gap: '12px',
                     marginTop: '12px'
                   }}>
-                    {/* Total Calls */}
+                    {/* Total Conversions */}
                     <div style={{
                       background: 'rgba(196, 112, 79, 0.08)',
                       borderRadius: '8px',
@@ -505,7 +578,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Total Calls
+                        Total Conversions
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -513,7 +586,7 @@ export default function GoogleAdsPage() {
                         color: '#c4704f',
                         margin: 0
                       }}>
-                        {totalPhoneCalls}
+                        {totalConversions}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -521,11 +594,11 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        {totalLeads > 0 ? ((totalPhoneCalls / totalLeads) * 100).toFixed(1) : 0}% of leads
+                        from {totalClicks} clicks
                       </p>
                     </div>
 
-                    {/* Form Fills */}
+                    {/* Cost Per Acquisition */}
                     <div style={{
                       background: 'rgba(16, 185, 129, 0.08)',
                       borderRadius: '8px',
@@ -538,7 +611,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Form Fills
+                        Cost Per Acquisition
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -546,7 +619,7 @@ export default function GoogleAdsPage() {
                         color: '#10b981',
                         margin: 0
                       }}>
-                        {totalFormFills}
+                        ${cpa}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -554,11 +627,11 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        {totalLeads > 0 ? ((totalFormFills / totalLeads) * 100).toFixed(1) : 0}% of leads
+                        {totalConversions > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : 0}% conversion rate
                       </p>
                     </div>
 
-                    {/* Call Conversion Rate */}
+                    {/* CPC - Cost Per Click */}
                     <div style={{
                       background: 'rgba(217, 168, 84, 0.08)',
                       borderRadius: '8px',
@@ -571,7 +644,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Call Conv Rate
+                        Cost Per Click
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -579,7 +652,7 @@ export default function GoogleAdsPage() {
                         color: '#d9a854',
                         margin: 0
                       }}>
-                        {totalPhoneCalls > 0 ? ((totalPhoneCalls / (totalPhoneCalls + totalFormFills)) * 100).toFixed(1) : 0}%
+                        ${cpc}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -587,11 +660,11 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        Of total leads
+                        {totalClicks} clicks total
                       </p>
                     </div>
 
-                    {/* Quality Score */}
+                    {/* CTR - Click Through Rate */}
                     <div style={{
                       background: 'rgba(157, 181, 160, 0.08)',
                       borderRadius: '8px',
@@ -604,7 +677,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Lead Quality
+                        Click Through Rate
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -612,7 +685,7 @@ export default function GoogleAdsPage() {
                         color: '#9db5a0',
                         margin: 0
                       }}>
-                        {totalLeads > 0 ? (totalLeads > 10 ? '⭐⭐⭐⭐⭐' : totalLeads > 5 ? '⭐⭐⭐⭐' : '⭐⭐⭐') : '—'}
+                        {ctr}%
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -620,7 +693,7 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        Based on volume
+                        {totalImpressions} impressions
                       </p>
                     </div>
                   </div>
