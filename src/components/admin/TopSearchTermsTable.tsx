@@ -9,7 +9,6 @@ interface SearchTerm {
   clicks: number;
   impressions: number;
   ctr: number;
-  position: number;
   trend?: 'up' | 'down' | 'stable';
   trendPercent?: number;
 }
@@ -166,18 +165,6 @@ export default function TopSearchTermsTable({
                   letterSpacing: '0.1em',
                   whiteSpace: 'nowrap'
                 }}>
-                  Position
-                </th>
-                <th style={{
-                  padding: '12px',
-                  textAlign: 'center',
-                  fontWeight: '700',
-                  color: '#5c5850',
-                  fontSize: '11px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  whiteSpace: 'nowrap'
-                }}>
                   Trend
                 </th>
               </tr>
@@ -262,15 +249,6 @@ export default function TopSearchTermsTable({
                       whiteSpace: 'nowrap'
                     }}>
                       {term.ctr.toFixed(2)}%
-                    </td>
-                    <td style={{
-                      padding: '14px 12px',
-                      textAlign: 'center',
-                      fontWeight: '700',
-                      color: term.position <= 3 ? '#10b981' : term.position <= 5 ? '#d9a854' : '#ef4444',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {term.position.toFixed(1)}
                     </td>
                     <td style={{
                       padding: '14px 12px',

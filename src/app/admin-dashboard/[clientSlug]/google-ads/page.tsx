@@ -9,156 +9,7 @@ import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopSearchTermsTable from '@/components/admin/TopSearchTermsTable';
 import ActiveCampaignsTable from '@/components/admin/ActiveCampaignsTable';
-import CompetitiveAnalysisCards from '@/components/admin/CompetitiveAnalysisCards';
-import DeviceLocationAnalysis from '@/components/admin/DeviceLocationAnalysis';
 import { createClient } from '@supabase/supabase-js';
-
-const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
-
-// Mock search terms generator
-const generateMockSearchTerms = (dailyData: DailyMetrics[]) => {
-  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
-
-  const mockTerms = [
-    { term: 'dental implants', base: 45, position: 1.2 },
-    { term: 'dentist near me', base: 38, position: 1.5 },
-    { term: 'cosmetic dentistry', base: 28, position: 2.1 },
-    { term: 'teeth whitening', base: 22, position: 2.8 },
-    { term: 'root canal treatment', base: 18, position: 3.2 }
-  ];
-
-  return mockTerms.map((term, i) => {
-    const searches = Math.round(term.base * (totalClicks / 100 || 1));
-    const clicks = Math.round(searches * 0.15);
-    const impressions = Math.round(searches * 8);
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-
-    const trends = ['up', 'down', 'stable'] as const;
-    const trend = trends[i % 3];
-    const trendPercent = trend === 'up' ? +(Math.random() * 25).toFixed(1) : trend === 'down' ? -(Math.random() * 15).toFixed(1) : 0;
-
-    return {
-      term: term.term,
-      searches,
-      clicks,
-      impressions,
-      ctr,
-      position: term.position,
-      trend,
-      trendPercent: Number(trendPercent)
-    };
-  });
-};
-
-// Mock campaigns generator
-const generateMockCampaigns = (dailyData: DailyMetrics[]) => {
-  const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
-  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
-
-  const campaigns = [
-    { name: 'Brand - Dental Services', base: 0.35, adGroups: 12, ads: 48 },
-    { name: 'Non-Brand - General Dentistry', base: 0.25, adGroups: 18, ads: 72 },
-    { name: 'Procedures - Implants & Cosmetic', base: 0.20, adGroups: 14, ads: 56 },
-    { name: 'Location - Local Area Targeting', base: 0.12, adGroups: 8, ads: 32 },
-    { name: 'Remarketing - Website Visitors', base: 0.08, adGroups: 6, ads: 24 }
-  ];
-
-  return campaigns.map((camp, i) => {
-    const spend = totalSpend * camp.base;
-    const clicks = totalClicks * camp.base;
-    const conversions = Math.round(totalConversions * camp.base);
-    const cpc = clicks > 0 ? spend / clicks : 0;
-    const impressions = clicks > 0 ? (clicks / (totalClicks / dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0))) : 0;
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-
-    const statuses = ['active', 'active', 'active', 'active', 'paused'] as const;
-
-    return {
-      id: `campaign-${i}`,
-      name: camp.name,
-      adGroups: camp.adGroups,
-      ads: camp.ads,
-      status: statuses[i],
-      spend,
-      conversions,
-      cpc,
-      ctr,
-      impressions: Math.round(impressions),
-      clicks: Math.round(clicks)
-    };
-  });
-};
-
-// Mock competitive analysis data
-const generateMockCompetitiveAnalysis = () => {
-  return {
-    searchImpressionShare: 42.5,
-    searchImpressionShareTrend: 5.2,
-    lostISBudget: 28.3,
-    lostISBudgetTrend: -3.1,
-    lostISRank: 18.7,
-    lostISRankTrend: -2.4,
-    overlappingKeywords: 156,
-    topCompetitor: 'Bright Smile Dental'
-  };
-};
-
-// Mock device & location data
-const generateMockDeviceLocationData = (dailyData: DailyMetrics[]) => {
-  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
-  const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
-  const totalConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
-
-  const devices = [
-    { type: 'mobile' as const, share: 0.55, ctr: 4.2, cpc: 1.45 },
-    { type: 'desktop' as const, share: 0.30, ctr: 3.8, cpc: 1.65 },
-    { type: 'tablet' as const, share: 0.15, ctr: 3.2, cpc: 1.52 }
-  ];
-
-  const deviceData = devices.map((device) => {
-    const impressions = Math.round(totalImpressions * device.share);
-    const clicks = Math.round(totalClicks * device.share);
-    const conversions = Math.round(totalConversions * device.share);
-
-    return {
-      type: device.type,
-      impressions,
-      clicks,
-      ctr: device.ctr,
-      conversions,
-      cpc: device.cpc
-    };
-  });
-
-  const locations = [
-    { location: 'New York, NY', share: 0.35, roi: 185 },
-    { location: 'Los Angeles, CA', share: 0.22, roi: 156 },
-    { location: 'Chicago, IL', share: 0.18, roi: 142 },
-    { location: 'Houston, TX', share: 0.15, roi: 128 },
-    { location: 'Phoenix, AZ', share: 0.10, roi: 98 }
-  ];
-
-  const locationData = locations.map((loc) => {
-    const impressions = Math.round(totalImpressions * loc.share);
-    const clicks = Math.round(totalClicks * loc.share);
-    const conversions = Math.round(totalConversions * loc.share);
-    const spend = totalSpend * loc.share;
-
-    return {
-      location: loc.location,
-      impressions,
-      clicks,
-      conversions,
-      spend,
-      roi: loc.roi
-    };
-  });
-
-  return { deviceData, locationData };
-};
 
 interface ClientMetrics {
   id: string;
@@ -177,6 +28,103 @@ interface DailyMetrics {
   google_ads_conversions?: number;
 }
 
+interface SearchTerm {
+  term: string;
+  searches: number;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  trend?: 'up' | 'down' | 'stable';
+  trendPercent?: number;
+}
+
+interface Campaign {
+  id: string;
+  name: string;
+  adGroups: number;
+  ads: number;
+  status: 'active' | 'paused' | 'ended';
+  spend: number;
+  conversions: number;
+  cpc: number;
+  ctr: number;
+  impressions: number;
+  clicks: number;
+}
+
+// Helper function: Aggregate search terms from real data
+function aggregateSearchTerms(data: any[]): SearchTerm[] {
+  const termMap = new Map();
+
+  data.forEach(row => {
+    const term = row.search_term;
+    if (!termMap.has(term)) {
+      termMap.set(term, {
+        term,
+        impressions: 0,
+        clicks: 0,
+        cost: 0,
+        conversions: 0
+      });
+    }
+    const entry = termMap.get(term);
+    entry.impressions += row.impressions || 0;
+    entry.clicks += row.clicks || 0;
+    entry.cost += row.cost || 0;
+    entry.conversions += row.conversions || 0;
+  });
+
+  return Array.from(termMap.values()).map(entry => ({
+    term: entry.term,
+    searches: entry.clicks,
+    clicks: entry.clicks,
+    impressions: entry.impressions,
+    ctr: entry.impressions > 0 ? (entry.clicks / entry.impressions) * 100 : 0,
+    trend: 'stable' as const,
+    trendPercent: 0
+  }));
+}
+
+// Helper function: Aggregate campaigns from real data
+function aggregateCampaigns(data: any[]): Campaign[] {
+  const campaignMap = new Map();
+
+  data.forEach(row => {
+    const campId = row.campaign_id;
+    if (!campaignMap.has(campId)) {
+      campaignMap.set(campId, {
+        id: campId,
+        name: row.ad_group_name,
+        adGroups: new Set(),
+        spend: 0,
+        clicks: 0,
+        impressions: 0,
+        conversions: 0
+      });
+    }
+    const camp = campaignMap.get(campId);
+    camp.adGroups.add(row.ad_group_name);
+    camp.spend += row.cost || 0;
+    camp.clicks += row.clicks || 0;
+    camp.impressions += row.impressions || 0;
+    camp.conversions += row.conversions || 0;
+  });
+
+  return Array.from(campaignMap.values()).map(camp => ({
+    id: camp.id,
+    name: camp.name,
+    adGroups: camp.adGroups.size,
+    ads: camp.adGroups.size * 4,
+    status: 'active' as const,
+    spend: camp.spend,
+    conversions: camp.conversions,
+    cpc: camp.clicks > 0 ? camp.spend / camp.clicks : 0,
+    ctr: camp.impressions > 0 ? (camp.clicks / camp.impressions) * 100 : 0,
+    impressions: camp.impressions,
+    clicks: camp.clicks
+  }));
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -189,6 +137,8 @@ export default function GoogleAdsPage() {
 
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
+  const [searchTerms, setSearchTerms] = useState<SearchTerm[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -262,6 +212,64 @@ export default function GoogleAdsPage() {
     };
 
     fetchMetrics();
+  }, [client, dateRange]);
+
+  // Fetch search terms from campaign_search_terms
+  useEffect(() => {
+    const fetchSearchTerms = async () => {
+      if (!client) return;
+
+      try {
+        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateToISO = dateRange.to.toISOString().split('T')[0];
+
+        const { data, error } = await supabase
+          .from('campaign_search_terms')
+          .select('search_term, impressions, clicks, cost, conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        if (data) {
+          const aggregated = aggregateSearchTerms(data);
+          setSearchTerms(aggregated);
+        }
+      } catch (error) {
+        console.error('Error fetching search terms:', error);
+        setSearchTerms([]);
+      }
+    };
+
+    fetchSearchTerms();
+  }, [client, dateRange]);
+
+  // Fetch campaigns from ads_ad_group_metrics
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      if (!client) return;
+
+      try {
+        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateToISO = dateRange.to.toISOString().split('T')[0];
+
+        const { data, error } = await supabase
+          .from('ads_ad_group_metrics')
+          .select('campaign_id, ad_group_name, impressions, clicks, cost, conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        if (data) {
+          const aggregated = aggregateCampaigns(data);
+          setCampaigns(aggregated);
+        }
+      } catch (error) {
+        console.error('Error fetching campaigns:', error);
+        setCampaigns([]);
+      }
+    };
+
+    fetchCampaigns();
   }, [client, dateRange]);
 
   if (loading || !client) {
@@ -455,38 +463,46 @@ export default function GoogleAdsPage() {
 
             {/* SEARCH TERMS TABLE */}
             <div className="mb-12">
-              <TopSearchTermsTable
-                data={generateMockSearchTerms(dailyData)}
-                limit={5}
-              />
+              {searchTerms.length > 0 ? (
+                <TopSearchTermsTable
+                  data={searchTerms}
+                  limit={5}
+                />
+              ) : (
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '24px',
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <p style={{ color: '#5c5850', margin: 0 }}>No search term data available for this period</p>
+                </div>
+              )}
             </div>
 
             {/* GROUP 3: ACTIVE CAMPAIGNS */}
             <div className="mb-12">
-              <ActiveCampaignsTable
-                data={generateMockCampaigns(dailyData)}
-                limit={10}
-              />
-            </div>
-
-            {/* GROUP 4: COMPETITIVE INSIGHTS */}
-            <div className="mb-12">
-              <CompetitiveAnalysisCards
-                data={generateMockCompetitiveAnalysis()}
-              />
-            </div>
-
-            {/* GROUP 5: DEVICE & LOCATION PERFORMANCE */}
-            <div>
-              {(() => {
-                const { deviceData, locationData } = generateMockDeviceLocationData(dailyData);
-                return (
-                  <DeviceLocationAnalysis
-                    deviceData={deviceData}
-                    locationData={locationData}
-                  />
-                );
-              })()}
+              {campaigns.length > 0 ? (
+                <ActiveCampaignsTable
+                  data={campaigns}
+                  limit={10}
+                />
+              ) : (
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '24px',
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <p style={{ color: '#5c5850', margin: 0 }}>No campaign data available for this period</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
