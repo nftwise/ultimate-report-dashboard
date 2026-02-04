@@ -8,7 +8,7 @@ import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
-import PhoneCallsSummary from '@/components/admin/PhoneCallsSummary';
+import GoogleAdsCallMetrics from '@/components/admin/GoogleAdsCallMetrics';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import { createClient } from '@supabase/supabase-js';
 
@@ -62,6 +62,16 @@ interface AdGroup {
   cost: number;
   conversions: number;
   cpl: number;
+}
+
+interface CallRecord {
+  id: string;
+  date: string;
+  phone_number?: string;
+  call_duration?: number;
+  call_type?: string;
+  call_source?: string;
+  qualified_lead?: boolean;
 }
 
 // Helper function: Aggregate search terms with conversions
@@ -188,6 +198,7 @@ export default function GoogleAdsPage() {
   const [convertingTerms, setConvertingTerms] = useState<ConvertingSearchTerm[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
+  const [callMetrics, setCallMetrics] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -348,6 +359,35 @@ export default function GoogleAdsPage() {
     fetchAdGroups();
   }, [client, dateRange]);
 
+  // Fetch call metrics
+  useEffect(() => {
+    const fetchCallMetrics = async () => {
+      if (!client) return;
+
+      try {
+        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateToISO = dateRange.to.toISOString().split('T')[0];
+
+        const { data } = await supabase
+          .from('google_ads_call_metrics')
+          .select('id, date, phone_number, call_duration, call_type, call_source, qualified_lead')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: false });
+
+        if (data) {
+          setCallMetrics(data as CallRecord[]);
+        }
+      } catch (error) {
+        console.error('Error fetching call metrics:', error);
+        setCallMetrics([]);
+      }
+    };
+
+    fetchCallMetrics();
+  }, [client, dateRange]);
+
   if (loading || !client) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -452,11 +492,9 @@ export default function GoogleAdsPage() {
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
-              {/* Right Column: Phone Calls Summary */}
-              <PhoneCallsSummary
-                phoneCalls={dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0) || totalLeads}
-                formFills={dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0)}
-                gbpCalls={dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0)}
+              {/* Right Column: Google Ads Call Metrics */}
+              <GoogleAdsCallMetrics
+                calls={callMetrics}
                 totalLeads={totalLeads}
               />
             </div>
