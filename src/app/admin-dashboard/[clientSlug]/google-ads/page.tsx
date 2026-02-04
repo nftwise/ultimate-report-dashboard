@@ -334,14 +334,15 @@ export default function GoogleAdsPage() {
         <div className="p-8">
           <div className="max-w-7xl mx-auto">
             {/* Section Header */}
-            <div className="mb-8">
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>Google Ads Analytics</span>
+            <div className="mb-12">
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>GOOGLE ADS ANALYTICS</span>
               <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Performance Report</h1>
+              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Real-time campaign metrics and optimization insights</p>
             </div>
 
             {/* GROUP 1: SPEND & REACH */}
-            <div className="mb-8">
-              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>📊 Nhóm 1: Chi tiêu & Phủ</p>
+            <div className="mb-12">
+              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>💰 Spend & Reach</p>
               <div className="grid grid-cols-4 gap-6">
                 {/* Total Spend */}
                 <div className="rounded-2xl p-6" style={{
@@ -352,7 +353,7 @@ export default function GoogleAdsPage() {
                 }}>
                   <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Total Spend</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>${totalSpend.toFixed(2)}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Tổng chi phí</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Campaign budget spent</p>
                 </div>
 
                 {/* Impressions */}
@@ -364,7 +365,7 @@ export default function GoogleAdsPage() {
                 }}>
                   <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Impressions</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{totalImpressions.toLocaleString()}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Lượt hiển thị</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Ad impressions across all campaigns</p>
                 </div>
 
                 {/* Average CPC */}
@@ -374,9 +375,9 @@ export default function GoogleAdsPage() {
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Avg CPC</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Average CPC</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>${avgCPC}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Giá mỗi nhấp</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Cost per click</p>
                 </div>
 
                 {/* CTR */}
@@ -386,16 +387,16 @@ export default function GoogleAdsPage() {
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>CTR</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Click-Through Rate</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{ctr}%</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Tỷ lệ nhấp</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Clicks relative to impressions</p>
                 </div>
               </div>
             </div>
 
             {/* GROUP 2: CONVERSIONS */}
-            <div className="mb-8">
-              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>🎯 Nhóm 2: Hiệu suất Chuyển đổi</p>
+            <div className="mb-12">
+              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>🎯 Conversion Performance</p>
               <div className="grid grid-cols-4 gap-6">
                 {/* Total Conversions */}
                 <div className="rounded-2xl p-6" style={{
@@ -404,21 +405,21 @@ export default function GoogleAdsPage() {
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Conversions</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Total Conversions</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{totalConversions}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Tổng chuyển đổi</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Completed conversion actions</p>
                 </div>
 
-                {/* CPL */}
+                {/* Cost Per Lead */}
                 <div className="rounded-2xl p-6" style={{
                   background: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>CPL</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Cost Per Lead</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>${cpl}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Chi phí mỗi lead</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Advertising cost per conversion</p>
                 </div>
 
                 {/* Total Clicks */}
@@ -428,9 +429,9 @@ export default function GoogleAdsPage() {
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Clicks</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Total Clicks</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{totalClicks.toLocaleString()}</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Tổng lượt nhấp</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>All ad clicks generated</p>
                 </div>
 
                 {/* Conversion Rate */}
@@ -440,42 +441,42 @@ export default function GoogleAdsPage() {
                   border: '1px solid rgba(44, 36, 25, 0.1)',
                   boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Conv. Rate</p>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Conversion Rate</p>
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{conversionRate}%</div>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>Tỷ lệ chuyển</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>Clicks that converted to leads</p>
                 </div>
               </div>
             </div>
 
             {/* COMBO CHART: SPEND VS LEADS */}
-            <div className="mb-8">
+            <div className="mb-12">
               <SpendVsLeadsComboChart data={dailyData} height={350} />
             </div>
 
             {/* SEARCH TERMS TABLE */}
-            <div className="mb-8">
+            <div className="mb-12">
               <TopSearchTermsTable
                 data={generateMockSearchTerms(dailyData)}
                 limit={5}
               />
             </div>
 
-            {/* GROUP 3: CAMPAIGNS */}
-            <div className="mb-8">
+            {/* GROUP 3: ACTIVE CAMPAIGNS */}
+            <div className="mb-12">
               <ActiveCampaignsTable
                 data={generateMockCampaigns(dailyData)}
                 limit={10}
               />
             </div>
 
-            {/* GROUP 4: COMPETITIVE ANALYSIS */}
-            <div className="mb-8">
+            {/* GROUP 4: COMPETITIVE INSIGHTS */}
+            <div className="mb-12">
               <CompetitiveAnalysisCards
                 data={generateMockCompetitiveAnalysis()}
               />
             </div>
 
-            {/* GROUP 5: DEVICE & LOCATION */}
+            {/* GROUP 5: DEVICE & LOCATION PERFORMANCE */}
             <div>
               {(() => {
                 const { deviceData, locationData } = generateMockDeviceLocationData(dailyData);
