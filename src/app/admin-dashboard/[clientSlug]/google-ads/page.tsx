@@ -199,7 +199,6 @@ export default function GoogleAdsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
   const [callMetrics, setCallMetrics] = useState<CallRecord[]>([]);
-  const [totalConversions, setTotalConversions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -258,7 +257,7 @@ export default function GoogleAdsPage() {
 
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, ads_impressions, ads_clicks, ads_ctr, ad_spend, cpl, google_ads_conversions, sessions_mobile, sessions_desktop')
+          .select('date, ads_impressions, ads_clicks, ads_ctr, ad_spend, cpl, google_ads_conversions, total_leads, ads_phone_calls, form_fills, sessions_mobile, sessions_desktop')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -350,15 +349,10 @@ export default function GoogleAdsPage() {
         if (data) {
           const aggregated = aggregateAdGroups(data);
           setAdGroups(aggregated);
-
-          // Calculate total conversions from raw data
-          const totalConv = data.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0);
-          setTotalConversions(totalConv);
         }
       } catch (error) {
         console.error('Error fetching ad groups:', error);
         setAdGroups([]);
-        setTotalConversions(0);
       }
     };
 
@@ -402,13 +396,13 @@ export default function GoogleAdsPage() {
     );
   }
 
-  // Calculate KPIs from client_metrics_summary
+  // Calculate KPIs - ALL from client_metrics_summary (aggregated daily data)
   const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-
-  // Use conversions from state (set during ad groups fetch)
-  const totalLeads = totalConversions;
+  const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+  const totalPhoneCalls = dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0);
+  const totalFormFills = dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0);
 
   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
   const conversionRate = totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0;
