@@ -712,9 +712,9 @@ export default function GoogleAdsPage() {
                     margin: 0,
                     lineHeight: '1.5'
                   }}>
-                    💡 <strong>Overview:</strong> {totalPhoneCalls > 0
-                      ? `${totalPhoneCalls} phone calls and ${totalFormFills} form submissions across ${totalLeads} total leads. Focus on call follow-up speed for better conversion.`
-                      : 'No call or form data available for this period.'}
+                    💡 <strong>Overview:</strong> {totalConversions > 0
+                      ? `${totalConversions} conversions from ${totalClicks} clicks (${ctr}% CTR). Average cost per conversion: $${cpa}.`
+                      : 'No conversion data available for this period.'}
                   </p>
                 </div>
               </div>
