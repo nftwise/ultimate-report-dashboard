@@ -177,26 +177,30 @@ export default function ClientDetailPage() {
           console.warn('[Client Details] GBP data fetch warning:', gbpError);
           // Don't fail if GBP data unavailable, just use metrics data
         } else {
-          const latestGbpDate = gbpData && gbpData.length > 0
-            ? gbpData[gbpData.length - 1].date
+          const gbpArray = Array.isArray(gbpData) ? gbpData : [];
+          const latestGbpDate = gbpArray.length > 0
+            ? gbpArray[gbpArray.length - 1].date
             : 'No data';
           console.log('[Client Details] GBP data received:', {
-            count: gbpData?.length || 0,
-            dateRange: `${gbpData?.[0]?.date} to ${latestGbpDate}`,
-            sample: gbpData?.[0] || null
+            isArray: Array.isArray(gbpData),
+            count: gbpArray.length,
+            dateRange: `${gbpArray[0]?.date || 'N/A'} to ${latestGbpDate}`,
+            sample: gbpArray[0] || null
           });
         }
 
         // Merge GBP data into metrics data
+        const gbpDataArray = Array.isArray(gbpData) ? gbpData : [];
         const merged = (metricsData || []).map((metric: any) => {
-          const gbp = gbpData?.find((g: any) => g.date === metric.date);
+          const gbp = gbpDataArray.find((g: any) => g.date === metric.date);
+          const phoneCallsValue = gbp?.phone_calls !== undefined ? gbp.phone_calls : (metric.gbp_calls || 0);
           return {
             ...metric,
             // Prefer location-level GBP data (more reliable) over client-level
-            gbp_calls: gbp?.phone_calls || metric.gbp_calls || 0,
-            gbp_profile_views: gbp?.views || 0,
-            gbp_website_clicks: gbp?.website_clicks || 0,
-            gbp_direction_requests: gbp?.direction_requests || 0
+            gbp_calls: phoneCallsValue,
+            gbp_profile_views: gbp?.views !== undefined ? gbp.views : 0,
+            gbp_website_clicks: gbp?.website_clicks !== undefined ? gbp.website_clicks : 0,
+            gbp_direction_requests: gbp?.direction_requests !== undefined ? gbp.direction_requests : 0
           };
         });
 
