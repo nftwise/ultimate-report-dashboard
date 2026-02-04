@@ -133,20 +133,43 @@ function aggregateCampaigns(data: any[]): Campaign[] {
   }));
 }
 
-// Helper function: Aggregate ad groups (flat)
+// Helper function: Aggregate ad groups - SUM by ad_group_id across date range
 function aggregateAdGroups(data: any[]): AdGroup[] {
-  return (data || []).map((row, index) => ({
-    campaignId: row.campaign_id,
-    campaignName: row.ad_group_name?.split(' ')[0] || 'Campaign',
-    adGroupId: row.ad_group_id,
-    adGroupName: row.ad_group_name,
-    status: row.conversions > 0 || row.clicks > 0 ? 'active' : 'paused',
-    impressions: row.impressions || 0,
-    clicks: row.clicks || 0,
-    ctr: row.ctr || 0,
-    cost: row.cost || 0,
-    conversions: row.conversions || 0,
-    cpl: row.conversions > 0 ? (row.cost || 0) / row.conversions : 0
+  const groupMap = new Map();
+
+  // Sum metrics for each ad group across all dates
+  data.forEach(row => {
+    const adGroupId = row.ad_group_id;
+    if (!groupMap.has(adGroupId)) {
+      groupMap.set(adGroupId, {
+        campaignId: row.campaign_id,
+        adGroupName: row.ad_group_name,
+        impressions: 0,
+        clicks: 0,
+        cost: 0,
+        conversions: 0
+      });
+    }
+    const entry = groupMap.get(adGroupId);
+    entry.impressions += row.impressions || 0;
+    entry.clicks += row.clicks || 0;
+    entry.cost += row.cost || 0;
+    entry.conversions += row.conversions || 0;
+  });
+
+  // Convert to array and calculate derived metrics
+  return Array.from(groupMap.values()).map(entry => ({
+    campaignId: entry.campaignId,
+    campaignName: entry.adGroupName?.split(' ')[0] || 'Campaign',
+    adGroupId: entry.campaignId + '-' + entry.adGroupName, // unique key
+    adGroupName: entry.adGroupName,
+    status: entry.conversions > 0 || entry.clicks > 0 ? 'active' : 'paused',
+    impressions: entry.impressions,
+    clicks: entry.clicks,
+    ctr: entry.impressions > 0 ? (entry.clicks / entry.impressions) * 100 : 0,
+    cost: entry.cost,
+    conversions: entry.conversions,
+    cpl: entry.conversions > 0 ? entry.cost / entry.conversions : 0
   }));
 }
 
@@ -307,7 +330,7 @@ export default function GoogleAdsPage() {
 
         const { data } = await supabase
           .from('ads_ad_group_metrics')
-          .select('campaign_id, ad_group_id, ad_group_name, impressions, clicks, ctr, cost, conversions')
+          .select('campaign_id, ad_group_id, ad_group_name, impressions, clicks, cost, conversions')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
@@ -333,11 +356,14 @@ export default function GoogleAdsPage() {
     );
   }
 
-  // Calculate KPIs
+  // Calculate KPIs from client_metrics_summary
   const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+
+  // Use conversions from ads_ad_group_metrics (more reliable than client_metrics_summary.total_leads)
+  const totalLeads = adGroups.reduce((sum: number, g: any) => sum + g.conversions, 0);
+
   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
   const conversionRate = totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0;
 
@@ -428,7 +454,7 @@ export default function GoogleAdsPage() {
 
               {/* Right Column: Phone Calls Summary */}
               <PhoneCallsSummary
-                phoneCalls={dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0)}
+                phoneCalls={dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0) || totalLeads}
                 formFills={dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0)}
                 gbpCalls={dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0)}
                 totalLeads={totalLeads}
