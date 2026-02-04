@@ -199,6 +199,7 @@ export default function GoogleAdsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
   const [callMetrics, setCallMetrics] = useState<CallRecord[]>([]);
+  const [totalConversions, setTotalConversions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -349,10 +350,15 @@ export default function GoogleAdsPage() {
         if (data) {
           const aggregated = aggregateAdGroups(data);
           setAdGroups(aggregated);
+
+          // Calculate total conversions from raw data
+          const totalConv = data.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0);
+          setTotalConversions(totalConv);
         }
       } catch (error) {
         console.error('Error fetching ad groups:', error);
         setAdGroups([]);
+        setTotalConversions(0);
       }
     };
 
@@ -401,8 +407,8 @@ export default function GoogleAdsPage() {
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
 
-  // Use conversions from ads_ad_group_metrics (more reliable than client_metrics_summary.total_leads)
-  const totalLeads = adGroups.reduce((sum: number, g: any) => sum + g.conversions, 0);
+  // Use conversions from state (set during ad groups fetch)
+  const totalLeads = totalConversions;
 
   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
   const conversionRate = totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0;
