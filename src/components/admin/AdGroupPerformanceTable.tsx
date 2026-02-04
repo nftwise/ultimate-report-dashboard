@@ -14,7 +14,6 @@ interface AdGroup {
   cost: number;
   conversions: number;
   cpl: number;
-  efficiency: number;
 }
 
 interface AdGroupPerformanceTableProps {
@@ -263,18 +262,6 @@ export default function AdGroupPerformanceTable({
                 }}>
                   CPL
                 </th>
-                <th style={{
-                  padding: '12px',
-                  textAlign: 'center',
-                  fontWeight: '700',
-                  color: '#5c5850',
-                  fontSize: '10px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  whiteSpace: 'nowrap'
-                }}>
-                  Eff%
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -377,15 +364,6 @@ export default function AdGroupPerformanceTable({
                       whiteSpace: 'nowrap'
                     }}>
                       ${group.cpl.toFixed(2)}
-                    </td>
-                    <td style={{
-                      padding: '12px',
-                      textAlign: 'center',
-                      fontWeight: '600',
-                      color: group.efficiency > 0 ? '#10b981' : '#5c5850',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {group.efficiency.toFixed(2)}%
                     </td>
                   </tr>
                 );

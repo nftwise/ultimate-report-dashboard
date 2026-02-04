@@ -62,7 +62,6 @@ interface AdGroup {
   cost: number;
   conversions: number;
   cpl: number;
-  efficiency: number;
 }
 
 // Helper function: Aggregate search terms with conversions
@@ -147,8 +146,7 @@ function aggregateAdGroups(data: any[]): AdGroup[] {
     ctr: row.ctr || 0,
     cost: row.cost || 0,
     conversions: row.conversions || 0,
-    cpl: row.conversions > 0 ? (row.cost || 0) / row.conversions : 0,
-    efficiency: row.cost > 0 ? (row.conversions / row.cost) * 100 : 0
+    cpl: row.conversions > 0 ? (row.cost || 0) / row.conversions : 0
   }));
 }
 
@@ -426,7 +424,7 @@ export default function GoogleAdsPage() {
               marginBottom: '32px'
             }}>
               {/* Left Column: Top Converting Search Terms */}
-              <TopConvertingSearchTerms data={convertingTerms} limit={10} />
+              <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
               {/* Right Column: Campaign Performance Summary */}
               <CampaignPerformanceSummary
