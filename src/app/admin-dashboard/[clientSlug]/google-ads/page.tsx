@@ -8,7 +8,7 @@ import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
-import CampaignPerformanceSummary from '@/components/admin/CampaignPerformanceSummary';
+import PhoneCallsSummary from '@/components/admin/PhoneCallsSummary';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import { createClient } from '@supabase/supabase-js';
 
@@ -337,9 +337,9 @@ export default function GoogleAdsPage() {
   const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
-  const cpl = totalConversions > 0 ? totalSpend / totalConversions : 0;
-  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
+  const totalLeads = dailyData.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
+  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+  const conversionRate = totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0;
 
   // Device data
   const totalMobileSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_mobile || 0), 0);
@@ -406,7 +406,7 @@ export default function GoogleAdsPage() {
             {/* Section 2: Executive Summary */}
             <ExecutiveSummaryCards
               totalSpend={totalSpend}
-              totalConversions={totalConversions}
+              totalConversions={totalLeads}
               costPerLead={cpl}
               conversionRate={conversionRate}
             />
@@ -426,10 +426,12 @@ export default function GoogleAdsPage() {
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
-              {/* Right Column: Campaign Performance Summary */}
-              <CampaignPerformanceSummary
-                campaigns={campaigns}
-                deviceData={{ mobileSessions: totalMobileSessions, desktopSessions: totalDesktopSessions }}
+              {/* Right Column: Phone Calls Summary */}
+              <PhoneCallsSummary
+                phoneCalls={dailyData.reduce((sum: number, d: any) => sum + (d.ads_phone_calls || 0), 0)}
+                formFills={dailyData.reduce((sum: number, d: any) => sum + (d.form_fills || 0), 0)}
+                gbpCalls={dailyData.reduce((sum: number, d: any) => sum + (d.gbp_calls || 0), 0)}
+                totalLeads={totalLeads}
               />
             </div>
 
