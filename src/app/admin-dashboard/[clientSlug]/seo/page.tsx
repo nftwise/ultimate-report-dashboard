@@ -205,6 +205,16 @@ export default function SEOPage() {
   const totalBlogSessions = dailyData.reduce((sum: number, d: any) => sum + (d.blog_sessions || 0), 0);
   const latestTopLandingPages = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_landing_pages : null;
 
+  // NEW: Keywords Ranking Analysis (Top 5, Top 10, 11-20)
+  const keywordsInTop5 = dailyData.filter((d: any) => d.google_rank && d.google_rank <= 5).length;
+  const keywordsInTop10 = dailyData.filter((d: any) => d.google_rank && d.google_rank <= 10).length;
+  const keywordsIn11To20 = dailyData.filter((d: any) => d.google_rank && d.google_rank > 10 && d.google_rank <= 20).length;
+  const daysWithRankData = dailyData.filter((d: any) => d.google_rank).length;
+
+  const avgGoogleRankValue = daysWithRankData > 0
+    ? (dailyData.filter((d: any) => d.google_rank).reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / daysWithRankData)
+    : 0;
+
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Sidebar */}
@@ -641,7 +651,7 @@ export default function SEOPage() {
 
             {/* Tier 4: Granular Data (3-column @ 33/33/33) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-              {/* Column 1: Landing Pages + Blog Highlight */}
+              {/* Column 1: Keywords Top Rankings */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -651,14 +661,58 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  📄 Top Landing Pages
+                  🏆 Keywords Ranking
                 </p>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Where Visitors Land
+                  Top Performing Keywords
                 </h3>
-                <p style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
-                  {latestTopLandingPages ? 'Landing pages data available' : 'No landing page data'}
-                </p>
+
+                {/* Ranking Breakdown Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    borderTop: '3px solid #10b981'
+                  }}>
+                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
+                      Top 5
+                    </p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#10b981', margin: 0 }}>
+                      {keywordsInTop5}
+                    </p>
+                  </div>
+                  <div style={{
+                    background: 'rgba(217, 168, 84, 0.1)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    borderTop: '3px solid #d9a854'
+                  }}>
+                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
+                      Top 10
+                    </p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#d9a854', margin: 0 }}>
+                      {keywordsInTop10}
+                    </p>
+                  </div>
+                  <div style={{
+                    background: 'rgba(196, 112, 79, 0.1)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    borderTop: '3px solid #c4704f'
+                  }}>
+                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
+                      11-20
+                    </p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f', margin: 0 }}>
+                      {keywordsIn11To20}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Blog Highlight Box */}
                 <div style={{
                   background: 'linear-gradient(135deg, rgba(157, 181, 160, 0.15), rgba(16, 185, 129, 0.15))',
@@ -675,6 +729,23 @@ export default function SEOPage() {
                   </p>
                   <p style={{ fontSize: '10px', color: '#5c5850', margin: 0 }}>
                     Sessions on blog content
+                  </p>
+                </div>
+
+                {/* Average Rank Info */}
+                <div style={{
+                  background: 'rgba(44, 36, 25, 0.02)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginTop: '12px',
+                  textAlign: 'center',
+                  border: '1px solid rgba(44, 36, 25, 0.05)'
+                }}>
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0' }}>
+                    Average Rank
+                  </p>
+                  <p style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: 0 }}>
+                    {avgGoogleRankValue.toFixed(1)}
                   </p>
                 </div>
               </div>
