@@ -167,16 +167,17 @@ export default function SEOPage() {
 
   const latestTopKeywords = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_keywords : null;
 
-  // Prepare data for pie chart
+  // Prepare data for traffic channels (primary sources only - no overlap)
   const trafficSourceData = [
     { name: 'Organic', value: totalOrganicTraffic, color: '#9db5a0' },
-    { name: 'Branded', value: totalBrandedTraffic, color: '#10b981' },
-    { name: 'Non-Branded', value: totalNonBrandedTraffic, color: '#d9a854' },
-    { name: 'Paid', value: totalTrafficPaid, color: '#c4704f' },
     { name: 'Direct', value: totalTrafficDirect, color: '#a8a094' },
+    { name: 'Paid', value: totalTrafficPaid, color: '#c4704f' },
     { name: 'Referral', value: totalTrafficReferral, color: '#8b7355' },
     { name: 'AI', value: totalTrafficAI, color: '#6b5b95' }
   ].filter(source => source.value > 0);
+
+  // Note: Branded/Non-Branded are sub-categories of traffic, not primary sources
+  // They're shown separately in Search Health Analysis section
 
   // NEW: User Identity Metrics
   const totalNewUsers = dailyData.reduce((sum: number, d: any) => sum + (d.new_users || 0), 0);
