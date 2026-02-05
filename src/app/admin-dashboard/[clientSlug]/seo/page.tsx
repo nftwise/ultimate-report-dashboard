@@ -215,6 +215,91 @@ export default function SEOPage() {
     ? (dailyData.filter((d: any) => d.google_rank).reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / daysWithRankData)
     : 0;
 
+  // NEW: Conversion Funnel Data (31 days aggregated)
+  const [funnelData, setFunnelData] = useState<{
+    sessions: number;
+    events: number;
+    conversions: number;
+  }>({ sessions: 0, events: 0, conversions: 0 });
+
+  const [topLandingPages, setTopLandingPages] = useState<any[]>([]);
+  const [topKeywords, setTopKeywords] = useState<any[]>([]);
+
+  // Fetch funnel data
+  useEffect(() => {
+    const fetchFunnelData = async () => {
+      try {
+        const dateFromISO = new Date(dateRange.from).toISOString().split('T')[0];
+        const dateToISO = new Date(dateRange.to).toISOString().split('T')[0];
+
+        // Get sessions
+        const { data: sessionsData } = await supabase
+          .from('ga4_sessions')
+          .select('sessions, conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        // Get events
+        const { data: eventsData } = await supabase
+          .from('ga4_events')
+          .select('event_count')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        // Get conversions
+        const { data: conversionsData } = await supabase
+          .from('ga4_conversions')
+          .select('conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        const totalSessions = sessionsData?.reduce((sum, s) => sum + (s.sessions || 0), 0) || 0;
+        const totalEvents = eventsData?.reduce((sum, e) => sum + (e.event_count || 0), 0) || 0;
+        const totalConversions = conversionsData?.reduce((sum, c) => sum + (c.conversions || 0), 0) || 0;
+
+        setFunnelData({ sessions: totalSessions, events: totalEvents, conversions: totalConversions });
+
+        // Get top landing pages
+        const { data: lpData } = await supabase
+          .from('ga4_landing_pages')
+          .select('landing_page, sessions, conversions, conversion_rate, bounce_rate')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('sessions', { ascending: false })
+          .limit(5);
+
+        setTopLandingPages(lpData || []);
+
+        // Get top keywords
+        const { data: kwData } = await supabase
+          .from('gsc_queries')
+          .select('query, clicks, impressions, ctr, position')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('impressions', { ascending: false })
+          .limit(5);
+
+        setTopKeywords(kwData || []);
+      } catch (error) {
+        console.error('Error fetching funnel data:', error);
+      }
+    };
+
+    fetchFunnelData();
+  }, [client, dateRange]);
+
+  // Calculate funnel metrics
+  const funnelMetrics = {
+    sessionToEventRate: funnelData.sessions > 0 ? ((funnelData.events / funnelData.sessions) * 100).toFixed(1) : '0',
+    eventToConversionRate: funnelData.events > 0 ? ((funnelData.conversions / funnelData.events) * 100).toFixed(2) : '0',
+    sessionToConversionRate: funnelData.sessions > 0 ? ((funnelData.conversions / funnelData.sessions) * 100).toFixed(2) : '0'
+  };
+
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Sidebar */}
@@ -478,6 +563,121 @@ export default function SEOPage() {
                     margin: '0'
                   }}>
                     click-through rate
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversion Funnel - Vertical Bars */}
+            <div className="mb-12" style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(44, 36, 25, 0.1)',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+            }}>
+              <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                🎯 Conversion Funnel
+              </p>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 24px 0', letterSpacing: '-0.02em' }}>
+                Sessions → Events → Conversions
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', alignItems: 'flex-end' }}>
+                {/* Stage 1: Sessions */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    background: 'linear-gradient(180deg, rgba(157, 181, 160, 0.15), rgba(157, 181, 160, 0.05))',
+                    borderRadius: '12px',
+                    padding: '24px 16px',
+                    border: '2px solid #9db5a0',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                      Stage 1: Sessions
+                    </p>
+                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#9db5a0', margin: '0 0 8px 0' }}>
+                      {funnelData.sessions.toLocaleString()}
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
+                      Entry point
+                    </p>
+                  </div>
+                </div>
+
+                {/* Arrow Down + Rate */}
+                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+                  <p style={{ fontSize: '24px', margin: '0', color: '#9db5a0' }}>↓</p>
+                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#d9a854', margin: '0', background: 'rgba(217, 168, 84, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
+                    {funnelMetrics.sessionToEventRate}%
+                  </p>
+                </div>
+
+                {/* Stage 2: Events */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    background: 'linear-gradient(180deg, rgba(217, 168, 84, 0.15), rgba(217, 168, 84, 0.05))',
+                    borderRadius: '12px',
+                    padding: '24px 16px',
+                    border: '2px solid #d9a854',
+                    minHeight: '180px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                      Stage 2: Events
+                    </p>
+                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#d9a854', margin: '0 0 8px 0' }}>
+                      {funnelData.events.toLocaleString()}
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
+                      User engagement
+                    </p>
+                  </div>
+                </div>
+
+                {/* Arrow Down + Rate */}
+                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+                  <p style={{ fontSize: '24px', margin: '0', color: '#d9a854' }}>↓</p>
+                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', margin: '0', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
+                    {funnelMetrics.eventToConversionRate}%
+                  </p>
+                </div>
+
+                {/* Stage 3: Conversions */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))',
+                    borderRadius: '12px',
+                    padding: '24px 16px',
+                    border: '2px solid #10b981',
+                    minHeight: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                      Stage 3: Conversions
+                    </p>
+                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#10b981', margin: '0 0 8px 0' }}>
+                      {funnelData.conversions.toLocaleString()}
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
+                      Goals achieved
+                    </p>
+                  </div>
+                </div>
+
+                {/* Overall Rate */}
+                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#2c2419', margin: '0' }}>Overall</p>
+                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#10b981', margin: '0', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
+                    {funnelMetrics.sessionToConversionRate}%
                   </p>
                 </div>
               </div>
