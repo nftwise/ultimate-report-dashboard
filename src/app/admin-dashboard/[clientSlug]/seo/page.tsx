@@ -192,13 +192,69 @@ export default function SEOPage() {
               <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Organic search visibility and traffic metrics</p>
             </div>
 
-            {/* Section 2: Executive Summary */}
-            <ExecutiveSummaryCards
-              totalSpend={totalImpressions}
-              totalConversions={totalClicks}
-              costPerLead={parseFloat(avgCtr)}
-              conversionRate={parseFloat(conversionRate)}
-            />
+            {/* Section 2: SEO Key Metrics */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '16px',
+              marginBottom: '32px'
+            }}>
+              {/* Impressions Card */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Impressions</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalImpressions}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Search results shown</p>
+              </div>
+
+              {/* Clicks Card */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Clicks</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalClicks}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Clicks from search</p>
+              </div>
+
+              {/* CTR Card */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>CTR</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{avgCtr}%</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Click-through rate</p>
+              </div>
+
+              {/* Organic Traffic Card */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Organic Traffic</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalOrganicTraffic}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Sessions from search</p>
+              </div>
+            </div>
 
             {/* Section 3: Visual Trend Analysis */}
             <div className="mb-12">
