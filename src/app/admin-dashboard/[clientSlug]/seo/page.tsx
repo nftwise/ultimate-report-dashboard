@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
@@ -20,6 +21,10 @@ interface DailyMetrics {
   sessions?: number;
   users?: number;
   traffic_organic?: number;
+  traffic_paid?: number;
+  traffic_direct?: number;
+  traffic_referral?: number;
+  traffic_ai?: number;
   branded_traffic?: number;
   non_branded_traffic?: number;
   keywords_improved?: number;
@@ -27,6 +32,8 @@ interface DailyMetrics {
   seo_impressions?: number;
   seo_clicks?: number;
   seo_ctr?: number;
+  google_rank?: number;
+  top_keywords?: any;
 }
 
 const supabase = createClient(
@@ -101,7 +108,7 @@ export default function SEOPage() {
         // Using GA4 sessions + organic traffic (not GSC data)
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, sessions, users, traffic_organic, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr')
+          .select('date, sessions, users, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -136,6 +143,34 @@ export default function SEOPage() {
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
 
   const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
+
+  // Traffic source totals for pie chart
+  const totalTrafficPaid = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_paid || 0), 0);
+  const totalTrafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
+  const totalTrafficReferral = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_referral || 0), 0);
+  const totalTrafficAI = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
+
+  // Calculate total traffic for percentages
+  const totalAllTraffic = totalOrganicTraffic + totalBrandedTraffic + totalNonBrandedTraffic +
+                          totalTrafficPaid + totalTrafficDirect + totalTrafficReferral + totalTrafficAI;
+
+  // GSC metrics
+  const avgGoogleRank = dailyData.length > 0
+    ? (dailyData.reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / dailyData.filter((d: any) => d.google_rank).length).toFixed(1)
+    : '0.0';
+
+  const latestTopKeywords = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_keywords : null;
+
+  // Prepare data for pie chart
+  const trafficSourceData = [
+    { name: 'Organic', value: totalOrganicTraffic, color: '#9db5a0' },
+    { name: 'Branded', value: totalBrandedTraffic, color: '#10b981' },
+    { name: 'Non-Branded', value: totalNonBrandedTraffic, color: '#d9a854' },
+    { name: 'Paid', value: totalTrafficPaid, color: '#c4704f' },
+    { name: 'Direct', value: totalTrafficDirect, color: '#a8a094' },
+    { name: 'Referral', value: totalTrafficReferral, color: '#8b7355' },
+    { name: 'AI', value: totalTrafficAI, color: '#6b5b95' }
+  ].filter(source => source.value > 0);
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -405,22 +440,16 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Section 4: SEO Breakdown - Keywords Performance */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '60% 40%',
-              gap: '24px',
-              marginBottom: '32px'
+            {/* Section 4: Traffic Sources Distribution Pie Chart */}
+            <div className="mb-12" style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(44, 36, 25, 0.1)',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
             }}>
-              {/* Left Column: Branded vs Non-Branded Traffic */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
+              <div style={{ marginBottom: '24px' }}>
                 <p style={{
                   fontSize: '11px',
                   fontWeight: '700',
@@ -429,261 +458,272 @@ export default function SEOPage() {
                   color: '#5c5850',
                   margin: '0 0 8px 0'
                 }}>
-                  🎯 Traffic Segmentation
+                  📊 Traffic Sources Distribution
                 </p>
                 <h3 style={{
                   fontSize: '18px',
                   fontWeight: '700',
                   color: '#2c2419',
-                  margin: '0 0 16px 0',
+                  margin: '0',
                   letterSpacing: '-0.02em'
                 }}>
-                  Organic Traffic Types
+                  Where Your Visitors Come From
                 </h3>
+              </div>
 
-                {/* Traffic Stats Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  marginTop: '12px'
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+                {/* Pie Chart */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <PieChart>
+                      <Pie
+                        data={trafficSourceData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={110}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {trafficSourceData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any) => value.toLocaleString()}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          backdropFilter: 'blur(10px)',
+                          border: '1px solid rgba(44, 36, 25, 0.1)',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Legend with percentages */}
+                <div>
+                  {trafficSourceData.map((source: any, idx: number) => {
+                    const percentage = totalAllTraffic > 0
+                      ? ((source.value / totalAllTraffic) * 100).toFixed(1)
+                      : '0.0';
+                    return (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 16px',
+                        marginBottom: '8px',
+                        background: `${source.color}15`,
+                        borderRadius: '12px',
+                        borderLeft: `4px solid ${source.color}`
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '3px',
+                            background: source.color
+                          }}></div>
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#2c2419' }}>
+                            {source.name}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '16px', fontWeight: '700', color: source.color, margin: '0' }}>
+                            {source.value.toLocaleString()}
+                          </p>
+                          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0' }}>
+                            {percentage}%
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5: Enhanced GSC Performance Metrics */}
+            <div className="mb-12">
+              <div style={{ marginBottom: '24px' }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: '#5c5850',
+                  margin: '0 0 8px 0'
                 }}>
-                  {/* Branded Traffic */}
-                  <div style={{
-                    background: 'rgba(196, 112, 79, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #c4704f'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Branded
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#c4704f',
-                      margin: 0
-                    }}>
-                      {totalBrandedTraffic}
-                    </p>
-                  </div>
+                  🔍 Google Search Console Metrics
+                </p>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#2c2419',
+                  margin: '0',
+                  letterSpacing: '-0.02em'
+                }}>
+                  Search Visibility & Performance
+                </h3>
+              </div>
 
-                  {/* Non-Branded Traffic */}
-                  <div style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #10b981'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Non-Branded
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      margin: 0
-                    }}>
-                      {totalNonBrandedTraffic}
-                    </p>
-                  </div>
+              {/* Top Row: 3 Main GSC Cards */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '16px',
+                marginBottom: '16px'
+              }}>
+                {/* Impressions Card */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                  borderTop: '4px solid #c4704f'
+                }}>
+                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    👁️ Impressions
+                  </p>
+                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>
+                    {totalImpressions.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
+                    Times shown in search
+                  </p>
+                </div>
 
-                  {/* Keywords Improved */}
-                  <div style={{
-                    background: 'rgba(217, 168, 84, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #d9a854'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Keywords Improved
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#d9a854',
-                      margin: 0
-                    }}>
-                      {totalKeywordsImproved}
-                    </p>
-                  </div>
+                {/* Clicks Card */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                  borderTop: '4px solid #10b981'
+                }}>
+                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    🖱️ Clicks
+                  </p>
+                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>
+                    {totalClicks.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
+                    From search results
+                  </p>
+                </div>
 
-                  {/* Keywords Declined */}
-                  <div style={{
-                    background: 'rgba(157, 181, 160, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #9db5a0'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Keywords Declined
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#9db5a0',
-                      margin: 0
-                    }}>
-                      {totalKeywordsDeclined}
-                    </p>
-                  </div>
+                {/* CTR Card */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                  borderTop: '4px solid #d9a854'
+                }}>
+                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    📊 CTR
+                  </p>
+                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>
+                    {avgCtr}%
+                  </p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
+                    Click-through rate
+                  </p>
                 </div>
               </div>
 
-              {/* Right Column: SEO Metrics */}
+              {/* Bottom Row: 4 Secondary GSC Cards */}
               <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '16px'
               }}>
-                <p style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: '#5c5850',
-                  margin: '0 0 8px 0'
-                }}>
-                  🔍 SEO Metrics
-                </p>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  color: '#2c2419',
-                  margin: '0 0 16px 0',
-                  letterSpacing: '-0.02em'
-                }}>
-                  Search Visibility
-                </h3>
-
+                {/* Average Rank Card */}
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  marginTop: '12px'
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
                 }}>
-                  {/* Impressions */}
-                  <div style={{
-                    background: 'rgba(196, 112, 79, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #c4704f'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Impressions
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#c4704f',
-                      margin: 0
-                    }}>
-                      {totalImpressions}
-                    </p>
-                  </div>
+                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    🏆 Avg Rank
+                  </p>
+                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>
+                    {avgGoogleRank}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
+                    Position
+                  </p>
+                </div>
 
-                  {/* Clicks */}
-                  <div style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #10b981'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Clicks
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      margin: 0
-                    }}>
-                      {totalClicks}
-                    </p>
-                  </div>
+                {/* Keywords Improved Card */}
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    📈 Improved
+                  </p>
+                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>
+                    {totalKeywordsImproved}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
+                    Keywords up
+                  </p>
+                </div>
 
-                  {/* CTR */}
-                  <div style={{
-                    background: 'rgba(217, 168, 84, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #d9a854'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      CTR
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#d9a854',
-                      margin: 0
-                    }}>
-                      {avgCtr}%
-                    </p>
-                  </div>
+                {/* Keywords Declined Card */}
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    📉 Declined
+                  </p>
+                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#ef4444', margin: '0 0 4px 0' }}>
+                    {totalKeywordsDeclined}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
+                    Keywords down
+                  </p>
+                </div>
 
-                  {/* Sessions */}
-                  <div style={{
-                    background: 'rgba(157, 181, 160, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #9db5a0'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Sessions
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#9db5a0',
-                      margin: 0
-                    }}>
-                      {totalOrganicTraffic}
-                    </p>
-                  </div>
+                {/* Top Keywords Card */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44, 36, 25, 0.1)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+                }}>
+                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    🎯 Top Keywords
+                  </p>
+                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>
+                    {latestTopKeywords || 'N/A'}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
+                    Tracked
+                  </p>
                 </div>
               </div>
             </div>
