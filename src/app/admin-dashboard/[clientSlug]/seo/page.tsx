@@ -849,8 +849,8 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Tier 4: Granular Data (3-column @ 33/33/33) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
+            {/* Tier 4: Granular Data (2x2 grid @ 50/50) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
               {/* Column 1: Keywords Top Rankings */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -950,7 +950,7 @@ export default function SEOPage() {
                 </div>
               </div>
 
-              {/* Column 2: Keywords Detail Table */}
+              {/* Column 2: Top Landing Pages */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -960,33 +960,104 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  🔑 Keyword Performance
+                  📄 Top Landing Pages
                 </p>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Top Keywords
+                  Where Visitors Land
                 </h3>
                 <div>
                   <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Keyword</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Impr.</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Clicks</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>CTR</th>
+                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Page</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Sessions</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Conv.</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
-                        <td colSpan={4} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center' }}>
-                          {latestTopKeywords ? 'Keywords data available' : 'No keyword data'}
-                        </td>
-                      </tr>
+                      {topLandingPages.length > 0 ? (
+                        topLandingPages.map((page, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
+                            <td style={{ padding: '8px 4px', color: '#2c2419', fontSize: '9px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {page.landing_page?.length > 20 ? page.landing_page.substring(0, 17) + '...' : page.landing_page}
+                            </td>
+                            <td style={{ padding: '8px 4px', color: '#2c2419', textAlign: 'right', fontWeight: '600' }}>
+                              {page.sessions?.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '8px 4px', color: '#10b981', textAlign: 'right', fontWeight: '600' }}>
+                              {page.conversions || 0}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center', fontSize: '10px' }}>
+                            No landing page data
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* Column 3: Traffic Channel Distribution */}
+              {/* Column 3 (Row 2, Col 1): Top Keywords */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  🔑 Top Keywords (GSC)
+                </p>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
+                  Search Queries
+                </h3>
+                <div>
+                  <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Query</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Impr.</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Pos.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topKeywords.length > 0 ? (
+                        topKeywords.map((kw, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
+                            <td style={{ padding: '8px 4px', color: '#2c2419', fontSize: '9px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {kw.query?.length > 20 ? kw.query.substring(0, 17) + '...' : kw.query}
+                            </td>
+                            <td style={{ padding: '8px 4px', color: '#2c2419', textAlign: 'right', fontWeight: '600' }}>
+                              {kw.impressions?.toLocaleString()}
+                            </td>
+                            <td style={{
+                              padding: '8px 4px',
+                              textAlign: 'right',
+                              fontWeight: '600',
+                              color: kw.position <= 10 ? '#10b981' : kw.position <= 20 ? '#d9a854' : '#c4704f'
+                            }}>
+                              {kw.position?.toFixed(1)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center', fontSize: '10px' }}>
+                            No keyword data
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Column 4 (Row 2, Col 2): Traffic Channel Distribution */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
