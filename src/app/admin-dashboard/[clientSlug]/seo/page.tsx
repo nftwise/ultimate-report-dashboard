@@ -537,7 +537,7 @@ export default function SEOPage() {
                       color: '#9db5a0',
                       margin: 0
                     }}>
-                      {totalSessions}
+                      {totalOrganicTraffic}
                     </p>
                   </div>
                 </div>
