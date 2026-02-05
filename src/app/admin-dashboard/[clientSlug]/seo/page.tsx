@@ -256,9 +256,231 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Section 3: Visual Trend Analysis */}
-            <div className="mb-12">
-              <SpendVsLeadsComboChart data={dailyData} height={350} />
+            {/* Section 3: Visual Trend Analysis - Daily SEO Performance */}
+            <div className="mb-12" style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(44, 36, 25, 0.1)',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginBottom: '20px'
+              }}>
+                <div>
+                  <p style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: '#5c5850',
+                    margin: '0 0 8px 0'
+                  }}>
+                    📊 Daily Performance Trend
+                  </p>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    color: '#2c2419',
+                    margin: '0',
+                    letterSpacing: '-0.02em'
+                  }}>
+                    Search Visibility Over Time
+                  </h3>
+                </div>
+              </div>
+
+              {/* Daily Stats Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div style={{
+                  background: 'rgba(196, 112, 79, 0.08)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  borderLeft: '3px solid #c4704f'
+                }}>
+                  <p style={{
+                    fontSize: '10px',
+                    color: '#5c5850',
+                    margin: '0 0 8px 0',
+                    fontWeight: '600'
+                  }}>
+                    Total Impressions
+                  </p>
+                  <p style={{
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#c4704f',
+                    margin: '0 0 4px 0'
+                  }}>
+                    {totalImpressions.toLocaleString()}
+                  </p>
+                  <p style={{
+                    fontSize: '9px',
+                    color: '#9ca3af',
+                    margin: '0'
+                  }}>
+                    from {dailyData.length} days
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  borderLeft: '3px solid #10b981'
+                }}>
+                  <p style={{
+                    fontSize: '10px',
+                    color: '#5c5850',
+                    margin: '0 0 8px 0',
+                    fontWeight: '600'
+                  }}>
+                    Total Clicks
+                  </p>
+                  <p style={{
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#10b981',
+                    margin: '0 0 4px 0'
+                  }}>
+                    {totalClicks.toLocaleString()}
+                  </p>
+                  <p style={{
+                    fontSize: '9px',
+                    color: '#9ca3af',
+                    margin: '0'
+                  }}>
+                    from search results
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'rgba(217, 168, 84, 0.08)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  borderLeft: '3px solid #d9a854'
+                }}>
+                  <p style={{
+                    fontSize: '10px',
+                    color: '#5c5850',
+                    margin: '0 0 8px 0',
+                    fontWeight: '600'
+                  }}>
+                    Average CTR
+                  </p>
+                  <p style={{
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#d9a854',
+                    margin: '0 0 4px 0'
+                  }}>
+                    {avgCtr}%
+                  </p>
+                  <p style={{
+                    fontSize: '9px',
+                    color: '#9ca3af',
+                    margin: '0'
+                  }}>
+                    click-through rate
+                  </p>
+                </div>
+              </div>
+
+              {/* Daily breakdown table */}
+              <div style={{
+                overflowX: 'auto'
+              }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '12px'
+                }}>
+                  <thead>
+                    <tr style={{
+                      borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
+                      backgroundColor: 'rgba(44, 36, 25, 0.02)'
+                    }}>
+                      <th style={{
+                        textAlign: 'left',
+                        padding: '12px',
+                        fontWeight: '600',
+                        color: '#5c5850'
+                      }}>Date</th>
+                      <th style={{
+                        textAlign: 'right',
+                        padding: '12px',
+                        fontWeight: '600',
+                        color: '#5c5850'
+                      }}>Impressions</th>
+                      <th style={{
+                        textAlign: 'right',
+                        padding: '12px',
+                        fontWeight: '600',
+                        color: '#5c5850'
+                      }}>Clicks</th>
+                      <th style={{
+                        textAlign: 'right',
+                        padding: '12px',
+                        fontWeight: '600',
+                        color: '#5c5850'
+                      }}>CTR</th>
+                      <th style={{
+                        textAlign: 'right',
+                        padding: '12px',
+                        fontWeight: '600',
+                        color: '#5c5850'
+                      }}>Organic Traffic</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyData.slice().reverse().map((row, idx) => (
+                      <tr key={idx} style={{
+                        borderBottom: '1px solid rgba(44, 36, 25, 0.05)',
+                        backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(44, 36, 25, 0.02)'
+                      }}>
+                        <td style={{
+                          textAlign: 'left',
+                          padding: '12px',
+                          color: '#2c2419'
+                        }}>{row.date}</td>
+                        <td style={{
+                          textAlign: 'right',
+                          padding: '12px',
+                          color: '#c4704f',
+                          fontWeight: '600'
+                        }}>{(row.seo_impressions || 0).toLocaleString()}</td>
+                        <td style={{
+                          textAlign: 'right',
+                          padding: '12px',
+                          color: '#10b981',
+                          fontWeight: '600'
+                        }}>{(row.seo_clicks || 0).toLocaleString()}</td>
+                        <td style={{
+                          textAlign: 'right',
+                          padding: '12px',
+                          color: '#d9a854',
+                          fontWeight: '600'
+                        }}>{(row.seo_ctr || 0).toFixed(2)}%</td>
+                        <td style={{
+                          textAlign: 'right',
+                          padding: '12px',
+                          color: '#9db5a0',
+                          fontWeight: '600'
+                        }}>{(row.traffic_organic || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Section 4: SEO Breakdown - Keywords Performance */}
