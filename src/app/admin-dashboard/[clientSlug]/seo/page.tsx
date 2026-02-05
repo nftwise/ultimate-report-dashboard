@@ -20,6 +20,12 @@ interface DailyMetrics {
   date: string;
   sessions?: number;
   users?: number;
+  new_users?: number;
+  returning_users?: number;
+  sessions_desktop?: number;
+  sessions_mobile?: number;
+  blog_sessions?: number;
+  top_landing_pages?: any;
   traffic_organic?: number;
   traffic_paid?: number;
   traffic_direct?: number;
@@ -108,7 +114,7 @@ export default function SEOPage() {
         // Using GA4 sessions + organic traffic (not GSC data)
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, sessions, users, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords')
+          .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, top_landing_pages, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -171,6 +177,32 @@ export default function SEOPage() {
     { name: 'Referral', value: totalTrafficReferral, color: '#8b7355' },
     { name: 'AI', value: totalTrafficAI, color: '#6b5b95' }
   ].filter(source => source.value > 0);
+
+  // NEW: User Identity Metrics
+  const totalNewUsers = dailyData.reduce((sum: number, d: any) => sum + (d.new_users || 0), 0);
+  const totalReturningUsers = dailyData.reduce((sum: number, d: any) => sum + (d.returning_users || 0), 0);
+  const totalDesktopSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_desktop || 0), 0);
+  const totalMobileSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_mobile || 0), 0);
+
+  // NEW: Percentages for progress bars
+  const newUserPercent = totalUsers > 0 ? ((totalNewUsers / totalUsers) * 100).toFixed(1) : '0';
+  const returningUserPercent = totalUsers > 0 ? ((totalReturningUsers / totalUsers) * 100).toFixed(1) : '0';
+  const desktopPercent = totalSessions > 0 ? ((totalDesktopSessions / totalSessions) * 100).toFixed(1) : '0';
+  const mobilePercent = totalSessions > 0 ? ((totalMobileSessions / totalSessions) * 100).toFixed(1) : '0';
+
+  // NEW: Branded vs Non-Branded percentages
+  const totalBrandedNonBranded = totalBrandedTraffic + totalNonBrandedTraffic;
+  const brandedPercent = totalBrandedNonBranded > 0
+    ? ((totalBrandedTraffic / totalBrandedNonBranded) * 100).toFixed(1) : '0';
+  const nonBrandedPercent = totalBrandedNonBranded > 0
+    ? ((totalNonBrandedTraffic / totalBrandedNonBranded) * 100).toFixed(1) : '0';
+
+  // NEW: Keywords net change
+  const keywordsNetChange = totalKeywordsImproved - totalKeywordsDeclined;
+
+  // NEW: Blog metrics
+  const totalBlogSessions = dailyData.reduce((sum: number, d: any) => sum + (d.blog_sessions || 0), 0);
+  const latestTopLandingPages = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_landing_pages : null;
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -440,290 +472,287 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Section 4: Traffic Sources Distribution Pie Chart */}
-            <div className="mb-12" style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              borderRadius: '24px',
-              padding: '24px',
-              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-            }}>
-              <div style={{ marginBottom: '24px' }}>
-                <p style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: '#5c5850',
-                  margin: '0 0 8px 0'
-                }}>
-                  📊 Traffic Sources Distribution
+            {/* Tier 3: Analysis Columns (2-column @ 50/50) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+              {/* Column 1: User Identity Analysis */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  👥 User Identity Analysis
                 </p>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  color: '#2c2419',
-                  margin: '0',
-                  letterSpacing: '-0.02em'
-                }}>
-                  Where Your Visitors Come From
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
+                  Who Are Your Visitors
                 </h3>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
-                {/* Pie Chart */}
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <PieChart>
-                      <Pie
-                        data={trafficSourceData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={110}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {trafficSourceData.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: any) => value.toLocaleString()}
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(44, 36, 25, 0.1)',
-                          borderRadius: '8px'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                {/* Sub-cards: Comparisons */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #10b981' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>New Users</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalNewUsers.toLocaleString()}</p>
+                  </div>
+                  <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #c4704f' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Returning Users</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalReturningUsers.toLocaleString()}</p>
+                  </div>
+                  <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #d9a854' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Desktop Sessions</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{totalDesktopSessions.toLocaleString()}</p>
+                  </div>
+                  <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Mobile Sessions</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalMobileSessions.toLocaleString()}</p>
+                  </div>
                 </div>
 
-                {/* Legend with percentages */}
-                <div>
-                  {trafficSourceData.map((source: any, idx: number) => {
-                    const percentage = totalAllTraffic > 0
-                      ? ((source.value / totalAllTraffic) * 100).toFixed(1)
-                      : '0.0';
-                    return (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '12px 16px',
-                        marginBottom: '8px',
-                        background: `${source.color}15`,
-                        borderRadius: '12px',
-                        borderLeft: `4px solid ${source.color}`
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '3px',
-                            background: source.color
-                          }}></div>
-                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#2c2419' }}>
-                            {source.name}
-                          </span>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <p style={{ fontSize: '16px', fontWeight: '700', color: source.color, margin: '0' }}>
-                            {source.value.toLocaleString()}
-                          </p>
-                          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0' }}>
-                            {percentage}%
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Progress Bars: Percentages */}
+                <div style={{ marginTop: '20px' }}>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Device Distribution</p>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Desktop</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{desktopPercent}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${desktopPercent}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Mobile</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#9db5a0' }}>{mobilePercent}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${mobilePercent}%`, height: '100%', background: '#9db5a0', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '20px 0 8px 0', textTransform: 'uppercase' }}>User Type Distribution</p>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>New Visitors</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{newUserPercent}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${newUserPercent}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Returning Visitors</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#c4704f' }}>{returningUserPercent}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${returningUserPercent}%`, height: '100%', background: '#c4704f', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 2: Search Health Analysis */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  📊 Search Health Analysis
+                </p>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
+                  Keyword Performance & Brand Visibility
+                </h3>
+
+                {/* Sub-cards: Keyword Movement */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>📈 Improved</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalKeywordsImproved}</p>
+                  </div>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #ef4444' }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>📉 Declined</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444', margin: 0 }}>{totalKeywordsDeclined}</p>
+                  </div>
+                  <div style={{
+                    background: keywordsNetChange >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                    borderRadius: '12px', padding: '16px', textAlign: 'center',
+                    borderTop: `3px solid ${keywordsNetChange >= 0 ? '#10b981' : '#ef4444'}`
+                  }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Net Change</p>
+                    <p style={{
+                      fontSize: '24px', fontWeight: '700',
+                      color: keywordsNetChange >= 0 ? '#10b981' : '#ef4444',
+                      margin: 0
+                    }}>
+                      {keywordsNetChange >= 0 ? '+' : ''}{keywordsNetChange}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress Bars: Brand Distribution */}
+                <div style={{ marginTop: '20px' }}>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Brand vs Non-Brand Traffic</p>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Branded</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{totalBrandedTraffic.toLocaleString()} ({brandedPercent}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ width: `${brandedPercent}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Non-Branded</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{totalNonBrandedTraffic.toLocaleString()} ({nonBrandedPercent}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ width: `${nonBrandedPercent}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '20px 0 8px 0', textTransform: 'uppercase' }}>CTR Performance</p>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Click-Through Rate</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#c4704f' }}>{avgCtr}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(parseFloat(avgCtr), 100)}%`,
+                        height: '100%',
+                        background: parseFloat(avgCtr) > 5 ? '#10b981' : parseFloat(avgCtr) > 2 ? '#d9a854' : '#c4704f',
+                        transition: 'width 0.3s ease'
+                      }}></div>
+                    </div>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0', textAlign: 'right' }}>
+                      {parseFloat(avgCtr) > 5 ? 'Excellent' : parseFloat(avgCtr) > 2 ? 'Good' : 'Needs improvement'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 5: Enhanced GSC Performance Metrics */}
-            <div className="mb-12">
-              <div style={{ marginBottom: '24px' }}>
-                <p style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: '#5c5850',
-                  margin: '0 0 8px 0'
-                }}>
-                  🔍 Google Search Console Metrics
+            {/* Tier 4: Granular Data (3-column @ 33/33/33) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
+              {/* Column 1: Landing Pages + Blog Highlight */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  📄 Top Landing Pages
                 </p>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  color: '#2c2419',
-                  margin: '0',
-                  letterSpacing: '-0.02em'
-                }}>
-                  Search Visibility & Performance
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
+                  Where Visitors Land
                 </h3>
-              </div>
-
-              {/* Top Row: 3 Main GSC Cards */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '16px',
-                marginBottom: '16px'
-              }}>
-                {/* Impressions Card */}
+                <p style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
+                  {latestTopLandingPages ? 'Landing pages data available' : 'No landing page data'}
+                </p>
+                {/* Blog Highlight Box */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
-                  borderTop: '4px solid #c4704f'
+                  background: 'linear-gradient(135deg, rgba(157, 181, 160, 0.15), rgba(16, 185, 129, 0.15))',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  borderLeft: '4px solid #9db5a0',
+                  marginTop: '16px'
                 }}>
-                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    👁️ Impressions
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    📝 Blog Performance
                   </p>
-                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>
-                    {totalImpressions.toLocaleString()}
+                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>
+                    {totalBlogSessions.toLocaleString()}
                   </p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
-                    Times shown in search
-                  </p>
-                </div>
-
-                {/* Clicks Card */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
-                  borderTop: '4px solid #10b981'
-                }}>
-                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    🖱️ Clicks
-                  </p>
-                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>
-                    {totalClicks.toLocaleString()}
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
-                    From search results
-                  </p>
-                </div>
-
-                {/* CTR Card */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
-                  borderTop: '4px solid #d9a854'
-                }}>
-                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    📊 CTR
-                  </p>
-                  <p style={{ fontSize: '36px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>
-                    {avgCtr}%
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>
-                    Click-through rate
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: 0 }}>
+                    Sessions on blog content
                   </p>
                 </div>
               </div>
 
-              {/* Bottom Row: 4 Secondary GSC Cards */}
+              {/* Column 2: Keywords Detail Table */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '16px'
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
-                {/* Average Rank Card */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    🏆 Avg Rank
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>
-                    {avgGoogleRank}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
-                    Position
-                  </p>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  🔑 Keyword Performance
+                </p>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
+                  Top Keywords
+                </h3>
+                <div>
+                  <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Keyword</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Impr.</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Clicks</th>
+                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>CTR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
+                        <td colSpan={4} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center' }}>
+                          {latestTopKeywords ? 'Keywords data available' : 'No keyword data'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
+              </div>
 
-                {/* Keywords Improved Card */}
-                <div style={{
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    📈 Improved
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>
-                    {totalKeywordsImproved}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
-                    Keywords up
-                  </p>
-                </div>
-
-                {/* Keywords Declined Card */}
-                <div style={{
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    📉 Declined
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#ef4444', margin: '0 0 4px 0' }}>
-                    {totalKeywordsDeclined}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
-                    Keywords down
-                  </p>
-                </div>
-
-                {/* Top Keywords Card */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(44, 36, 25, 0.1)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    🎯 Top Keywords
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>
-                    {latestTopKeywords || 'N/A'}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>
-                    Tracked
-                  </p>
+              {/* Column 3: Traffic Channel Distribution */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
+                  🚀 Traffic Channels
+                </p>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
+                  Channel Distribution
+                </h3>
+                <div>
+                  {trafficSourceData.map((source, idx) => {
+                    const percentage = totalAllTraffic > 0
+                      ? ((source.value / totalAllTraffic) * 100).toFixed(1)
+                      : '0.0';
+                    return (
+                      <div key={idx} style={{ marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#2c2419' }}>{source.name}</span>
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: source.color }}>
+                            {source.value.toLocaleString()} ({percentage}%)
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${percentage}%`,
+                            height: '100%',
+                            background: source.color,
+                            transition: 'width 0.3s ease'
+                          }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
