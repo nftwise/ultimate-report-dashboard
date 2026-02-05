@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
-import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
+import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import { createClient } from '@supabase/supabase-js';
 
 interface ClientMetrics {
@@ -256,7 +256,7 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Section 3: Visual Trend Analysis - Daily SEO Performance */}
+            {/* Section 3: Visual Trend Analysis - Daily SEO Performance Chart */}
             <div className="mb-12" style={{
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
@@ -269,7 +269,7 @@ export default function SEOPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'baseline',
-                marginBottom: '20px'
+                marginBottom: '24px'
               }}>
                 <div>
                   <p style={{
@@ -280,7 +280,7 @@ export default function SEOPage() {
                     color: '#5c5850',
                     margin: '0 0 8px 0'
                   }}>
-                    📊 Daily Performance Trend
+                    📈 Daily Performance Trend
                   </p>
                   <h3 style={{
                     fontSize: '18px',
@@ -294,18 +294,22 @@ export default function SEOPage() {
                 </div>
               </div>
 
-              {/* Daily Stats Grid */}
+              {/* Line Chart */}
+              <SEOTrendChart data={dailyData} height={380} />
+
+              {/* Summary Stats Below Chart */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: '16px',
-                marginBottom: '24px'
+                marginTop: '24px'
               }}>
                 <div style={{
                   background: 'rgba(196, 112, 79, 0.08)',
                   borderRadius: '8px',
                   padding: '16px',
-                  borderLeft: '3px solid #c4704f'
+                  borderLeft: '3px solid #c4704f',
+                  textAlign: 'center'
                 }}>
                   <p style={{
                     fontSize: '10px',
@@ -336,7 +340,8 @@ export default function SEOPage() {
                   background: 'rgba(16, 185, 129, 0.08)',
                   borderRadius: '8px',
                   padding: '16px',
-                  borderLeft: '3px solid #10b981'
+                  borderLeft: '3px solid #10b981',
+                  textAlign: 'center'
                 }}>
                   <p style={{
                     fontSize: '10px',
@@ -367,7 +372,8 @@ export default function SEOPage() {
                   background: 'rgba(217, 168, 84, 0.08)',
                   borderRadius: '8px',
                   padding: '16px',
-                  borderLeft: '3px solid #d9a854'
+                  borderLeft: '3px solid #d9a854',
+                  textAlign: 'center'
                 }}>
                   <p style={{
                     fontSize: '10px',
@@ -393,93 +399,6 @@ export default function SEOPage() {
                     click-through rate
                   </p>
                 </div>
-              </div>
-
-              {/* Daily breakdown table */}
-              <div style={{
-                overflowX: 'auto'
-              }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '12px'
-                }}>
-                  <thead>
-                    <tr style={{
-                      borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
-                      backgroundColor: 'rgba(44, 36, 25, 0.02)'
-                    }}>
-                      <th style={{
-                        textAlign: 'left',
-                        padding: '12px',
-                        fontWeight: '600',
-                        color: '#5c5850'
-                      }}>Date</th>
-                      <th style={{
-                        textAlign: 'right',
-                        padding: '12px',
-                        fontWeight: '600',
-                        color: '#5c5850'
-                      }}>Impressions</th>
-                      <th style={{
-                        textAlign: 'right',
-                        padding: '12px',
-                        fontWeight: '600',
-                        color: '#5c5850'
-                      }}>Clicks</th>
-                      <th style={{
-                        textAlign: 'right',
-                        padding: '12px',
-                        fontWeight: '600',
-                        color: '#5c5850'
-                      }}>CTR</th>
-                      <th style={{
-                        textAlign: 'right',
-                        padding: '12px',
-                        fontWeight: '600',
-                        color: '#5c5850'
-                      }}>Organic Traffic</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dailyData.slice().reverse().map((row, idx) => (
-                      <tr key={idx} style={{
-                        borderBottom: '1px solid rgba(44, 36, 25, 0.05)',
-                        backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(44, 36, 25, 0.02)'
-                      }}>
-                        <td style={{
-                          textAlign: 'left',
-                          padding: '12px',
-                          color: '#2c2419'
-                        }}>{row.date}</td>
-                        <td style={{
-                          textAlign: 'right',
-                          padding: '12px',
-                          color: '#c4704f',
-                          fontWeight: '600'
-                        }}>{(row.seo_impressions || 0).toLocaleString()}</td>
-                        <td style={{
-                          textAlign: 'right',
-                          padding: '12px',
-                          color: '#10b981',
-                          fontWeight: '600'
-                        }}>{(row.seo_clicks || 0).toLocaleString()}</td>
-                        <td style={{
-                          textAlign: 'right',
-                          padding: '12px',
-                          color: '#d9a854',
-                          fontWeight: '600'
-                        }}>{(row.seo_ctr || 0).toFixed(2)}%</td>
-                        <td style={{
-                          textAlign: 'right',
-                          padding: '12px',
-                          color: '#9db5a0',
-                          fontWeight: '600'
-                        }}>{(row.traffic_organic || 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
 
