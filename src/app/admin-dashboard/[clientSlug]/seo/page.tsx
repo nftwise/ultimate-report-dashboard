@@ -17,16 +17,16 @@ interface ClientMetrics {
 
 interface DailyMetrics {
   date: string;
-  seo_impressions?: number;
-  seo_clicks?: number;
-  seo_ctr?: number;
+  sessions?: number;
+  users?: number;
   traffic_organic?: number;
   branded_traffic?: number;
   non_branded_traffic?: number;
   keywords_improved?: number;
   keywords_declined?: number;
-  google_rank?: number;
-  top_keywords?: number;
+  seo_impressions?: number;
+  seo_clicks?: number;
+  seo_ctr?: number;
 }
 
 const supabase = createClient(
@@ -98,9 +98,10 @@ export default function SEOPage() {
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
         // ONLY SELECT SEO METRICS - NO ADS, NO GBP
+        // Using GA4 sessions + organic traffic (not GSC data)
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, seo_impressions, seo_clicks, seo_ctr, traffic_organic, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, google_rank, top_keywords')
+          .select('date, sessions, users, traffic_organic, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -123,14 +124,16 @@ export default function SEOPage() {
     );
   }
 
-  // Calculate SEO KPIs ONLY
-  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
-  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
+  // Calculate SEO KPIs ONLY (GA4 based)
+  const totalSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
+  const totalUsers = dailyData.reduce((sum: number, d: any) => sum + (d.users || 0), 0);
   const totalOrganicTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
   const totalBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.branded_traffic || 0), 0);
   const totalNonBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.non_branded_traffic || 0), 0);
   const totalKeywordsImproved = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_improved || 0), 0);
   const totalKeywordsDeclined = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_declined || 0), 0);
+  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
+  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
 
   const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
 
@@ -199,7 +202,7 @@ export default function SEOPage() {
               gap: '16px',
               marginBottom: '32px'
             }}>
-              {/* Impressions Card */}
+              {/* User Sessions Card */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -208,12 +211,12 @@ export default function SEOPage() {
                 padding: '20px',
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Impressions</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalImpressions}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Search results shown</p>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>User Sessions</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalSessions.toLocaleString()}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>From GA4</p>
               </div>
 
-              {/* Clicks Card */}
+              {/* Users Card */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -222,9 +225,9 @@ export default function SEOPage() {
                 padding: '20px',
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Clicks</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalClicks}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Clicks from search</p>
+                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Users</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalUsers.toLocaleString()}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Unique visitors</p>
               </div>
 
               {/* CTR Card */}

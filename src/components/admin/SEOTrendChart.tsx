@@ -4,9 +4,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 interface DailyMetric {
   date: string;
-  seo_impressions?: number;
-  seo_clicks?: number;
+  sessions?: number;
   traffic_organic?: number;
+  users?: number;
 }
 
 interface SEOTrendChartProps {
@@ -31,14 +31,11 @@ export default function SEOTrendChart({ data, height = 350 }: SEOTrendChartProps
     );
   }
 
-  // Format data for chart (chronological order)
+  // Format data for chart (chronological order - oldest to newest)
   const chartData = data
-    .slice()
-    .reverse()
     .map(d => ({
       date: d.date,
-      impressions: d.seo_impressions || 0,
-      clicks: d.seo_clicks || 0,
+      sessions: d.sessions || 0,
       organic: d.traffic_organic || 0
     }));
 
@@ -68,21 +65,14 @@ export default function SEOTrendChart({ data, height = 350 }: SEOTrendChartProps
             fontSize: '11px',
             color: '#c4704f'
           }}>
-            📊 Impressions: {data.impressions.toLocaleString()}
+            📊 User Sessions: {data.sessions.toLocaleString()}
           </p>
           <p style={{
             margin: '4px 0',
             fontSize: '11px',
             color: '#10b981'
           }}>
-            🔗 Clicks: {data.clicks.toLocaleString()}
-          </p>
-          <p style={{
-            margin: '4px 0',
-            fontSize: '11px',
-            color: '#9db5a0'
-          }}>
-            👥 Organic Traffic: {data.organic.toLocaleString()}
+            🌱 Organic Traffic: {data.organic.toLocaleString()}
           </p>
         </div>
       );
@@ -118,31 +108,21 @@ export default function SEOTrendChart({ data, height = 350 }: SEOTrendChartProps
         />
         <Line
           type="monotone"
-          dataKey="impressions"
+          dataKey="sessions"
           stroke="#c4704f"
           strokeWidth={2.5}
           dot={false}
           activeDot={{ r: 6, fill: '#c4704f' }}
-          name="Impressions"
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="clicks"
-          stroke="#10b981"
-          strokeWidth={2.5}
-          dot={false}
-          activeDot={{ r: 6, fill: '#10b981' }}
-          name="Clicks"
+          name="User Sessions (GA4)"
           isAnimationActive={false}
         />
         <Line
           type="monotone"
           dataKey="organic"
-          stroke="#9db5a0"
+          stroke="#10b981"
           strokeWidth={2.5}
           dot={false}
-          activeDot={{ r: 6, fill: '#9db5a0' }}
+          activeDot={{ r: 6, fill: '#10b981' }}
           name="Organic Traffic"
           isAnimationActive={false}
         />
