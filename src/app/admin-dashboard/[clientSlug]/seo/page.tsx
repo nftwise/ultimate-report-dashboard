@@ -63,6 +63,16 @@ export default function SEOPage() {
     return { from, to };
   });
 
+  // NEW: Conversion Funnel Data (31 days aggregated)
+  const [funnelData, setFunnelData] = useState<{
+    sessions: number;
+    events: number;
+    conversions: number;
+  }>({ sessions: 0, events: 0, conversions: 0 });
+
+  const [topLandingPages, setTopLandingPages] = useState<any[]>([]);
+  const [topKeywords, setTopKeywords] = useState<any[]>([]);
+
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
     const to = new Date();
@@ -127,6 +137,75 @@ export default function SEOPage() {
     };
 
     fetchMetrics();
+  }, [client, dateRange]);
+
+  // Fetch funnel data
+  useEffect(() => {
+    const fetchFunnelData = async () => {
+      if (!client) return;
+      try {
+        const dateFromISO = new Date(dateRange.from).toISOString().split('T')[0];
+        const dateToISO = new Date(dateRange.to).toISOString().split('T')[0];
+
+        // Get sessions
+        const { data: sessionsData } = await supabase
+          .from('ga4_sessions')
+          .select('sessions, conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        // Get events
+        const { data: eventsData } = await supabase
+          .from('ga4_events')
+          .select('event_count')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        // Get conversions
+        const { data: conversionsData } = await supabase
+          .from('ga4_conversions')
+          .select('conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        const totalSessions = sessionsData?.reduce((sum, s) => sum + (s.sessions || 0), 0) || 0;
+        const totalEvents = eventsData?.reduce((sum, e) => sum + (e.event_count || 0), 0) || 0;
+        const totalConversions = conversionsData?.reduce((sum, c) => sum + (c.conversions || 0), 0) || 0;
+
+        setFunnelData({ sessions: totalSessions, events: totalEvents, conversions: totalConversions });
+
+        // Get top landing pages
+        const { data: lpData } = await supabase
+          .from('ga4_landing_pages')
+          .select('landing_page, sessions, conversions, conversion_rate, bounce_rate')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('sessions', { ascending: false })
+          .limit(5);
+
+        setTopLandingPages(lpData || []);
+
+        // Get top keywords
+        const { data: kwData } = await supabase
+          .from('gsc_queries')
+          .select('query, clicks, impressions, ctr, position')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('impressions', { ascending: false })
+          .limit(5);
+
+        setTopKeywords(kwData || []);
+      } catch (error) {
+        console.error('Error fetching funnel data:', error);
+      }
+    };
+
+    fetchFunnelData();
   }, [client, dateRange]);
 
   if (loading || !client) {
@@ -214,84 +293,6 @@ export default function SEOPage() {
   const avgGoogleRankValue = daysWithRankData > 0
     ? (dailyData.filter((d: any) => d.google_rank).reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / daysWithRankData)
     : 0;
-
-  // NEW: Conversion Funnel Data (31 days aggregated)
-  const [funnelData, setFunnelData] = useState<{
-    sessions: number;
-    events: number;
-    conversions: number;
-  }>({ sessions: 0, events: 0, conversions: 0 });
-
-  const [topLandingPages, setTopLandingPages] = useState<any[]>([]);
-  const [topKeywords, setTopKeywords] = useState<any[]>([]);
-
-  // Fetch funnel data
-  useEffect(() => {
-    const fetchFunnelData = async () => {
-      try {
-        const dateFromISO = new Date(dateRange.from).toISOString().split('T')[0];
-        const dateToISO = new Date(dateRange.to).toISOString().split('T')[0];
-
-        // Get sessions
-        const { data: sessionsData } = await supabase
-          .from('ga4_sessions')
-          .select('sessions, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        // Get events
-        const { data: eventsData } = await supabase
-          .from('ga4_events')
-          .select('event_count')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        // Get conversions
-        const { data: conversionsData } = await supabase
-          .from('ga4_conversions')
-          .select('conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        const totalSessions = sessionsData?.reduce((sum, s) => sum + (s.sessions || 0), 0) || 0;
-        const totalEvents = eventsData?.reduce((sum, e) => sum + (e.event_count || 0), 0) || 0;
-        const totalConversions = conversionsData?.reduce((sum, c) => sum + (c.conversions || 0), 0) || 0;
-
-        setFunnelData({ sessions: totalSessions, events: totalEvents, conversions: totalConversions });
-
-        // Get top landing pages
-        const { data: lpData } = await supabase
-          .from('ga4_landing_pages')
-          .select('landing_page, sessions, conversions, conversion_rate, bounce_rate')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('sessions', { ascending: false })
-          .limit(5);
-
-        setTopLandingPages(lpData || []);
-
-        // Get top keywords
-        const { data: kwData } = await supabase
-          .from('gsc_queries')
-          .select('query, clicks, impressions, ctr, position')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('impressions', { ascending: false })
-          .limit(5);
-
-        setTopKeywords(kwData || []);
-      } catch (error) {
-        console.error('Error fetching funnel data:', error);
-      }
-    };
-
-    fetchFunnelData();
-  }, [client, dateRange]);
 
   // Calculate funnel metrics
   const funnelMetrics = {
