@@ -5,10 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
-import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
-import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
-import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import { createClient } from '@supabase/supabase-js';
 
 interface ClientMetrics {
@@ -24,19 +21,12 @@ interface DailyMetrics {
   seo_clicks?: number;
   seo_ctr?: number;
   traffic_organic?: number;
-  traffic_paid?: number;
-  traffic_direct?: number;
-  traffic_referral?: number;
-  traffic_ai?: number;
-  sessions?: number;
-  users?: number;
-}
-
-interface KeywordData {
-  keyword: string;
-  impressions: number;
-  clicks: number;
-  position: number;
+  branded_traffic?: number;
+  non_branded_traffic?: number;
+  keywords_improved?: number;
+  keywords_declined?: number;
+  google_rank?: number;
+  top_keywords?: number;
 }
 
 const supabase = createClient(
@@ -98,7 +88,7 @@ export default function SEOPage() {
     }
   }, [clientSlug]);
 
-  // Fetch SEO daily metrics
+  // Fetch SEO ONLY metrics from Supabase
   useEffect(() => {
     const fetchMetrics = async () => {
       if (!client) return;
@@ -107,9 +97,10 @@ export default function SEOPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
+        // ONLY SELECT SEO METRICS - NO ADS, NO GBP
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, sessions, users')
+          .select('date, seo_impressions, seo_clicks, seo_ctr, traffic_organic, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, google_rank, top_keywords')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -132,15 +123,17 @@ export default function SEOPage() {
     );
   }
 
-  // Calculate KPIs
+  // Calculate SEO KPIs ONLY
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
   const totalOrganicTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
-  const totalSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
+  const totalBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.branded_traffic || 0), 0);
+  const totalNonBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.non_branded_traffic || 0), 0);
+  const totalKeywordsImproved = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_improved || 0), 0);
+  const totalKeywordsDeclined = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_declined || 0), 0);
 
   const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
-  const avgPosition = 0; // Would need additional data
-  const conversionRate = totalSessions > 0 ? ((totalOrganicTraffic / totalSessions) * 100).toFixed(2) : '0.00';
+  const organicTrafficPercentage = totalOrganicTraffic > 0 ? totalOrganicTraffic : 0;
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -213,14 +206,14 @@ export default function SEOPage() {
               <SpendVsLeadsComboChart data={dailyData} height={350} />
             </div>
 
-            {/* Section 4: Traffic Breakdown */}
+            {/* Section 4: SEO Breakdown - Keywords Performance */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '60% 40%',
               gap: '24px',
               marginBottom: '32px'
             }}>
-              {/* Left Column: Traffic Sources */}
+              {/* Left Column: Branded vs Non-Branded Traffic */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -237,7 +230,7 @@ export default function SEOPage() {
                   color: '#5c5850',
                   margin: '0 0 8px 0'
                 }}>
-                  📊 Traffic Sources
+                  🎯 Traffic Segmentation
                 </p>
                 <h3 style={{
                   fontSize: '18px',
@@ -246,7 +239,7 @@ export default function SEOPage() {
                   margin: '0 0 16px 0',
                   letterSpacing: '-0.02em'
                 }}>
-                  By Channel
+                  Organic Traffic Types
                 </h3>
 
                 {/* Traffic Stats Grid */}
@@ -256,32 +249,7 @@ export default function SEOPage() {
                   gap: '12px',
                   marginTop: '12px'
                 }}>
-                  {/* Organic */}
-                  <div style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    borderLeft: '3px solid #10b981'
-                  }}>
-                    <p style={{
-                      fontSize: '10px',
-                      color: '#5c5850',
-                      margin: '0 0 4px 0',
-                      fontWeight: '600'
-                    }}>
-                      Organic
-                    </p>
-                    <p style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      margin: 0
-                    }}>
-                      {totalOrganicTraffic}
-                    </p>
-                  </div>
-
-                  {/* Paid */}
+                  {/* Branded Traffic */}
                   <div style={{
                     background: 'rgba(196, 112, 79, 0.08)',
                     borderRadius: '8px',
@@ -294,7 +262,7 @@ export default function SEOPage() {
                       margin: '0 0 4px 0',
                       fontWeight: '600'
                     }}>
-                      Paid
+                      Branded
                     </p>
                     <p style={{
                       fontSize: '18px',
@@ -302,11 +270,36 @@ export default function SEOPage() {
                       color: '#c4704f',
                       margin: 0
                     }}>
-                      {dailyData.reduce((sum: number, d: any) => sum + (d.traffic_paid || 0), 0)}
+                      {totalBrandedTraffic}
                     </p>
                   </div>
 
-                  {/* Direct */}
+                  {/* Non-Branded Traffic */}
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    borderLeft: '3px solid #10b981'
+                  }}>
+                    <p style={{
+                      fontSize: '10px',
+                      color: '#5c5850',
+                      margin: '0 0 4px 0',
+                      fontWeight: '600'
+                    }}>
+                      Non-Branded
+                    </p>
+                    <p style={{
+                      fontSize: '18px',
+                      fontWeight: '700',
+                      color: '#10b981',
+                      margin: 0
+                    }}>
+                      {totalNonBrandedTraffic}
+                    </p>
+                  </div>
+
+                  {/* Keywords Improved */}
                   <div style={{
                     background: 'rgba(217, 168, 84, 0.08)',
                     borderRadius: '8px',
@@ -319,7 +312,7 @@ export default function SEOPage() {
                       margin: '0 0 4px 0',
                       fontWeight: '600'
                     }}>
-                      Direct
+                      Keywords Improved
                     </p>
                     <p style={{
                       fontSize: '18px',
@@ -327,11 +320,11 @@ export default function SEOPage() {
                       color: '#d9a854',
                       margin: 0
                     }}>
-                      {dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0)}
+                      {totalKeywordsImproved}
                     </p>
                   </div>
 
-                  {/* Referral */}
+                  {/* Keywords Declined */}
                   <div style={{
                     background: 'rgba(157, 181, 160, 0.08)',
                     borderRadius: '8px',
@@ -344,7 +337,7 @@ export default function SEOPage() {
                       margin: '0 0 4px 0',
                       fontWeight: '600'
                     }}>
-                      Referral
+                      Keywords Declined
                     </p>
                     <p style={{
                       fontSize: '18px',
@@ -352,7 +345,7 @@ export default function SEOPage() {
                       color: '#9db5a0',
                       margin: 0
                     }}>
-                      {dailyData.reduce((sum: number, d: any) => sum + (d.traffic_referral || 0), 0)}
+                      {totalKeywordsDeclined}
                     </p>
                   </div>
                 </div>
@@ -496,7 +489,7 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Section 5: Summary */}
+            {/* Section 5: Summary - SEO Only */}
             <div style={{
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
@@ -514,7 +507,7 @@ export default function SEOPage() {
                 color: '#5c5850',
                 margin: '0 0 12px 0'
               }}>
-                💡 Key Insights
+                💡 SEO Key Insights
               </p>
               <p style={{
                 fontSize: '11px',
@@ -522,9 +515,10 @@ export default function SEOPage() {
                 margin: 0,
                 lineHeight: '1.5'
               }}>
-                Your site received <strong>{totalImpressions} impressions</strong> in search results, resulting in <strong>{totalClicks} clicks</strong> (CTR: {avgCtr}%).
-                Organic traffic accounted for <strong>{totalOrganicTraffic} sessions</strong> out of <strong>{totalSessions} total sessions</strong>.
-                Focus on improving content for high-traffic keywords to increase click-through rate and organic visibility.
+                Your site appeared in search results <strong>{totalImpressions} times</strong>, generating <strong>{totalClicks} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
+                Organic search traffic generated <strong>{totalOrganicTraffic} sessions</strong>.
+                Keywords improved: <strong>{totalKeywordsImproved}</strong> | Keywords declined: <strong>{totalKeywordsDeclined}</strong>.
+                Focus on content optimization for non-branded keywords to increase organic visibility and reduce keyword decline rate.
               </p>
             </div>
           </div>
