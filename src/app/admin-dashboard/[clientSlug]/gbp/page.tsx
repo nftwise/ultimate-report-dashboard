@@ -125,7 +125,7 @@ export default function GBPPage() {
     fetchLocation();
   }, [client]);
 
-  // Fetch GBP daily metrics
+  // Fetch GBP daily metrics from BOTH tables and merge
   useEffect(() => {
     const fetchMetrics = async () => {
       if (!client) return;
@@ -134,7 +134,8 @@ export default function GBPPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        const { data: metricsData } = await supabase
+        // Fetch from gbp_location_daily_metrics (detailed GBP data)
+        const { data: gbpDetailedData } = await supabase
           .from('gbp_location_daily_metrics')
           .select(`
             date,
@@ -158,7 +159,82 @@ export default function GBPPage() {
           .lte('date', dateToISO)
           .order('date', { ascending: true });
 
-        setDailyData((metricsData || []) as GBPDailyMetrics[]);
+        // Fetch from client_metrics_summary (aggregated GBP data - different column names)
+        const { data: summaryData } = await supabase
+          .from('client_metrics_summary')
+          .select(`
+            date,
+            gbp_calls,
+            gbp_website_clicks,
+            gbp_directions,
+            gbp_profile_views,
+            gbp_reviews_count,
+            gbp_reviews_new,
+            gbp_rating_avg,
+            gbp_photos_count,
+            gbp_posts_count,
+            gbp_posts_views,
+            gbp_posts_clicks
+          `)
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: true });
+
+        // Create a map of summary data by date for quick lookup
+        const summaryMap = new Map();
+        (summaryData || []).forEach((row: any) => {
+          summaryMap.set(row.date, row);
+        });
+
+        // Merge data: prefer gbp_location_daily_metrics, fallback to client_metrics_summary
+        let mergedData: GBPDailyMetrics[] = [];
+
+        if (gbpDetailedData && gbpDetailedData.length > 0) {
+          // Merge with summary data
+          mergedData = gbpDetailedData.map((row: any) => {
+            const summary = summaryMap.get(row.date);
+            return {
+              date: row.date,
+              // Use detailed data if available, otherwise use summary
+              views: row.views || summary?.gbp_profile_views || 0,
+              actions: row.actions || 0,
+              direction_requests: row.direction_requests || summary?.gbp_directions || 0,
+              phone_calls: row.phone_calls || summary?.gbp_calls || 0,
+              website_clicks: row.website_clicks || summary?.gbp_website_clicks || 0,
+              total_reviews: row.total_reviews || summary?.gbp_reviews_count || 0,
+              new_reviews_today: row.new_reviews_today || summary?.gbp_reviews_new || 0,
+              average_rating: row.average_rating || summary?.gbp_rating_avg || 0,
+              business_photo_views: row.business_photo_views || 0,
+              customer_photo_count: row.customer_photo_count || 0,
+              customer_photo_views: row.customer_photo_views || 0,
+              posts_count: row.posts_count || summary?.gbp_posts_count || 0,
+              posts_views: row.posts_views || summary?.gbp_posts_views || 0,
+              posts_actions: row.posts_actions || summary?.gbp_posts_clicks || 0,
+            };
+          });
+        } else if (summaryData && summaryData.length > 0) {
+          // Use summary data if no detailed data exists
+          mergedData = summaryData.map((row: any) => ({
+            date: row.date,
+            views: row.gbp_profile_views || 0,
+            actions: (row.gbp_calls || 0) + (row.gbp_website_clicks || 0) + (row.gbp_directions || 0),
+            direction_requests: row.gbp_directions || 0,
+            phone_calls: row.gbp_calls || 0,
+            website_clicks: row.gbp_website_clicks || 0,
+            total_reviews: row.gbp_reviews_count || 0,
+            new_reviews_today: row.gbp_reviews_new || 0,
+            average_rating: row.gbp_rating_avg || 0,
+            business_photo_views: 0,
+            customer_photo_count: row.gbp_photos_count || 0,
+            customer_photo_views: 0,
+            posts_count: row.gbp_posts_count || 0,
+            posts_views: row.gbp_posts_views || 0,
+            posts_actions: row.gbp_posts_clicks || 0,
+          }));
+        }
+
+        setDailyData(mergedData);
       } catch (error) {
         console.error('Error fetching GBP metrics:', error);
       }
