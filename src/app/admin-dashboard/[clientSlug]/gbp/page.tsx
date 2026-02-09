@@ -181,58 +181,60 @@ export default function GBPPage() {
           .lte('date', dateToISO)
           .order('date', { ascending: true });
 
-        // Create a map of summary data by date for quick lookup
+        // Create maps for both data sources by date
+        const detailedMap = new Map();
+        (gbpDetailedData || []).forEach((row: any) => {
+          detailedMap.set(row.date, row);
+        });
+
         const summaryMap = new Map();
         (summaryData || []).forEach((row: any) => {
           summaryMap.set(row.date, row);
         });
 
-        // Merge data: prefer gbp_location_daily_metrics, fallback to client_metrics_summary
-        let mergedData: GBPDailyMetrics[] = [];
+        // Get all unique dates from both sources
+        const allDates = new Set([
+          ...(gbpDetailedData || []).map((r: any) => r.date),
+          ...(summaryData || []).map((r: any) => r.date)
+        ]);
 
-        if (gbpDetailedData && gbpDetailedData.length > 0) {
-          // Merge with summary data
-          mergedData = gbpDetailedData.map((row: any) => {
-            const summary = summaryMap.get(row.date);
-            return {
-              date: row.date,
-              // Use detailed data if available, otherwise use summary
-              views: row.views || summary?.gbp_profile_views || 0,
-              actions: row.actions || 0,
-              direction_requests: row.direction_requests || summary?.gbp_directions || 0,
-              phone_calls: row.phone_calls || summary?.gbp_calls || 0,
-              website_clicks: row.website_clicks || summary?.gbp_website_clicks || 0,
-              total_reviews: row.total_reviews || summary?.gbp_reviews_count || 0,
-              new_reviews_today: row.new_reviews_today || summary?.gbp_reviews_new || 0,
-              average_rating: row.average_rating || summary?.gbp_rating_avg || 0,
-              business_photo_views: row.business_photo_views || 0,
-              customer_photo_count: row.customer_photo_count || 0,
-              customer_photo_views: row.customer_photo_views || 0,
-              posts_count: row.posts_count || summary?.gbp_posts_count || 0,
-              posts_views: row.posts_views || summary?.gbp_posts_views || 0,
-              posts_actions: row.posts_actions || summary?.gbp_posts_clicks || 0,
-            };
-          });
-        } else if (summaryData && summaryData.length > 0) {
-          // Use summary data if no detailed data exists
-          mergedData = summaryData.map((row: any) => ({
-            date: row.date,
-            views: row.gbp_profile_views || 0,
-            actions: (row.gbp_calls || 0) + (row.gbp_website_clicks || 0) + (row.gbp_directions || 0),
-            direction_requests: row.gbp_directions || 0,
-            phone_calls: row.gbp_calls || 0,
-            website_clicks: row.gbp_website_clicks || 0,
-            total_reviews: row.gbp_reviews_count || 0,
-            new_reviews_today: row.gbp_reviews_new || 0,
-            average_rating: row.gbp_rating_avg || 0,
-            business_photo_views: 0,
-            customer_photo_count: row.gbp_photos_count || 0,
-            customer_photo_views: 0,
-            posts_count: row.gbp_posts_count || 0,
-            posts_views: row.gbp_posts_views || 0,
-            posts_actions: row.gbp_posts_clicks || 0,
-          }));
-        }
+        // Helper function: prefer non-zero value from either source
+        const pickValue = (detailedVal: number | null | undefined, summaryVal: number | null | undefined): number => {
+          // If detailed has a non-zero value, use it
+          if (detailedVal !== null && detailedVal !== undefined && detailedVal > 0) return detailedVal;
+          // Otherwise use summary value if it exists
+          if (summaryVal !== null && summaryVal !== undefined && summaryVal > 0) return summaryVal;
+          // Fall back to detailed value (even if 0) or 0
+          return detailedVal ?? summaryVal ?? 0;
+        };
+
+        // Merge data from both sources for each date
+        const mergedData: GBPDailyMetrics[] = Array.from(allDates).map(date => {
+          const detailed = detailedMap.get(date);
+          const summary = summaryMap.get(date);
+
+          return {
+            date,
+            views: pickValue(detailed?.views, summary?.gbp_profile_views),
+            actions: pickValue(detailed?.actions, null) ||
+              ((summary?.gbp_calls || 0) + (summary?.gbp_website_clicks || 0) + (summary?.gbp_directions || 0)),
+            direction_requests: pickValue(detailed?.direction_requests, summary?.gbp_directions),
+            phone_calls: pickValue(detailed?.phone_calls, summary?.gbp_calls),
+            website_clicks: pickValue(detailed?.website_clicks, summary?.gbp_website_clicks),
+            total_reviews: pickValue(detailed?.total_reviews, summary?.gbp_reviews_count),
+            new_reviews_today: pickValue(detailed?.new_reviews_today, summary?.gbp_reviews_new),
+            average_rating: detailed?.average_rating ?? summary?.gbp_rating_avg ?? 0,
+            business_photo_views: detailed?.business_photo_views || 0,
+            customer_photo_count: pickValue(detailed?.customer_photo_count, summary?.gbp_photos_count),
+            customer_photo_views: detailed?.customer_photo_views || 0,
+            posts_count: pickValue(detailed?.posts_count, summary?.gbp_posts_count),
+            posts_views: pickValue(detailed?.posts_views, summary?.gbp_posts_views),
+            posts_actions: pickValue(detailed?.posts_actions, summary?.gbp_posts_clicks),
+          };
+        });
+
+        // Sort by date
+        mergedData.sort((a, b) => a.date.localeCompare(b.date));
 
         setDailyData(mergedData);
       } catch (error) {
