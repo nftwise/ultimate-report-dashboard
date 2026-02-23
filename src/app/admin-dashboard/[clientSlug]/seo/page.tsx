@@ -139,7 +139,7 @@ export default function SEOPage() {
     fetchMetrics();
   }, [client, dateRange]);
 
-  // Fetch funnel data
+  // Fetch funnel data (from client_metrics_summary which has aggregated data)
   useEffect(() => {
     const fetchFunnelData = async () => {
       if (!client) return;
@@ -147,59 +147,57 @@ export default function SEOPage() {
         const dateFromISO = new Date(dateRange.from).toISOString().split('T')[0];
         const dateToISO = new Date(dateRange.to).toISOString().split('T')[0];
 
-        // Get sessions
-        const { data: sessionsData } = await supabase
-          .from('ga4_sessions')
-          .select('sessions, conversions')
+        // Get aggregated funnel data from client_metrics_summary
+        const { data: summaryData } = await supabase
+          .from('client_metrics_summary')
+          .select('sessions, content_conversions, engagement_rate')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
 
-        // Get events
-        const { data: eventsData } = await supabase
-          .from('ga4_events')
-          .select('event_count')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        // Get conversions
-        const { data: conversionsData } = await supabase
-          .from('ga4_conversions')
-          .select('conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        const totalSessions = sessionsData?.reduce((sum, s) => sum + (s.sessions || 0), 0) || 0;
-        const totalEvents = eventsData?.reduce((sum, e) => sum + (e.event_count || 0), 0) || 0;
-        const totalConversions = conversionsData?.reduce((sum, c) => sum + (c.conversions || 0), 0) || 0;
+        // Calculate totals from summary
+        const totalSessions = summaryData?.reduce((sum, s) => sum + (s.sessions || 0), 0) || 0;
+        // Estimate events as sessions * engagement_rate (if available) or use conversions
+        const totalEvents = summaryData?.reduce((sum, e) => {
+          const sessions = e.sessions || 0;
+          const engagementRate = e.engagement_rate || 0;
+          return sum + Math.round(sessions * (engagementRate / 100 || 0.5));
+        }, 0) || 0;
+        const totalConversions = summaryData?.reduce((sum, c) => sum + (c.content_conversions || 0), 0) || 0;
 
         setFunnelData({ sessions: totalSessions, events: totalEvents, conversions: totalConversions });
 
-        // Get top landing pages
-        const { data: lpData } = await supabase
-          .from('ga4_landing_pages')
-          .select('landing_page, sessions, conversions, conversion_rate, bounce_rate')
+        // Get top landing pages from client_metrics_summary
+        const { data: summaryLP } = await supabase
+          .from('client_metrics_summary')
+          .select('top_landing_pages')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
-          .order('sessions', { ascending: false })
-          .limit(5);
+          .order('date', { ascending: false })
+          .limit(1);
 
-        setTopLandingPages(lpData || []);
+        if (summaryLP && summaryLP[0]?.top_landing_pages) {
+          setTopLandingPages(summaryLP[0].top_landing_pages);
+        } else {
+          setTopLandingPages([]);
+        }
 
-        // Get top keywords
-        const { data: kwData } = await supabase
-          .from('gsc_queries')
-          .select('query, clicks, impressions, ctr, position')
+        // Get top keywords from client_metrics_summary
+        const { data: summaryKW } = await supabase
+          .from('client_metrics_summary')
+          .select('top_keywords')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
-          .order('impressions', { ascending: false })
-          .limit(5);
+          .order('date', { ascending: false })
+          .limit(1);
 
-        setTopKeywords(kwData || []);
+        if (summaryKW && summaryKW[0]?.top_keywords) {
+          setTopKeywords(summaryKW[0].top_keywords);
+        } else {
+          setTopKeywords([]);
+        }
       } catch (error) {
         console.error('Error fetching funnel data:', error);
       }
