@@ -567,7 +567,7 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Conversion Funnel - Vertical Bars */}
+            {/* Traffic Funnel - Horizontal */}
             <div className="mb-12" style={{
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
@@ -577,108 +577,97 @@ export default function SEOPage() {
               boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
             }}>
               <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                🎯 Conversion Funnel
+                🎯 Traffic Funnel
               </p>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 24px 0', letterSpacing: '-0.02em' }}>
-                Sessions → Events → Conversions
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 28px 0', letterSpacing: '-0.02em' }}>
+                All Sessions → Organic → Conversions
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', alignItems: 'flex-end' }}>
-                {/* Stage 1: Sessions */}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    background: 'linear-gradient(180deg, rgba(157, 181, 160, 0.15), rgba(157, 181, 160, 0.05))',
-                    borderRadius: '12px',
-                    padding: '24px 16px',
-                    border: '2px solid #9db5a0',
-                    minHeight: '200px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end'
-                  }}>
-                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                      Stage 1: Sessions
-                    </p>
-                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#9db5a0', margin: '0 0 8px 0' }}>
-                      {funnelData.sessions.toLocaleString()}
-                    </p>
-                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
-                      Entry point
-                    </p>
-                  </div>
-                </div>
+              {/* Horizontal funnel bars */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Stage 1: All Sessions */}
+                {(() => {
+                  const s1 = totalSessions;
+                  const s2 = totalOrganicTraffic;
+                  const s3 = funnelData.conversions;
+                  const maxVal = s1 || 1;
+                  const organicRate = s1 > 0 ? ((s2 / s1) * 100).toFixed(1) : '0';
+                  const convRate = s2 > 0 ? ((s3 / s2) * 100).toFixed(1) : '0';
+                  return (
+                    <>
+                      {/* Row 1 */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>All Sessions</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0' }}>{s1.toLocaleString()}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #9db5a0, #b8ceba)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#fff' }}>100%</span>
+                          </div>
+                        </div>
+                      </div>
 
-                {/* Arrow Down + Rate */}
-                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
-                  <p style={{ fontSize: '24px', margin: '0', color: '#9db5a0' }}>↓</p>
-                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#d9a854', margin: '0', background: 'rgba(217, 168, 84, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
-                    {funnelMetrics.sessionToEventRate}%
-                  </p>
-                </div>
+                      {/* Arrow + rate */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
+                        <span style={{ fontSize: '16px', color: '#9db5a0' }}>↓</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#d9a854', background: 'rgba(217,168,84,0.12)', padding: '3px 10px', borderRadius: '20px' }}>
+                          {organicRate}% organic rate
+                        </span>
+                      </div>
 
-                {/* Stage 2: Events */}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    background: 'linear-gradient(180deg, rgba(217, 168, 84, 0.15), rgba(217, 168, 84, 0.05))',
-                    borderRadius: '12px',
-                    padding: '24px 16px',
-                    border: '2px solid #d9a854',
-                    minHeight: '180px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end'
-                  }}>
-                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                      Stage 2: Events
-                    </p>
-                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#d9a854', margin: '0 0 8px 0' }}>
-                      {funnelData.events.toLocaleString()}
-                    </p>
-                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
-                      User engagement
-                    </p>
-                  </div>
-                </div>
+                      {/* Row 2 */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Organic Traffic</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f' }}>{s2.toLocaleString()}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.max((s2 / maxVal) * 100, 2)}%`, height: '100%', background: 'linear-gradient(90deg, #c4704f, #d4845f)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#fff' }}>{organicRate}%</span>
+                          </div>
+                        </div>
+                      </div>
 
-                {/* Arrow Down + Rate */}
-                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
-                  <p style={{ fontSize: '24px', margin: '0', color: '#d9a854' }}>↓</p>
-                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', margin: '0', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
-                    {funnelMetrics.eventToConversionRate}%
-                  </p>
-                </div>
+                      {/* Arrow + rate */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
+                        <span style={{ fontSize: '16px', color: '#c4704f' }}>↓</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '3px 10px', borderRadius: '20px' }}>
+                          {convRate}% conversion rate
+                        </span>
+                      </div>
 
-                {/* Stage 3: Conversions */}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))',
-                    borderRadius: '12px',
-                    padding: '24px 16px',
-                    border: '2px solid #10b981',
-                    minHeight: '160px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end'
-                  }}>
-                    <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                      Stage 3: Conversions
-                    </p>
-                    <p style={{ fontSize: '36px', fontWeight: '700', color: '#10b981', margin: '0 0 8px 0' }}>
-                      {funnelData.conversions.toLocaleString()}
-                    </p>
-                    <p style={{ fontSize: '11px', color: '#5c5850', margin: '0', fontWeight: '500' }}>
-                      Goals achieved
-                    </p>
-                  </div>
-                </div>
+                      {/* Row 3 */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversions</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#10b981' }}>{s3.toLocaleString()}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.max((s3 / maxVal) * 100, 1)}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#fff' }}>{s1 > 0 ? ((s3/s1)*100).toFixed(2) : 0}%</span>
+                          </div>
+                        </div>
+                      </div>
 
-                {/* Overall Rate */}
-                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
-                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#2c2419', margin: '0' }}>Overall</p>
-                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#10b981', margin: '0', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
-                    {funnelMetrics.sessionToConversionRate}%
-                  </p>
-                </div>
+                      {/* Summary row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '8px', paddingTop: '16px', borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+                        <div style={{ textAlign: 'center', background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '12px' }}>
+                          <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg Daily Sessions</p>
+                          <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{dailyData.length > 0 ? Math.round(s1 / dailyData.length) : 0}</p>
+                        </div>
+                        <div style={{ textAlign: 'center', background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '12px' }}>
+                          <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Organic Share</p>
+                          <p style={{ fontSize: '20px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{organicRate}%</p>
+                        </div>
+                        <div style={{ textAlign: 'center', background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '12px' }}>
+                          <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Overall Conv. Rate</p>
+                          <p style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', margin: 0 }}>{s1 > 0 ? ((s3/s1)*100).toFixed(2) : 0}%</p>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -912,44 +901,45 @@ export default function SEOPage() {
                   </div>
                 </div>
 
-                {/* Blog Highlight Box */}
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(157, 181, 160, 0.15), rgba(16, 185, 129, 0.15))',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  borderLeft: '4px solid #9db5a0',
-                  marginTop: '16px'
-                }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    📝 Blog Performance
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>
-                    {totalBlogSessions.toLocaleString()}
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: 0 }}>
-                    Sessions on blog content
-                  </p>
+                {/* Branded vs Non-Branded */}
+                <div style={{ marginTop: '16px' }}>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 12px 0', textTransform: 'uppercase' }}>Brand vs Non-Brand Traffic</p>
+                  {/* Branded */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600' }}>Branded</span>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#c4704f' }}>{totalBrandedTraffic.toLocaleString()} ({brandedPercent}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '10px', background: 'rgba(44,36,25,0.08)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ width: `${brandedPercent}%`, height: '100%', background: 'linear-gradient(90deg, #c4704f, #d4845f)', borderRadius: '5px' }}></div>
+                    </div>
+                  </div>
+                  {/* Non-Branded */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600' }}>Non-Branded</span>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#9db5a0' }}>{totalNonBrandedTraffic.toLocaleString()} ({nonBrandedPercent}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '10px', background: 'rgba(44,36,25,0.08)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ width: `${nonBrandedPercent}%`, height: '100%', background: 'linear-gradient(90deg, #9db5a0, #b8ceba)', borderRadius: '5px' }}></div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Average Rank Info */}
-                <div style={{
-                  background: 'rgba(44, 36, 25, 0.02)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  marginTop: '12px',
-                  textAlign: 'center',
-                  border: '1px solid rgba(44, 36, 25, 0.05)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0' }}>
-                    Average Rank
-                  </p>
-                  <p style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: 0 }}>
-                    {avgGoogleRankValue.toFixed(1)}
-                  </p>
+                {/* CTR + Avg Rank summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
+                  <div style={{ background: 'rgba(217,168,84,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #d9a854' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg CTR</p>
+                    <p style={{ fontSize: '20px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{avgCtr}%</p>
+                  </div>
+                  <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #2c2419' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg Rank</p>
+                    <p style={{ fontSize: '20px', fontWeight: '700', color: '#2c2419', margin: 0 }}>{avgGoogleRankValue.toFixed(1)}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Column 2: Top Landing Pages */}
+              {/* Column 2: SEO Momentum */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -959,48 +949,62 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  📄 Top Landing Pages
+                  📈 SEO Momentum
                 </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Where Visitors Land
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
+                  Search Visibility Performance
                 </h3>
-                <div>
-                  <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Page</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Sessions</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Conv.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topLandingPages.length > 0 ? (
-                        topLandingPages.map((page, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
-                            <td style={{ padding: '8px 4px', color: '#2c2419', fontSize: '9px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {page.landing_page?.length > 20 ? page.landing_page.substring(0, 17) + '...' : page.landing_page}
-                            </td>
-                            <td style={{ padding: '8px 4px', color: '#2c2419', textAlign: 'right', fontWeight: '600' }}>
-                              {page.sessions?.toLocaleString()}
-                            </td>
-                            <td style={{ padding: '8px 4px', color: '#10b981', textAlign: 'right', fontWeight: '600' }}>
-                              {page.conversions || 0}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center', fontSize: '10px' }}>
-                            No landing page data
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                {/* 4 metric cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #9db5a0' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Impressions</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalImpressions.toLocaleString()}</p>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>search appearances</p>
+                  </div>
+                  <div style={{ background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #c4704f' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Clicks</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalClicks.toLocaleString()}</p>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>from search results</p>
+                  </div>
+                  <div style={{ background: 'rgba(217,168,84,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #d9a854' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>CTR</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{avgCtr}%</p>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>click-through rate</p>
+                  </div>
+                  <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #2c2419' }}>
+                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg Position</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#2c2419', margin: 0 }}>#{avgGoogleRankValue.toFixed(1)}</p>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>average Google rank</p>
+                  </div>
+                </div>
+                {/* Keyword movement bar */}
+                <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 10px 0', textTransform: 'uppercase' }}>Keyword Movement</p>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1, background: 'rgba(16,185,129,0.1)', borderRadius: '8px', padding: '10px', textAlign: 'center', border: '1px solid rgba(16,185,129,0.2)' }}>
+                      <p style={{ fontSize: '9px', color: '#10b981', margin: '0 0 2px 0', fontWeight: '700' }}>↑ IMPROVED</p>
+                      <p style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalKeywordsImproved}</p>
+                    </div>
+                    <div style={{ fontSize: '16px', color: '#9ca3af' }}>vs</div>
+                    <div style={{ flex: 1, background: 'rgba(239,68,68,0.1)', borderRadius: '8px', padding: '10px', textAlign: 'center', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      <p style={{ fontSize: '9px', color: '#ef4444', margin: '0 0 2px 0', fontWeight: '700' }}>↓ DECLINED</p>
+                      <p style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444', margin: 0 }}>{totalKeywordsDeclined}</p>
+                    </div>
+                    <div style={{
+                      flex: 1, borderRadius: '8px', padding: '10px', textAlign: 'center',
+                      background: keywordsNetChange >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                      border: `1px solid ${keywordsNetChange >= 0 ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`
+                    }}>
+                      <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: '700' }}>NET</p>
+                      <p style={{ fontSize: '20px', fontWeight: '700', color: keywordsNetChange >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
+                        {keywordsNetChange >= 0 ? '+' : ''}{keywordsNetChange}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Column 3 (Row 2, Col 1): Top Keywords */}
+              {/* Column 3: Engagement Breakdown */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -1010,50 +1014,68 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  🔑 Top Keywords (GSC)
+                  💡 Engagement Breakdown
                 </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Search Queries
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
+                  How Users Interact
                 </h3>
-                <div>
-                  <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Query</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Impr.</th>
-                        <th style={{ textAlign: 'right', padding: '8px 4px', color: '#5c5850', fontWeight: '600' }}>Pos.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topKeywords.length > 0 ? (
-                        topKeywords.map((kw, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.05)' }}>
-                            <td style={{ padding: '8px 4px', color: '#2c2419', fontSize: '9px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {kw.query?.length > 20 ? kw.query.substring(0, 17) + '...' : kw.query}
-                            </td>
-                            <td style={{ padding: '8px 4px', color: '#2c2419', textAlign: 'right', fontWeight: '600' }}>
-                              {kw.impressions?.toLocaleString()}
-                            </td>
-                            <td style={{
-                              padding: '8px 4px',
-                              textAlign: 'right',
-                              fontWeight: '600',
-                              color: kw.position <= 10 ? '#10b981' : kw.position <= 20 ? '#d9a854' : '#c4704f'
-                            }}>
-                              {kw.position?.toFixed(1)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} style={{ padding: '16px 4px', color: '#9ca3af', textAlign: 'center', fontSize: '10px' }}>
-                            No keyword data
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {/* New vs Returning */}
+                <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 10px 0', textTransform: 'uppercase' }}>New vs Returning</p>
+                {[
+                  { label: 'New Users', value: dailyData.reduce((s: number, d: any) => s + (d.new_users || 0), 0), color: '#10b981', total: totalUsers },
+                  { label: 'Returning Users', value: dailyData.reduce((s: number, d: any) => s + (d.returning_users || 0), 0), color: '#c4704f', total: totalUsers },
+                ].map((item, idx) => (
+                  <div key={idx} style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
+                        {item.value.toLocaleString()} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${item.total > 0 ? (item.value / item.total) * 100 : 0}%`, height: '100%', background: item.color, borderRadius: '4px' }}></div>
+                    </div>
+                  </div>
+                ))}
+                {/* Desktop vs Mobile */}
+                <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '16px 0 10px 0', textTransform: 'uppercase' }}>Device Split</p>
+                {[
+                  { label: 'Desktop', value: totalDesktopSessions, color: '#d9a854', total: totalSessions },
+                  { label: 'Mobile', value: totalMobileSessions, color: '#9db5a0', total: totalSessions },
+                ].map((item, idx) => (
+                  <div key={idx} style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
+                        {item.value.toLocaleString()} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${item.total > 0 ? (item.value / item.total) * 100 : 0}%`, height: '100%', background: item.color, borderRadius: '4px' }}></div>
+                    </div>
+                  </div>
+                ))}
+                {/* Organic vs Paid */}
+                <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '16px 0 10px 0', textTransform: 'uppercase' }}>Organic vs Paid</p>
+                {[
+                  { label: 'Organic', value: totalOrganicTraffic, color: '#9db5a0' },
+                  { label: 'Paid', value: totalTrafficPaid, color: '#c4704f' },
+                ].map((item, idx) => {
+                  const total = totalOrganicTraffic + totalTrafficPaid;
+                  return (
+                    <div key={idx} style={{ marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
+                          {item.value.toLocaleString()} ({total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%)
+                        </span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${total > 0 ? (item.value / total) * 100 : 0}%`, height: '100%', background: item.color, borderRadius: '4px' }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Column 4 (Row 2, Col 2): Traffic Channel Distribution */}
