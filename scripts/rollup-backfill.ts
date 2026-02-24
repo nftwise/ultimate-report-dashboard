@@ -1,129 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-
-const BATCH_SIZE = 5;
-
+#!/usr/bin/env npx tsx
 /**
- * GET /api/admin/run-rollup
- * Called by Vercel cron - runs rollup for yesterday
+ * Rollup Backfill Script
+ *
+ * Runs the same rollup logic as /api/admin/run-rollup for 90 days of historical data.
+ * Reads from all raw tables and aggregates into client_metrics_summary.
+ *
+ * Usage:
+ *   npx tsx scripts/rollup-backfill.ts
+ *   npx tsx scripts/rollup-backfill.ts --days=30
+ *   npx tsx scripts/rollup-backfill.ts --client=slugname
  */
-export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+import * as dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// Load env from .env.local
+dotenv.config({ path: resolve(__dirname, '..', '.env.local') });
+
+import { createClient } from '@supabase/supabase-js';
+
+// --- Configuration ---
+const BATCH_SIZE = 5; // Process 5 clients in parallel
+const UPSERT_BATCH_SIZE = 500;
+
+// --- Parse CLI args ---
+function parseDays(): number {
+  const daysArg = process.argv.find(a => a.startsWith('--days='));
+  const days = daysArg ? parseInt(daysArg.split('=')[1], 10) : 90;
+  if (isNaN(days) || days < 1 || days > 365) {
+    console.error('Error: --days must be between 1 and 365');
+    process.exit(1);
   }
-
-  return runRollup();
+  return days;
 }
 
-/**
- * POST /api/admin/run-rollup
- * Aggregate Supabase raw tables into client_metrics_summary
- * Accepts { date?: string, clientId?: string, secret?: string } in body
- */
-export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}));
-  const { date, clientId, secret } = body;
-
-  if (secret && secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ success: false, error: 'Invalid secret' }, { status: 401 });
-  }
-
-  return runRollup(date, clientId);
+function parseClientFilter(): string | null {
+  const clientArg = process.argv.find(a => a.startsWith('--client='));
+  return clientArg ? clientArg.split('=')[1] : null;
 }
 
-/**
- * Main rollup logic - reads from Supabase raw tables and aggregates into client_metrics_summary
- */
-async function runRollup(date?: string, clientId?: string) {
-  const startTime = Date.now();
-
-  try {
-    let targetDate = date;
-    if (!targetDate) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      targetDate = yesterday.toISOString().split('T')[0];
-    }
-
-    console.log(`[Rollup] Starting rollup for ${targetDate}`);
-
-    // Fetch clients
-    let clientQuery = supabaseAdmin
-      .from('clients')
-      .select('id, name, slug, city')
-      .eq('is_active', true);
-
-    if (clientId) {
-      clientQuery = clientQuery.eq('id', clientId);
-    }
-
-    const { data: clients, error: clientsError } = await clientQuery;
-
-    if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
-    if (!clients || clients.length === 0) {
-      return NextResponse.json({ success: true, date: targetDate, processed: 0, message: 'No active clients found' });
-    }
-
-    console.log(`[Rollup] Processing ${clients.length} clients`);
-
-    // Get previous day data for comparison
-    const previousDate = new Date(targetDate);
-    previousDate.setDate(previousDate.getDate() - 1);
-    const prevDateStr = previousDate.toISOString().split('T')[0];
-
-    const { data: previousData } = await supabaseAdmin
-      .from('client_metrics_summary')
-      .select('client_id, top_keywords, total_leads')
-      .eq('date', prevDateStr)
-      .eq('period_type', 'daily');
-
-    const previousDataMap = new Map(
-      (previousData || []).map((d: any) => [d.client_id, d])
-    );
-
-    // Process clients in batches
-    const metricsToSave: any[] = [];
-
-    for (let i = 0; i < clients.length; i += BATCH_SIZE) {
-      const batch = clients.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map((client: any) => processClient(client, targetDate!, prevDateStr, previousDataMap))
-      );
-      metricsToSave.push(...batchResults);
-    }
-
-    // Upsert to database
-    const { error: upsertError } = await supabaseAdmin
-      .from('client_metrics_summary')
-      .upsert(metricsToSave, { onConflict: 'client_id,date,period_type' });
-
-    if (upsertError) {
-      throw new Error(`Failed to save: ${upsertError.message}`);
-    }
-
-    const duration = Date.now() - startTime;
-    console.log(`[Rollup] Completed rollup for ${metricsToSave.length} clients in ${duration}ms`);
-
-    return NextResponse.json({
-      success: true,
-      date: targetDate,
-      processed: metricsToSave.length,
-      duration,
-    });
-
-  } catch (error: any) {
-    console.error('[Rollup] Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
+// --- Helpers ---
+function formatDate(d: Date): string {
+  return d.toISOString().split('T')[0];
 }
 
-/**
- * Process a single client: read all raw tables and aggregate metrics
- */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// --- Process a single client (copied from route.ts) ---
 async function processClient(
+  supabase: any,
   client: { id: string; name: string; slug: string; city: string },
   targetDate: string,
   prevDateStr: string,
@@ -140,42 +67,42 @@ async function processClient(
     adsCampaignData,
     gbpData,
   ] = await Promise.all([
-    supabaseAdmin
+    supabase
       .from('ga4_sessions')
       .select('sessions, total_users, new_users, device, source_medium, engagement_rate')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
+      .then((r: any) => r.data || []),
+    supabase
       .from('ga4_events')
       .select('event_name, event_count')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
+      .then((r: any) => r.data || []),
+    supabase
       .from('ga4_landing_pages')
       .select('landing_page, sessions, conversions')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
+      .then((r: any) => r.data || []),
+    supabase
       .from('gsc_queries')
       .select('query, clicks, impressions, ctr, position')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
+      .then((r: any) => r.data || []),
+    supabase
       .from('ads_campaign_metrics')
       .select('impressions, clicks, cost, conversions, ctr, cpc, quality_score, impression_share, search_impression_share, search_lost_is_budget')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
+      .then((r: any) => r.data || []),
+    supabase
       .from('gbp_location_daily_metrics')
       .select('phone_calls, website_clicks, direction_requests, views, total_reviews, new_reviews_today, average_rating, business_photo_views, posts_count, posts_views, posts_actions')
       .eq('client_id', clientId)
       .eq('date', targetDate)
-      .then(r => r.data || []),
+      .then((r: any) => r.data || []),
   ]);
 
   // =====================================================
@@ -563,3 +490,164 @@ async function processClient(
     updated_at: new Date().toISOString(),
   };
 }
+
+// --- Main ---
+async function main() {
+  const days = parseDays();
+  const clientFilter = parseClientFilter();
+  const startTime = Date.now();
+
+  // Validate env
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase credentials (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)');
+    process.exit(1);
+  }
+
+  // Initialize Supabase
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - days);
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() - 1); // yesterday
+
+  console.log(`=== Rollup Backfill ===`);
+  console.log(`Date range: ${formatDate(startDate)} to ${formatDate(endDate)} (${days} days)`);
+  if (clientFilter) console.log(`Client filter: ${clientFilter}`);
+  console.log('');
+
+  // Fetch clients
+  let clientQuery = supabase
+    .from('clients')
+    .select('id, name, slug, city')
+    .eq('is_active', true);
+
+  if (clientFilter) {
+    clientQuery = clientQuery.eq('slug', clientFilter);
+  }
+
+  const { data: clients, error: clientsError } = await clientQuery;
+
+  if (clientsError) {
+    console.error('Failed to fetch clients:', clientsError.message);
+    process.exit(1);
+  }
+
+  if (!clients || clients.length === 0) {
+    console.log('No active clients found.');
+    process.exit(0);
+  }
+
+  console.log(`Clients to process: ${clients.length}`);
+  clients.forEach((c: any) => console.log(`  - ${c.name} (${c.slug})`));
+  console.log('');
+
+  // Generate dates array from startDate to endDate
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    dates.push(formatDate(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  console.log(`Total dates to process: ${dates.length}`);
+  console.log('');
+
+  let totalUpserted = 0;
+  const errors: string[] = [];
+
+  // Process each date sequentially
+  for (let dateIdx = 0; dateIdx < dates.length; dateIdx++) {
+    const targetDate = dates[dateIdx];
+
+    // Get previous day string
+    const previousDate = new Date(targetDate);
+    previousDate.setDate(previousDate.getDate() - 1);
+    const prevDateStr = formatDate(previousDate);
+
+    // Fetch previous day data for comparison
+    const { data: previousData } = await supabase
+      .from('client_metrics_summary')
+      .select('client_id, top_keywords, total_leads')
+      .eq('date', prevDateStr)
+      .eq('period_type', 'daily');
+
+    const previousDataMap = new Map(
+      (previousData || []).map((d: any) => [d.client_id, d])
+    );
+
+    // Process clients in batches of BATCH_SIZE
+    const metricsToSave: any[] = [];
+
+    for (let i = 0; i < clients.length; i += BATCH_SIZE) {
+      const batch = clients.slice(i, i + BATCH_SIZE);
+      try {
+        const batchResults = await Promise.all(
+          batch.map((client: any) =>
+            processClient(supabase, client, targetDate, prevDateStr, previousDataMap)
+          )
+        );
+        metricsToSave.push(...batchResults);
+      } catch (err: any) {
+        const msg = `${targetDate} batch ${Math.floor(i / BATCH_SIZE) + 1}: ${err.message}`;
+        errors.push(msg);
+        console.error(`  ERROR: ${msg}`);
+      }
+    }
+
+    // Upsert to database in batches
+    let dateUpserted = 0;
+    for (let i = 0; i < metricsToSave.length; i += UPSERT_BATCH_SIZE) {
+      const batch = metricsToSave.slice(i, i + UPSERT_BATCH_SIZE);
+      const { error: upsertError } = await supabase
+        .from('client_metrics_summary')
+        .upsert(batch, { onConflict: 'client_id,date,period_type' });
+
+      if (upsertError) {
+        const msg = `${targetDate} upsert: ${upsertError.message}`;
+        errors.push(msg);
+        console.error(`  ERROR: ${msg}`);
+      } else {
+        dateUpserted += batch.length;
+      }
+    }
+
+    totalUpserted += dateUpserted;
+
+    // Progress output
+    const pct = Math.round(((dateIdx + 1) / dates.length) * 100);
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    console.log(
+      `[${pct}%] ${targetDate} - ${dateUpserted} clients rolled up (${dateIdx + 1}/${dates.length} days, ${elapsed}s elapsed)`
+    );
+  }
+
+  const duration = Math.round((Date.now() - startTime) / 1000);
+
+  console.log('');
+  console.log('========== SUMMARY ==========');
+  console.log(`  Clients: ${clients.length}`);
+  console.log(`  Date range: ${formatDate(startDate)} to ${formatDate(endDate)}`);
+  console.log(`  Days processed: ${dates.length}`);
+  console.log(`  Total records upserted: ${totalUpserted}`);
+  if (errors.length > 0) {
+    console.log(`  Errors (${errors.length}):`);
+    errors.forEach(e => console.log(`    - ${e}`));
+  }
+  console.log(`  Duration: ${duration}s`);
+  console.log('=============================');
+}
+
+main()
+  .then(() => {
+    console.log('Done.');
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });

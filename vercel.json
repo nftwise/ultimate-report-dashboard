@@ -7,12 +7,40 @@
     },
     "app/api/admin/run-rollup/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron/sync-ga4/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/sync-ads/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/sync-gsc/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/sync-gbp/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
     {
+      "path": "/api/cron/sync-ga4",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/sync-ads",
+      "schedule": "5 10 * * *"
+    },
+    {
+      "path": "/api/cron/sync-gsc",
+      "schedule": "10 10 * * *"
+    },
+    {
+      "path": "/api/cron/sync-gbp",
+      "schedule": "12 10 * * *"
+    },
+    {
       "path": "/api/admin/run-rollup",
-      "schedule": "0 2 * * *"
+      "schedule": "15 10 * * *"
     }
   ]
 }

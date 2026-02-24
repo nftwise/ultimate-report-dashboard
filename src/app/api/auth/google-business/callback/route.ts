@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleBusinessProfileConnector } from '@/lib/google-business-profile';
 
@@ -64,18 +62,7 @@ export async function GET(request: NextRequest) {
       console.error('[GBP OAuth] Could not fetch user email:', emailError);
     }
 
-    // Save tokens to file
-    const tokenDir = path.join(process.cwd(), '.oauth-tokens');
-    if (!fs.existsSync(tokenDir)) {
-      fs.mkdirSync(tokenDir, { recursive: true });
-    }
-
-    const tokenFile = path.join(tokenDir, `${clientId}-gbp.json`);
-    fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
-
-    console.log('[GBP OAuth] Tokens saved to:', tokenFile);
-
-    // ALSO save as agency master token to Supabase (for production use)
+    // Save agency master token to Supabase
     try {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -85,13 +72,13 @@ export async function GET(request: NextRequest) {
       const { error: tokenError } = await supabase
         .from('system_settings')
         .upsert({
-          key: 'gbp_oauth_token',
-          value: {
+          key: 'gbp_agency_master',
+          value: JSON.stringify({
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
-            expires_at: Date.now() + ((tokens.expiry_date || Date.now() + 3600000) - Date.now()),
-            created_at: new Date().toISOString(),
-          },
+            expiry_date: tokens.expiry_date,
+            email: userEmail,
+          }),
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'key'
@@ -164,15 +151,16 @@ export async function GET(request: NextRequest) {
       console.error('[GBP OAuth] Database error:', dbError);
     }
 
-    // Redirect back to dashboard with success
+    // Redirect back to setup page with success
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?gbp_connected=true`
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/google-business-setup?gbp_connected=true`
     );
 
   } catch (error: any) {
     console.error('Error in GBP OAuth callback:', error);
+    const msg = encodeURIComponent(error?.message || 'unknown');
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed`
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/google-business-setup?error=oauth_failed&msg=${msg}`
     );
   }
 }

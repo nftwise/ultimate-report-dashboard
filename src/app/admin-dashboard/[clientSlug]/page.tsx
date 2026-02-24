@@ -263,15 +263,42 @@ export default function ClientDetailPage() {
   const trafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
   const trafficAi = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
 
-  // Calculate trend: compare first half vs second half of date range
+  // Calculate trends: compare first half vs second half of date range
   const midpoint = Math.floor(dailyData.length / 2);
   const firstHalf = dailyData.slice(0, midpoint);
   const secondHalf = dailyData.slice(midpoint);
-  const firstHalfLeads = firstHalf.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
-  const secondHalfLeads = secondHalf.reduce((sum: number, d: any) => sum + (d.total_leads || 0), 0);
-  const leadTrend = firstHalfLeads > 0
-    ? (((secondHalfLeads - firstHalfLeads) / firstHalfLeads) * 100).toFixed(1)
-    : '0.0';
+
+  const calcTrend = (first: DailyMetrics[], second: DailyMetrics[], accessor: (d: any) => number) => {
+    const firstVal = first.reduce((sum, d) => sum + accessor(d), 0);
+    const secondVal = second.reduce((sum, d) => sum + accessor(d), 0);
+    if (firstVal === 0) return { pct: '0.0', type: 'neutral' as const };
+    const pct = ((secondVal - firstVal) / firstVal * 100).toFixed(1);
+    return {
+      pct: parseFloat(pct) >= 0 ? `+${pct}` : pct,
+      type: (parseFloat(pct) > 0 ? 'up' : parseFloat(pct) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral'
+    };
+  };
+
+  const leadTrendData = calcTrend(firstHalf, secondHalf, (d) => d.total_leads || 0);
+  const sessionsTrendData = calcTrend(firstHalf, secondHalf, (d) => d.sessions || 0);
+  const adSpendTrendData = calcTrend(firstHalf, secondHalf, (d) => d.ad_spend || 0);
+  const cplTrendData = (() => {
+    const firstLeads = firstHalf.reduce((s, d: any) => s + (d.total_leads || 0), 0);
+    const firstSpend = firstHalf.reduce((s, d: any) => s + (d.ad_spend || 0), 0);
+    const secondLeads = secondHalf.reduce((s, d: any) => s + (d.total_leads || 0), 0);
+    const secondSpend = secondHalf.reduce((s, d: any) => s + (d.ad_spend || 0), 0);
+    const firstCpl = firstLeads > 0 ? firstSpend / firstLeads : 0;
+    const secondCpl = secondLeads > 0 ? secondSpend / secondLeads : 0;
+    if (firstCpl === 0) return { pct: '0.0', type: 'neutral' as const };
+    const pct = ((secondCpl - firstCpl) / firstCpl * 100).toFixed(1);
+    // For CPL, going up is bad (down), going down is good (up)
+    return {
+      pct: parseFloat(pct) >= 0 ? `+${pct}` : pct,
+      type: (parseFloat(pct) > 0 ? 'up' : parseFloat(pct) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral'
+    };
+  })();
+
+  const leadTrend = leadTrendData.pct;
   const isTrendUp = parseFloat(leadTrend) >= 0;
 
   return (
@@ -378,10 +405,10 @@ export default function ClientDetailPage() {
           {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
           <div className="grid grid-cols-4 gap-6 mb-8">
             {[
-              { label: 'Total Leads', value: totalLeads, trend: '-22%', trendType: 'down' },
-              { label: 'Website Sessions', value: sessions, trend: '+0%', trendType: 'neutral' },
-              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: '-21%', trendType: 'down' },
-              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: '+2%', trendType: 'up' }
+              { label: 'Total Leads', value: totalLeads, trend: `${leadTrendData.pct}%`, trendType: leadTrendData.type },
+              { label: 'Website Sessions', value: sessions, trend: `${sessionsTrendData.pct}%`, trendType: sessionsTrendData.type },
+              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: `${adSpendTrendData.pct}%`, trendType: adSpendTrendData.type },
+              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: `${cplTrendData.pct}%`, trendType: cplTrendData.type }
             ].map((metric, i) => (
               <div key={i} className="rounded-2xl p-6" style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -697,15 +724,18 @@ export default function ClientDetailPage() {
                 <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Impact</p>
                 <h3 className="text-2xl font-black mt-2 mb-6" style={{ color: '#2c2419' }}>Lead Distribution</h3>
 
-                {[
-                  { label: 'Google Ads', value: totalLeads, color: '#c4704f' },
-                  { label: 'SEO/Organic', value: totalFormFills, color: '#9db5a0' },
-                  { label: 'Google Business', value: totalGbpCalls, color: '#d9a854' }
-                ].map((channel, i) => (
+                {(() => {
+                  const channels = [
+                    { label: 'Google Ads', value: totalAdsConversions, color: '#c4704f' },
+                    { label: 'SEO/Organic', value: totalFormFills, color: '#9db5a0' },
+                    { label: 'Google Business', value: totalGbpCalls, color: '#d9a854' }
+                  ];
+                  const channelTotal = Math.max(channels.reduce((s, c) => s + c.value, 0), 1);
+                  return channels.map((channel, i) => (
                   <div key={i} style={{ marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '600', color: '#2c2419' }}>{channel.label}</span>
-                      <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{channel.value} ({Math.round((channel.value / Math.max(totalLeads, 1)) * 100)}%)</span>
+                      <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{channel.value} ({Math.round((channel.value / channelTotal) * 100)}%)</span>
                     </div>
                     <div style={{
                       height: '6px',
@@ -715,14 +745,15 @@ export default function ClientDetailPage() {
                     }}>
                       <div style={{
                         height: '100%',
-                        width: `${(channel.value / Math.max(totalLeads, 1)) * 100}%`,
+                        width: `${(channel.value / channelTotal) * 100}%`,
                         background: channel.color,
                         borderRadius: '3px',
                         transition: 'width 0.3s ease'
                       }} />
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* Channel Details */}

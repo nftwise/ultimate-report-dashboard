@@ -72,6 +72,7 @@ export default function SEOPage() {
 
   const [topLandingPages, setTopLandingPages] = useState<any[]>([]);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
+  const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -198,6 +199,46 @@ export default function SEOPage() {
         } else {
           setTopKeywords([]);
         }
+
+        // Fetch keyword ranking buckets from gsc_queries (latest date available)
+        const { data: gscData } = await supabase
+          .from('gsc_queries')
+          .select('query, position')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: false });
+
+        if (gscData && gscData.length > 0) {
+          // Deduplicate by query, keeping the best (lowest) position
+          const bestPositionByQuery = new Map<string, number>();
+          for (const row of gscData) {
+            const q = (row.query || '').toLowerCase();
+            const pos = row.position || 999;
+            if (!bestPositionByQuery.has(q) || pos < bestPositionByQuery.get(q)!) {
+              bestPositionByQuery.set(q, pos);
+            }
+          }
+          let top5 = 0, top10 = 0, top11to20 = 0;
+          for (const pos of bestPositionByQuery.values()) {
+            if (pos <= 5) top5++;
+            if (pos <= 10) top10++;
+            else if (pos <= 20) top11to20++;
+          }
+          setKeywordRankBuckets({ top5, top10, top11to20 });
+        } else {
+          // Fallback: use top_keywords from summary (count of keywords in top 10)
+          const { data: fallbackData } = await supabase
+            .from('client_metrics_summary')
+            .select('top_keywords')
+            .eq('client_id', client.id)
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO)
+            .order('date', { ascending: false })
+            .limit(1);
+          const latestTopKw = fallbackData?.[0]?.top_keywords || 0;
+          setKeywordRankBuckets({ top5: 0, top10: typeof latestTopKw === 'number' ? latestTopKw : 0, top11to20: 0 });
+        }
       } catch (error) {
         console.error('Error fetching funnel data:', error);
       }
@@ -282,10 +323,10 @@ export default function SEOPage() {
   const totalBlogSessions = dailyData.reduce((sum: number, d: any) => sum + (d.blog_sessions || 0), 0);
   const latestTopLandingPages = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_landing_pages : null;
 
-  // NEW: Keywords Ranking Analysis (Top 5, Top 10, 11-20)
-  const keywordsInTop5 = dailyData.filter((d: any) => d.google_rank && d.google_rank <= 5).length;
-  const keywordsInTop10 = dailyData.filter((d: any) => d.google_rank && d.google_rank <= 10).length;
-  const keywordsIn11To20 = dailyData.filter((d: any) => d.google_rank && d.google_rank > 10 && d.google_rank <= 20).length;
+  // Keywords Ranking Analysis (from gsc_queries, deduplicated by query)
+  const keywordsInTop5 = keywordRankBuckets.top5;
+  const keywordsInTop10 = keywordRankBuckets.top10;
+  const keywordsIn11To20 = keywordRankBuckets.top11to20;
   const daysWithRankData = dailyData.filter((d: any) => d.google_rank).length;
 
   const avgGoogleRankValue = daysWithRankData > 0
