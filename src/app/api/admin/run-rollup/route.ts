@@ -333,10 +333,19 @@ async function processClient(
     }
 
     // Branded vs non-branded
-    const brandName = client.name?.toLowerCase().split(' ')[0] || '';
+    // Extract meaningful brand words (skip generic terms)
+    const genericWords = ['chiropractic', 'chiropractor', 'chiro', 'center', 'centre', 'clinic', 'health', 'wellness', 'care', 'family', 'spine', 'rehab', 'dental', 'dr', 'the', 'of', 'and', 'physical', 'medicine', 'animal', 'first', 'healing', 'hands', 'functional'];
+    const brandWords = (client.name || '').toLowerCase().split(/[\s&]+/)
+      .filter((w: string) => w.length >= 3 && !genericWords.includes(w));
+    // Also check slug-derived words
+    const slugWords = (client.slug || '').split('-')
+      .filter((w: string) => w.length >= 3 && !genericWords.includes(w));
+    const allBrandWords = [...new Set([...brandWords, ...slugWords])];
+
     for (const q of gscQueriesData) {
       const queryLower = (q.query || '').toLowerCase();
-      if (brandName && queryLower.includes(brandName)) {
+      const isBranded = allBrandWords.length > 0 && allBrandWords.some((bw: string) => queryLower.includes(bw));
+      if (isBranded) {
         brandedTraffic += q.clicks || 0;
       } else {
         nonBrandedTraffic += q.clicks || 0;
@@ -350,9 +359,9 @@ async function processClient(
 
   // Keywords improved/declined (compare with previous day)
   const prevData = previousDataMap.get(clientId);
-  const prevTopKeywords = prevData?.top_keywords || topKeywords;
-  const keywordsImproved = Math.max(0, topKeywords - prevTopKeywords);
-  const keywordsDeclined = Math.max(0, prevTopKeywords - topKeywords);
+  const prevTopKeywords = prevData?.top_keywords ?? 0;
+  const keywordsImproved = prevTopKeywords > 0 ? Math.max(0, topKeywords - prevTopKeywords) : 0;
+  const keywordsDeclined = prevTopKeywords > 0 ? Math.max(0, prevTopKeywords - topKeywords) : 0;
 
   // =====================================================
   // AGGREGATE ADS CAMPAIGN METRICS
