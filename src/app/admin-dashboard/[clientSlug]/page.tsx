@@ -51,7 +51,6 @@ interface DailyMetrics {
   ads_ctr?: number;
   ad_spend?: number;
   cpl?: number;
-  health_score?: number;
   budget_utilization?: number;
 }
 
@@ -145,7 +144,6 @@ export default function ClientDetailPage() {
             ads_ctr,
             ad_spend,
             cpl,
-            health_score,
             budget_utilization
           `)
           .eq('client_id', client.id)
@@ -256,7 +254,6 @@ export default function ClientDetailPage() {
   const adsClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
   const adsImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const adsCtr = adsImpressions > 0 ? ((adsClicks / adsImpressions) * 100).toFixed(2) : '0.00';
-  const healthScore = dailyData.length > 0 ? dailyData[dailyData.length - 1].health_score || 0 : 0;
   const budgetUtilization = dailyData.length > 0 ? dailyData[dailyData.length - 1].budget_utilization || 0 : 0;
   const trafficOrganic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
   const trafficPaid = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_paid || 0), 0);
@@ -606,7 +603,7 @@ export default function ClientDetailPage() {
                     { label: 'Search Impressions', value: seoImpressions.toLocaleString(), color: '#9db5a0' },
                     { label: 'Clicks', value: seoClicks.toLocaleString(), color: '#d9a854' },
                     { label: 'CTR', value: `${seoCtr}%`, color: '#c4704f' },
-                    { label: 'Health Score', value: `${healthScore}%`, color: '#2c2419' }
+                    { label: 'Organic Traffic', value: trafficOrganic > 0 ? trafficOrganic.toLocaleString() : '—', color: '#2c2419' }
                   ].map((metric, i) => (
                     <div key={i} style={{
                       padding: '16px',

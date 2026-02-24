@@ -31,10 +31,10 @@ interface DailyMetrics {
   traffic_direct?: number;
   traffic_referral?: number;
   traffic_ai?: number;
-  branded_traffic?: number;
-  non_branded_traffic?: number;
   keywords_improved?: number;
   keywords_declined?: number;
+  engagement_rate?: number;
+  conversion_rate?: number;
   seo_impressions?: number;
   seo_clicks?: number;
   seo_ctr?: number;
@@ -125,7 +125,7 @@ export default function SEOPage() {
         // Using GA4 sessions + organic traffic (not GSC data)
         const { data: metricsData } = await supabase
           .from('client_metrics_summary')
-          .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, top_landing_pages, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, branded_traffic, non_branded_traffic, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords')
+          .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, top_landing_pages, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords, engagement_rate, conversion_rate')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
@@ -259,10 +259,19 @@ export default function SEOPage() {
   const totalSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
   const totalUsers = dailyData.reduce((sum: number, d: any) => sum + (d.users || 0), 0);
   const totalOrganicTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
-  const totalBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.branded_traffic || 0), 0);
-  const totalNonBrandedTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.non_branded_traffic || 0), 0);
-  const totalKeywordsImproved = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_improved || 0), 0);
-  const totalKeywordsDeclined = dailyData.reduce((sum: number, d: any) => sum + (d.keywords_declined || 0), 0);
+
+  // Keywords improved/declined: monthly comparison (compare second half vs first half of date range)
+  const kwMidpoint = Math.floor(dailyData.length / 2);
+  const kwFirstHalf = dailyData.slice(0, kwMidpoint);
+  const kwSecondHalf = dailyData.slice(kwMidpoint);
+  const kwFirstAvg = kwFirstHalf.length > 0
+    ? kwFirstHalf.reduce((s: number, d: any) => s + (typeof d.top_keywords === 'number' ? d.top_keywords : 0), 0) / kwFirstHalf.length
+    : 0;
+  const kwSecondAvg = kwSecondHalf.length > 0
+    ? kwSecondHalf.reduce((s: number, d: any) => s + (typeof d.top_keywords === 'number' ? d.top_keywords : 0), 0) / kwSecondHalf.length
+    : 0;
+  const totalKeywordsImproved = Math.round(Math.max(0, kwSecondAvg - kwFirstAvg));
+  const totalKeywordsDeclined = Math.round(Math.max(0, kwFirstAvg - kwSecondAvg));
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
 
@@ -275,8 +284,16 @@ export default function SEOPage() {
   const totalTrafficAI = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
 
   // Calculate total traffic for percentages
-  const totalAllTraffic = totalOrganicTraffic + totalBrandedTraffic + totalNonBrandedTraffic +
+  const totalAllTraffic = totalOrganicTraffic +
                           totalTrafficPaid + totalTrafficDirect + totalTrafficReferral + totalTrafficAI;
+
+  // Engagement metrics
+  const avgEngagementRate = dailyData.length > 0
+    ? (dailyData.reduce((sum: number, d: any) => sum + (d.engagement_rate || 0), 0) / dailyData.filter((d: any) => d.engagement_rate).length || 0).toFixed(1)
+    : '0.0';
+  const avgConversionRate = dailyData.length > 0
+    ? (dailyData.reduce((sum: number, d: any) => sum + (d.conversion_rate || 0), 0) / dailyData.filter((d: any) => d.conversion_rate).length || 0).toFixed(2)
+    : '0.00';
 
   // GSC metrics
   const avgGoogleRank = dailyData.length > 0
@@ -308,13 +325,6 @@ export default function SEOPage() {
   const returningUserPercent = totalUsers > 0 ? ((totalReturningUsers / totalUsers) * 100).toFixed(1) : '0';
   const desktopPercent = totalSessions > 0 ? ((totalDesktopSessions / totalSessions) * 100).toFixed(1) : '0';
   const mobilePercent = totalSessions > 0 ? ((totalMobileSessions / totalSessions) * 100).toFixed(1) : '0';
-
-  // NEW: Branded vs Non-Branded percentages
-  const totalBrandedNonBranded = totalBrandedTraffic + totalNonBrandedTraffic;
-  const brandedPercent = totalBrandedNonBranded > 0
-    ? ((totalBrandedTraffic / totalBrandedNonBranded) * 100).toFixed(1) : '0';
-  const nonBrandedPercent = totalBrandedNonBranded > 0
-    ? ((totalNonBrandedTraffic / totalBrandedNonBranded) * 100).toFixed(1) : '0';
 
   // NEW: Keywords net change
   const keywordsNetChange = totalKeywordsImproved - totalKeywordsDeclined;
@@ -806,7 +816,7 @@ export default function SEOPage() {
                   📊 Search Health Analysis
                 </p>
                 <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
-                  Keyword Performance & Brand Visibility
+                  Keyword Performance & Engagement
                 </h3>
 
                 {/* Sub-cards: Keyword Movement */}
@@ -835,25 +845,28 @@ export default function SEOPage() {
                   </div>
                 </div>
 
-                {/* Progress Bars: Brand Distribution */}
+                {/* Progress Bars: Engagement Metrics */}
                 <div style={{ marginTop: '20px' }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Brand vs Non-Brand Traffic</p>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Engagement Metrics</p>
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Branded</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{totalBrandedTraffic.toLocaleString()} ({brandedPercent}%)</span>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Engagement Rate</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{avgEngagementRate}%</span>
                     </div>
                     <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div style={{ width: `${brandedPercent}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
+                      <div style={{ width: `${Math.min(parseFloat(avgEngagementRate), 100)}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
                     </div>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0', textAlign: 'right' }}>
+                      {parseFloat(avgEngagementRate) > 60 ? 'Excellent' : parseFloat(avgEngagementRate) > 40 ? 'Good' : 'Needs improvement'}
+                    </p>
                   </div>
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Non-Branded</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{totalNonBrandedTraffic.toLocaleString()} ({nonBrandedPercent}%)</span>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Conversion Rate</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{avgConversionRate}%</span>
                     </div>
                     <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div style={{ width: `${nonBrandedPercent}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
+                      <div style={{ width: `${Math.min(parseFloat(avgConversionRate) * 10, 100)}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
                     </div>
                   </div>
                   <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '20px 0 8px 0', textTransform: 'uppercase' }}>CTR Performance</p>
@@ -942,27 +955,17 @@ export default function SEOPage() {
                   </div>
                 </div>
 
-                {/* Branded vs Non-Branded */}
+                {/* Content Performance */}
                 <div style={{ marginTop: '16px' }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 12px 0', textTransform: 'uppercase' }}>Brand vs Non-Brand Traffic</p>
-                  {/* Branded */}
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600' }}>Branded</span>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#c4704f' }}>{totalBrandedTraffic.toLocaleString()} ({brandedPercent}%)</span>
+                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 12px 0', textTransform: 'uppercase' }}>Content Performance</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
+                      <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Blog Sessions</p>
+                      <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalBlogSessions.toLocaleString()}</p>
                     </div>
-                    <div style={{ width: '100%', height: '10px', background: 'rgba(44,36,25,0.08)', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div style={{ width: `${brandedPercent}%`, height: '100%', background: 'linear-gradient(90deg, #c4704f, #d4845f)', borderRadius: '5px' }}></div>
-                    </div>
-                  </div>
-                  {/* Non-Branded */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600' }}>Non-Branded</span>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#9db5a0' }}>{totalNonBrandedTraffic.toLocaleString()} ({nonBrandedPercent}%)</span>
-                    </div>
-                    <div style={{ width: '100%', height: '10px', background: 'rgba(44,36,25,0.08)', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div style={{ width: `${nonBrandedPercent}%`, height: '100%', background: 'linear-gradient(90deg, #9db5a0, #b8ceba)', borderRadius: '5px' }}></div>
+                    <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
+                      <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Engagement</p>
+                      <p style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', margin: 0 }}>{avgEngagementRate}%</p>
                     </div>
                   </div>
                 </div>
@@ -1189,9 +1192,9 @@ export default function SEOPage() {
                 lineHeight: '1.5'
               }}>
                 Your site appeared in search results <strong>{totalImpressions} times</strong>, generating <strong>{totalClicks} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
-                Organic search traffic generated <strong>{totalOrganicTraffic} sessions</strong>.
-                Keywords improved: <strong>{totalKeywordsImproved}</strong> | Keywords declined: <strong>{totalKeywordsDeclined}</strong>.
-                Focus on content optimization for non-branded keywords to increase organic visibility and reduce keyword decline rate.
+                Organic search traffic generated <strong>{totalOrganicTraffic} sessions</strong> with <strong>{avgEngagementRate}% engagement rate</strong>.
+                Keywords improved (period over period): <strong>{totalKeywordsImproved}</strong> | Keywords declined: <strong>{totalKeywordsDeclined}</strong>.
+                Focus on content optimization and improving engagement to drive conversions.
               </p>
             </div>
           </div>
