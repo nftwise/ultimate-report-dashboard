@@ -138,6 +138,7 @@ async function processClient(
     ga4LandingPagesData,
     gscQueriesData,
     adsCampaignData,
+    adsConversionActionsData,
     gbpData,
   ] = await Promise.all([
     supabaseAdmin
@@ -148,7 +149,7 @@ async function processClient(
       .then(r => r.data || []),
     supabaseAdmin
       .from('ga4_events')
-      .select('event_name, event_count')
+      .select('event_name, event_count, source_medium')
       .eq('client_id', clientId)
       .eq('date', targetDate)
       .then(r => r.data || []),
@@ -166,7 +167,13 @@ async function processClient(
       .then(r => r.data || []),
     supabaseAdmin
       .from('ads_campaign_metrics')
-      .select('impressions, clicks, cost, conversions, ctr, cpc, quality_score, impression_share, search_impression_share, search_lost_is_budget')
+      .select('impressions, clicks, cost, ctr, cpc, quality_score, impression_share, search_impression_share, search_lost_is_budget')
+      .eq('client_id', clientId)
+      .eq('date', targetDate)
+      .then(r => r.data || []),
+    supabaseAdmin
+      .from('campaign_conversion_actions')
+      .select('conversions, conversion_action_name')
       .eq('client_id', clientId)
       .eq('date', targetDate)
       .then(r => r.data || []),
@@ -247,10 +254,15 @@ async function processClient(
   // =====================================================
   // AGGREGATE GA4 EVENTS
   // =====================================================
+  // form_fills: only count "success/successful" events from non-paid traffic
+  // This avoids double-counting with google_ads_conversions
   let formFills = 0;
   for (const row of ga4EventsData) {
     const eventName = (row.event_name || '').toLowerCase();
-    if (eventName === 'appointment') {
+    const sourceMedium = (row.source_medium || '').toLowerCase();
+    const isPaid = sourceMedium.includes('cpc') || sourceMedium.includes('paid');
+    const isSuccess = eventName.includes('success');
+    if (isSuccess && !isPaid) {
       formFills += row.event_count || 0;
     }
   }
@@ -366,7 +378,13 @@ async function processClient(
   // =====================================================
   // AGGREGATE ADS CAMPAIGN METRICS
   // =====================================================
+  // Conversions come from campaign_conversion_actions (accurate, matches Google Ads UI)
+  // NOT from ads_campaign_metrics.conversions (can be inflated with view-through etc.)
   let googleAdsConversions = 0;
+  for (const row of adsConversionActionsData) {
+    googleAdsConversions += Math.round(row.conversions || 0);
+  }
+
   let adSpend = 0;
   let adsImpressions = 0;
   let adsClicks = 0;
@@ -376,7 +394,6 @@ async function processClient(
   let qualityScoreCount = 0;
 
   for (const row of adsCampaignData) {
-    googleAdsConversions += Math.round(row.conversions || 0);
     adSpend += row.cost || 0;
     adsImpressions += row.impressions || 0;
     adsClicks += row.clicks || 0;
