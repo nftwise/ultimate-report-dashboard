@@ -26,6 +26,11 @@ interface ClientMetrics {
   form_fills?: number;
   gbp_calls?: number;
   ads_conversions?: number;
+  services?: {
+    googleAds: boolean;
+    seo: boolean;
+    googleLocalService: boolean;
+  };
 }
 
 interface DailyMetrics {
@@ -166,7 +171,8 @@ export default function ClientDetailPage() {
             phone_calls,
             views,
             website_clicks,
-            direction_requests
+            direction_requests,
+            average_rating
           `)
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
@@ -200,7 +206,8 @@ export default function ClientDetailPage() {
             gbp_calls: phoneCallsValue,
             gbp_profile_views: gbp?.views !== undefined ? gbp.views : 0,
             gbp_website_clicks: gbp?.website_clicks !== undefined ? gbp.website_clicks : 0,
-            gbp_direction_requests: gbp?.direction_requests !== undefined ? gbp.direction_requests : 0
+            gbp_direction_requests: gbp?.direction_requests !== undefined ? gbp.direction_requests : 0,
+            average_rating: gbp?.average_rating ?? 0
           };
         });
 
@@ -288,6 +295,7 @@ export default function ClientDetailPage() {
   const trafficPaid = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_paid || 0), 0);
   const trafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
   const trafficAi = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
+  const latestGbpRating = dailyData.length > 0 ? (dailyData[dailyData.length - 1] as any).average_rating || 0 : 0;
 
   // MoM comparison: current period vs previous period
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
@@ -376,47 +384,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Section 2: Executive Summary (Full Width - 3 Cards) */}
-          <div className="grid grid-cols-3 gap-6 mb-8">
-            {/* What's Great */}
-            <div className="rounded-2xl p-6" style={{
-              background: 'rgba(157, 181, 160, 0.1)',
-              borderLeft: '4px solid #9db5a0',
-              border: '1px solid rgba(157, 181, 160, 0.2)'
-            }}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">✓</span>
-                <h3 className="font-black text-lg" style={{ color: '#9db5a0' }}>What's Great</h3>
-              </div>
-              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Strong {totalAdsConversions > 0 ? (totalAdsConversions / Math.max(totalLeads, 1) * 100).toFixed(1) : '0'}% conversion rate on ads</p>
-            </div>
-
-            {/* Needs Attention */}
-            <div className="rounded-2xl p-6" style={{
-              background: 'rgba(196, 112, 79, 0.1)',
-              borderLeft: '4px solid #c4704f',
-              border: '1px solid rgba(196, 112, 79, 0.2)'
-            }}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">⚠</span>
-                <h3 className="font-black text-lg" style={{ color: '#c4704f' }}>Needs Attention</h3>
-              </div>
-              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Monitor lead generation trends</p>
-            </div>
-
-            {/* We're Working On It */}
-            <div className="rounded-2xl p-6" style={{
-              background: 'rgba(217, 168, 84, 0.1)',
-              borderLeft: '4px solid #d9a854',
-              border: '1px solid rgba(217, 168, 84, 0.2)'
-            }}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">→</span>
-                <h3 className="font-black text-lg" style={{ color: '#d9a854' }}>We're Working On It</h3>
-              </div>
-              <p className="text-sm font-semibold" style={{ color: '#2c2419' }}>Analyzing traffic patterns and optimizing</p>
-            </div>
-          </div>
+          {/* Section 2: Executive Summary removed - cards were hardcoded */}
 
           {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
           <div className="grid grid-cols-4 gap-6 mb-8">
@@ -490,28 +458,6 @@ export default function ClientDetailPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 mt-8">
-                  <div style={{
-                    padding: '16px',
-                    background: 'rgba(44, 36, 25, 0.02)',
-                    borderRadius: '12px',
-                    borderLeft: '2px solid #d9a854'
-                  }}>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Leads</p>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{totalLeads}</div>
-                    <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Cumulative total</p>
-                  </div>
-                  <div style={{
-                    padding: '16px',
-                    background: 'rgba(44, 36, 25, 0.02)',
-                    borderRadius: '12px',
-                    borderLeft: '2px solid #c4704f'
-                  }}>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg Per Month</p>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2c2419' }}>{Math.round(totalLeads / 2)}</div>
-                    <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Last 2 months avg</p>
-                  </div>
-                </div>
               </div>
 
               {/* Daily Traffic & Leads */}
@@ -544,7 +490,7 @@ export default function ClientDetailPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-4 gap-6 mt-6" style={{
+                <div className="grid grid-cols-2 gap-6 mt-6" style={{
                   borderTop: '1px solid rgba(44, 36, 25, 0.1)',
                   paddingTop: '24px'
                 }}>
@@ -555,14 +501,6 @@ export default function ClientDetailPage() {
                   <div>
                     <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Leads</p>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{Math.round(totalLeads / Math.max(dailyData.length, 1))}</div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Peak Sessions Day</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2c2419' }}>{sessions}</div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Total Conversions</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#c4704f' }}>{totalLeads}</div>
                   </div>
                 </div>
               </div>
@@ -582,12 +520,15 @@ export default function ClientDetailPage() {
                 </div>
 
                 {/* Channel Breakdown */}
-                <div className="grid grid-cols-3 gap-6">
-                  {[
-                    { label: 'Google Ads', value: totalAdsConversions, icon: '📊', color: '#c4704f', mom: adsCvTrendData },
-                    { label: 'SEO/Organic', value: seoClicks, icon: '🔍', color: '#9db5a0', mom: seoClicksTrendData },
-                    { label: 'Google Business', value: totalGbpCalls, icon: '📍', color: '#d9a854', mom: gbpCallsTrendData }
-                  ].map((channel, idx) => (
+                {(() => {
+                  const channels = [
+                    ...(client.services?.googleAds !== false ? [{ label: 'Google Ads', value: totalAdsConversions, icon: '📊', color: '#c4704f', mom: adsCvTrendData }] : []),
+                    ...(client.services?.seo !== false ? [{ label: 'SEO/Organic', value: seoClicks, icon: '🔍', color: '#9db5a0', mom: seoClicksTrendData }] : []),
+                    ...(client.services?.googleLocalService !== false ? [{ label: 'Google Business', value: totalGbpCalls, icon: '📍', color: '#d9a854', mom: gbpCallsTrendData }] : [])
+                  ];
+                  return (
+                <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${channels.length}, 1fr)` }}>
+                  {channels.map((channel, idx) => (
                     <div key={idx} style={{
                       padding: '20px',
                       background: 'rgba(44, 36, 25, 0.02)',
@@ -606,6 +547,8 @@ export default function ClientDetailPage() {
                     </div>
                   ))}
                 </div>
+                  );
+                })()}
               </div>
 
               {/* SEO & AI Analytics */}
@@ -695,45 +638,6 @@ export default function ClientDetailPage() {
 
             {/* Right Sidebar */}
             <div className="flex flex-col gap-8">
-              {/* Team Section */}
-              <div className="rounded-2xl p-8" style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Strategic Team</p>
-                <h3 className="text-2xl font-black mt-2 mb-6" style={{ color: '#2c2419' }}>Who's Working On This</h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {[
-                    { name: 'Quan', role: 'SEO & Local SEO Expert', bg: '#2c2419' },
-                    { name: 'Trieu', role: 'Strategic Developer', bg: '#c4704f' }
-                  ].map((member, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        background: member.bg,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 'bold',
-                        fontSize: '18px'
-                      }}>
-                        {member.name[0]}
-                      </div>
-                      <div>
-                        <h4 style={{ fontSize: '16px', fontWeight: 'bold', color: '#2c2419', marginBottom: '2px' }}>{member.name}</h4>
-                        <p style={{ fontSize: '13px', color: '#5c5850' }}>{member.role}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Lead Distribution */}
               <div className="rounded-2xl p-8" style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -778,22 +682,24 @@ export default function ClientDetailPage() {
 
               {/* Channel Details */}
               {[
-                { title: 'Google Ads', status: 'Active', statusColor: '#4a6b4e', statusBg: 'rgba(157, 181, 160, 0.1)', metrics: [
+                ...(client.services?.googleAds !== false ? [{ title: 'Google Ads', status: totalAdsConversions > 0 || adSpend > 0 ? 'Active' : 'Inactive', statusColor: totalAdsConversions > 0 || adSpend > 0 ? '#4a6b4e' : '#9ca3af', statusBg: totalAdsConversions > 0 || adSpend > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
                   { label: 'Conversions', value: totalAdsConversions },
                   { label: 'Clicks', value: adsClicks },
                   { label: 'Spend', value: `$${Math.round(adSpend)}` },
-                  { label: 'CTR', value: `${adsCtr}%` }
-                ]},
-                { title: 'SEO Performance', status: 'Growing', statusColor: '#8a6a35', statusBg: 'rgba(217, 168, 84, 0.1)', metrics: [
+                  { label: 'CTR', value: `${adsCtr}%` },
+                  { label: 'Budget Used', value: `${Math.round(budgetUtilization)}%` }
+                ]}] : []),
+                ...(client.services?.seo !== false ? [{ title: 'SEO Performance', status: seoClicks > 0 ? 'Active' : 'Inactive', statusColor: seoClicks > 0 ? '#4a6b4e' : '#9ca3af', statusBg: seoClicks > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
                   { label: 'Organic Clicks', value: seoClicks },
                   { label: 'Impressions', value: seoImpressions },
                   { label: 'CTR', value: `${seoCtr}%` }
-                ]},
-                { title: 'Google Business', status: 'Local', statusColor: '#5c5850', statusBg: 'rgba(92, 88, 80, 0.1)', metrics: [
+                ]}] : []),
+                ...(client.services?.googleLocalService !== false ? [{ title: 'Google Business', status: totalGbpCalls > 0 ? 'Active' : 'Inactive', statusColor: totalGbpCalls > 0 ? '#4a6b4e' : '#9ca3af', statusBg: totalGbpCalls > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
                   { label: 'Phone Calls', value: totalGbpCalls },
                   { label: 'Web Clicks', value: totalGbpWebsiteClicks },
-                  { label: 'Directions', value: totalGbpDirections }
-                ]}
+                  { label: 'Directions', value: totalGbpDirections },
+                  { label: 'Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' }
+                ]}] : [])
               ].map((channel, i) => (
                 <div key={i} className="rounded-2xl p-6" style={{
                   background: 'rgba(255, 255, 255, 0.9)',
