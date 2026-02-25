@@ -7,7 +7,9 @@ export const maxDuration = 300;
 const BATCH_SIZE = 3;
 const TIMEOUT_MS = 20000;
 
-// GBP Performance API metric names
+// GBP Performance API metric names (GET method only)
+// Note: ACTIONS_PHONE is NOT available via this API (returns 400/404)
+// CALL_CLICKS = clicks on "Call" button on GBP listing (best available metric)
 const METRICS = [
   'WEBSITE_CLICKS',
   'BUSINESS_DIRECTION_REQUESTS',
@@ -158,7 +160,7 @@ async function fetchLocationMetrics(
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        // GBP Performance API uses GET with query params (not POST with body)
+        // GBP Performance API uses GET with query params
         const url = new URL(
           `https://businessprofileperformance.googleapis.com/v1/${locationId}:getDailyMetricsTimeSeries`
         );

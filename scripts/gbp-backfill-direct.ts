@@ -30,6 +30,9 @@ const BATCH_DELAY_MS = 2000; // delay between batches
 const METRIC_DELAY_MS = 300; // delay between metric fetches per location
 const TIMEOUT_MS = 20000;
 
+// GBP Performance API metrics (GET method only)
+// Note: ACTIONS_PHONE is NOT available via this API (returns 400/404)
+// CALL_CLICKS = clicks on "Call" button on GBP listing (best available metric)
 const METRICS = [
   'WEBSITE_CLICKS',
   'BUSINESS_DIRECTION_REQUESTS',
