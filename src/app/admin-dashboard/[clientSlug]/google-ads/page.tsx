@@ -189,6 +189,7 @@ export default function GoogleAdsPage() {
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
   const [formConversions, setFormConversions] = useState<number>(0);
   const [conversionActionsData, setConversionActionsData] = useState<{ conversion_action_name: string | null; conversions: number }[]>([]);
+  const [showAdGroups, setShowAdGroups] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -778,8 +779,23 @@ export default function GoogleAdsPage() {
               </div>
             </div>
 
-            {/* Section 5: Campaign Breakdown Table */}
-            <AdGroupPerformanceTable data={adGroups} />
+            {/* Section 5: Campaign Breakdown Table (collapsible) */}
+            <div>
+              <button
+                onClick={() => setShowAdGroups(prev => !prev)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(44,36,25,0.15)',
+                  borderRadius: '12px', padding: '10px 20px', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: '600', color: '#5c5850',
+                  marginBottom: showAdGroups ? '16px' : '0'
+                }}
+              >
+                <span>Campaign Details</span>
+                <span style={{ fontSize: '10px' }}>{showAdGroups ? '▲' : '▼'}</span>
+              </button>
+              {showAdGroups && <AdGroupPerformanceTable data={adGroups} />}
+            </div>
           </div>
         </div>
       </div>

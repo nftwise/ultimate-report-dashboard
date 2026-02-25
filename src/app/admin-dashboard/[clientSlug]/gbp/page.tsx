@@ -270,6 +270,12 @@ export default function GBPPage() {
   const latestRating = dailyData.length > 0 ? dailyData[dailyData.length - 1].average_rating || 0 : 0;
   const latestPostsCount = dailyData.length > 0 ? dailyData[dailyData.length - 1].posts_count || 0 : 0;
 
+  // Days since last review
+  const lastReviewEntry = [...dailyData].reverse().find(d => (d.new_reviews_today || 0) > 0);
+  const daysSinceReview = lastReviewEntry
+    ? Math.floor((new Date().getTime() - new Date(lastReviewEntry.date).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
   // Engagement rate (actions / views)
   const engagementRate = totalViews > 0 ? ((totalActions / totalViews) * 100).toFixed(2) : '0.00';
 
@@ -469,7 +475,9 @@ export default function GBPPage() {
                 <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #10b981', textAlign: 'center' }}>
                   <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Engagement Rate</p>
                   <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{engagementRate}%</p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '0' }}>Actions / Views</p>
+                  <p style={{ fontSize: '9px', margin: '0', fontWeight: '600', color: parseFloat(engagementRate) >= 8 ? '#d9a854' : parseFloat(engagementRate) >= 3 ? '#10b981' : '#ef4444' }}>
+                    {parseFloat(engagementRate) >= 8 ? 'Excellent' : parseFloat(engagementRate) >= 3 ? 'Good' : 'Below avg'}
+                  </p>
                 </div>
 
                 <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #d9a854', textAlign: 'center' }}>
@@ -597,7 +605,7 @@ export default function GBPPage() {
                 </div>
 
                 {/* Review Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #10b981' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Total Reviews</p>
                     <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{latestReviews}</p>
@@ -606,6 +614,15 @@ export default function GBPPage() {
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>New Reviews</p>
                     <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalNewReviews}</p>
                     <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>This period</p>
+                  </div>
+                  <div style={{ background: daysSinceReview !== null && daysSinceReview > 30 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: `3px solid ${daysSinceReview !== null && daysSinceReview > 30 ? '#ef4444' : '#d9a854'}` }}>
+                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Days Since Review</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: daysSinceReview !== null && daysSinceReview > 30 ? '#ef4444' : '#d9a854', margin: 0 }}>
+                      {daysSinceReview !== null ? daysSinceReview : '—'}
+                    </p>
+                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>
+                      {daysSinceReview !== null && daysSinceReview > 30 ? 'Needs attention' : 'Last review'}
+                    </p>
                   </div>
                 </div>
               </div>
