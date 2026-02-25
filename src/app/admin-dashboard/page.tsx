@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Activity, Users } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Activity, Users, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
@@ -270,8 +270,26 @@ export default function AdminDashboardPage() {
               );
             })}
           </div>
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-3">
             <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+            <button
+              onClick={() => router.push('/admin-dashboard/clients/new')}
+              className="flex items-center gap-2 hover:opacity-80 transition"
+              style={{
+                background: '#c4704f',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <UserPlus className="w-4 h-4" />
+              Add Client
+            </button>
           </div>
         </div>
       </nav>
