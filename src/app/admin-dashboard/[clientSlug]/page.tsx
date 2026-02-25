@@ -61,6 +61,7 @@ export default function ClientDetailPage() {
 
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
+  const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -218,6 +219,34 @@ export default function ClientDetailPage() {
           });
         }
         setDailyData((merged || []) as DailyMetrics[]);
+
+        // Fetch previous period for MoM comparison
+        const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        const prevTo = new Date(dateRange.from);
+        prevTo.setDate(prevTo.getDate() - 1);
+        const prevFrom = new Date(prevTo);
+        prevFrom.setDate(prevFrom.getDate() - periodDays);
+        const prevFromISO = prevFrom.toISOString().split('T')[0];
+        const prevToISO = prevTo.toISOString().split('T')[0];
+
+        const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
+          supabase.from('client_metrics_summary')
+            .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls')
+            .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
+          supabase.from('gbp_location_daily_metrics')
+            .select('phone_calls')
+            .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
+        ]);
+
+        setPrevData({
+          leads: prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
+          sessions: prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
+          adSpend: prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
+          adsCv: prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
+          seoClicks: prevMetrics?.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0) || 0,
+          gbpCalls: prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
+            || prevMetrics?.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) || 0,
+        });
       } catch (error) {
         console.error('[Client Details] Error fetching daily metrics:', error);
         setDailyData([]);
@@ -260,43 +289,33 @@ export default function ClientDetailPage() {
   const trafficDirect = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_direct || 0), 0);
   const trafficAi = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_ai || 0), 0);
 
-  // Calculate trends: compare first half vs second half of date range
-  const midpoint = Math.floor(dailyData.length / 2);
-  const firstHalf = dailyData.slice(0, midpoint);
-  const secondHalf = dailyData.slice(midpoint);
+  // MoM comparison: current period vs previous period
+  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
 
-  const calcTrend = (first: DailyMetrics[], second: DailyMetrics[], accessor: (d: any) => number) => {
-    const firstVal = first.reduce((sum, d) => sum + accessor(d), 0);
-    const secondVal = second.reduce((sum, d) => sum + accessor(d), 0);
-    if (firstVal === 0) return { pct: '0.0', type: 'neutral' as const };
-    const pct = ((secondVal - firstVal) / firstVal * 100).toFixed(1);
+  const calcMoM = (current: number, prev: number, invert = false) => {
+    if (prev === 0) return { pct: '—', type: 'neutral' as const };
+    const raw = ((current - prev) / prev * 100);
+    const pct = raw.toFixed(1);
+    const isPositive = raw > 0;
+    const isGood = invert ? !isPositive : isPositive;
     return {
-      pct: parseFloat(pct) >= 0 ? `+${pct}` : pct,
-      type: (parseFloat(pct) > 0 ? 'up' : parseFloat(pct) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral'
+      pct: isPositive ? `+${pct}%` : `${pct}%`,
+      type: (raw === 0 ? 'neutral' : isGood ? 'up' : 'down') as 'up' | 'down' | 'neutral',
     };
   };
 
-  const leadTrendData = calcTrend(firstHalf, secondHalf, (d) => d.total_leads || 0);
-  const sessionsTrendData = calcTrend(firstHalf, secondHalf, (d) => d.sessions || 0);
-  const adSpendTrendData = calcTrend(firstHalf, secondHalf, (d) => d.ad_spend || 0);
-  const cplTrendData = (() => {
-    const firstLeads = firstHalf.reduce((s, d: any) => s + (d.total_leads || 0), 0);
-    const firstSpend = firstHalf.reduce((s, d: any) => s + (d.ad_spend || 0), 0);
-    const secondLeads = secondHalf.reduce((s, d: any) => s + (d.total_leads || 0), 0);
-    const secondSpend = secondHalf.reduce((s, d: any) => s + (d.ad_spend || 0), 0);
-    const firstCpl = firstLeads > 0 ? firstSpend / firstLeads : 0;
-    const secondCpl = secondLeads > 0 ? secondSpend / secondLeads : 0;
-    if (firstCpl === 0) return { pct: '0.0', type: 'neutral' as const };
-    const pct = ((secondCpl - firstCpl) / firstCpl * 100).toFixed(1);
-    // For CPL, going up is bad (down), going down is good (up)
-    return {
-      pct: parseFloat(pct) >= 0 ? `+${pct}` : pct,
-      type: (parseFloat(pct) > 0 ? 'up' : parseFloat(pct) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral'
-    };
-  })();
+  const prevCpl = prevData.leads > 0 ? prevData.adSpend / prevData.leads : 0;
+
+  const leadTrendData = calcMoM(totalLeads, prevData.leads);
+  const sessionsTrendData = calcMoM(sessions, prevData.sessions);
+  const adSpendTrendData = calcMoM(adSpend, prevData.adSpend, true);
+  const cplTrendData = calcMoM(costPerLead, prevCpl, true);
+  const adsCvTrendData = calcMoM(totalAdsConversions, prevData.adsCv);
+  const seoClicksTrendData = calcMoM(seoClicks, prevData.seoClicks);
+  const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
 
   const leadTrend = leadTrendData.pct;
-  const isTrendUp = parseFloat(leadTrend) >= 0;
+  const isTrendUp = leadTrendData.type === 'up';
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -402,10 +421,10 @@ export default function ClientDetailPage() {
           {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
           <div className="grid grid-cols-4 gap-6 mb-8">
             {[
-              { label: 'Total Leads', value: totalLeads, trend: `${leadTrendData.pct}%`, trendType: leadTrendData.type },
-              { label: 'Website Sessions', value: sessions, trend: `${sessionsTrendData.pct}%`, trendType: sessionsTrendData.type },
-              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: `${adSpendTrendData.pct}%`, trendType: adSpendTrendData.type },
-              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: `${cplTrendData.pct}%`, trendType: cplTrendData.type }
+              { label: 'Total Leads', value: totalLeads, trend: leadTrendData.pct, trendType: leadTrendData.type },
+              { label: 'Website Sessions', value: sessions, trend: sessionsTrendData.pct, trendType: sessionsTrendData.type },
+              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: adSpendTrendData.pct, trendType: adSpendTrendData.type },
+              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: cplTrendData.pct, trendType: cplTrendData.type }
             ].map((metric, i) => (
               <div key={i} className="rounded-2xl p-6" style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -419,7 +438,7 @@ export default function ClientDetailPage() {
                   background: metric.trendType === 'up' ? 'rgba(157, 181, 160, 0.15)' : metric.trendType === 'down' ? 'rgba(196, 112, 79, 0.15)' : 'rgba(92, 88, 80, 0.1)',
                   color: metric.trendType === 'up' ? '#4a6b4e' : metric.trendType === 'down' ? '#8a4a2e' : '#5c5850'
                 }}>
-                  {metric.trend} vs last period
+                  {metric.trend} vs prev {periodDays}d
                 </span>
               </div>
             ))}
@@ -565,9 +584,9 @@ export default function ClientDetailPage() {
                 {/* Channel Breakdown */}
                 <div className="grid grid-cols-3 gap-6">
                   {[
-                    { label: 'Google Ads', value: totalAdsConversions, icon: '📊', color: '#c4704f' },
-                    { label: 'SEO/Organic', value: seoClicks, icon: '🔍', color: '#9db5a0' },
-                    { label: 'Google Business', value: totalGbpCalls, icon: '📍', color: '#d9a854' }
+                    { label: 'Google Ads', value: totalAdsConversions, icon: '📊', color: '#c4704f', mom: adsCvTrendData },
+                    { label: 'SEO/Organic', value: seoClicks, icon: '🔍', color: '#9db5a0', mom: seoClicksTrendData },
+                    { label: 'Google Business', value: totalGbpCalls, icon: '📍', color: '#d9a854', mom: gbpCallsTrendData }
                   ].map((channel, idx) => (
                     <div key={idx} style={{
                       padding: '20px',
@@ -579,7 +598,11 @@ export default function ClientDetailPage() {
                       <div style={{ fontSize: '28px', marginBottom: '8px' }}>{channel.icon}</div>
                       <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>{channel.label}</p>
                       <div style={{ fontSize: '24px', fontWeight: 'bold', color: channel.color }}>{channel.value}</div>
-                      <p className="text-xs mt-2" style={{ color: '#5c5850' }}>Conversions</p>
+                      <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Conversions</p>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded mt-2 inline-block" style={{
+                        background: channel.mom.type === 'up' ? 'rgba(157, 181, 160, 0.15)' : channel.mom.type === 'down' ? 'rgba(196, 112, 79, 0.15)' : 'rgba(92, 88, 80, 0.1)',
+                        color: channel.mom.type === 'up' ? '#4a6b4e' : channel.mom.type === 'down' ? '#8a4a2e' : '#5c5850'
+                      }}>{channel.mom.pct}</span>
                     </div>
                   ))}
                 </div>
