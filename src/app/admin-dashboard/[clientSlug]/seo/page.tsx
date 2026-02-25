@@ -200,7 +200,19 @@ export default function SEOPage() {
           setTopKeywords([]);
         }
 
-        // Fetch keyword ranking buckets from gsc_queries (latest date available)
+        // Fetch accurate top10 count from gsc_daily_summary (authoritative source)
+        const { data: gscDailySummary } = await supabase
+          .from('gsc_daily_summary')
+          .select('top_keywords_count')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .order('date', { ascending: false })
+          .limit(1);
+
+        const accurateTop10 = gscDailySummary?.[0]?.top_keywords_count || 0;
+
+        // Fetch gsc_queries for estimating top5 and top11to20 (sample data ~50/day)
         const { data: gscData } = await supabase
           .from('gsc_queries')
           .select('query, position')
@@ -219,25 +231,17 @@ export default function SEOPage() {
               bestPositionByQuery.set(q, pos);
             }
           }
-          let top5 = 0, top10 = 0, top11to20 = 0;
+          let sampleTop5 = 0, sampleTop10 = 0, sampleTop11to20 = 0;
           for (const pos of bestPositionByQuery.values()) {
-            if (pos <= 5) top5++;
-            if (pos <= 10) top10++;
-            else if (pos <= 20) top11to20++;
+            if (pos <= 5) sampleTop5++;
+            if (pos <= 10) sampleTop10++;
+            else if (pos <= 20) sampleTop11to20++;
           }
-          setKeywordRankBuckets({ top5, top10, top11to20 });
+          // Use gsc_daily_summary as authoritative top10; sample data for top5 and 11-20
+          setKeywordRankBuckets({ top5: sampleTop5, top10: accurateTop10 || sampleTop10, top11to20: sampleTop11to20 });
         } else {
-          // Fallback: use top_keywords from summary (count of keywords in top 10)
-          const { data: fallbackData } = await supabase
-            .from('client_metrics_summary')
-            .select('top_keywords')
-            .eq('client_id', client.id)
-            .gte('date', dateFromISO)
-            .lte('date', dateToISO)
-            .order('date', { ascending: false })
-            .limit(1);
-          const latestTopKw = fallbackData?.[0]?.top_keywords || 0;
-          setKeywordRankBuckets({ top5: 0, top10: typeof latestTopKw === 'number' ? latestTopKw : 0, top11to20: 0 });
+          // Fallback: use gsc_daily_summary top_keywords_count for top10
+          setKeywordRankBuckets({ top5: 0, top10: accurateTop10, top11to20: 0 });
         }
       } catch (error) {
         console.error('Error fetching funnel data:', error);
@@ -722,88 +726,9 @@ export default function SEOPage() {
               </div>
             </div>
 
-            {/* Tier 3: Analysis Columns (2-column @ 50/50) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-              {/* Column 1: User Identity Analysis */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  👥 User Identity Analysis
-                </p>
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
-                  Who Are Your Visitors
-                </h3>
-
-                {/* Sub-cards: Comparisons */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #10b981' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>New Users</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalNewUsers.toLocaleString()}</p>
-                  </div>
-                  <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #c4704f' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Returning Users</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalReturningUsers.toLocaleString()}</p>
-                  </div>
-                  <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #d9a854' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Desktop Sessions</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{totalDesktopSessions.toLocaleString()}</p>
-                  </div>
-                  <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Mobile Sessions</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalMobileSessions.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                {/* Progress Bars: Percentages */}
-                <div style={{ marginTop: '20px' }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Device Distribution</p>
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Desktop</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{desktopPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${desktopPercent}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Mobile</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#9db5a0' }}>{mobilePercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${mobilePercent}%`, height: '100%', background: '#9db5a0', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '20px 0 8px 0', textTransform: 'uppercase' }}>User Type Distribution</p>
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>New Visitors</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{newUserPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${newUserPercent}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Returning Visitors</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#c4704f' }}>{returningUserPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${returningUserPercent}%`, height: '100%', background: '#c4704f', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Column 2: Search Health Analysis */}
+            {/* Tier 3: Analysis Columns (full width Search Health Analysis) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '32px' }}>
+              {/* Search Health Analysis */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -958,11 +883,13 @@ export default function SEOPage() {
                 {/* Content Performance */}
                 <div style={{ marginTop: '16px' }}>
                   <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 12px 0', textTransform: 'uppercase' }}>Content Performance</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
-                      <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Blog Sessions</p>
-                      <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalBlogSessions.toLocaleString()}</p>
-                    </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: totalBlogSessions > 0 ? '1fr 1fr' : '1fr', gap: '10px' }}>
+                    {totalBlogSessions > 0 && (
+                      <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
+                        <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Blog Sessions</p>
+                        <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalBlogSessions.toLocaleString()}</p>
+                      </div>
+                    )}
                     <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
                       <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Engagement</p>
                       <p style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', margin: 0 }}>{avgEngagementRate}%</p>

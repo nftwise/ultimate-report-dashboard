@@ -629,36 +629,17 @@ export default function GBPPage() {
                   Visual Content Engagement
                 </h3>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Business Photos</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalBusinessPhotoViews.toLocaleString()}</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>Views</p>
-                  </div>
-                  <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #c4704f' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Customer Photos</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalCustomerPhotoViews.toLocaleString()}</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>Views</p>
-                  </div>
-                </div>
-
-                {/* Total Photo Views */}
-                <div style={{
-                  background: 'rgba(44, 36, 25, 0.02)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  marginTop: '16px',
-                  textAlign: 'center',
-                  border: '1px solid rgba(44, 36, 25, 0.05)'
-                }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0' }}>Total Photo Views</p>
-                  <p style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: 0 }}>
-                    {(totalBusinessPhotoViews + totalCustomerPhotoViews).toLocaleString()}
+                <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Photo Views</p>
+                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>
+                    {(totalBusinessPhotoViews + (totalCustomerPhotoViews || 0)).toLocaleString()}
                   </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>Total photo views</p>
                 </div>
               </div>
 
               {/* Column 2: Posts Performance */}
+              {(latestPostsCount > 0 || totalPostsViews > 0) && (
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -706,6 +687,7 @@ export default function GBPPage() {
                   <p style={{ fontSize: '10px', color: '#5c5850', margin: 0 }}>Actions / Views</p>
                 </div>
               </div>
+              )}
 
               {/* Column 3: Daily Calls Trend */}
               <div style={{

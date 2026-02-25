@@ -188,6 +188,7 @@ export default function GoogleAdsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
   const [formConversions, setFormConversions] = useState<number>(0);
+  const [conversionActionsData, setConversionActionsData] = useState<{ conversion_action_name: string | null; conversions: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -434,8 +435,10 @@ export default function GoogleAdsPage() {
           // Total all conversions
           const totalConversions = data.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0);
           setFormConversions(totalConversions);
+          setConversionActionsData(data);
         } else {
           setFormConversions(0);
+          setConversionActionsData([]);
         }
       } catch (error) {
         console.error('Error fetching conversions:', error);
@@ -466,6 +469,16 @@ export default function GoogleAdsPage() {
 
   // For display purposes, use totalConversions as the conversion rate
   const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
+
+  // Conversion breakdown by action type
+  const conversionByType = new Map<string, number>();
+  for (const row of conversionActionsData) {
+    const name = row.conversion_action_name || 'Other';
+    conversionByType.set(name, (conversionByType.get(name) || 0) + Math.round(row.conversions || 0));
+  }
+  const conversionTypes = [...conversionByType.entries()]
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   // Device data
   const totalMobileSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_mobile || 0), 0);
@@ -729,6 +742,19 @@ export default function GoogleAdsPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Conversion Type Breakdown */}
+                  {conversionTypes.length > 1 && (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid rgba(196,112,79,0.15)', paddingTop: '12px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>By Type</div>
+                      {conversionTypes.map(([name, count]) => (
+                        <div key={name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                          <span style={{ color: '#5c5850' }}>{name}</span>
+                          <span style={{ fontWeight: '600', color: '#2c2419' }}>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Summary */}

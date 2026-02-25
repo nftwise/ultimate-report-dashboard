@@ -201,6 +201,12 @@ export default function AdminDashboardPage() {
   const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
   const totalGbpCalls = clients.reduce((sum, c) => sum + (c.gbp_calls || 0), 0);
 
+  const cplClients = clients.filter(c => c.ads_cpl && c.ads_cpl > 0);
+  const avgCpl = cplClients.length > 0
+    ? cplClients.reduce((sum, c) => sum + (c.ads_cpl || 0), 0) / cplClients.length
+    : 0;
+  const avgCplDisplay = avgCpl > 0 ? '$' + Math.round(avgCpl) : 'N/A';
+
   const getClientHealth = (client: ClientWithMetrics) => {
     if (!client.is_active) return 'inactive';
     const cpl = client.ads_conversions && client.ads_conversions > 0 ? 20618 / client.ads_conversions : 0;
@@ -394,7 +400,7 @@ export default function AdminDashboardPage() {
               {[
                 { label: 'Total Clients', value: clients.length, trend: '+12.5%', trendType: 'up' },
                 { label: 'Total Leads', value: totalLeads, trend: '+8.3%', trendType: 'up' },
-                { label: 'Avg CPL', value: '$58', trend: '-5.7%', trendType: 'down' },
+                { label: 'Avg CPL', value: avgCplDisplay, trend: '', trendType: 'down' },
                 { label: 'GBP Calls', value: totalGbpCalls, trend: '+3.2%', trendType: 'up' },
               ].map((stat, i) => {
                 const trendColor = stat.trendType === 'up' ? '#10b981' : '#ef4444';
