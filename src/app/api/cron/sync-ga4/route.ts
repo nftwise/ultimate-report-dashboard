@@ -76,10 +76,19 @@ export async function GET(request: NextRequest) {
             fetchGA4LandingPages(token, client.propertyId, targetDate).catch(() => []),
           ]);
 
-          const eventRows = events.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
+          // Only store 3 conversion events — skip scroll/click/page_view noise
+          const ALLOWED_EVENTS = ['submit_form_successful', 'Appointment_Successful', 'call_from_web'];
+          const filteredEvents = events.filter((e: any) => ALLOWED_EVENTS.includes(e.event_name));
+
+          // Only store top 10 landing pages by sessions per client/day
+          const topLandingPages = [...landingPages]
+            .sort((a: any, b: any) => (b.sessions || 0) - (a.sessions || 0))
+            .slice(0, 10);
+
+          const eventRows = filteredEvents.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
           const sessionRows = sessions.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
           const conversionRows = conversions.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
-          const landingPageRows = landingPages.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
+          const landingPageRows = topLandingPages.map((r: any) => ({ client_id: client.id, date: targetDate, ...r }));
 
           if (eventRows.length > 0) {
             const { error } = await supabaseAdmin.from('ga4_events').upsert(eventRows, { onConflict: 'client_id,date,event_name,source_medium,device' });
@@ -103,6 +112,7 @@ export async function GET(request: NextRequest) {
             sessions: sessionRows.length,
             conversions: conversionRows.length,
             landingPages: landingPageRows.length,
+            eventsFiltered: events.length - filteredEvents.length,
           };
         } catch (err: any) {
           errors.push(`${client.name}: ${err.message}`);

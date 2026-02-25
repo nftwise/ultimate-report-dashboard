@@ -28,10 +28,10 @@ async function main() {
   const tokenResponse = await auth.getAccessToken();
   const token = tokenResponse.token || '';
 
-  // Fetch clients with GSC config
+  // Fetch clients with GSC config (include city for local query filtering)
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, name, slug, service_configs(gsc_site_url)')
+    .select('id, name, slug, city, service_configs(gsc_site_url)')
     .eq('is_active', true);
 
   const clientsWithGSC = (clients || [])
@@ -39,6 +39,7 @@ async function main() {
       id: c.id,
       name: c.name,
       slug: c.slug,
+      city: c.city || '',
       siteUrl: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.gsc_site_url,
     }))
     .filter((c: any) => c.siteUrl);
@@ -71,27 +72,49 @@ async function main() {
       const batch = clientsWithGSC.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch.map(async (client) => {
         try {
-          const [queries, pages] = await Promise.all([
+          const [allQueries, allPages] = await Promise.all([
             fetchGSCQueries(token, client.siteUrl, date, client.id),
             fetchGSCPages(token, client.siteUrl, date, client.id),
           ]);
 
-          if (queries.length > 0) {
-            for (let j = 0; j < queries.length; j += 500) {
-              const chunk = queries.slice(j, j + 500);
+          // LAYER 1: Save daily totals to gsc_daily_summary before filtering
+          if (allQueries.length > 0) {
+            const { error: summaryError } = await supabase.from('gsc_daily_summary').upsert({
+              client_id: client.id,
+              site_url: client.siteUrl,
+              date,
+              total_impressions: allQueries.reduce((s: number, q: any) => s + (q.impressions || 0), 0),
+              total_clicks: allQueries.reduce((s: number, q: any) => s + (q.clicks || 0), 0),
+              top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
+            }, { onConflict: 'client_id,site_url,date' });
+            if (summaryError) console.error(`  [${client.slug}] summary upsert error:`, summaryError.message);
+          }
+
+          // LAYER 2: Filter queries — top 50 by impressions + city-related queries for google_rank
+          const cityKeyword = client.city ? client.city.split(',')[0].toLowerCase().trim() : '';
+          const top50 = [...allQueries].sort((a: any, b: any) => (b.impressions || 0) - (a.impressions || 0)).slice(0, 50);
+          const seen = new Set(top50.map((q: any) => q.query));
+          const cityQueries = cityKeyword
+            ? allQueries.filter((q: any) => !seen.has(q.query) && q.query.toLowerCase().includes(cityKeyword))
+            : [];
+          const filteredQueries = [...top50, ...cityQueries];
+
+          if (filteredQueries.length > 0) {
+            for (let j = 0; j < filteredQueries.length; j += 500) {
+              const chunk = filteredQueries.slice(j, j + 500);
               const { error } = await supabase.from('gsc_queries').upsert(chunk, { onConflict: 'client_id,site_url,date,query' });
               if (error) console.error(`  [${client.slug}] queries upsert error:`, error.message);
             }
           }
-          if (pages.length > 0) {
-            for (let j = 0; j < pages.length; j += 500) {
-              const chunk = pages.slice(j, j + 500);
-              const { error } = await supabase.from('gsc_pages').upsert(chunk, { onConflict: 'client_id,site_url,date,page' });
-              if (error) console.error(`  [${client.slug}] pages upsert error:`, error.message);
-            }
+
+          // Only store top 5 pages by clicks per client/day
+          const topPages = [...allPages].sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0)).slice(0, 5);
+          if (topPages.length > 0) {
+            const { error } = await supabase.from('gsc_pages').upsert(topPages, { onConflict: 'client_id,site_url,date,page' });
+            if (error) console.error(`  [${client.slug}] pages upsert error:`, error.message);
           }
 
-          return { queries: queries.length, pages: pages.length };
+          return { queries: filteredQueries.length, pages: topPages.length };
         } catch (err: any) {
           if (!err.message?.includes('403')) {
             console.error(`  [${client.slug}] ${err.message}`);

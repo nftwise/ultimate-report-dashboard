@@ -63,6 +63,7 @@ async function processClient(
     ga4SessionsData,
     ga4EventsData,
     ga4LandingPagesData,
+    gscSummary,
     gscQueriesData,
     adsCampaignData,
     adsConversionActionsData,
@@ -86,9 +87,18 @@ async function processClient(
       .eq('client_id', clientId)
       .eq('date', targetDate)
       .then((r: any) => r.data || []),
+    // Pre-aggregated GSC totals — faster than summing thousands of query rows
+    supabase
+      .from('gsc_daily_summary')
+      .select('total_impressions, total_clicks, top_keywords_count')
+      .eq('client_id', clientId)
+      .eq('date', targetDate)
+      .single()
+      .then((r: any) => r.data || null),
+    // Filtered queries (top 50 + city) — still needed for google_rank + branded traffic
     supabase
       .from('gsc_queries')
-      .select('query, clicks, impressions, ctr, position')
+      .select('query, clicks, impressions, position')
       .eq('client_id', clientId)
       .eq('date', targetDate)
       .then((r: any) => r.data || []),
@@ -231,23 +241,16 @@ async function processClient(
   // =====================================================
   // AGGREGATE GSC QUERIES
   // =====================================================
-  let seoImpressions = 0;
-  let seoClicks = 0;
-  let topKeywords = 0;
   let brandedTraffic = 0;
   let nonBrandedTraffic = 0;
   let googleRank: number | null = null;
 
+  // Read totals from pre-aggregated summary (avoids scanning thousands of query rows)
+  const seoImpressions = (gscSummary as any)?.total_impressions || 0;
+  const seoClicks = (gscSummary as any)?.total_clicks || 0;
+  const topKeywords = (gscSummary as any)?.top_keywords_count || 0;
+
   if (gscQueriesData.length > 0) {
-    for (const row of gscQueriesData) {
-      seoImpressions += row.impressions || 0;
-      seoClicks += row.clicks || 0;
-
-      if ((row.position || 999) <= 10) {
-        topKeywords++;
-      }
-    }
-
     // Google rank: average position for local chiro queries
     const cityFull = client.city ? client.city.split(',')[0].toLowerCase().trim() : '';
     const cityWords = cityFull.split(' ').filter((w: string) => w.length > 0);
@@ -271,7 +274,7 @@ async function processClient(
       googleRank = Math.round((totalPosition / localChiroQueries.length) * 10) / 10;
     }
 
-    // Branded vs non-branded
+    // Branded vs non-branded (computed from stored subset — top 50 + city queries)
     const genericWords = ['chiropractic', 'chiropractor', 'chiro', 'center', 'centre', 'clinic', 'health', 'wellness', 'care', 'family', 'spine', 'rehab', 'dental', 'dr', 'the', 'of', 'and', 'physical', 'medicine', 'animal', 'first', 'healing', 'hands', 'functional'];
     const brandWords = (client.name || '').toLowerCase().split(/[\s&]+/)
       .filter((w: string) => w.length >= 3 && !genericWords.includes(w));
