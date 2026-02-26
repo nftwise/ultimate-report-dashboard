@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, slug, city, contact_name, contact_email, has_seo, has_ads, has_gbp } = body;
+    const { name, slug, city, contact_name, contact_email, has_seo, has_ads } = body;
 
     if (!name || !slug || !city) {
       return NextResponse.json({ error: 'Name, slug, and city are required' }, { status: 400 });
@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
         contact_email: contact_email || null,
         has_seo: has_seo ?? false,
         has_ads: has_ads ?? false,
-        has_gbp: has_gbp ?? false,
         is_active: true,
       })
       .select()

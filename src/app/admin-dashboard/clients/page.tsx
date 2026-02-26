@@ -16,7 +16,6 @@ interface Client {
   is_active: boolean;
   has_seo: boolean;
   has_ads: boolean;
-  has_gbp: boolean;
   notes: string | null;
   ads_budget_month: number | null;
   status: string | null;
@@ -35,7 +34,6 @@ interface FormData {
   website_url: string;
   has_seo: boolean;
   has_ads: boolean;
-  has_gbp: boolean;
   notes: string;
   ads_budget_month: string;
   status: string;
@@ -50,7 +48,6 @@ const emptyForm: FormData = {
   website_url: '',
   has_seo: false,
   has_ads: false,
-  has_gbp: false,
   notes: '',
   ads_budget_month: '',
   status: 'Working',
@@ -90,7 +87,7 @@ export default function ClientsManagementPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('clients')
-        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, has_gbp, notes, ads_budget_month, status, industry, owner')
+        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, notes, ads_budget_month, status, industry, owner')
         .order('name', { ascending: true });
 
       if (fetchError) throw new Error(fetchError.message);
@@ -120,7 +117,6 @@ export default function ClientsManagementPage() {
       website_url: client.website_url || '',
       has_seo: client.has_seo ?? false,
       has_ads: client.has_ads ?? false,
-      has_gbp: client.has_gbp ?? false,
       notes: client.notes || '',
       ads_budget_month: client.ads_budget_month ? String(client.ads_budget_month) : '',
       status: client.status || 'Working',
@@ -165,7 +161,6 @@ export default function ClientsManagementPage() {
             contact_email: formData.contact_email || null,
             has_seo: formData.has_seo,
             has_ads: formData.has_ads,
-            has_gbp: formData.has_gbp,
           }),
         });
         const result = await res.json();
@@ -182,7 +177,6 @@ export default function ClientsManagementPage() {
             website_url: formData.website_url || null,
             has_seo: formData.has_seo,
             has_ads: formData.has_ads,
-            has_gbp: formData.has_gbp,
             notes: formData.notes || null,
             ads_budget_month: formData.ads_budget_month ? Number(formData.ads_budget_month) : null,
             status: formData.status || null,
@@ -408,8 +402,7 @@ export default function ClientsManagementPage() {
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           {client.has_seo && <span className="px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: '#f0fdf4', color: '#166534' }}>SEO</span>}
                           {client.has_ads && <span className="px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: '#fff7ed', color: '#c2410c' }}>Ads</span>}
-                          {client.has_gbp && <span className="px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: '#eff6ff', color: '#0c4a6e' }}>GBP</span>}
-                          {!client.has_seo && !client.has_ads && !client.has_gbp && <span className="text-xs" style={{ color: '#9ca3af' }}>None</span>}
+                          {!client.has_seo && !client.has_ads && <span className="text-xs" style={{ color: '#9ca3af' }}>None</span>}
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -645,7 +638,6 @@ export default function ClientsManagementPage() {
                   {[
                     { key: 'has_seo' as const, label: 'SEO', activeColor: '#166534', activeBg: '#f0fdf4' },
                     { key: 'has_ads' as const, label: 'Ads', activeColor: '#c2410c', activeBg: '#fff7ed' },
-                    { key: 'has_gbp' as const, label: 'GBP', activeColor: '#0c4a6e', activeBg: '#eff6ff' },
                   ].map(({ key, label, activeColor, activeBg }) => (
                     <button
                       key={key}

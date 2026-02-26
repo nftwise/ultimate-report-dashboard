@@ -68,7 +68,6 @@ export default function EditClientPage({ params }: EditClientParams) {
     is_active: true,
     has_seo: false,
     has_ads: false,
-    has_gbp: false,
     ga4_property_id: '',
     google_ads_customer_id: '',
   });
@@ -113,7 +112,6 @@ export default function EditClientPage({ params }: EditClientParams) {
         is_active: client.is_active !== false,
         has_seo: client.has_seo || false,
         has_ads: client.has_ads || false,
-        has_gbp: client.has_gbp || false,
         ga4_property_id: config.ga_property_id || '',
         google_ads_customer_id: config.gads_customer_id || '',
       });
@@ -150,7 +148,6 @@ export default function EditClientPage({ params }: EditClientParams) {
           is_active: form.is_active,
           has_seo: form.has_seo,
           has_ads: form.has_ads,
-          has_gbp: form.has_gbp,
           // service_configs table fields (correct DB field names)
           ga_property_id: form.ga4_property_id.trim() || null,
           gads_customer_id: form.google_ads_customer_id.trim() || null,
@@ -349,7 +346,6 @@ export default function EditClientPage({ params }: EditClientParams) {
               {[
                 { key: 'has_seo' as const, label: 'SEO' },
                 { key: 'has_ads' as const, label: 'Google Ads' },
-                { key: 'has_gbp' as const, label: 'Google Business' },
               ].map(({ key, label }) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#2c2419', fontWeight: 500 }}>
                   <input
