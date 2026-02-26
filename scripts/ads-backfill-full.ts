@@ -342,12 +342,12 @@ async function main() {
   // Initialize Supabase
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Fetch clients with google_ads_customer_id
+  // Fetch clients with gads_customer_id from service_configs
   let query = supabase
     .from('clients')
-    .select('id, name, slug, google_ads_customer_id')
-    .not('google_ads_customer_id', 'is', null)
-    .neq('google_ads_customer_id', '');
+    .select('id, name, slug, service_configs!inner(gads_customer_id)')
+    .not('service_configs.gads_customer_id', 'is', null)
+    .neq('service_configs.gads_customer_id', '');
 
   if (clientFilter) {
     query = query.eq('slug', clientFilter);
@@ -361,12 +361,15 @@ async function main() {
   }
 
   if (!clients || clients.length === 0) {
-    console.log('No clients with google_ads_customer_id found.');
+    console.log('No clients with gads_customer_id found in service_configs.');
     process.exit(0);
   }
 
   console.log(`Clients to process: ${clients.length}`);
-  clients.forEach((c: any) => console.log(`  - ${c.name} (${c.google_ads_customer_id})`));
+  clients.forEach((c: any) => {
+    const config = Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs;
+    console.log(`  - ${c.name} (${config?.gads_customer_id})`);
+  });
   console.log('');
 
   // Generate date chunks
@@ -387,7 +390,8 @@ async function main() {
     console.log(`--- Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(clients.length / BATCH_SIZE)} ---`);
 
     const batchResults = await Promise.all(batch.map(async (client: any) => {
-      const customerId = client.google_ads_customer_id.replace(/-/g, '');
+      const config = Array.isArray(client.service_configs) ? client.service_configs[0] : client.service_configs;
+      const customerId = (config?.gads_customer_id || '').replace(/-/g, '');
       console.log(`[${client.name}] Customer ID: ${customerId}`);
 
       const clientTotals = { campaigns: 0, adGroups: 0, conversions: 0, searchTerms: 0 };

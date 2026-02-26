@@ -139,6 +139,7 @@ export default function EditClientPage({ params }: EditClientParams) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // clients table fields
           name: form.name.trim(),
           city: form.city.trim() || null,
           contact_email: form.contact_email.trim() || null,
@@ -150,6 +151,9 @@ export default function EditClientPage({ params }: EditClientParams) {
           has_seo: form.has_seo,
           has_ads: form.has_ads,
           has_gbp: form.has_gbp,
+          // service_configs table fields (correct DB field names)
+          ga_property_id: form.ga4_property_id.trim() || null,
+          gads_customer_id: form.google_ads_customer_id.trim() || null,
         }),
       });
 
