@@ -22,6 +22,7 @@ interface ClientWithMetrics {
   city: string;
   contact_email?: string;
   is_active: boolean;
+  owner?: string;
   seo_form_submits?: number;
   seo_top_keyword?: string;
   gbp_calls?: number;
@@ -86,6 +87,7 @@ export default function AdminDashboardPage() {
           city,
           contact_email,
           is_active,
+          owner,
           service_configs (
             ga_property_id,
             gads_customer_id,
@@ -160,6 +162,7 @@ export default function AdminDashboardPage() {
           city: client.city,
           contact_email: client.contact_email,
           is_active: client.is_active,
+          owner: client.owner,
           total_leads: clientMetrics.total_leads,
           seo_form_submits: clientMetrics.seo_form_submits,
           gbp_calls: clientMetrics.gbp_calls,
@@ -696,6 +699,7 @@ export default function AdminDashboardPage() {
                           >
                             <td className="py-5 pr-6">
                               <div className="font-bold text-sm" style={{ color: client.is_active ? '#2c2419' : '#9ca3af' }}>{client.name}</div>
+                              {client.owner && <div className="text-xs mt-0.5" style={{ color: '#8a7f74' }}>{client.owner}</div>}
                               <div className="text-xs mt-1" style={{ color: '#9ca3af' }}>@{client.slug}</div>
                             </td>
                             <td className="py-5 text-center">

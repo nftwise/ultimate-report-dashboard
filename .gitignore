@@ -45,3 +45,8 @@ next-env.d.ts
 
 # OAuth tokens
 .oauth-tokens/
+
+# Research/analysis files (not for deployment)
+gemini/
+cron-deploy/
+scripts/

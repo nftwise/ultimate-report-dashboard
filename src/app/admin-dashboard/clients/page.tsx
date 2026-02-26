@@ -150,7 +150,7 @@ export default function ClientsManagementPage() {
           setSaving(false);
           return;
         }
-        const res = await fetch('/api/admin/clients/create', {
+        const res = await fetch('/api/admin/create-client', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

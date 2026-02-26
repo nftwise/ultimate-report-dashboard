@@ -111,6 +111,30 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
+ * DELETE /api/admin/add-user
+ * Delete a user by ID
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const { id } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
+    }
+
+    const { error } = await supabaseAdmin.from('users').delete().eq('id', id);
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+/**
  * GET /api/admin/add-user
  * List all users
  */

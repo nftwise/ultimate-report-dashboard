@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ArrowLeft } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import DateRangePicker from '@/components/admin/DateRangePicker';
@@ -62,6 +63,7 @@ interface DailyMetrics {
 export default function ClientDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
   const clientSlug = params?.clientSlug as string;
 
   const [client, setClient] = useState<ClientMetrics | null>(null);
@@ -338,14 +340,16 @@ export default function ClientDetailPage() {
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
         }}>
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 hover:opacity-70 transition"
-          style={{ color: '#c4704f' }}
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back
-        </button>
+        {(session?.user as any)?.role !== 'client' && (
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 hover:opacity-70 transition"
+            style={{ color: '#c4704f' }}
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </button>
+        )}
 
         <div>
           <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>{client.name}</h1>

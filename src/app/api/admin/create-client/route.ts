@@ -8,8 +8,12 @@ export async function POST(request: NextRequest) {
       slug,
       name,
       contactEmail,
+      contact_email,
+      contact_name,
       city,
       owner,
+      has_seo,
+      has_ads,
       gaPropertyId,
       gadsCustomerId,
       gscSiteUrl,
@@ -17,8 +21,10 @@ export async function POST(request: NextRequest) {
       gbpLocationId
     } = body;
 
+    const email = contactEmail || contact_email || null;
+
     // Validate required fields
-    if (!slug || !name || !contactEmail) {
+    if (!slug || !name || !email) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields: slug, name, contactEmail'
@@ -45,9 +51,12 @@ export async function POST(request: NextRequest) {
       .insert({
         slug,
         name,
-        contact_email: contactEmail,
+        contact_email: email,
+        contact_name: contact_name || null,
         city: city || null,
         owner: owner || null,
+        has_seo: has_seo ?? false,
+        has_ads: has_ads ?? false,
         is_active: true
       })
       .select('id')
