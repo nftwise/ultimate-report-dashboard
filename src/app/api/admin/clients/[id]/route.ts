@@ -57,12 +57,11 @@ export async function PATCH(
       clientData = data;
     }
 
-    // Update service_configs table
+    // Upsert service_configs table (handles missing row gracefully)
     if (Object.keys(serviceConfigUpdates).length > 0) {
       const { error: configError } = await supabaseAdmin
         .from('service_configs')
-        .update(serviceConfigUpdates)
-        .eq('client_id', id);
+        .upsert({ client_id: id, ...serviceConfigUpdates }, { onConflict: 'client_id' });
 
       if (configError) {
         return NextResponse.json({ error: `service_configs update failed: ${configError.message}` }, { status: 500 });
