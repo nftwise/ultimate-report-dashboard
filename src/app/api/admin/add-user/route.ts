@@ -79,6 +79,38 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PATCH /api/admin/add-user
+ * Update user (toggle is_active or reset password)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, is_active, password } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (is_active !== undefined) updates.is_active = is_active;
+    if (password) {
+      updates.password_hash = await bcrypt.hash(password, 10);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ success: false, error: 'No fields to update' }, { status: 400 });
+    }
+
+    const { error } = await supabaseAdmin.from('users').update(updates).eq('id', id);
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+/**
  * GET /api/admin/add-user
  * List all users
  */

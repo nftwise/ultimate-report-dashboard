@@ -251,6 +251,23 @@ export default function AdminDashboardPage() {
               <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
             </div>
             <button
+              onClick={() => router.push('/admin-dashboard/users')}
+              className="flex items-center gap-1.5 hover:opacity-70 transition"
+              style={{
+                border: '1px solid rgba(44,36,25,0.15)',
+                color: '#5c5850',
+                background: 'transparent',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Users
+            </button>
+            <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="flex items-center gap-1.5 hover:opacity-70 transition"
               style={{
