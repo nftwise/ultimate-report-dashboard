@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { signOut } from 'next-auth/react';
 import { Search, TrendingUp, TrendingDown, Activity, Users, UserPlus, Pencil, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -250,10 +251,7 @@ export default function AdminDashboardPage() {
               <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
             </div>
             <button
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                router.push('/login');
-              }}
+              onClick={() => signOut({ callbackUrl: '/login' })}
               className="flex items-center gap-1.5 hover:opacity-70 transition"
               style={{
                 border: '1px solid rgba(196,112,79,0.3)',
