@@ -373,13 +373,13 @@ export default function SEOPage() {
     if (previous === 0) return { pct: current > 0 ? 100 : 0, label: `vs prev ${periodDays}d` };
     return { pct: ((current - previous) / previous) * 100, label: `vs prev ${periodDays}d` };
   };
+  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
+  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
   const sessionsMoM = calcMoM(totalSessions, prevPeriodMetrics.sessions);
   const usersMoM = calcMoM(totalUsers, prevPeriodMetrics.users);
   const avgCtrNum = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
   const ctrMoM = calcMoM(avgCtrNum, prevPeriodMetrics.ctr);
   const organicMoM = calcMoM(totalOrganicTraffic, prevPeriodMetrics.seoClicks);
-  const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
-  const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
 
   const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
 

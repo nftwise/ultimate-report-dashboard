@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
@@ -23,7 +23,7 @@ export default function LoginPage() {
       })
 
       if (res.ok) {
-        const from = searchParams.get('from') || '/admin-dashboard'
+        const from = searchParams?.get('from') || '/admin-dashboard'
         router.push(from)
       } else {
         setError('Incorrect password')
@@ -35,6 +35,58 @@ export default function LoginPage() {
     }
   }
 
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter password"
+          style={{
+            width: '100%',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            fontSize: '15px',
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'border-color 0.2s',
+          }}
+          onFocus={(e) => (e.target.style.borderColor = '#c4704f')}
+          onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
+          autoFocus
+        />
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: '13px', margin: '8px 0 0 0' }}>
+            {error}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading || !password}
+        style={{
+          width: '100%',
+          background: loading || !password ? '#d4a08a' : '#c4704f',
+          color: 'white',
+          borderRadius: '8px',
+          padding: '12px',
+          fontSize: '15px',
+          fontWeight: 600,
+          border: 'none',
+          cursor: loading || !password ? 'not-allowed' : 'pointer',
+          transition: 'background 0.2s',
+        }}
+      >
+        {loading ? 'Logging in...' : 'Log in'}
+      </button>
+    </form>
+  )
+}
+
+export default function LoginPage() {
   return (
     <div
       style={{
@@ -59,80 +111,17 @@ export default function LoginPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1
-            style={{
-              color: '#2c2419',
-              fontSize: '24px',
-              fontWeight: 700,
-              margin: '0 0 8px 0',
-            }}
-          >
+          <h1 style={{ color: '#2c2419', fontSize: '24px', fontWeight: 700, margin: '0 0 8px 0' }}>
             Dashboard Login
           </h1>
-          <p
-            style={{
-              color: '#6b7280',
-              fontSize: '14px',
-              margin: 0,
-            }}
-          >
+          <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
             Internal access only
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              style={{
-                width: '100%',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                fontSize: '15px',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.2s',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = '#c4704f')}
-              onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
-              autoFocus
-            />
-            {error && (
-              <p
-                style={{
-                  color: '#ef4444',
-                  fontSize: '13px',
-                  margin: '8px 0 0 0',
-                }}
-              >
-                {error}
-              </p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !password}
-            style={{
-              width: '100%',
-              background: loading || !password ? '#d4a08a' : '#c4704f',
-              color: 'white',
-              borderRadius: '8px',
-              padding: '12px',
-              fontSize: '15px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: loading || !password ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s',
-            }}
-          >
-            {loading ? 'Logging in...' : 'Log in'}
-          </button>
-        </form>
+        <Suspense fallback={<div style={{ textAlign: 'center', color: '#6b7280' }}>Loading...</div>}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   )
