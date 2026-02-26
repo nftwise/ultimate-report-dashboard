@@ -54,6 +54,7 @@ export default function GBPPage() {
 
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<GBPDailyMetrics[]>([]);
+  const [prevDailyData, setPrevDailyData] = useState<GBPDailyMetrics[]>([]);
   const [location, setLocation] = useState<GBPLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
@@ -237,6 +238,57 @@ export default function GBPPage() {
         mergedData.sort((a, b) => a.date.localeCompare(b.date));
 
         setDailyData(mergedData);
+
+        // Fetch previous period data for MoM comparison
+        const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        const prevTo = new Date(dateRange.from);
+        prevTo.setDate(prevTo.getDate() - 1);
+        const prevFrom = new Date(prevTo);
+        prevFrom.setDate(prevFrom.getDate() - periodDays);
+        const prevFromISO = prevFrom.toISOString().split('T')[0];
+        const prevToISO = prevTo.toISOString().split('T')[0];
+
+        const [{ data: prevGbpData }, { data: prevSummaryData }] = await Promise.all([
+          supabase
+            .from('gbp_location_daily_metrics')
+            .select('date, views, direction_requests, phone_calls, website_clicks')
+            .eq('client_id', client.id)
+            .gte('date', prevFromISO)
+            .lte('date', prevToISO)
+            .order('date', { ascending: true }),
+          supabase
+            .from('client_metrics_summary')
+            .select('date, gbp_calls, gbp_website_clicks, gbp_directions, gbp_profile_views')
+            .eq('client_id', client.id)
+            .gte('date', prevFromISO)
+            .lte('date', prevToISO)
+            .order('date', { ascending: true })
+        ]);
+
+        const prevDetailedMap = new Map();
+        (prevGbpData || []).forEach((row: any) => prevDetailedMap.set(row.date, row));
+        const prevSummaryMap = new Map();
+        (prevSummaryData || []).forEach((row: any) => prevSummaryMap.set(row.date, row));
+
+        const prevAllDates = new Set([
+          ...(prevGbpData || []).map((r: any) => r.date),
+          ...(prevSummaryData || []).map((r: any) => r.date)
+        ]);
+
+        const prevMerged: GBPDailyMetrics[] = Array.from(prevAllDates).map(date => {
+          const detailed = prevDetailedMap.get(date);
+          const summary = prevSummaryMap.get(date);
+          return {
+            date,
+            views: pickValue(detailed?.views, summary?.gbp_profile_views),
+            direction_requests: pickValue(detailed?.direction_requests, summary?.gbp_directions),
+            phone_calls: pickValue(detailed?.phone_calls, summary?.gbp_calls),
+            website_clicks: pickValue(detailed?.website_clicks, summary?.gbp_website_clicks),
+          };
+        });
+
+        prevMerged.sort((a, b) => a.date.localeCompare(b.date));
+        setPrevDailyData(prevMerged);
       } catch (error) {
         console.error('Error fetching GBP metrics:', error);
       }
@@ -264,6 +316,28 @@ export default function GBPPage() {
   const totalPostsActions = dailyData.reduce((sum, d) => sum + (d.posts_actions || 0), 0);
   const totalBusinessPhotoViews = dailyData.reduce((sum, d) => sum + (d.business_photo_views || 0), 0);
   const totalCustomerPhotoViews = dailyData.reduce((sum, d) => sum + (d.customer_photo_views || 0), 0);
+
+  // Previous period totals
+  const prevViews = prevDailyData.reduce((sum, d) => sum + (d.views || 0), 0);
+  const prevPhoneCalls = prevDailyData.reduce((sum, d) => sum + (d.phone_calls || 0), 0);
+  const prevWebsiteClicks = prevDailyData.reduce((sum, d) => sum + (d.website_clicks || 0), 0);
+  const prevDirections = prevDailyData.reduce((sum, d) => sum + (d.direction_requests || 0), 0);
+
+  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+
+  const calcMoM = (current: number, prev: number, invert = false) => {
+    if (prev === 0) return { pct: '—', type: 'neutral' as const };
+    const val = ((current - prev) / prev * 100);
+    const pct = val.toFixed(1);
+    const isUp = val > 0;
+    const isGood = invert ? !isUp : isUp;
+    return { pct: isUp ? `+${pct}%` : `${pct}%`, type: (isGood ? 'up' : val === 0 ? 'neutral' : 'down') as 'up' | 'down' | 'neutral' };
+  };
+
+  const momViews = calcMoM(totalViews, prevViews);
+  const momCalls = calcMoM(totalPhoneCalls, prevPhoneCalls);
+  const momClicks = calcMoM(totalWebsiteClicks, prevWebsiteClicks);
+  const momDirections = calcMoM(totalDirections, prevDirections);
 
   // Latest values for reviews/rating
   const latestReviews = dailyData.length > 0 ? dailyData[dailyData.length - 1].total_reviews || 0 : 0;
@@ -375,7 +449,12 @@ export default function GBPPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Profile Views</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalViews.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Total impressions</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: momViews.type === 'up' ? '#10b981' : momViews.type === 'down' ? '#ef4444' : '#9ca3af' }}>
+                    {momViews.type === 'up' ? '\u25B2' : momViews.type === 'down' ? '\u25BC' : ''} {momViews.pct}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
+                </div>
               </div>
 
               {/* Phone Calls */}
@@ -389,7 +468,12 @@ export default function GBPPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Phone Calls</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{totalPhoneCalls.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Direct calls from GBP</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: momCalls.type === 'up' ? '#10b981' : momCalls.type === 'down' ? '#ef4444' : '#9ca3af' }}>
+                    {momCalls.type === 'up' ? '\u25B2' : momCalls.type === 'down' ? '\u25BC' : ''} {momCalls.pct}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
+                </div>
               </div>
 
               {/* Website Clicks */}
@@ -403,7 +487,12 @@ export default function GBPPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Website Clicks</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>{totalWebsiteClicks.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Clicks to website</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: momClicks.type === 'up' ? '#10b981' : momClicks.type === 'down' ? '#ef4444' : '#9ca3af' }}>
+                    {momClicks.type === 'up' ? '\u25B2' : momClicks.type === 'down' ? '\u25BC' : ''} {momClicks.pct}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
+                </div>
               </div>
 
               {/* Direction Requests */}
@@ -417,7 +506,12 @@ export default function GBPPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Directions</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>{totalDirections.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Navigation requests</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: momDirections.type === 'up' ? '#10b981' : momDirections.type === 'down' ? '#ef4444' : '#9ca3af' }}>
+                    {momDirections.type === 'up' ? '\u25B2' : momDirections.type === 'down' ? '\u25BC' : ''} {momDirections.pct}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
+                </div>
               </div>
             </div>
 
@@ -742,53 +836,6 @@ export default function GBPPage() {
                 </div>
               </div>
 
-              {/* Column 4: Location Info */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Business Info
-                </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Location Details
-                </h3>
-
-                {location ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ padding: '12px', background: 'rgba(44, 36, 25, 0.02)', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Business Name</p>
-                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#2c2419', margin: 0 }}>{location.location_name}</p>
-                    </div>
-                    {location.address && (
-                      <div style={{ padding: '12px', background: 'rgba(44, 36, 25, 0.02)', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Address</p>
-                        <p style={{ fontSize: '12px', color: '#2c2419', margin: 0 }}>{location.address}</p>
-                      </div>
-                    )}
-                    {location.phone && (
-                      <div style={{ padding: '12px', background: 'rgba(44, 36, 25, 0.02)', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Phone</p>
-                        <p style={{ fontSize: '12px', color: '#2c2419', margin: 0 }}>{location.phone}</p>
-                      </div>
-                    )}
-                    {location.business_type && (
-                      <div style={{ padding: '12px', background: 'rgba(44, 36, 25, 0.02)', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Category</p>
-                        <p style={{ fontSize: '12px', color: '#2c2419', margin: 0 }}>{location.business_type}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
-                    No location data available
-                  </p>
-                )}
-              </div>
             </div>
 
             {/* Section 5: Key Insights Summary */}

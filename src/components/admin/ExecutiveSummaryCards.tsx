@@ -3,6 +3,11 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
+interface MoMData {
+  pct: string;
+  type: 'up' | 'down' | 'neutral';
+}
+
 interface ExecutiveSummaryCardsProps {
   totalSpend: number;
   totalConversions: number;
@@ -10,6 +15,11 @@ interface ExecutiveSummaryCardsProps {
   conversionRate: number;
   spendTrend?: number;
   conversionsTrend?: number;
+  momSpend?: MoMData;
+  momConversions?: MoMData;
+  momCpa?: MoMData;
+  momCtr?: MoMData;
+  periodLabel?: string;
 }
 
 export default function ExecutiveSummaryCards({
@@ -18,7 +28,12 @@ export default function ExecutiveSummaryCards({
   costPerLead,
   conversionRate,
   spendTrend,
-  conversionsTrend
+  conversionsTrend,
+  momSpend,
+  momConversions,
+  momCpa,
+  momCtr,
+  periodLabel
 }: ExecutiveSummaryCardsProps) {
   // Determine CPL color: green if good, yellow if borderline, red if high
   const getCPLColor = (cpl: number) => {
@@ -29,6 +44,21 @@ export default function ExecutiveSummaryCards({
   };
 
   const cplColor = getCPLColor(costPerLead);
+
+  const renderMoMBadge = (mom?: MoMData) => {
+    if (!mom || !periodLabel) return null;
+    const color = mom.type === 'up' ? '#10b981' : mom.type === 'down' ? '#ef4444' : '#9ca3af';
+    return (
+      <p style={{
+        fontSize: '11px',
+        fontWeight: '600',
+        color,
+        margin: '4px 0 0 0'
+      }}>
+        {mom.pct} <span style={{ fontWeight: '400', color: '#9ca3af' }}>{periodLabel}</span>
+      </p>
+    );
+  };
 
   return (
     <div style={{ marginBottom: '32px' }}>
@@ -97,6 +127,7 @@ export default function ExecutiveSummaryCards({
           }}>
             Campaign budget spent
           </p>
+          {renderMoMBadge(momSpend)}
         </div>
 
         {/* Card 2: Total Conversions (Bold) */}
@@ -144,6 +175,7 @@ export default function ExecutiveSummaryCards({
           }}>
             Customer leads generated
           </p>
+          {renderMoMBadge(momConversions)}
         </div>
 
         {/* Card 3: Cost Per Lead (Color coded) */}
@@ -191,6 +223,7 @@ export default function ExecutiveSummaryCards({
           }}>
             Spend per conversion
           </p>
+          {renderMoMBadge(momCpa)}
         </div>
 
         {/* Card 4: Conversion Rate */}
@@ -238,6 +271,7 @@ export default function ExecutiveSummaryCards({
           }}>
             Clicks that converted
           </p>
+          {renderMoMBadge(momCtr)}
         </div>
       </div>
     </div>

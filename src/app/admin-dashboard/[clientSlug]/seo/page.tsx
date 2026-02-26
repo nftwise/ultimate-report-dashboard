@@ -73,6 +73,9 @@ export default function SEOPage() {
   const [topLandingPages, setTopLandingPages] = useState<any[]>([]);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
   const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
+  const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number }>({ improved: 0, declined: 0 });
+  const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0 });
+  const [realConversions, setRealConversions] = useState<number>(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -251,6 +254,102 @@ export default function SEOPage() {
     fetchFunnelData();
   }, [client, dateRange]);
 
+  // Fetch previous period data for keyword movement + MoM + real conversions
+  useEffect(() => {
+    const fetchPrevPeriodData = async () => {
+      if (!client) return;
+      try {
+        const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        const prevTo = new Date(dateRange.from);
+        prevTo.setDate(prevTo.getDate() - 1);
+        const prevFrom = new Date(prevTo);
+        prevFrom.setDate(prevFrom.getDate() - periodDays);
+        const prevFromISO = prevFrom.toISOString().split('T')[0];
+        const prevToISO = prevTo.toISOString().split('T')[0];
+        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateToISO = dateRange.to.toISOString().split('T')[0];
+
+        // Previous period keywords for movement comparison
+        const { data: prevKeywords } = await supabase
+          .from('gsc_queries')
+          .select('query, position')
+          .eq('client_id', client.id)
+          .gte('date', prevFromISO)
+          .lte('date', prevToISO);
+
+        // Current period keywords
+        const { data: currKeywords } = await supabase
+          .from('gsc_queries')
+          .select('query, position')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+
+        // Compute avg position per keyword for each period
+        const avgPos = (rows: any[]) => {
+          const map = new Map<string, number[]>();
+          for (const r of rows || []) {
+            const q = (r.query || '').toLowerCase();
+            if (!map.has(q)) map.set(q, []);
+            map.get(q)!.push(r.position || 999);
+          }
+          const result = new Map<string, number>();
+          for (const [q, positions] of map) {
+            result.set(q, positions.reduce((a, b) => a + b, 0) / positions.length);
+          }
+          return result;
+        };
+
+        const prevAvg = avgPos(prevKeywords || []);
+        const currAvg = avgPos(currKeywords || []);
+
+        let improved = 0;
+        let declined = 0;
+        // Compare keywords that exist in both periods
+        for (const [query, currPos] of currAvg) {
+          const prevPos = prevAvg.get(query);
+          if (prevPos !== undefined) {
+            if (prevPos > currPos + 0.5) improved++;
+            else if (currPos > prevPos + 0.5) declined++;
+          }
+        }
+        setKeywordMovement({ improved, declined });
+
+        // Previous period metrics for MoM comparison
+        const { data: prevMetrics } = await supabase
+          .from('client_metrics_summary')
+          .select('sessions, users, seo_ctr, seo_clicks')
+          .eq('client_id', client.id)
+          .gte('date', prevFromISO)
+          .lte('date', prevToISO);
+
+        const prevSessions = (prevMetrics || []).reduce((s, d) => s + (d.sessions || 0), 0);
+        const prevUsers = (prevMetrics || []).reduce((s, d) => s + (d.users || 0), 0);
+        const prevSeoClicks = (prevMetrics || []).reduce((s, d) => s + (d.seo_clicks || 0), 0);
+        const prevCtrDays = (prevMetrics || []).filter(d => d.seo_ctr);
+        const prevCtr = prevCtrDays.length > 0
+          ? prevCtrDays.reduce((s, d) => s + (d.seo_ctr || 0), 0) / prevCtrDays.length
+          : 0;
+        setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks });
+
+        // Real conversions from ga4_events
+        const { count: convCount } = await supabase
+          .from('ga4_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO)
+          .in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']);
+
+        setRealConversions(convCount || 0);
+      } catch (error) {
+        console.error('Error fetching previous period data:', error);
+      }
+    };
+
+    fetchPrevPeriodData();
+  }, [client, dateRange]);
+
   if (loading || !client) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -264,18 +363,21 @@ export default function SEOPage() {
   const totalUsers = dailyData.reduce((sum: number, d: any) => sum + (d.users || 0), 0);
   const totalOrganicTraffic = dailyData.reduce((sum: number, d: any) => sum + (d.traffic_organic || 0), 0);
 
-  // Keywords improved/declined: monthly comparison (compare second half vs first half of date range)
-  const kwMidpoint = Math.floor(dailyData.length / 2);
-  const kwFirstHalf = dailyData.slice(0, kwMidpoint);
-  const kwSecondHalf = dailyData.slice(kwMidpoint);
-  const kwFirstAvg = kwFirstHalf.length > 0
-    ? kwFirstHalf.reduce((s: number, d: any) => s + (typeof d.top_keywords === 'number' ? d.top_keywords : 0), 0) / kwFirstHalf.length
-    : 0;
-  const kwSecondAvg = kwSecondHalf.length > 0
-    ? kwSecondHalf.reduce((s: number, d: any) => s + (typeof d.top_keywords === 'number' ? d.top_keywords : 0), 0) / kwSecondHalf.length
-    : 0;
-  const totalKeywordsImproved = Math.round(Math.max(0, kwSecondAvg - kwFirstAvg));
-  const totalKeywordsDeclined = Math.round(Math.max(0, kwFirstAvg - kwSecondAvg));
+  // Keywords improved/declined from previous period comparison (via state)
+  const totalKeywordsImproved = keywordMovement.improved;
+  const totalKeywordsDeclined = keywordMovement.declined;
+
+  // MoM helper
+  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+  const calcMoM = (current: number, previous: number): { pct: number; label: string } => {
+    if (previous === 0) return { pct: current > 0 ? 100 : 0, label: `vs prev ${periodDays}d` };
+    return { pct: ((current - previous) / previous) * 100, label: `vs prev ${periodDays}d` };
+  };
+  const sessionsMoM = calcMoM(totalSessions, prevPeriodMetrics.sessions);
+  const usersMoM = calcMoM(totalUsers, prevPeriodMetrics.users);
+  const avgCtrNum = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const ctrMoM = calcMoM(avgCtrNum, prevPeriodMetrics.ctr);
+  const organicMoM = calcMoM(totalOrganicTraffic, prevPeriodMetrics.seoClicks);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.seo_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.seo_clicks || 0), 0);
 
@@ -293,7 +395,7 @@ export default function SEOPage() {
 
   // Engagement metrics
   const avgEngagementRate = dailyData.length > 0
-    ? (dailyData.reduce((sum: number, d: any) => sum + (d.engagement_rate || 0), 0) / dailyData.filter((d: any) => d.engagement_rate).length || 0).toFixed(1)
+    ? (dailyData.reduce((sum: number, d: any) => sum + (d.engagement_rate || 0), 0) / (dailyData.filter((d: any) => d.engagement_rate).length || 1)).toFixed(1)
     : '0.0';
   const avgConversionRate = dailyData.length > 0
     ? (dailyData.reduce((sum: number, d: any) => sum + (d.conversion_rate || 0), 0) / dailyData.filter((d: any) => d.conversion_rate).length || 0).toFixed(2)
@@ -430,7 +532,12 @@ export default function SEOPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>User Sessions</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalSessions.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>From GA4</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: sessionsMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
+                    {sessionsMoM.pct >= 0 ? '+' : ''}{sessionsMoM.pct.toFixed(1)}%
+                  </span>
+                  <span style={{ fontSize: '9px', color: '#9ca3af' }}>{sessionsMoM.label}</span>
+                </div>
               </div>
 
               {/* Users Card */}
@@ -444,7 +551,12 @@ export default function SEOPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Users</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalUsers.toLocaleString()}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Unique visitors</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: usersMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
+                    {usersMoM.pct >= 0 ? '+' : ''}{usersMoM.pct.toFixed(1)}%
+                  </span>
+                  <span style={{ fontSize: '9px', color: '#9ca3af' }}>{usersMoM.label}</span>
+                </div>
               </div>
 
               {/* CTR Card */}
@@ -458,7 +570,12 @@ export default function SEOPage() {
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>CTR</p>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{avgCtr}%</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Click-through rate</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: ctrMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
+                    {ctrMoM.pct >= 0 ? '+' : ''}{ctrMoM.pct.toFixed(1)}%
+                  </span>
+                  <span style={{ fontSize: '9px', color: '#9ca3af' }}>{ctrMoM.label}</span>
+                </div>
               </div>
 
               {/* Organic Traffic Card */}
@@ -471,8 +588,13 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Organic Traffic</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalOrganicTraffic}</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>Sessions from search</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalOrganicTraffic.toLocaleString()}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: organicMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
+                    {organicMoM.pct >= 0 ? '+' : ''}{organicMoM.pct.toFixed(1)}%
+                  </span>
+                  <span style={{ fontSize: '9px', color: '#9ca3af' }}>{organicMoM.label}</span>
+                </div>
               </div>
             </div>
 
@@ -644,7 +766,7 @@ export default function SEOPage() {
                 {(() => {
                   const s1 = totalSessions;
                   const s2 = totalOrganicTraffic;
-                  const s3 = funnelData.conversions;
+                  const s3 = realConversions || funnelData.conversions;
                   const maxVal = s1 || 1;
                   const organicRate = s1 > 0 ? ((s2 / s1) * 100).toFixed(1) : '0';
                   const convRate = s2 > 0 ? ((s3 / s2) * 100).toFixed(1) : '0';
@@ -897,12 +1019,8 @@ export default function SEOPage() {
                   </div>
                 </div>
 
-                {/* CTR + Avg Rank summary */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
-                  <div style={{ background: 'rgba(217,168,84,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #d9a854' }}>
-                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg CTR</p>
-                    <p style={{ fontSize: '20px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{avgCtr}%</p>
-                  </div>
+                {/* Avg Rank summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginTop: '16px' }}>
                   <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #2c2419' }}>
                     <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg Rank</p>
                     <p style={{ fontSize: '20px', fontWeight: '700', color: '#2c2419', margin: 0 }}>{avgGoogleRankValue.toFixed(1)}</p>
@@ -925,23 +1043,8 @@ export default function SEOPage() {
                 <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
                   Search Visibility Performance
                 </h3>
-                {/* 4 metric cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #9db5a0' }}>
-                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Impressions</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalImpressions.toLocaleString()}</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>search appearances</p>
-                  </div>
-                  <div style={{ background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #c4704f' }}>
-                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Clicks</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalClicks.toLocaleString()}</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>from search results</p>
-                  </div>
-                  <div style={{ background: 'rgba(217,168,84,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #d9a854' }}>
-                    <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>CTR</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{avgCtr}%</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0 0' }}>click-through rate</p>
-                  </div>
+                {/* Avg Position card */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginBottom: '16px' }}>
                   <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #2c2419' }}>
                     <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Avg Position</p>
                     <p style={{ fontSize: '22px', fontWeight: '700', color: '#2c2419', margin: 0 }}>#{avgGoogleRankValue.toFixed(1)}</p>
@@ -1118,10 +1221,10 @@ export default function SEOPage() {
                 margin: 0,
                 lineHeight: '1.5'
               }}>
-                Your site appeared in search results <strong>{totalImpressions} times</strong>, generating <strong>{totalClicks} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
-                Organic search traffic generated <strong>{totalOrganicTraffic} sessions</strong> with <strong>{avgEngagementRate}% engagement rate</strong>.
+                Your site appeared in search results <strong>{totalImpressions.toLocaleString()} times</strong>, generating <strong>{totalClicks.toLocaleString()} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
+                Organic search traffic generated <strong>{totalOrganicTraffic.toLocaleString()} sessions</strong> with <strong>{avgEngagementRate}% engagement rate</strong>.
                 Keywords improved (period over period): <strong>{totalKeywordsImproved}</strong> | Keywords declined: <strong>{totalKeywordsDeclined}</strong>.
-                Focus on content optimization and improving engagement to drive conversions.
+                {sessionsMoM.pct > 0 ? `Sessions are up ${sessionsMoM.pct.toFixed(1)}% compared to the previous period.` : sessionsMoM.pct < 0 ? `Sessions are down ${Math.abs(sessionsMoM.pct).toFixed(1)}% compared to the previous period.` : ''}
               </p>
             </div>
           </div>

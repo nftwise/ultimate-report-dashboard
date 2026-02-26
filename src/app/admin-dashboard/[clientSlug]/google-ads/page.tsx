@@ -189,6 +189,7 @@ export default function GoogleAdsPage() {
   const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
   const [formConversions, setFormConversions] = useState<number>(0);
   const [conversionActionsData, setConversionActionsData] = useState<{ conversion_action_name: string | null; conversions: number }[]>([]);
+  const [prevPeriodData, setPrevPeriodData] = useState<{ spend: number; conversions: number; clicks: number; impressions: number }>({ spend: 0, conversions: 0, clicks: 0, impressions: 0 });
   const [showAdGroups, setShowAdGroups] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
@@ -450,6 +451,50 @@ export default function GoogleAdsPage() {
     fetchConversions();
   }, [client, dateRange]);
 
+  // Fetch previous period data for MoM comparison
+  useEffect(() => {
+    const fetchPrevPeriod = async () => {
+      if (!client) return;
+
+      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+      const prevTo = new Date(dateRange.from);
+      prevTo.setDate(prevTo.getDate() - 1);
+      const prevFrom = new Date(prevTo);
+      prevFrom.setDate(prevFrom.getDate() - periodDays);
+
+      const prevFromISO = prevFrom.toISOString().split('T')[0];
+      const prevToISO = prevTo.toISOString().split('T')[0];
+
+      try {
+        const [campaignRes, convRes] = await Promise.all([
+          supabase
+            .from('ads_campaign_metrics')
+            .select('impressions, clicks, cost')
+            .eq('client_id', client.id)
+            .gte('date', prevFromISO)
+            .lte('date', prevToISO),
+          supabase
+            .from('campaign_conversion_actions')
+            .select('conversions')
+            .eq('client_id', client.id)
+            .gte('date', prevFromISO)
+            .lte('date', prevToISO)
+        ]);
+
+        const prevSpend = (campaignRes.data || []).reduce((s, r) => s + (r.cost || 0), 0);
+        const prevClicks = (campaignRes.data || []).reduce((s, r) => s + (r.clicks || 0), 0);
+        const prevImpressions = (campaignRes.data || []).reduce((s, r) => s + (r.impressions || 0), 0);
+        const prevConversions = (convRes.data || []).reduce((s, r) => s + (r.conversions || 0), 0);
+
+        setPrevPeriodData({ spend: prevSpend, conversions: prevConversions, clicks: prevClicks, impressions: prevImpressions });
+      } catch (error) {
+        console.error('Error fetching previous period:', error);
+      }
+    };
+
+    fetchPrevPeriod();
+  }, [client, dateRange]);
+
   if (loading || !client) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -484,6 +529,28 @@ export default function GoogleAdsPage() {
   // Device data
   const totalMobileSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_mobile || 0), 0);
   const totalDesktopSessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions_desktop || 0), 0);
+
+  // MoM comparison
+  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+
+  const calcMoM = (current: number, prev: number, invert = false) => {
+    if (prev === 0) return { pct: '\u2014', type: 'neutral' as const };
+    const val = ((current - prev) / prev * 100);
+    const pct = val.toFixed(1);
+    const isUp = val > 0;
+    const isGood = invert ? !isUp : isUp;
+    return { pct: isUp ? `+${pct}%` : `${pct}%`, type: (isGood ? 'up' : val === 0 ? 'neutral' : 'down') as 'up' | 'down' | 'neutral' };
+  };
+
+  const prevCtr = prevPeriodData.impressions > 0 ? (prevPeriodData.clicks / prevPeriodData.impressions) * 100 : 0;
+  const prevCpa = prevPeriodData.conversions > 0 ? prevPeriodData.spend / prevPeriodData.conversions : 0;
+  const currentCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const currentCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
+
+  const momSpend = calcMoM(totalSpend, prevPeriodData.spend);
+  const momConversions = calcMoM(totalConversions, prevPeriodData.conversions);
+  const momCpa = calcMoM(currentCpa, prevCpa, true); // invert: lower CPA is better
+  const momCtr = calcMoM(currentCtr, prevCtr);
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
@@ -549,12 +616,65 @@ export default function GoogleAdsPage() {
               totalConversions={totalConversions}
               costPerLead={parseFloat(cpa)}
               conversionRate={conversionRate}
+              momSpend={momSpend}
+              momConversions={momConversions}
+              momCpa={momCpa}
+              momCtr={momCtr}
+              periodLabel={`vs prev ${periodDays}d`}
             />
 
             {/* Section 3: Visual Trend Analysis */}
             <div className="mb-12">
               <SpendVsLeadsComboChart data={dailyData} height={350} />
             </div>
+
+            {/* Section 3.5: Device Split */}
+            {(totalMobileSessions > 0 || totalDesktopSessions > 0) && (
+              <div style={{ marginBottom: '32px' }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: '#5c5850',
+                  margin: '0 0 16px 0'
+                }}>
+                  Device Split
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(44, 36, 25, 0.1)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>Mobile</p>
+                    <p style={{ fontSize: '28px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0', fontVariantNumeric: 'tabular-nums' }}>
+                      {(totalMobileSessions + totalDesktopSessions) > 0 ? ((totalMobileSessions / (totalMobileSessions + totalDesktopSessions)) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{totalMobileSessions.toLocaleString()} sessions</p>
+                  </div>
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(44, 36, 25, 0.1)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>Desktop</p>
+                    <p style={{ fontSize: '28px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0', fontVariantNumeric: 'tabular-nums' }}>
+                      {(totalMobileSessions + totalDesktopSessions) > 0 ? ((totalDesktopSessions / (totalMobileSessions + totalDesktopSessions)) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{totalDesktopSessions.toLocaleString()} sessions</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Section 4: Technical Deep-Dive (60/40 Layout) */}
             <div style={{
@@ -566,7 +686,7 @@ export default function GoogleAdsPage() {
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
-              {/* Right Column: Google Ads Conversions - from campaign_conversion_actions */}
+              {/* Right Column: Conversion Breakdown + Metrics */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
@@ -585,7 +705,7 @@ export default function GoogleAdsPage() {
                     color: '#5c5850',
                     margin: '0 0 8px 0'
                   }}>
-                    📊 Conversions
+                    📊 Performance Details
                   </p>
                   <h3 style={{
                     fontSize: '18px',
@@ -594,7 +714,7 @@ export default function GoogleAdsPage() {
                     margin: '0 0 16px 0',
                     letterSpacing: '-0.02em'
                   }}>
-                    Total Conversions
+                    Conversion Breakdown
                   </h3>
                   <p style={{
                     fontSize: '10px',
@@ -611,39 +731,6 @@ export default function GoogleAdsPage() {
                     gap: '12px',
                     marginTop: '12px'
                   }}>
-                    {/* Total Conversions */}
-                    <div style={{
-                      background: 'rgba(196, 112, 79, 0.08)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      borderLeft: '3px solid #c4704f'
-                    }}>
-                      <p style={{
-                        fontSize: '10px',
-                        color: '#5c5850',
-                        margin: '0 0 4px 0',
-                        fontWeight: '600'
-                      }}>
-                        Total Conversions
-                      </p>
-                      <p style={{
-                        fontSize: '18px',
-                        fontWeight: '700',
-                        color: '#c4704f',
-                        margin: 0
-                      }}>
-                        {totalConversions}
-                      </p>
-                      <p style={{
-                        fontSize: '10px',
-                        color: '#5c5850',
-                        margin: '4px 0 0 0',
-                        fontWeight: '500'
-                      }}>
-                        from {totalClicks} clicks
-                      </p>
-                    </div>
-
                     {/* Cost Per Acquisition */}
                     <div style={{
                       background: 'rgba(16, 185, 129, 0.08)',
@@ -742,12 +829,45 @@ export default function GoogleAdsPage() {
                         {totalImpressions} impressions
                       </p>
                     </div>
+
+                    {/* Impressions */}
+                    <div style={{
+                      background: 'rgba(196, 112, 79, 0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      borderLeft: '3px solid #c4704f'
+                    }}>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '0 0 4px 0',
+                        fontWeight: '600'
+                      }}>
+                        Total Impressions
+                      </p>
+                      <p style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#c4704f',
+                        margin: 0
+                      }}>
+                        {totalImpressions.toLocaleString()}
+                      </p>
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#5c5850',
+                        margin: '4px 0 0 0',
+                        fontWeight: '500'
+                      }}>
+                        from {totalClicks} clicks
+                      </p>
+                    </div>
                   </div>
 
                   {/* Conversion Type Breakdown */}
-                  {conversionTypes.length > 1 && (
+                  {conversionTypes.length > 0 && (
                     <div style={{ marginTop: '12px', borderTop: '1px solid rgba(196,112,79,0.15)', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>By Type</div>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Conversions by Type</div>
                       {conversionTypes.map(([name, count]) => (
                         <div key={name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
                           <span style={{ color: '#5c5850' }}>{name}</span>
@@ -771,7 +891,7 @@ export default function GoogleAdsPage() {
                     margin: 0,
                     lineHeight: '1.5'
                   }}>
-                    💡 <strong>Overview:</strong> {totalConversions > 0
+                    {totalConversions > 0
                       ? `${totalConversions} conversions from ${totalClicks} clicks (${ctr}% CTR). Average cost per conversion: $${cpa}.`
                       : 'No conversion data available for this period.'}
                   </p>
