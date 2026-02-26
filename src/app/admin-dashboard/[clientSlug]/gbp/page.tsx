@@ -466,7 +466,10 @@ export default function GBPPage() {
                 padding: '20px',
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Phone Calls</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: 0, textTransform: 'uppercase' }}>Phone Calls</p>
+                  <span title="Số lần khách nhấn nút gọi trên Google Maps / Search. Bao gồm cả cuộc gọi chưa kết nối (giới hạn của Google API)." style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help', lineHeight: 1 }}>ⓘ</span>
+                </div>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{totalPhoneCalls.toLocaleString()}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: momCalls.type === 'up' ? '#10b981' : momCalls.type === 'down' ? '#ef4444' : '#9ca3af' }}>
