@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const dateFromParam = searchParams.get('dateFrom')
     const dateToParam = searchParams.get('dateTo')
 
-    console.log('[clients/list] Date range params:', { dateFromParam, dateToParam })
-
     // Parallel fetch: clients and metrics at the same time for better performance
     const [clientsResult, metricsResult, gbpMetricsResult] = await Promise.all([
-      // Fetch all clients (active and inactive) with their service configurations
-      supabaseAdmin
-        .from('clients')
-        .select(`
+      // Fetch clients — admin sees all, client role sees only their own
+      (() => {
+        let query = supabaseAdmin
+          .from('clients')
+          .select(`
           id,
           name,
           slug,
@@ -29,7 +36,12 @@ export async function GET(request: NextRequest) {
             callrail_account_id
           )
         `)
-        .order('name', { ascending: true }),
+        .order('name', { ascending: true })
+        if (session.user.role === 'client' && session.user.clientId) {
+          query = query.eq('id', session.user.clientId)
+        }
+        return query
+      })(),
 
       // Fetch metrics with date range filter (for leads, forms, ads)
       (() => {
@@ -81,13 +93,6 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching GBP metrics:', gbpError)
     }
 
-    console.log('[clients/list] Metrics fetched:', metrics?.length, 'records')
-    console.log('[clients/list] GBP metrics fetched:', gbpMetrics?.length, 'records')
-    if (gbpMetrics && gbpMetrics.length > 0) {
-      const gbpSample = gbpMetrics.filter((m: any) => m.phone_calls && m.phone_calls > 0)
-      console.log('[clients/list] Records with phone calls:', gbpSample.length)
-      console.log('[clients/list] Sample GBP records:', gbpSample.slice(0, 3))
-    }
 
     // Build optimized metrics map with aggregation
     const metricsMap: { [key: string]: any } = {}
@@ -136,16 +141,6 @@ export async function GET(request: NextRequest) {
       const hasGoogleAds = !!(config.gads_customer_id && config.gads_customer_id.trim())
       const hasSeo = !!(config.gsc_site_url && config.gsc_site_url.trim())
 
-      // Debug: Log first few clients
-      if (clients.indexOf(client) < 3) {
-        console.log(`[API] Client: ${client.name}`, {
-          gads_customer_id: config.gads_customer_id,
-          hasGoogleAds,
-          gsc_site_url: config.gsc_site_url,
-          hasSeo
-        })
-      }
-
       const clientMetrics = metricsMap[client.id] || {
         total_leads: 0,
         seo_form_submits: 0,
@@ -179,24 +174,6 @@ export async function GET(request: NextRequest) {
           fbAds: false,
         }
       }
-    })
-
-    // Log service distribution for debugging
-    const serviceDistribution = {
-      total: clientsWithServices.length,
-      withAds: clientsWithServices.filter((c: any) => c.services.googleAds).length,
-      withSeo: clientsWithServices.filter((c: any) => c.services.seo).length,
-      withBoth: clientsWithServices.filter((c: any) => c.services.googleAds && c.services.seo).length,
-      adsOnly: clientsWithServices.filter((c: any) => c.services.googleAds && !c.services.seo).length,
-      seoOnly: clientsWithServices.filter((c: any) => c.services.seo && !c.services.googleAds).length,
-      neither: clientsWithServices.filter((c: any) => !c.services.googleAds && !c.services.seo).length,
-    }
-    console.log('[API] Service distribution:', serviceDistribution)
-
-    // Log ALL clients with their service flags for detailed debugging
-    console.log('[API] Full service config list:')
-    clientsWithServices.forEach((c: any) => {
-      console.log(`  ${c.name}: googleAds=${c.services.googleAds}, seo=${c.services.seo}`)
     })
 
     // Return with cache headers
