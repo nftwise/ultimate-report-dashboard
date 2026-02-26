@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Activity, Users, UserPlus } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Activity, Users, UserPlus, Pencil, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
@@ -43,6 +43,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'both' | 'seo' | 'ads'>('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
@@ -195,7 +196,9 @@ export default function AdminDashboardPage() {
       else if (serviceFilter === 'ads') matchesServiceFilter = hasAds && !hasSeo;
     }
 
-    return matchesSearch && matchesServiceFilter;
+    const matchesArchived = showArchived || client.is_active !== false;
+
+    return matchesSearch && matchesServiceFilter && matchesArchived;
   });
 
   const totalLeads = clients.reduce((sum, c) => sum + (c.total_leads || 0), 0);
@@ -241,9 +244,31 @@ export default function AdminDashboardPage() {
       }}>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Analytics</h1>
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
+          <div className="flex items-center gap-4">
+            <div className="text-right hidden sm:block">
+              <div className="text-xs font-bold" style={{ color: '#2c2419' }}>Administrator</div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: '#5c5850' }}>Dashboard</div>
+            </div>
+            <button
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                router.push('/login');
+              }}
+              className="flex items-center gap-1.5 hover:opacity-70 transition"
+              style={{
+                border: '1px solid rgba(196,112,79,0.3)',
+                color: '#c4704f',
+                background: 'transparent',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Logout
+            </button>
           </div>
         </div>
 
@@ -585,6 +610,15 @@ export default function AdminDashboardPage() {
                     </button>
                   ))}
                 </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: '#5c5850', fontWeight: 500, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={e => setShowArchived(e.target.checked)}
+                    style={{ width: '14px', height: '14px', accentColor: '#c4704f', cursor: 'pointer' }}
+                  />
+                  Show Archived
+                </label>
               </div>
 
               <style>{`
@@ -615,7 +649,7 @@ export default function AdminDashboardPage() {
                         <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#b45309', minWidth: '85px', borderBottom: '3px solid #b45309' }}>SEO</th>
                         <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#047857', minWidth: '85px', borderBottom: '3px solid #047857' }}>GBP</th>
                         <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#6b7280', minWidth: '255px', borderBottom: '3px solid #6b7280' }}>Google Ads</th>
-                        <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '240px', borderBottom: 'none' }}>&nbsp;</th>
+                        <th colSpan={4} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '280px', borderBottom: 'none' }}>&nbsp;</th>
                       </tr>
                       <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px' }}>Services</th>
@@ -627,6 +661,7 @@ export default function AdminDashboardPage() {
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px' }}>Trend 30d</th>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px' }}>Status</th>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px' }}>Health</th>
+                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '40px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -690,6 +725,25 @@ export default function AdminDashboardPage() {
                               }}>
                                 {health === 'good' ? 'Good' : health === 'warning' ? 'Fair' : 'Poor'}
                               </span>
+                            </td>
+                            <td className="py-5 text-center">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/admin-dashboard/clients/${client.id}/edit`);
+                                }}
+                                className="hover:opacity-70 transition"
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#c4704f',
+                                  padding: '4px',
+                                }}
+                                title="Edit client"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
                             </td>
                           </tr>
                         );
