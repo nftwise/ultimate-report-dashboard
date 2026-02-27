@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
@@ -10,7 +10,8 @@ import { fmtNum } from '@/lib/format';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { ExternalLink, Newspaper, RefreshCw, Upload, Bot, Globe } from 'lucide-react';
+import { ExternalLink, Newspaper, RefreshCw, Upload, Bot, Globe, FileSpreadsheet } from 'lucide-react';
+import type * as XLSXType from 'xlsx';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -74,6 +75,10 @@ export default function GeoPage() {
   const [importPageRaw, setImportPageRaw] = useState('');
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [importMode, setImportMode] = useState<'paste' | 'excel'>('excel');
+  const [excelFileName, setExcelFileName] = useState('');
+  const [excelPreview, setExcelPreview] = useState<{ daily: any[]; pages: any[] }>({ daily: [], pages: [] });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (clientSlug) fetchData();
@@ -187,16 +192,110 @@ export default function GeoPage() {
     }).filter(r => r.pageUrl && !isNaN(r.citations));
   }
 
+  // Parse Excel file and extract daily citations + page citations
+  async function handleExcelFile(file: File) {
+    setExcelFileName(file.name);
+    setImportMsg('Loading file...');
+    const XLSX = await import('xlsx');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+
+        const daily: Array<{ date: string; citations: number; citedPages: number }> = [];
+        const pages: Array<{ pageUrl: string; citations: number }> = [];
+
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          if (rows.length === 0) continue;
+
+          const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim());
+
+          // Detect daily citations sheet: has "date" + "citations" columns
+          const hasDate = headers.some(h => h.includes('date'));
+          const hasCitations = headers.some(h => h.includes('citation') || h.includes('total'));
+          const hasUrl = headers.some(h => h.includes('url') || h.includes('page') || h.includes('link'));
+
+          if (hasDate && hasCitations && !hasUrl) {
+            // Daily citations sheet
+            for (const row of rows) {
+              const keys = Object.keys(row);
+              const dateKey = keys.find(k => k.toLowerCase().includes('date'));
+              const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('total'));
+              const pagesKey = keys.find(k => k.toLowerCase().includes('page') || k.toLowerCase().includes('cited'));
+
+              if (!dateKey) continue;
+              let dateVal = row[dateKey];
+              // Handle Excel date objects
+              if (dateVal instanceof Date) {
+                dateVal = dateVal.toISOString().split('T')[0];
+              } else if (typeof dateVal === 'string') {
+                const d = new Date(dateVal);
+                dateVal = isNaN(d.getTime()) ? dateVal : d.toISOString().split('T')[0];
+              } else if (typeof dateVal === 'number') {
+                // Excel serial date
+                const d = XLSX.SSF.parse_date_code(dateVal);
+                dateVal = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+              }
+
+              const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
+              const citedPages = parseInt(pagesKey ? row[pagesKey] : '0', 10) || 0;
+              if (dateVal && citations > 0) {
+                daily.push({ date: dateVal, citations, citedPages });
+              }
+            }
+          } else if (hasUrl) {
+            // Page-level citations sheet
+            for (const row of rows) {
+              const keys = Object.keys(row);
+              const urlKey = keys.find(k => k.toLowerCase().includes('url') || k.toLowerCase().includes('page') || k.toLowerCase().includes('link'));
+              const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('count') || k.toLowerCase().includes('total'));
+
+              if (!urlKey) continue;
+              const pageUrl = String(row[urlKey]).trim();
+              const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
+              if (pageUrl.startsWith('http') && citations > 0) {
+                pages.push({ pageUrl, citations });
+              }
+            }
+          }
+        }
+
+        setExcelPreview({ daily, pages });
+        if (daily.length === 0 && pages.length === 0) {
+          setImportMsg('Could not detect citation data in this file. Make sure columns include "Date" + "Citations" or "URL" + "Citations".');
+        } else {
+          setImportMsg(`Found: ${daily.length} daily rows, ${pages.length} page rows. Click Save to import.`);
+        }
+      } catch (err: any) {
+        setImportMsg(`Error reading file: ${err.message}`);
+        setExcelPreview({ daily: [], pages: [] });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
   async function handleImport() {
     if (!client) return;
     setImporting(true);
     setImportMsg('');
     try {
-      const dailyCitations = importRaw ? parseDailyCitations(importRaw) : [];
-      const pageCitations = importPageRaw ? parsePageCitations(importPageRaw) : [];
+      let dailyCitations: Array<{ date: string; citations: number; citedPages: number }> = [];
+      let pageCitations: Array<{ pageUrl: string; citations: number }> = [];
+
+      if (importMode === 'excel') {
+        dailyCitations = excelPreview.daily;
+        pageCitations = excelPreview.pages;
+      } else {
+        dailyCitations = importRaw ? parseDailyCitations(importRaw) : [];
+        pageCitations = importPageRaw ? parsePageCitations(importPageRaw) : [];
+      }
 
       if (dailyCitations.length === 0 && pageCitations.length === 0) {
-        setImportMsg('No valid data found. Check format: paste tab-separated data from BWT.');
+        setImportMsg('No valid data found. Upload an Excel file or paste tab-separated data from BWT.');
+        setImporting(false);
         return;
       }
 
@@ -207,13 +306,20 @@ export default function GeoPage() {
       });
       const result = await res.json();
       if (result.success) {
-        setImportMsg(`Saved: ${dailyCitations.length} daily rows, ${pageCitations.length} page rows.`);
+        const errors = Object.values(result.results || {}).filter((r: any) => r.error);
+        if (errors.length > 0) {
+          setImportMsg(`Partial save. Errors: ${JSON.stringify(errors)}`);
+        } else {
+          setImportMsg(`Saved: ${dailyCitations.length} daily rows, ${pageCitations.length} page rows.`);
+        }
         setImportRaw('');
         setImportPageRaw('');
+        setExcelPreview({ daily: [], pages: [] });
+        setExcelFileName('');
         await fetchData();
-        setTimeout(() => setShowImport(false), 1500);
+        setTimeout(() => setShowImport(false), 2000);
       } else {
-        setImportMsg(`Error: ${JSON.stringify(result)}`);
+        setImportMsg(`Error: ${result.error || JSON.stringify(result)}`);
       }
     } catch (err: any) {
       setImportMsg(`Error: ${err.message}`);
@@ -323,44 +429,196 @@ export default function GeoPage() {
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
             zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }} onClick={e => { if (e.target === e.currentTarget) setShowImport(false); }}>
-            <div style={{ background: '#fff', borderRadius: '20px', padding: '28px', width: '580px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#fff', borderRadius: '20px', padding: '28px', width: '620px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Import Bing AI Citations</h3>
                 <button onClick={() => setShowImport(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#9ca3af', lineHeight: 1 }}>×</button>
               </div>
 
-              <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
-                <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click Export (or copy data). Paste tab-separated rows below.
+              {/* Mode toggle */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '18px', background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '3px' }}>
+                {(['excel', 'paste'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => { setImportMode(mode); setImportMsg(''); }}
+                    style={{
+                      flex: 1, padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                      fontSize: '12px', fontWeight: 600, transition: 'all 150ms',
+                      background: importMode === mode ? '#6b46c1' : 'transparent',
+                      color: importMode === mode ? '#fff' : '#5c5850',
+                    }}
+                  >
+                    {mode === 'excel' ? 'Upload Excel File' : 'Paste Data'}
+                  </button>
+                ))}
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
-                  Daily Citations (paste rows: Date · Citations · Cited Pages)
-                </label>
-                <textarea
-                  value={importRaw}
-                  onChange={e => setImportRaw(e.target.value)}
-                  placeholder={'11/27/2025 12:00:00 AM\t63\t12\n11/28/2025 12:00:00 AM\t71\t14'}
-                  rows={6}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-                />
-              </div>
+              {importMode === 'excel' ? (
+                <>
+                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
+                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click <strong>Export</strong> → save as .xlsx or .csv. Then upload the file below.
+                  </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
-                  Page-level Citations (paste rows: Page URL · Citations)
-                </label>
-                <textarea
-                  value={importPageRaw}
-                  onChange={e => setImportPageRaw(e.target.value)}
-                  placeholder={'https://example.com/page-one\t2070\nhttps://example.com/page-two\t840'}
-                  rows={6}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-                />
-              </div>
+                  {/* File drop zone */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleExcelFile(file);
+                    }}
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#6b46c1'; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(107,70,193,0.3)'; }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.currentTarget.style.borderColor = 'rgba(107,70,193,0.3)';
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleExcelFile(file);
+                    }}
+                    style={{
+                      border: '2px dashed rgba(107,70,193,0.3)', borderRadius: '14px',
+                      padding: excelFileName ? '16px 20px' : '36px 20px',
+                      textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
+                      background: 'rgba(107,70,193,0.02)', transition: 'border-color 150ms',
+                    }}
+                  >
+                    {excelFileName ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
+                        <FileSpreadsheet size={20} style={{ color: '#059669' }} />
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419' }}>{excelFileName}</div>
+                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                            {excelPreview.daily.length} daily rows · {excelPreview.pages.length} page rows
+                          </div>
+                        </div>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setExcelFileName('');
+                            setExcelPreview({ daily: [], pages: [] });
+                            setImportMsg('');
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          style={{ marginLeft: '8px', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <FileSpreadsheet size={28} style={{ color: '#6b46c1', marginBottom: '8px' }} />
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', marginBottom: '4px' }}>
+                          Click to upload or drag & drop
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                          .xlsx, .xls, or .csv — exported from Bing Webmaster Tools
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Preview table */}
+                  {excelPreview.daily.length > 0 && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
+                        Preview: Daily Citations ({excelPreview.daily.length} rows)
+                      </div>
+                      <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
+                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Date</th>
+                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
+                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Cited Pages</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {excelPreview.daily.slice(0, 5).map((r, i) => (
+                              <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
+                                <td style={{ padding: '5px 10px', color: '#2c2419' }}>{r.date}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', color: '#5c5850' }}>{r.citedPages}</td>
+                              </tr>
+                            ))}
+                            {excelPreview.daily.length > 5 && (
+                              <tr><td colSpan={3} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.daily.length - 5} more</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {excelPreview.pages.length > 0 && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
+                        Preview: Page Citations ({excelPreview.pages.length} pages)
+                      </div>
+                      <div style={{ maxHeight: '100px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
+                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Page URL</th>
+                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {excelPreview.pages.slice(0, 5).map((r, i) => (
+                              <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
+                                <td style={{ padding: '5px 10px', color: '#2c2419', maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.pageUrl}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                              </tr>
+                            ))}
+                            {excelPreview.pages.length > 5 && (
+                              <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.pages.length - 5} more</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
+                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → copy data. Paste tab-separated rows below.
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
+                      Daily Citations (paste rows: Date · Citations · Cited Pages)
+                    </label>
+                    <textarea
+                      value={importRaw}
+                      onChange={e => setImportRaw(e.target.value)}
+                      placeholder={'11/27/2025 12:00:00 AM\t63\t12\n11/28/2025 12:00:00 AM\t71\t14'}
+                      rows={6}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
+                      Page-level Citations (paste rows: Page URL · Citations)
+                    </label>
+                    <textarea
+                      value={importPageRaw}
+                      onChange={e => setImportPageRaw(e.target.value)}
+                      placeholder={'https://example.com/page-one\t2070\nhttps://example.com/page-two\t840'}
+                      rows={6}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </>
+              )}
 
               {importMsg && (
-                <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '7px', marginBottom: '14px', background: importMsg.startsWith('Error') ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: importMsg.startsWith('Error') ? '#dc2626' : '#059669', border: `1px solid ${importMsg.startsWith('Error') ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'}` }}>
+                <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '7px', marginBottom: '14px', background: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.08)' : importMsg.startsWith('Found') ? 'rgba(107,70,193,0.06)' : 'rgba(16,185,129,0.08)', color: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? '#dc2626' : importMsg.startsWith('Found') ? '#6b46c1' : '#059669', border: `1px solid ${importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.2)' : importMsg.startsWith('Found') ? 'rgba(107,70,193,0.15)' : 'rgba(16,185,129,0.2)'}` }}>
                   {importMsg}
                 </div>
               )}
@@ -369,7 +627,18 @@ export default function GeoPage() {
                 <button onClick={() => setShowImport(false)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
                   Cancel
                 </button>
-                <button onClick={handleImport} disabled={importing} style={{ padding: '9px 20px', borderRadius: '8px', background: importing ? '#a78bfa' : '#6b46c1', color: '#fff', border: 'none', cursor: importing ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                <button
+                  onClick={handleImport}
+                  disabled={importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0)}
+                  style={{
+                    padding: '9px 20px', borderRadius: '8px',
+                    background: importing ? '#a78bfa' : '#6b46c1',
+                    color: '#fff', border: 'none',
+                    cursor: importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0) ? 'not-allowed' : 'pointer',
+                    fontSize: '13px', fontWeight: 600,
+                    opacity: (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0) ? 0.5 : 1,
+                  }}
+                >
                   {importing ? 'Saving…' : 'Save to Database'}
                 </button>
               </div>

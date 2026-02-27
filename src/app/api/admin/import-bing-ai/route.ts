@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
   }
 
   const results: Record<string, any> = {};
+  let hasError = false;
 
-  // Upsert daily citations
+  // Upsert daily citations in batches
   if (dailyCitations.length > 0) {
     const rows = dailyCitations.map(r => ({
       client_id: clientId,
@@ -50,13 +51,24 @@ export async function POST(request: NextRequest) {
       citations: r.citations ?? 0,
       cited_pages: r.citedPages ?? 0,
     }));
-    const { error } = await supabaseAdmin
-      .from('bing_ai_citations')
-      .upsert(rows, { onConflict: 'client_id,date' });
-    results.dailyCitations = error ? { error: error.message } : { upserted: rows.length };
+    // Batch upsert in chunks of 200
+    for (let i = 0; i < rows.length; i += 200) {
+      const batch = rows.slice(i, i + 200);
+      const { error } = await supabaseAdmin
+        .from('bing_ai_citations')
+        .upsert(batch, { onConflict: 'client_id,date' });
+      if (error) {
+        results.dailyCitations = { error: error.message, code: error.code, hint: error.hint };
+        hasError = true;
+        break;
+      }
+    }
+    if (!results.dailyCitations) {
+      results.dailyCitations = { upserted: rows.length };
+    }
   }
 
-  // Upsert page-level citations
+  // Upsert page-level citations in batches
   if (pageCitations.length > 0) {
     const rows = pageCitations.map(r => ({
       client_id: clientId,
@@ -64,10 +76,24 @@ export async function POST(request: NextRequest) {
       citations: r.citations ?? 0,
       updated_at: new Date().toISOString(),
     }));
-    const { error } = await supabaseAdmin
-      .from('bing_ai_page_citations')
-      .upsert(rows, { onConflict: 'client_id,page_url' });
-    results.pageCitations = error ? { error: error.message } : { upserted: rows.length };
+    for (let i = 0; i < rows.length; i += 200) {
+      const batch = rows.slice(i, i + 200);
+      const { error } = await supabaseAdmin
+        .from('bing_ai_page_citations')
+        .upsert(batch, { onConflict: 'client_id,page_url' });
+      if (error) {
+        results.pageCitations = { error: error.message, code: error.code, hint: error.hint };
+        hasError = true;
+        break;
+      }
+    }
+    if (!results.pageCitations) {
+      results.pageCitations = { upserted: rows.length };
+    }
+  }
+
+  if (hasError) {
+    return NextResponse.json({ success: false, error: 'Some data failed to save', results }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, results });
