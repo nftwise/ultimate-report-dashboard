@@ -160,7 +160,7 @@ export default function UsersPage() {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '360px 1fr' : '1fr', gap: '20px', alignItems: 'start' }}>
 
           {/* ── Create User Form ── */}
           {isAdmin && (
@@ -275,23 +275,17 @@ export default function UsersPage() {
                   .users-table td { padding: 13px 12px; font-size: 13px; border-bottom: 1px solid rgba(44,36,25,0.05); vertical-align: middle; }
                   .users-table tbody tr:last-child td { border-bottom: none; }
                   .users-table tbody tr:hover td { background: rgba(196,112,79,0.03); }
-                  .users-table .col-email  { width: 34%; }
-                  .users-table .col-role   { width: 12%; }
-                  .users-table .col-client { width: 24%; }
-                  .users-table .col-login  { width: 14%; }
-                  .users-table .col-status { width: 10%; }
-                  .users-table .col-toggle { width: 6%; }
                 `}</style>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="users-table">
                     <thead>
                       <tr>
-                        <th className="col-email">Email</th>
-                        <th className="col-role">Role</th>
-                        <th className="col-client">Client</th>
-                        <th className="col-login">Last Login</th>
-                        <th className="col-status">Status</th>
-                        {isAdmin && <th className="col-toggle" style={{ textAlign: 'center' }}></th>}
+                        <th style={{ width: '34%' }}>Email</th>
+                        <th style={{ width: '12%' }}>Role</th>
+                        <th style={{ width: '24%' }}>Client</th>
+                        <th style={{ width: '14%' }}>Last Login</th>
+                        <th style={{ width: isAdmin ? '10%' : '16%' }}>Status</th>
+                        {isAdmin && <th style={{ width: '6%', textAlign: 'center' }}></th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -299,21 +293,21 @@ export default function UsersPage() {
                         const rs = ROLE_STYLE[user.role] || ROLE_STYLE.client;
                         return (
                           <tr key={user.id} style={{ opacity: user.is_active ? 1 : 0.55 }}>
-                            <td className="col-email" style={{ fontWeight: 500, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <td style={{ fontWeight: 500, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {user.email}
                             </td>
-                            <td className="col-role">
+                            <td>
                               <span style={{ padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: 700, background: rs.bg, color: rs.color }}>
                                 {user.role}
                               </span>
                             </td>
-                            <td className="col-client" style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <td style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {getClientName(user.client_id)}
                             </td>
-                            <td className="col-login" style={{ color: '#9ca3af', fontSize: '12px' }}>
+                            <td style={{ color: '#9ca3af', fontSize: '12px' }}>
                               {fmtDate(user.last_login)}
                             </td>
-                            <td className="col-status">
+                            <td>
                               <span style={{
                                 padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: 700,
                                 background: user.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
@@ -323,7 +317,7 @@ export default function UsersPage() {
                               </span>
                             </td>
                             {isAdmin && (
-                              <td className="col-toggle" style={{ textAlign: 'center' }}>
+                              <td style={{ textAlign: 'center' }}>
                                 <button onClick={() => toggleActive(user)} title={user.is_active ? 'Deactivate' : 'Activate'}
                                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: user.is_active ? '#10b981' : '#9ca3af', display: 'inline-flex', alignItems: 'center' }}>
                                   {user.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}

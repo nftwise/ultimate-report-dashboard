@@ -30,6 +30,7 @@ interface ClientWithMetrics {
   ads_cpl?: number;
   ad_spend?: number;
   total_leads?: number;
+  top_keywords?: number;
   trendPoints?: number[];
   service_configs?: ServiceConfig[];
   services?: { googleAds: boolean; seo: boolean };
@@ -93,7 +94,7 @@ export default function AdminDashboardPage() {
 
       const [metricsRes, gbpRes, formRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, google_ads_conversions, ad_spend, date')
+          .select('client_id, total_leads, google_ads_conversions, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
         supabase.from('gbp_location_daily_metrics')
           .select('client_id, phone_calls, date')
@@ -105,13 +106,14 @@ export default function AdminDashboardPage() {
       ]);
 
       const metricsMap: Record<string, any> = {};
-      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, trendByDate: {} as Record<string, number> });
+      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, trendByDate: {} as Record<string, number> });
 
       (metricsRes.data || []).forEach((m: any) => {
         if (!metricsMap[m.client_id]) metricsMap[m.client_id] = init();
         metricsMap[m.client_id].total_leads += m.total_leads || 0;
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
+        metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
         metricsMap[m.client_id].trendByDate[m.date] = m.total_leads || 0;
       });
       (gbpRes.data || []).forEach((g: any) => {
@@ -133,6 +135,7 @@ export default function AdminDashboardPage() {
           id: client.id, name: client.name, slug: client.slug, city: client.city,
           contact_email: client.contact_email, is_active: client.is_active, owner: client.owner,
           total_leads: m.total_leads, seo_form_submits: m.seo_form_submits,
+          top_keywords: m.top_keywords,
           gbp_calls: m.gbp_calls, ads_conversions: m.ads_conversions,
           ads_cpl: cpl, ad_spend: m.ad_spend, trendPoints,
           service_configs: Array.isArray(client.service_configs) ? client.service_configs : [],
@@ -331,9 +334,9 @@ export default function AdminDashboardPage() {
             <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 16px 0' }}>Service Distribution</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
-                { label: 'SEO Only', color: '#f59e0b', count: clients.filter(c => c.services?.seo && !c.services?.googleAds).length },
-                { label: 'Ads Only', color: '#3b82f6', count: clients.filter(c => c.services?.googleAds && !c.services?.seo).length },
-                { label: 'Both Services', color: '#10b981', count: clients.filter(c => c.services?.googleAds && c.services?.seo).length },
+                { label: 'SEO Only', color: '#f59e0b', count: clients.filter(c => c.is_active && c.services?.seo && !c.services?.googleAds).length },
+                { label: 'Ads Only', color: '#3b82f6', count: clients.filter(c => c.is_active && c.services?.googleAds && !c.services?.seo).length },
+                { label: 'Both Services', color: '#10b981', count: clients.filter(c => c.is_active && c.services?.googleAds && c.services?.seo).length },
               ].map(({ label, color, count }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#5c5850', fontSize: '13px' }}>{label}</span>
@@ -341,8 +344,8 @@ export default function AdminDashboardPage() {
                 </div>
               ))}
               <div style={{ borderTop: '1px solid rgba(44,36,25,0.08)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                <span style={{ color: '#2c2419', fontSize: '13px' }}>Total</span>
-                <span style={{ fontSize: '20px', color: '#2c2419' }}>{clients.length}</span>
+                <span style={{ color: '#2c2419', fontSize: '13px' }}>Active Total</span>
+                <span style={{ fontSize: '20px', color: '#2c2419' }}>{clients.filter(c => c.is_active).length}</span>
               </div>
             </div>
           </div>
@@ -498,7 +501,14 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
                         <td className="col-leads col-divider" style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</td>
-                        <td className="col-forms col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
+                        <td className="col-forms col-divider" style={{ textAlign: 'center' }}>
+                          <div style={{ fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</div>
+                          {client.services?.seo && (
+                            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                              {client.top_keywords ? `↑${fmtNum(client.top_keywords)} top10` : ''}
+                            </div>
+                          )}
+                        </td>
                         <td className="col-calls col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#047857' }}>{fmtNum(client.gbp_calls)}</td>
                         <td className="col-conv" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
                         <td className="col-cpl" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
