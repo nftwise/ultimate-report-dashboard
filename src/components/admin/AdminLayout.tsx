@@ -28,12 +28,49 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { data: session } = useSession();
   const userEmail = (session?.user as any)?.email || '';
   const userRole = (session?.user as any)?.role || '';
+  const isClient = userRole === 'client';
 
   const isActive = (href: string) => {
     if (href === '/admin-dashboard') return pathname === '/admin-dashboard';
     return pathname?.startsWith(href) ?? false;
   };
 
+  // Client login: no sidebar, full-width with minimal top bar
+  if (isClient) {
+    return (
+      <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
+        {/* Minimal top bar: email + logout */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          padding: '8px 24px', gap: '12px',
+          background: 'rgba(249,247,244,0.98)',
+          borderBottom: '1px solid rgba(44,36,25,0.07)',
+        }}>
+          <span style={{ fontSize: '12px', color: '#9ca3af' }}>{userEmail}</span>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 12px', borderRadius: '8px',
+              border: '1px solid rgba(196,112,79,0.2)',
+              background: 'transparent', color: '#c4704f',
+              fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.06)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <LogOut size={13} />
+            Logout
+          </button>
+        </div>
+        <main style={{ minWidth: 0, overflowX: 'hidden' }}>
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Admin / Team: full sidebar layout
   return (
     <div className="flex min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
       {/* Sidebar */}

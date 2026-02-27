@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft } from 'lucide-react';
 
 interface ClientTabBarProps {
@@ -19,6 +20,8 @@ const TABS = [
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isClient = (session?.user as any)?.role === 'client';
 
   return (
     <div style={{
@@ -27,23 +30,27 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
       backdropFilter: 'blur(12px)',
       padding: '0 24px',
     }}>
-      {/* Top row: back + client name */}
+      {/* Top row: back (admin/team only) + client name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '14px', paddingBottom: '10px' }}>
-        <button
-          onClick={() => router.push('/admin-dashboard')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '5px',
-            background: 'transparent', border: 'none', cursor: 'pointer',
-            color: '#9ca3af', fontSize: '12px', fontWeight: 500, padding: '4px 0',
-            transition: 'color 150ms',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#c4704f')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}
-        >
-          <ArrowLeft size={13} />
-          All Clients
-        </button>
-        <span style={{ color: '#d1d5db', fontSize: '12px' }}>/</span>
+        {!isClient && (
+          <>
+            <button
+              onClick={() => router.push('/admin-dashboard')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: '#9ca3af', fontSize: '12px', fontWeight: 500, padding: '4px 0',
+                transition: 'color 150ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#c4704f')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}
+            >
+              <ArrowLeft size={13} />
+              All Clients
+            </button>
+            <span style={{ color: '#d1d5db', fontSize: '12px' }}>/</span>
+          </>
+        )}
         <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>{clientName || clientSlug}</span>
         {clientCity && <span style={{ fontSize: '12px', color: '#9ca3af' }}>{clientCity}</span>}
       </div>
