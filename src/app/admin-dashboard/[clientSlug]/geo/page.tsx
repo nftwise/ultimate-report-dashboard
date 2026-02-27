@@ -10,21 +10,13 @@ import { fmtNum } from '@/lib/format';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { ExternalLink, Newspaper, RefreshCw, Upload, Bot, Globe, FileSpreadsheet } from 'lucide-react';
+import { Upload, Bot, FileSpreadsheet, Search } from 'lucide-react';
 import type * as XLSXType from 'xlsx';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
-
-interface PageStat {
-  page_url: string;
-  clicks: number;
-  impressions: number;
-  avg_position: number | null;
-  date: string;
-}
 
 interface AiCitationDaily {
   date: string;
@@ -37,12 +29,10 @@ interface AiPageCitation {
   citations: number;
 }
 
-interface BingNews {
-  headline: string;
-  url: string;
-  publisher: string;
-  published_at: string;
-  snippet: string;
+interface AiQuery {
+  query_text: string;
+  citations: number;
+  date: string | null;
 }
 
 interface Client {
@@ -60,24 +50,22 @@ export default function GeoPage() {
   const canImport = userRole === 'admin' || userRole === 'team';
 
   const [client, setClient] = useState<Client | null>(null);
-  const [pageStats, setPageStats] = useState<PageStat[]>([]);
   const [aiDaily, setAiDaily] = useState<AiCitationDaily[]>([]);
   const [aiPages, setAiPages] = useState<AiPageCitation[]>([]);
-  const [news, setNews] = useState<BingNews[]>([]);
+  const [aiQueries, setAiQueries] = useState<AiQuery[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
 
   // Import modal state
   const [showImport, setShowImport] = useState(false);
   const [importRaw, setImportRaw] = useState('');
   const [importPageRaw, setImportPageRaw] = useState('');
+  const [importQueryRaw, setImportQueryRaw] = useState('');
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState('');
   const [importMode, setImportMode] = useState<'paste' | 'excel'>('excel');
   const [excelFileName, setExcelFileName] = useState('');
-  const [excelPreview, setExcelPreview] = useState<{ daily: any[]; pages: any[] }>({ daily: [], pages: [] });
+  const [excelPreview, setExcelPreview] = useState<{ daily: any[]; pages: any[]; queries: any[] }>({ daily: [], pages: [], queries: [] });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -95,18 +83,6 @@ export default function GeoPage() {
       if (!clientData) return;
       setClient(clientData);
 
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyStr = thirtyDaysAgo.toISOString().split('T')[0];
-
-      // BWT page stats — aggregate by page across date range
-      const { data: psData } = await supabase
-        .from('bing_page_stats')
-        .select('page_url, clicks, impressions, avg_position, date')
-        .eq('client_id', clientData.id)
-        .gte('date', thirtyStr)
-        .order('date', { ascending: false });
-
       // AI Citations daily
       const { data: aiData } = await supabase
         .from('bing_ai_citations')
@@ -122,31 +98,22 @@ export default function GeoPage() {
         .order('citations', { ascending: false })
         .limit(20);
 
-      // News
-      const { data: newsData } = await supabase
-        .from('bing_news_mentions')
-        .select('headline, url, publisher, published_at, snippet')
+      // AI Queries
+      const { data: queryData } = await supabase
+        .from('bing_ai_queries')
+        .select('query_text, citations, date')
         .eq('client_id', clientData.id)
-        .order('published_at', { ascending: false })
-        .limit(10);
+        .order('citations', { ascending: false })
+        .limit(50);
 
-      const ps = psData || [];
       const ai = aiData || [];
       const aip = aiPageData || [];
-      const n = newsData || [];
+      const aq = queryData || [];
 
-      setPageStats(ps);
       setAiDaily(ai);
       setAiPages(aip);
-      setNews(n);
-
-      const hasAny = ps.length > 0 || ai.length > 0 || n.length > 0;
-      setHasData(hasAny);
-
-      if (ps.length > 0) {
-        const sorted = [...ps].sort((a, b) => b.date.localeCompare(a.date));
-        setLastSync(sorted[0].date);
-      }
+      setAiQueries(aq);
+      setHasData(ai.length > 0 || aip.length > 0 || aq.length > 0);
     } catch (err) {
       console.error('[GeoPage] Error:', err);
     } finally {
@@ -154,28 +121,13 @@ export default function GeoPage() {
     }
   }
 
-  async function triggerSync() {
-    setSyncing(true);
-    try {
-      const res = await fetch(`/api/cron/sync-bing?slug=${clientSlug}`);
-      const data = await res.json();
-      if (data.success) await fetchData();
-    } catch (err) {
-      console.error('[GeoPage] Sync error:', err);
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   // Parse tab-separated citation data pasted from BWT dashboard
-  // Format: "11/27/2025 12:00:00 AM\t63\t12\n..."
   function parseDailyCitations(raw: string) {
     return raw.trim().split('\n').map(line => {
       const parts = line.trim().split(/\t/);
       const dateStr = parts[0]?.trim();
       const citations = parseInt(parts[1] || '0', 10);
       const citedPages = parseInt(parts[2] || '0', 10);
-      // Normalize date: "11/27/2025 12:00:00 AM" → "2025-11-27"
       const d = new Date(dateStr);
       const date = isNaN(d.getTime()) ? dateStr : d.toISOString().split('T')[0];
       return { date, citations, citedPages };
@@ -192,7 +144,17 @@ export default function GeoPage() {
     }).filter(r => r.pageUrl && !isNaN(r.citations));
   }
 
-  // Parse Excel file and extract daily citations + page citations
+  // Parse query citations: "query text\t150\n..."
+  function parseQueryCitations(raw: string) {
+    return raw.trim().split('\n').map(line => {
+      const parts = line.trim().split(/\t/);
+      const queryText = parts[0]?.trim();
+      const citations = parseInt(parts[1] || '0', 10);
+      return { queryText, citations };
+    }).filter(r => r.queryText && !isNaN(r.citations));
+  }
+
+  // Parse Excel file and extract daily citations + page citations + queries
   async function handleExcelFile(file: File) {
     setExcelFileName(file.name);
     setImportMsg('Loading file...');
@@ -205,6 +167,7 @@ export default function GeoPage() {
 
         const daily: Array<{ date: string; citations: number; citedPages: number }> = [];
         const pages: Array<{ pageUrl: string; citations: number }> = [];
+        const queries: Array<{ queryText: string; citations: number }> = [];
 
         for (const sheetName of workbook.SheetNames) {
           const sheet = workbook.Sheets[sheetName];
@@ -213,12 +176,29 @@ export default function GeoPage() {
 
           const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim());
 
-          // Detect daily citations sheet: has "date" + "citations" columns
           const hasDate = headers.some(h => h.includes('date'));
           const hasCitations = headers.some(h => h.includes('citation') || h.includes('total'));
           const hasUrl = headers.some(h => h.includes('url') || h.includes('page') || h.includes('link'));
+          const hasQuery = headers.some(h => h.includes('query') || h.includes('search') || h.includes('keyword') || h.includes('term'));
 
-          if (hasDate && hasCitations && !hasUrl) {
+          if (hasQuery && hasCitations) {
+            // Query citations sheet
+            for (const row of rows) {
+              const keys = Object.keys(row);
+              const queryKey = keys.find(k => {
+                const kl = k.toLowerCase();
+                return kl.includes('query') || kl.includes('search') || kl.includes('keyword') || kl.includes('term');
+              });
+              const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('count') || k.toLowerCase().includes('total'));
+
+              if (!queryKey) continue;
+              const queryText = String(row[queryKey]).trim();
+              const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
+              if (queryText && citations > 0) {
+                queries.push({ queryText, citations });
+              }
+            }
+          } else if (hasDate && hasCitations && !hasUrl) {
             // Daily citations sheet
             for (const row of rows) {
               const keys = Object.keys(row);
@@ -228,14 +208,12 @@ export default function GeoPage() {
 
               if (!dateKey) continue;
               let dateVal = row[dateKey];
-              // Handle Excel date objects
               if (dateVal instanceof Date) {
                 dateVal = dateVal.toISOString().split('T')[0];
               } else if (typeof dateVal === 'string') {
                 const d = new Date(dateVal);
                 dateVal = isNaN(d.getTime()) ? dateVal : d.toISOString().split('T')[0];
               } else if (typeof dateVal === 'number') {
-                // Excel serial date
                 const d = XLSX.SSF.parse_date_code(dateVal);
                 dateVal = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
               }
@@ -263,15 +241,20 @@ export default function GeoPage() {
           }
         }
 
-        setExcelPreview({ daily, pages });
-        if (daily.length === 0 && pages.length === 0) {
-          setImportMsg('Could not detect citation data in this file. Make sure columns include "Date" + "Citations" or "URL" + "Citations".');
+        setExcelPreview({ daily, pages, queries });
+        const parts = [];
+        if (daily.length > 0) parts.push(`${daily.length} daily rows`);
+        if (pages.length > 0) parts.push(`${pages.length} page rows`);
+        if (queries.length > 0) parts.push(`${queries.length} query rows`);
+
+        if (parts.length === 0) {
+          setImportMsg('Could not detect citation data. Make sure columns include "Date" + "Citations", "URL" + "Citations", or "Query" + "Citations".');
         } else {
-          setImportMsg(`Found: ${daily.length} daily rows, ${pages.length} page rows. Click Save to import.`);
+          setImportMsg(`Found: ${parts.join(', ')}. Click Save to import.`);
         }
       } catch (err: any) {
         setImportMsg(`Error reading file: ${err.message}`);
-        setExcelPreview({ daily: [], pages: [] });
+        setExcelPreview({ daily: [], pages: [], queries: [] });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -284,16 +267,19 @@ export default function GeoPage() {
     try {
       let dailyCitations: Array<{ date: string; citations: number; citedPages: number }> = [];
       let pageCitations: Array<{ pageUrl: string; citations: number }> = [];
+      let queryCitations: Array<{ queryText: string; citations: number }> = [];
 
       if (importMode === 'excel') {
         dailyCitations = excelPreview.daily;
         pageCitations = excelPreview.pages;
+        queryCitations = excelPreview.queries;
       } else {
         dailyCitations = importRaw ? parseDailyCitations(importRaw) : [];
         pageCitations = importPageRaw ? parsePageCitations(importPageRaw) : [];
+        queryCitations = importQueryRaw ? parseQueryCitations(importQueryRaw) : [];
       }
 
-      if (dailyCitations.length === 0 && pageCitations.length === 0) {
+      if (dailyCitations.length === 0 && pageCitations.length === 0 && queryCitations.length === 0) {
         setImportMsg('No valid data found. Upload an Excel file or paste tab-separated data from BWT.');
         setImporting(false);
         return;
@@ -302,7 +288,7 @@ export default function GeoPage() {
       const res = await fetch('/api/admin/import-bing-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: client.id, dailyCitations, pageCitations }),
+        body: JSON.stringify({ clientId: client.id, dailyCitations, pageCitations, queryCitations }),
       });
       const result = await res.json();
       if (result.success) {
@@ -310,11 +296,16 @@ export default function GeoPage() {
         if (errors.length > 0) {
           setImportMsg(`Partial save. Errors: ${JSON.stringify(errors)}`);
         } else {
-          setImportMsg(`Saved: ${dailyCitations.length} daily rows, ${pageCitations.length} page rows.`);
+          const saved = [];
+          if (dailyCitations.length > 0) saved.push(`${dailyCitations.length} daily`);
+          if (pageCitations.length > 0) saved.push(`${pageCitations.length} pages`);
+          if (queryCitations.length > 0) saved.push(`${queryCitations.length} queries`);
+          setImportMsg(`Saved: ${saved.join(', ')} rows.`);
         }
         setImportRaw('');
         setImportPageRaw('');
-        setExcelPreview({ daily: [], pages: [] });
+        setImportQueryRaw('');
+        setExcelPreview({ daily: [], pages: [], queries: [] });
         setExcelFileName('');
         await fetchData();
         setTimeout(() => setShowImport(false), 2000);
@@ -328,26 +319,8 @@ export default function GeoPage() {
     }
   }
 
-  // Aggregate page stats by page URL (sum clicks/impressions, latest avg_position)
-  const pageAgg = Object.values(
-    pageStats.reduce<Record<string, { page_url: string; clicks: number; impressions: number; avg_position: number | null }>>((acc, r) => {
-      if (!acc[r.page_url]) acc[r.page_url] = { page_url: r.page_url, clicks: 0, impressions: 0, avg_position: r.avg_position };
-      acc[r.page_url].clicks += r.clicks;
-      acc[r.page_url].impressions += r.impressions;
-      if (r.avg_position !== null) acc[r.page_url].avg_position = r.avg_position;
-      return acc;
-    }, {})
-  ).sort((a, b) => b.clicks - a.clicks).slice(0, 20);
-
-  const totalClicks = pageAgg.reduce((s, r) => s + r.clicks, 0);
-  const totalImpressions = pageAgg.reduce((s, r) => s + r.impressions, 0);
-  const posPages = pageAgg.filter(r => r.avg_position !== null);
-  const avgPos = posPages.length > 0
-    ? (posPages.reduce((s, r) => s + r.avg_position!, 0) / posPages.length).toFixed(1)
-    : null;
-
   const totalCitations = aiDaily.reduce((s, r) => s + r.citations, 0);
-  const latestAiRow = aiDaily[aiDaily.length - 1];
+  const totalQueryCitations = aiQueries.reduce((s, r) => s + r.citations, 0);
 
   const fmtDate = (d: string) => {
     try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
@@ -357,13 +330,6 @@ export default function GeoPage() {
   const fmtDateLong = (d: string) => {
     try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }); }
     catch { return d; }
-  };
-
-  const posColor = (p: number | null) => {
-    if (p === null) return '#9ca3af';
-    if (p <= 3) return '#059669';
-    if (p <= 10) return '#d9a854';
-    return '#9ca3af';
   };
 
   const shortUrl = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
@@ -386,8 +352,7 @@ export default function GeoPage() {
               GEO · AI Search Visibility
             </h2>
             <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
-              Bing Webmaster Tools organic data · Bing News · AI Citations
-              {lastSync && <span> · Last BWT sync: {fmtDateLong(lastSync)}</span>}
+              AI Citations · Cited Pages · Search Queries — from Bing Webmaster Tools
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -403,23 +368,9 @@ export default function GeoPage() {
                 }}
               >
                 <Upload size={13} />
-                Import AI Citations
+                Import AI Data
               </button>
             )}
-            <button
-              onClick={triggerSync}
-              disabled={syncing}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '8px 14px', borderRadius: '9px',
-                background: syncing ? '#d4a68a' : '#c4704f',
-                color: '#fff', border: 'none', cursor: syncing ? 'not-allowed' : 'pointer',
-                fontSize: '12px', fontWeight: 600, opacity: syncing ? 0.8 : 1,
-              }}
-            >
-              <RefreshCw size={13} />
-              {syncing ? 'Syncing…' : 'Sync Bing'}
-            </button>
           </div>
         </div>
 
@@ -431,7 +382,7 @@ export default function GeoPage() {
           }} onClick={e => { if (e.target === e.currentTarget) setShowImport(false); }}>
             <div style={{ background: '#fff', borderRadius: '20px', padding: '28px', width: '620px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Import Bing AI Citations</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Import AI Citation Data</h3>
                 <button onClick={() => setShowImport(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#9ca3af', lineHeight: 1 }}>×</button>
               </div>
 
@@ -456,7 +407,7 @@ export default function GeoPage() {
               {importMode === 'excel' ? (
                 <>
                   <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
-                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click <strong>Export</strong> → save as .xlsx or .csv. Then upload the file below.
+                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click <strong>Export</strong> → save as .xlsx or .csv. Supports sheets for daily citations, page citations, and query citations.
                   </div>
 
                   {/* File drop zone */}
@@ -493,14 +444,14 @@ export default function GeoPage() {
                         <div style={{ textAlign: 'left' }}>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419' }}>{excelFileName}</div>
                           <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {excelPreview.daily.length} daily rows · {excelPreview.pages.length} page rows
+                            {excelPreview.daily.length} daily · {excelPreview.pages.length} pages · {excelPreview.queries.length} queries
                           </div>
                         </div>
                         <button
                           onClick={e => {
                             e.stopPropagation();
                             setExcelFileName('');
-                            setExcelPreview({ daily: [], pages: [] });
+                            setExcelPreview({ daily: [], pages: [], queries: [] });
                             setImportMsg('');
                             if (fileInputRef.current) fileInputRef.current.value = '';
                           }}
@@ -522,7 +473,7 @@ export default function GeoPage() {
                     )}
                   </div>
 
-                  {/* Preview table */}
+                  {/* Preview: Daily */}
                   {excelPreview.daily.length > 0 && (
                     <div style={{ marginBottom: '14px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
@@ -554,6 +505,7 @@ export default function GeoPage() {
                     </div>
                   )}
 
+                  {/* Preview: Pages */}
                   {excelPreview.pages.length > 0 && (
                     <div style={{ marginBottom: '14px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
@@ -582,6 +534,36 @@ export default function GeoPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Preview: Queries */}
+                  {excelPreview.queries.length > 0 && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
+                        Preview: Query Citations ({excelPreview.queries.length} queries)
+                      </div>
+                      <div style={{ maxHeight: '100px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
+                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Query</th>
+                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {excelPreview.queries.slice(0, 5).map((r, i) => (
+                              <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
+                                <td style={{ padding: '5px 10px', color: '#2c2419' }}>{r.queryText}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                              </tr>
+                            ))}
+                            {excelPreview.queries.length > 5 && (
+                              <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.queries.length - 5} more</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -597,12 +579,12 @@ export default function GeoPage() {
                       value={importRaw}
                       onChange={e => setImportRaw(e.target.value)}
                       placeholder={'11/27/2025 12:00:00 AM\t63\t12\n11/28/2025 12:00:00 AM\t71\t14'}
-                      rows={6}
+                      rows={5}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
                     />
                   </div>
 
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '16px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
                       Page-level Citations (paste rows: Page URL · Citations)
                     </label>
@@ -610,7 +592,20 @@ export default function GeoPage() {
                       value={importPageRaw}
                       onChange={e => setImportPageRaw(e.target.value)}
                       placeholder={'https://example.com/page-one\t2070\nhttps://example.com/page-two\t840'}
-                      rows={6}
+                      rows={4}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
+                      Query Citations (paste rows: Query Text · Citations)
+                    </label>
+                    <textarea
+                      value={importQueryRaw}
+                      onChange={e => setImportQueryRaw(e.target.value)}
+                      placeholder={'chiropractor near me\t150\nbest chiropractor orange county\t89'}
+                      rows={4}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -629,14 +624,14 @@ export default function GeoPage() {
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0)}
+                  disabled={importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0)}
                   style={{
                     padding: '9px 20px', borderRadius: '8px',
                     background: importing ? '#a78bfa' : '#6b46c1',
                     color: '#fff', border: 'none',
-                    cursor: importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0) ? 'not-allowed' : 'pointer',
+                    cursor: importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0) ? 'not-allowed' : 'pointer',
                     fontSize: '13px', fontWeight: 600,
-                    opacity: (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0) ? 0.5 : 1,
+                    opacity: (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0) ? 0.5 : 1,
                   }}
                 >
                   {importing ? 'Saving…' : 'Save to Database'}
@@ -648,39 +643,30 @@ export default function GeoPage() {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px', color: '#9ca3af', fontSize: '14px' }}>
-            Loading Bing data…
+            Loading AI data…
           </div>
         ) : !hasData ? (
           /* Empty state */
           <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '60px 40px', textAlign: 'center', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-            <Bot size={36} style={{ color: '#0078d4', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#2c2419', marginBottom: '8px' }}>No Bing data yet</h3>
+            <Bot size={36} style={{ color: '#6b46c1', margin: '0 auto 16px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#2c2419', marginBottom: '8px' }}>No AI citation data yet</h3>
             <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '420px', margin: '0 auto 24px' }}>
-              Click <strong>Sync Bing</strong> to fetch organic page data from Bing Webmaster Tools.
-              Then use <strong>Import AI Citations</strong> to add AI citation data from the BWT dashboard.
+              Use <strong>Import AI Data</strong> to add citation data, page citations, and search queries from the Bing Webmaster Tools dashboard.
             </p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={triggerSync} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', background: '#c4704f', color: '#fff', border: 'none', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                <RefreshCw size={15} /> {syncing ? 'Syncing…' : 'Sync Bing Data'}
+            {canImport && (
+              <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', background: 'rgba(107,70,193,0.1)', color: '#6b46c1', border: '1px solid rgba(107,70,193,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                <Upload size={15} /> Import AI Data
               </button>
-              {canImport && (
-                <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', background: 'rgba(107,70,193,0.1)', color: '#6b46c1', border: '1px solid rgba(107,70,193,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                  <Upload size={15} /> Import AI Citations
-                </button>
-              )}
-            </div>
+            )}
           </div>
         ) : (
           <>
             {/* KPI Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
               {[
-                { label: 'Bing Clicks', value: fmtNum(totalClicks), color: '#0078d4', border: '#0078d4', sub: 'last 30 days' },
-                { label: 'Bing Impressions', value: fmtNum(totalImpressions), color: '#5c5850', border: '#9ca3af', sub: 'last 30 days' },
-                { label: 'Avg Position', value: avgPos ?? '—', color: avgPos ? (parseFloat(avgPos) <= 5 ? '#059669' : parseFloat(avgPos) <= 10 ? '#d9a854' : '#9ca3af') : '#9ca3af', border: '#0078d4', sub: 'Bing organic' },
                 { label: 'AI Citations', value: fmtNum(totalCitations), color: '#6b46c1', border: '#6b46c1', sub: aiDaily.length > 0 ? `${aiDaily.length} days tracked` : 'import data' },
-                { label: 'Cited Pages', value: fmtNum(aiPages.length), color: '#6b46c1', border: '#a78bfa', sub: 'unique pages' },
-                { label: 'News Mentions', value: news.length, color: '#c4704f', border: '#c4704f', sub: 'last 30 days' },
+                { label: 'Cited Pages', value: fmtNum(aiPages.length), color: '#6b46c1', border: '#a78bfa', sub: 'unique pages cited' },
+                { label: 'AI Queries', value: fmtNum(aiQueries.length), color: '#6b46c1', border: '#8b5cf6', sub: totalQueryCitations > 0 ? `${fmtNum(totalQueryCitations)} total citations` : 'search queries' },
               ].map(s => (
                 <div key={s.label} style={{
                   background: 'rgba(255,255,255,0.95)',
@@ -696,7 +682,7 @@ export default function GeoPage() {
               ))}
             </div>
 
-            {/* AI Citations Trend (if data) */}
+            {/* AI Citations Trend */}
             {aiDaily.length > 1 && (
               <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
@@ -731,42 +717,38 @@ export default function GeoPage() {
               </div>
             )}
 
-            {/* Grid: Bing Organic + AI Pages */}
+            {/* Grid: AI Queries + AI Pages */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', alignItems: 'start' }}>
 
-              {/* Bing Organic Pages */}
+              {/* AI Search Queries */}
               <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                  <Globe size={15} style={{ color: '#0078d4' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>Bing Organic Pages</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>Top by clicks · 30d</span>
+                  <Search size={15} style={{ color: '#8b5cf6' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>AI Search Queries</span>
+                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>By citation count</span>
                 </div>
 
-                {pageAgg.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>No page stats yet — click Sync Bing</div>
+                {aiQueries.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
+                    No query data — use <strong>Import AI Data</strong> to add search queries from BWT.
+                  </div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        {['Page', 'Clicks', 'Impr', 'Pos'].map(h => (
-                          <th key={h} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', padding: '0 8px 10px', textAlign: h === 'Page' ? 'left' : 'center', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>{h}</th>
+                        {['Query', 'Citations'].map(h => (
+                          <th key={h} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', padding: '0 8px 10px', textAlign: h === 'Query' ? 'left' : 'center', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {pageAgg.slice(0, 15).map((r, i) => (
+                      {aiQueries.slice(0, 20).map((r, i) => (
                         <tr key={i}>
-                          <td style={{ padding: '9px 8px', borderBottom: '1px solid rgba(44,36,25,0.05)', maxWidth: '200px', overflow: 'hidden' }}>
-                            <a href={r.page_url} target="_blank" rel="noreferrer" style={{ color: '#0078d4', fontSize: '11px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {shortUrl(r.page_url)}
-                            </a>
+                          <td style={{ padding: '9px 8px', borderBottom: '1px solid rgba(44,36,25,0.05)', maxWidth: '260px' }}>
+                            <span style={{ fontSize: '12px', color: '#2c2419' }}>{r.query_text}</span>
                           </td>
-                          <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#2c2419', borderBottom: '1px solid rgba(44,36,25,0.05)' }}>{fmtNum(r.clicks)}</td>
-                          <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: '12px', color: '#5c5850', borderBottom: '1px solid rgba(44,36,25,0.05)' }}>{fmtNum(r.impressions)}</td>
                           <td style={{ padding: '9px 8px', textAlign: 'center', borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
-                            {r.avg_position !== null ? (
-                              <span style={{ fontSize: '12px', fontWeight: 700, color: posColor(r.avg_position) }}>{r.avg_position.toFixed(1)}</span>
-                            ) : <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>}
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#8b5cf6' }}>{fmtNum(r.citations)}</span>
                           </td>
                         </tr>
                       ))}
@@ -785,7 +767,7 @@ export default function GeoPage() {
 
                 {aiPages.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
-                    No AI page data — use <strong>Import AI Citations</strong> above to add page-level data from BWT.
+                    No AI page data — use <strong>Import AI Data</strong> to add page-level data from BWT.
                   </div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -815,43 +797,9 @@ export default function GeoPage() {
               </div>
             </div>
 
-            {/* News Mentions */}
-            {news.length > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                  <Newspaper size={15} style={{ color: '#c4704f' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>Bing News Mentions</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>Last 30 days · {news.length} articles</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px' }}>
-                  {news.map((n, i) => (
-                    <a key={i} href={n.url} target="_blank" rel="noreferrer"
-                      style={{ display: 'block', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.07)', background: 'rgba(245,241,237,0.4)', textDecoration: 'none', transition: 'background 150ms' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(196,112,79,0.04)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,241,237,0.4)')}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', lineHeight: 1.4 }}>{n.headline}</span>
-                        <ExternalLink size={12} style={{ color: '#9ca3af', flexShrink: 0, marginTop: '2px' }} />
-                      </div>
-                      {n.snippet && (
-                        <p style={{ fontSize: '12px', color: '#5c5850', margin: '0 0 6px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                          {n.snippet}
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: '#9ca3af' }}>
-                        {n.publisher && <span style={{ fontWeight: 600 }}>{n.publisher}</span>}
-                        {n.published_at && <span>{fmtDateLong(n.published_at)}</span>}
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Info note */}
             <div style={{ padding: '14px 18px', background: 'rgba(107,70,193,0.04)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '12px', fontSize: '12px', color: '#5c5850' }}>
-              <strong style={{ color: '#6b46c1' }}>Why Bing rankings matter for AI:</strong> Microsoft Copilot, ChatGPT Browse, and Perplexity all use Bing&apos;s index as a primary data source. A strong Bing organic presence significantly increases the likelihood of being cited in AI-generated responses (GEO — Generative Engine Optimization).
+              <strong style={{ color: '#6b46c1' }}>Why AI citations matter:</strong> Microsoft Copilot, ChatGPT Browse, and Perplexity all use Bing&apos;s index as a primary data source. Tracking which queries and pages get cited helps optimize your content for AI-generated responses (GEO — Generative Engine Optimization).
             </div>
           </>
         )}
