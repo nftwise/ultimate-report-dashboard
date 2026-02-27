@@ -4,68 +4,174 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import AdminLayout from '@/components/admin/AdminLayout'
-import {
-  RefreshCw, CheckCircle, AlertTriangle, XCircle,
-  Clock, Database, Play, Activity
-} from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
+import { RefreshCw, Activity, Play, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
-interface SourceHealth {
-  label: string
-  table: string
-  status: 'OK' | 'WARNING' | 'ERROR'
-  lastDate: string | null
-  daysAgo: number | null
-  message: string
+// ─── types ───────────────────────────────────────────────────────────────────
+
+type SyncStatus = 'OK' | 'WARN' | 'ERROR' | 'N/A'
+
+interface ServiceConfig {
+  ga_property_id?: string | null
+  gads_customer_id?: string | null
+  gsc_site_url?: string | null
+  gbp_location_id?: string | null
 }
 
-interface HealthData {
-  overall: 'OK' | 'WARNING' | 'ERROR'
-  checkedAt: string
-  today: string
-  sources: SourceHealth[]
-  summary: { ok: number; warning: number; error: number }
+interface ClientRow {
+  id: string
+  name: string
+  slug: string
+  is_active: boolean
+  service_configs: ServiceConfig[]
+  ga4:    { status: SyncStatus; daysAgo: number | null; lastDate: string | null }
+  gsc:    { status: SyncStatus; daysAgo: number | null; lastDate: string | null }
+  ads:    { status: SyncStatus; daysAgo: number | null; lastDate: string | null }
+  gbp:    { status: SyncStatus; daysAgo: number | null; lastDate: string | null }
+  rollup: { status: SyncStatus; daysAgo: number | null; lastDate: string | null }
 }
 
-const CRON_SCHEDULES: Record<string, string> = {
-  GA4:          '10:00 UTC daily (2:00 AM PST)',
-  'Google Ads': '10:05 UTC daily (2:05 AM PST)',
-  GSC:          '10:10 UTC daily (2:10 AM PST)',
-  GBP:          '10:12 UTC daily (2:12 AM PST)',
-  Rollup:       '10:15 UTC daily (2:15 AM PST)',
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function daysAgoFromDate(dateStr: string | null, today: string): number | null {
+  if (!dateStr) return null
+  const diff = Math.floor(
+    (new Date(today).getTime() - new Date(dateStr).getTime()) / 86400000
+  )
+  return diff
+}
+
+function toStatus(daysAgo: number | null, enabled: boolean): SyncStatus {
+  if (!enabled) return 'N/A'
+  if (daysAgo === null) return 'ERROR'
+  if (daysAgo <= 2) return 'OK'
+  if (daysAgo <= 5) return 'WARN'
+  return 'ERROR'
+}
+
+const STATUS_STYLE: Record<SyncStatus, { bg: string; color: string; label: string }> = {
+  OK:    { bg: 'rgba(16,185,129,0.12)',  color: '#059669', label: 'OK'   },
+  WARN:  { bg: 'rgba(245,158,11,0.12)',  color: '#d97706', label: 'WARN' },
+  ERROR: { bg: 'rgba(239,68,68,0.12)',   color: '#dc2626', label: 'ERR'  },
+  'N/A': { bg: 'rgba(156,163,175,0.10)', color: '#9ca3af', label: '—'    },
+}
+
+function StatusDot({ status, lastDate, daysAgo }: { status: SyncStatus; lastDate: string | null; daysAgo: number | null }) {
+  const s = STATUS_STYLE[status]
+  return (
+    <div title={lastDate ? `${lastDate} (${daysAgo}d ago)` : 'No data'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 52, height: 26, borderRadius: 6,
+        background: s.bg, color: s.color,
+        fontSize: '11px', fontWeight: 700,
+        cursor: 'default',
+      }}>
+      {s.label}
+    </div>
+  )
 }
 
 const CRON_ENDPOINTS: Record<string, string> = {
-  GA4:          '/api/cron/sync-ga4',
-  'Google Ads': '/api/cron/sync-ads',
-  GSC:          '/api/cron/sync-gsc',
-  GBP:          '/api/cron/sync-gbp',
-  Rollup:       '/api/admin/run-rollup',
+  GA4:    '/api/cron/sync-ga4',
+  GSC:    '/api/cron/sync-gsc',
+  Ads:    '/api/cron/sync-ads',
+  GBP:    '/api/cron/sync-gbp',
+  Rollup: '/api/admin/run-rollup',
 }
 
+// ─── page ─────────────────────────────────────────────────────────────────────
+
 export default function CronMonitorPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status: authStatus } = useSession()
   const router = useRouter()
 
-  const [health, setHealth] = useState<HealthData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows]           = useState<ClientRow[]>([])
+  const [loading, setLoading]     = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [running, setRunning] = useState<Record<string, boolean>>({})
-  const [runResults, setRunResults] = useState<Record<string, string>>({})
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [running, setRunning]     = useState<Record<string, boolean>>({})
+  const [runResults, setRunResults] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/login')
-  }, [status, router])
+    if (authStatus === 'unauthenticated') router.push('/login')
+  }, [authStatus, router])
 
-  const fetchHealth = useCallback(async (isRefresh = false) => {
+  // ─── data fetch ────────────────────────────────────────────────────────────
+
+  const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     try {
-      const res = await fetch('/api/admin/cron-health', { cache: 'no-store' })
-      const data = await res.json()
-      setHealth(data)
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      )
+
+      const today = new Date().toISOString().split('T')[0]
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 30)
+      const cutoffStr = cutoff.toISOString().split('T')[0]
+
+      // Fetch all active clients with service configs
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('id, name, slug, is_active, service_configs(ga_property_id, gads_customer_id, gsc_site_url, gbp_location_id)')
+        .eq('is_active', true)
+        .order('name')
+
+      // Fetch latest date per client for each source (last 30 days)
+      const [ga4Res, gscRes, adsRes, gbpRes, rollupRes] = await Promise.all([
+        supabase.from('ga4_sessions').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
+        supabase.from('gsc_daily_summary').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
+        supabase.from('ads_campaign_metrics').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
+        supabase.from('gbp_location_daily_metrics').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
+        supabase.from('client_metrics_summary').select('client_id, date').eq('period_type', 'daily').gte('date', cutoffStr).order('date', { ascending: false }),
+      ])
+
+      // Build maxDate maps (client_id → latest date string)
+      const maxDate = (rows: any[]) => {
+        const m: Record<string, string> = {}
+        for (const r of rows || []) {
+          if (!m[r.client_id] || r.date > m[r.client_id]) m[r.client_id] = r.date
+        }
+        return m
+      }
+
+      const ga4Map    = maxDate(ga4Res.data    || [])
+      const gscMap    = maxDate(gscRes.data    || [])
+      const adsMap    = maxDate(adsRes.data    || [])
+      const gbpMap    = maxDate(gbpRes.data    || [])
+      const rollupMap = maxDate(rollupRes.data || [])
+
+      const built: ClientRow[] = (clientsData || []).map((c: any) => {
+        const cfg: ServiceConfig = Array.isArray(c.service_configs) ? (c.service_configs[0] || {}) : (c.service_configs || {})
+
+        const hasGA4    = !!(cfg.ga_property_id?.trim())
+        const hasGSC    = !!(cfg.gsc_site_url?.trim())
+        const hasAds    = !!(cfg.gads_customer_id?.trim())
+        const hasGBP    = !!(cfg.gbp_location_id?.trim())
+
+        const mk = (map: Record<string, string>, enabled: boolean) => {
+          const ld = enabled ? (map[c.id] || null) : null
+          const da = ld ? daysAgoFromDate(ld, today) : null
+          return { status: toStatus(da, enabled), daysAgo: da, lastDate: ld }
+        }
+
+        return {
+          id: c.id, name: c.name, slug: c.slug, is_active: c.is_active,
+          service_configs: c.service_configs,
+          ga4:    mk(ga4Map,    hasGA4),
+          gsc:    mk(gscMap,    hasGSC),
+          ads:    mk(adsMap,    hasAds),
+          gbp:    mk(gbpMap,    hasGBP),
+          rollup: mk(rollupMap, true),    // rollup always relevant
+        }
+      })
+
+      setRows(built)
       setLastRefresh(new Date())
     } catch (err) {
-      console.error('Failed to fetch health:', err)
+      console.error(err)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -73,212 +179,113 @@ export default function CronMonitorPage() {
   }, [])
 
   useEffect(() => {
-    fetchHealth()
-    const interval = setInterval(() => fetchHealth(true), 30000)
-    return () => clearInterval(interval)
-  }, [fetchHealth])
+    fetchData()
+    const t = setInterval(() => fetchData(true), 60000)
+    return () => clearInterval(t)
+  }, [fetchData])
+
+  // ─── run cron ──────────────────────────────────────────────────────────────
 
   const runCron = async (label: string) => {
     const endpoint = CRON_ENDPOINTS[label]
     if (!endpoint) return
-
-    setRunning(prev => ({ ...prev, [label]: true }))
-    setRunResults(prev => ({ ...prev, [label]: '' }))
-
+    setRunning(p => ({ ...p, [label]: true }))
+    setRunResults(p => ({ ...p, [label]: '' }))
     try {
       const res = await fetch(endpoint, { cache: 'no-store' })
       const data = await res.json()
-      if (res.ok && data.success !== false) {
-        setRunResults(prev => ({ ...prev, [label]: 'success' }))
-      } else {
-        setRunResults(prev => ({ ...prev, [label]: data.error || 'Failed' }))
-      }
-      // Re-fetch health after running
-      setTimeout(() => fetchHealth(true), 1000)
+      setRunResults(p => ({ ...p, [label]: (res.ok && data.success !== false) ? 'success' : (data.error || 'Failed') }))
+      setTimeout(() => fetchData(true), 1500)
     } catch (err: any) {
-      setRunResults(prev => ({ ...prev, [label]: err.message || 'Error' }))
+      setRunResults(p => ({ ...p, [label]: err.message || 'Error' }))
     } finally {
-      setRunning(prev => ({ ...prev, [label]: false }))
+      setRunning(p => ({ ...p, [label]: false }))
     }
   }
 
-  if (status === 'loading' || loading) {
-    return (
-      <AdminLayout>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-          <div style={{ textAlign: 'center' }}>
-            <Activity size={40} color="#8B7355" style={{ margin: '0 auto 12px' }} />
-            <p style={{ color: '#8B7355', fontSize: 16 }}>Loading cron status...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    )
-  }
+  // ─── derived stats ─────────────────────────────────────────────────────────
 
-  const overallColor = health?.overall === 'OK' ? '#10b981' : health?.overall === 'WARNING' ? '#f59e0b' : '#ef4444'
-  const overallBg = health?.overall === 'OK' ? '#d1fae5' : health?.overall === 'WARNING' ? '#fef3c7' : '#fee2e2'
+  const countStatus = (svc: keyof Pick<ClientRow, 'ga4' | 'gsc' | 'ads' | 'gbp' | 'rollup'>, s: SyncStatus) =>
+    rows.filter(r => r[svc].status === s).length
+
+  const services: Array<{ key: keyof Pick<ClientRow, 'ga4' | 'gsc' | 'ads' | 'gbp' | 'rollup'>; label: string; cronKey: string }> = [
+    { key: 'ga4',    label: 'GA4',    cronKey: 'GA4'    },
+    { key: 'gsc',    label: 'GSC',    cronKey: 'GSC'    },
+    { key: 'ads',    label: 'Ads',    cronKey: 'Ads'    },
+    { key: 'gbp',    label: 'GBP',    cronKey: 'GBP'    },
+    { key: 'rollup', label: 'Rollup', cronKey: 'Rollup' },
+  ]
+
+  // ─── render ────────────────────────────────────────────────────────────────
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 24px' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+      <style>{`
+        @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+        .cron-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; }
+        .cron-table th { padding: 9px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; border-bottom: 1.5px solid rgba(44,36,25,0.1); }
+        .cron-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid rgba(44,36,25,0.05); vertical-align: middle; }
+        .cron-table tbody tr:last-child td { border-bottom: none; }
+        .cron-table tbody tr:hover td { background: rgba(196,112,79,0.03); }
+        .cron-table .col-client { width: 26%; }
+        .cron-table .col-svc    { width: 11%; text-align: center; }
+        .cron-table .col-rollup { width: 13%; text-align: center; border-left: 1px solid rgba(44,36,25,0.08); }
+      `}</style>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2c2419', margin: 0 }}>Cron Monitor</h1>
-            <p style={{ color: '#8B7355', margin: '4px 0 0', fontSize: 14 }}>
-              Daily sync jobs — checks GA4, Ads, GSC, GBP, Rollup
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {lastRefresh && (
-              <span style={{ color: '#9ca3af', fontSize: 12 }}>
-                Checked {lastRefresh.toLocaleTimeString()}
-              </span>
-            )}
-            <button
-              onClick={() => fetchHealth(true)}
-              disabled={refreshing}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: '#8B7355', color: 'white', border: 'none',
-                borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, opacity: refreshing ? 0.7 : 1
-              }}
-            >
-              <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Overall Status Banner */}
-        {health && (
-          <div style={{
-            background: overallBg, border: `1px solid ${overallColor}40`,
-            borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-            display: 'flex', alignItems: 'center', gap: 12
-          }}>
-            {health.overall === 'OK'
-              ? <CheckCircle size={24} color={overallColor} />
-              : health.overall === 'WARNING'
-              ? <AlertTriangle size={24} color={overallColor} />
-              : <XCircle size={24} color={overallColor} />
-            }
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, color: overallColor, fontSize: 16 }}>
-                Overall: {health.overall}
-              </div>
-              <div style={{ color: '#6b7280', fontSize: 13, marginTop: 2 }}>
-                {health.summary.ok} OK &nbsp;·&nbsp; {health.summary.warning} Warning &nbsp;·&nbsp; {health.summary.error} Error
-                &nbsp;·&nbsp; Checked at {new Date(health.checkedAt).toLocaleTimeString()}
-              </div>
-            </div>
-            <div style={{
-              background: overallColor, color: 'white',
-              borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700
-            }}>
-              {health.overall}
-            </div>
-          </div>
+      {/* Sticky header */}
+      <div className="sticky top-0 z-40 px-6 py-3" style={{
+        background: 'rgba(245,241,237,0.98)', backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44,36,25,0.08)',
+        display: 'flex', alignItems: 'center', gap: '12px',
+      }}>
+        <Activity size={16} style={{ color: '#c4704f' }} />
+        <span style={{ fontSize: '15px', fontWeight: 700, color: '#2c2419' }}>Cron Monitor</span>
+        {lastRefresh && (
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+            Updated {lastRefresh.toLocaleTimeString()}
+          </span>
         )}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => fetchData(true)} disabled={refreshing}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 13px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: refreshing ? 'not-allowed' : 'pointer', opacity: refreshing ? 0.7 : 1 }}>
+            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            Refresh
+          </button>
+        </div>
+      </div>
 
-        {/* Source Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {health?.sources.map((source) => {
-            const isOk = source.status === 'OK'
-            const isWarn = source.status === 'WARNING'
-            const statusColor = isOk ? '#10b981' : isWarn ? '#f59e0b' : '#ef4444'
-            const statusBg = isOk ? '#d1fae5' : isWarn ? '#fef3c7' : '#fee2e2'
-            const isRunning = running[source.label]
-            const runResult = runResults[source.label]
+      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
 
+        {/* Summary strip + Run Now buttons */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+          {services.map(({ key, label, cronKey }) => {
+            const ok   = countStatus(key, 'OK')
+            const warn = countStatus(key, 'WARN')
+            const err  = countStatus(key, 'ERROR')
+            const isRunning = running[cronKey]
+            const result    = runResults[cronKey]
             return (
-              <div key={source.label} style={{
-                background: 'white', borderRadius: 12,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                padding: 20, border: `1px solid ${statusColor}30`
+              <div key={key} style={{
+                flex: '1 1 150px', background: 'rgba(255,255,255,0.95)',
+                border: '1px solid rgba(44,36,25,0.08)', borderRadius: '14px',
+                padding: '14px 16px', boxShadow: '0 2px 10px rgba(44,36,25,0.06)',
               }}>
-                {/* Card Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Database size={16} color="#8B7355" />
-                    <span style={{ fontWeight: 700, color: '#2c2419', fontSize: 15 }}>{source.label}</span>
-                  </div>
-                  <span style={{
-                    background: statusBg, color: statusColor,
-                    borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700
-                  }}>
-                    {source.status}
-                  </span>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850', marginBottom: '8px' }}>{label}</div>
+                <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(16,185,129,0.12)', color: '#059669', padding: '2px 7px', borderRadius: '4px' }}>{ok} OK</span>
+                  {warn > 0 && <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(245,158,11,0.12)', color: '#d97706', padding: '2px 7px', borderRadius: '4px' }}>{warn} W</span>}
+                  {err > 0  && <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(239,68,68,0.12)', color: '#dc2626', padding: '2px 7px', borderRadius: '4px' }}>{err} E</span>}
                 </div>
-
-                {/* Status Icon */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  {isOk
-                    ? <CheckCircle size={18} color={statusColor} />
-                    : isWarn
-                    ? <AlertTriangle size={18} color={statusColor} />
-                    : <XCircle size={18} color={statusColor} />
-                  }
-                  <span style={{ color: '#374151', fontSize: 13 }}>{source.message}</span>
-                </div>
-
-                {/* Details */}
-                <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>Last date</span>
-                    <span style={{ color: '#374151', fontSize: 12, fontWeight: 600 }}>
-                      {source.lastDate || '—'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>Days ago</span>
-                    <span style={{ color: source.daysAgo !== null && source.daysAgo > 5 ? '#ef4444' : '#374151', fontSize: 12, fontWeight: 600 }}>
-                      {source.daysAgo !== null ? `${source.daysAgo}d` : '—'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>Table</span>
-                    <span style={{ color: '#6b7280', fontSize: 11, fontFamily: 'monospace' }}>{source.table}</span>
-                  </div>
-                </div>
-
-                {/* Schedule */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                  <Clock size={12} color="#9ca3af" />
-                  <span style={{ color: '#9ca3af', fontSize: 11 }}>{CRON_SCHEDULES[source.label]}</span>
-                </div>
-
-                {/* Run Button */}
-                <button
-                  onClick={() => runCron(source.label)}
-                  disabled={isRunning}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    background: isRunning ? '#e5e7eb' : '#f5f0e8',
-                    color: isRunning ? '#9ca3af' : '#8B7355',
-                    border: `1px solid ${isRunning ? '#e5e7eb' : '#d4c5a9'}`,
-                    borderRadius: 8, padding: '8px 0', cursor: isRunning ? 'not-allowed' : 'pointer',
-                    fontSize: 13, fontWeight: 600, transition: 'all 0.15s'
-                  }}
-                >
+                <button onClick={() => runCron(cronKey)} disabled={isRunning}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '6px 0', background: isRunning ? '#f5f0e8' : 'rgba(44,36,25,0.05)', color: isRunning ? '#8B7355' : '#5c5850', border: '1px solid rgba(44,36,25,0.12)', borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
                   {isRunning
-                    ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Running...</>
-                    : <><Play size={13} /> Run Now</>
+                    ? <><RefreshCw size={11} style={{ animation: 'spin 1s linear infinite' }} /> Running…</>
+                    : <><Play size={11} /> Run Now</>
                   }
                 </button>
-
-                {/* Run Result */}
-                {runResult && (
-                  <div style={{
-                    marginTop: 8, padding: '6px 10px', borderRadius: 6,
-                    background: runResult === 'success' ? '#d1fae5' : '#fee2e2',
-                    color: runResult === 'success' ? '#065f46' : '#991b1b',
-                    fontSize: 12, textAlign: 'center'
-                  }}>
-                    {runResult === 'success' ? 'Completed successfully' : runResult}
+                {result && (
+                  <div style={{ marginTop: '6px', padding: '4px 8px', borderRadius: '5px', fontSize: '11px', textAlign: 'center', background: result === 'success' ? '#d1fae5' : '#fee2e2', color: result === 'success' ? '#065f46' : '#991b1b' }}>
+                    {result === 'success' ? '✓ Done' : result}
                   </div>
                 )}
               </div>
@@ -286,37 +293,90 @@ export default function CronMonitorPage() {
           })}
         </div>
 
-        {/* Legend */}
+        {/* Per-client table */}
         <div style={{
-          marginTop: 24, background: 'white', borderRadius: 12,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '16px 20px'
+          background: 'rgba(255,255,255,0.95)',
+          border: '1px solid rgba(44,36,25,0.08)',
+          borderRadius: '20px', padding: '24px',
+          boxShadow: '0 4px 20px rgba(44,36,25,0.06)',
         }}>
-          <div style={{ fontWeight: 600, color: '#2c2419', marginBottom: 10, fontSize: 13 }}>Status Rules</div>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            {[
-              { color: '#10b981', bg: '#d1fae5', label: 'OK', desc: 'Data updated within last 2 days' },
-              { color: '#f59e0b', bg: '#fef3c7', label: 'WARNING', desc: 'Data is 3–5 days old (cron may have missed)' },
-              { color: '#ef4444', bg: '#fee2e2', label: 'ERROR', desc: 'Data is 6+ days old or missing' },
-            ].map(({ color, bg, label, desc }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ background: bg, color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{label}</span>
-                <span style={{ color: '#6b7280', fontSize: 12 }}>{desc}</span>
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#2c2419' }}>Sync Status by Client</div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                {rows.length} active clients · hover badges for last sync date
               </div>
-            ))}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', fontSize: '11px' }}>
+              {[
+                { bg: 'rgba(16,185,129,0.12)', color: '#059669', text: 'OK ≤ 2d' },
+                { bg: 'rgba(245,158,11,0.12)', color: '#d97706', text: 'WARN 3-5d' },
+                { bg: 'rgba(239,68,68,0.12)',  color: '#dc2626', text: 'ERR ≥6d' },
+                { bg: 'rgba(156,163,175,0.1)', color: '#9ca3af', text: 'N/A' },
+              ].map(l => (
+                <span key={l.text} style={{ background: l.bg, color: l.color, padding: '3px 9px', borderRadius: '5px', fontWeight: 700 }}>{l.text}</span>
+              ))}
+            </div>
           </div>
-          <div style={{ marginTop: 10, color: '#9ca3af', fontSize: 12 }}>
-            Auto-refreshes every 30 seconds. Use "Run Now" to manually trigger a sync.
-          </div>
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9ca3af' }}>Loading sync data…</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="cron-table">
+                <thead>
+                  <tr>
+                    <th className="col-client" style={{ textAlign: 'left' }}>Client</th>
+                    <th className="col-svc">GA4</th>
+                    <th className="col-svc">GSC</th>
+                    <th className="col-svc">Ads</th>
+                    <th className="col-svc">GBP</th>
+                    <th className="col-rollup">Rollup</th>
+                    <th style={{ width: '10%', textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af' }}>Overall</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => {
+                    // Overall: worst of enabled services
+                    const enabled = [row.ga4, row.gsc, row.ads, row.gbp, row.rollup].filter(s => s.status !== 'N/A')
+                    const hasErr  = enabled.some(s => s.status === 'ERROR')
+                    const hasWarn = enabled.some(s => s.status === 'WARN')
+                    const overall: SyncStatus = hasErr ? 'ERROR' : hasWarn ? 'WARN' : 'OK'
+                    const ov = STATUS_STYLE[overall]
+
+                    return (
+                      <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/admin-dashboard/${row.slug}`)}>
+                        <td className="col-client">
+                          <div style={{ fontWeight: 600, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</div>
+                        </td>
+                        {[row.ga4, row.gsc, row.ads, row.gbp].map((svc, i) => (
+                          <td key={i} className="col-svc">
+                            <StatusDot {...svc} />
+                          </td>
+                        ))}
+                        <td className="col-rollup">
+                          <StatusDot {...row.rollup} />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 700, background: ov.bg, color: ov.color }}>
+                            {overall === 'OK'    && <CheckCircle size={11} />}
+                            {overall === 'WARN'  && <AlertTriangle size={11} />}
+                            {overall === 'ERROR' && <XCircle size={11} />}
+                            {overall}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: '#9ca3af' }}>No data</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-      </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
       </div>
     </AdminLayout>
   )
