@@ -138,8 +138,8 @@ export default function LoginPage() {
                   <p>seo@mychiropractice.com / Admin123!@#</p>
                 </div>
                 <div className="mt-2">
-                  <p className="font-semibold text-gray-700">Client (Dr DiGrado):</p>
-                  <p>dr@digrado.com / TempPassword456</p>
+                  <p className="font-semibold text-gray-700">Client (Dr Ron):</p>
+                  <p>Ron@gmail.com / TempPassword456</p>
                 </div>
               </div>
             </div>
