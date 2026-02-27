@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import { Search, TrendingUp, TrendingDown, Activity, Users, UserPlus, Pencil, LogOut } from 'lucide-react';
+import { Search, Activity, Users, UserPlus, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
@@ -28,7 +28,9 @@ interface ClientWithMetrics {
   gbp_calls?: number;
   ads_conversions?: number;
   ads_cpl?: number;
+  ad_spend?: number;
   total_leads?: number;
+  trendPoints?: number[];
   service_configs?: ServiceConfig[];
   services?: {
     googleAds: boolean;
@@ -102,9 +104,10 @@ export default function AdminDashboardPage() {
 
       const { data: metricsData, error: metricsError } = await supabase
         .from('client_metrics_summary')
-        .select('client_id, total_leads, form_fills, google_ads_conversions, cpl, date')
+        .select('client_id, total_leads, form_fills, google_ads_conversions, ad_spend, date')
         .gte('date', dateFromStr)
-        .lte('date', dateToStr);
+        .lte('date', dateToStr)
+        .eq('period_type', 'daily');
 
       if (metricsError) throw new Error(`Failed to fetch metrics: ${metricsError.message}`);
 
@@ -124,26 +127,24 @@ export default function AdminDashboardPage() {
       const metricsMap: { [key: string]: any } = {};
       (metricsData || []).forEach((metric: any) => {
         if (!metricsMap[metric.client_id]) {
-          metricsMap[metric.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ads_cpl: 0, ads_cpl_count: 0 };
+          metricsMap[metric.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, trendByDate: {} };
         }
         metricsMap[metric.client_id].total_leads += metric.total_leads || 0;
         metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0;
-        if (metric.cpl && metric.cpl > 0) {
-          metricsMap[metric.client_id].ads_cpl += metric.cpl;
-          metricsMap[metric.client_id].ads_cpl_count += 1;
-        }
+        metricsMap[metric.client_id].ad_spend += metric.ad_spend || 0;
+        metricsMap[metric.client_id].trendByDate[metric.date] = metric.total_leads || 0;
       });
 
       (gbpMetricsData || []).forEach((gbpMetric: any) => {
         if (!metricsMap[gbpMetric.client_id]) {
-          metricsMap[gbpMetric.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ads_cpl: 0, ads_cpl_count: 0 };
+          metricsMap[gbpMetric.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, trendByDate: {} };
         }
         metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0;
       });
 
       (formSuccessData || []).forEach((formEvent: any) => {
         if (!metricsMap[formEvent.client_id]) {
-          metricsMap[formEvent.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ads_cpl: 0, ads_cpl_count: 0 };
+          metricsMap[formEvent.client_id] = { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, trendByDate: {} };
         }
         metricsMap[formEvent.client_id].seo_form_submits += formEvent.event_count || 0;
       });
@@ -152,8 +153,11 @@ export default function AdminDashboardPage() {
         const config = Array.isArray(client.service_configs) ? client.service_configs[0] : client.service_configs || {};
         const hasGoogleAds = !!(config.gads_customer_id && config.gads_customer_id.trim());
         const hasSeo = !!(config.gsc_site_url && config.gsc_site_url.trim());
-        const clientMetrics = metricsMap[client.id] || { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ads_cpl: 0, ads_cpl_count: 0 };
-        const avgCpl = clientMetrics.ads_cpl_count > 0 ? clientMetrics.ads_cpl / clientMetrics.ads_cpl_count : 0;
+        const clientMetrics = metricsMap[client.id] || { total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, trendByDate: {} };
+        const cpl = clientMetrics.ads_conversions > 0 ? clientMetrics.ad_spend / clientMetrics.ads_conversions : 0;
+        const trendPoints = Object.entries(clientMetrics.trendByDate as Record<string, number>)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([, v]) => v);
 
         return {
           id: client.id,
@@ -167,7 +171,9 @@ export default function AdminDashboardPage() {
           seo_form_submits: clientMetrics.seo_form_submits,
           gbp_calls: clientMetrics.gbp_calls,
           ads_conversions: clientMetrics.ads_conversions,
-          ads_cpl: avgCpl,
+          ads_cpl: cpl,
+          ad_spend: clientMetrics.ad_spend,
+          trendPoints,
           service_configs: Array.isArray(client.service_configs) ? client.service_configs : [],
           services: {
             googleAds: hasGoogleAds,
@@ -667,7 +673,6 @@ export default function AdminDashboardPage() {
                         <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#b45309', minWidth: '85px', borderBottom: '3px solid #b45309' }}>SEO</th>
                         <th colSpan={1} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#047857', minWidth: '85px', borderBottom: '3px solid #047857' }}>GBP</th>
                         <th colSpan={3} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#6b7280', minWidth: '255px', borderBottom: '3px solid #6b7280' }}>Google Ads</th>
-                        <th colSpan={4} className="text-center text-xs font-bold uppercase tracking-wider py-4" style={{ color: '#5c5850', minWidth: '280px', borderBottom: 'none' }}>&nbsp;</th>
                       </tr>
                       <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '95px' }}>Services</th>
@@ -676,19 +681,17 @@ export default function AdminDashboardPage() {
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#047857', minWidth: '85px' }}>Calls</th>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px' }}>Conv</th>
                         <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '75px' }}>CPL</th>
-                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '85px' }}>Trend 30d</th>
-                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px' }}>Status</th>
-                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '75px' }}>Health</th>
-                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#5c5850', minWidth: '40px' }}></th>
+                        <th className="text-center text-xs font-bold uppercase tracking-wider py-4 px-2" style={{ color: '#6b7280', minWidth: '110px' }}>Trend</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredClients.map((client) => {
-                        const health = getClientHealth(client);
-                        const trendData = [40, 45, 42, 48, 44, 46];
-                        const maxTrend = Math.max(...trendData);
-                        const trendColor = client.total_leads && client.total_leads > 0 ? '#10b981' : '#9ca3af';
-                        const trendPercent = trendData.length > 1 ? Math.round(((trendData[trendData.length - 1] - trendData[0]) / trendData[0]) * 100) : 0;
+                        const pts = client.trendPoints && client.trendPoints.length > 1 ? client.trendPoints : null;
+                        const maxPt = pts ? Math.max(...pts, 1) : 1;
+                        const firstPt = pts ? pts[0] : 0;
+                        const lastPt = pts ? pts[pts.length - 1] : 0;
+                        const trendPct = firstPt > 0 ? Math.round(((lastPt - firstPt) / firstPt) * 100) : 0;
+                        const lineColor = pts ? (lastPt >= firstPt ? '#10b981' : '#ef4444') : '#9ca3af';
 
                         return (
                           <tr
@@ -715,54 +718,31 @@ export default function AdminDashboardPage() {
                             <td className="py-5 text-center"><div className="font-semibold text-sm tabular-nums" style={{ color: '#6b7280' }}>{client.ads_conversions || 0}</div></td>
                             <td className="py-5 text-center"><div className="font-semibold text-sm tabular-nums" style={{ color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? '$' + Math.round(client.ads_cpl) : '—'}</div></td>
                             <td className="py-5 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <svg width="70" height="28" style={{ verticalAlign: 'middle' }}>
-                                  <defs>
-                                    <linearGradient id={`grad-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="0%" stopColor={trendColor} stopOpacity={0.25} />
-                                      <stop offset="100%" stopColor={trendColor} stopOpacity={0.02} />
-                                    </linearGradient>
-                                  </defs>
-                                  <polygon points={`0,28 ${trendData.map((val, i) => `${(i / (trendData.length - 1)) * 70},${28 - (val / maxTrend) * 28}`).join(' ')} 70,28`} fill={`url(#grad-${client.id})`} />
-                                  <polyline points={trendData.map((val, i) => `${(i / (trendData.length - 1)) * 70},${28 - (val / maxTrend) * 28}`).join(' ')} fill="none" stroke={trendColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                <span className="text-xs font-bold whitespace-nowrap tabular-nums" style={{ color: trendColor, minWidth: '45px' }}>
-                                  {trendPercent > 0 ? '↑' : trendPercent < 0 ? '↓' : '→'} {Math.abs(trendPercent)}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-5 text-center">
-                              <span className="status-pill text-xs font-bold px-2 py-1 rounded-full" style={{ background: client.is_active ? '#ecfdf5' : '#fee2e2', color: client.is_active ? '#059669' : '#dc2626', border: `1px solid ${client.is_active ? '#d1fae5' : '#fee2e2'}` }}>
-                                {client.is_active ? 'Active' : 'Off'}
-                              </span>
-                            </td>
-                            <td className="py-5 text-center">
-                              <span className="text-xs font-bold px-2 py-1 rounded-full" style={{
-                                background: health === 'good' ? '#ecfdf5' : health === 'warning' ? '#fef3c7' : '#fee2e2',
-                                color: health === 'good' ? '#059669' : health === 'warning' ? '#b45309' : '#dc2626',
-                                border: `1px solid ${health === 'good' ? '#d1fae5' : health === 'warning' ? '#fde68a' : '#fecaca'}`
-                              }}>
-                                {health === 'good' ? 'Good' : health === 'warning' ? 'Fair' : 'Poor'}
-                              </span>
-                            </td>
-                            <td className="py-5 text-center">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/admin-dashboard/clients/${client.id}/edit`);
-                                }}
-                                className="hover:opacity-70 transition"
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: '#c4704f',
-                                  padding: '4px',
-                                }}
-                                title="Edit client"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
+                              {pts ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <svg width="70" height="28" style={{ verticalAlign: 'middle' }}>
+                                    <defs>
+                                      <linearGradient id={`grad-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={lineColor} stopOpacity={0.25} />
+                                        <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+                                      </linearGradient>
+                                    </defs>
+                                    <polygon
+                                      points={`0,28 ${pts.map((v, i) => `${(i / (pts.length - 1)) * 70},${28 - (v / maxPt) * 26}`).join(' ')} 70,28`}
+                                      fill={`url(#grad-${client.id})`}
+                                    />
+                                    <polyline
+                                      points={pts.map((v, i) => `${(i / (pts.length - 1)) * 70},${28 - (v / maxPt) * 26}`).join(' ')}
+                                      fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                  <span className="text-xs font-bold tabular-nums" style={{ color: lineColor, minWidth: '36px' }}>
+                                    {trendPct > 0 ? '+' : ''}{trendPct}%
+                                  </span>
+                                </div>
+                              ) : (
+                                <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>
+                              )}
                             </td>
                           </tr>
                         );

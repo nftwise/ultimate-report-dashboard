@@ -332,14 +332,14 @@ export default function SEOPage() {
           : 0;
         setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks });
 
-        // Real conversions from ga4_events
+        // Real conversions from ga4_events — any event containing "success" (case-insensitive)
         const { count: convCount } = await supabase
           .from('ga4_events')
           .select('*', { count: 'exact', head: true })
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
-          .in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']);
+          .ilike('event_name', '%success%');
 
         setRealConversions(convCount || 0);
       } catch (error) {
