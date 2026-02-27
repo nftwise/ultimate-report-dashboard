@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'both' | 'seo' | 'ads'>('all');
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'ads'>('active');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
@@ -212,14 +212,8 @@ export default function AdminDashboardPage() {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesServiceFilter = true;
-    if (serviceFilter !== 'all') {
-      const hasAds = client.services?.googleAds || false;
-      const hasSeo = client.services?.seo || false;
-      if (serviceFilter === 'active') matchesServiceFilter = client.is_active;
-      else if (serviceFilter === 'both') matchesServiceFilter = hasAds && hasSeo;
-      else if (serviceFilter === 'seo') matchesServiceFilter = hasSeo && !hasAds;
-      else if (serviceFilter === 'ads') matchesServiceFilter = hasAds && !hasSeo;
-    }
+    if (serviceFilter === 'active') matchesServiceFilter = client.is_active;
+    else if (serviceFilter === 'ads') matchesServiceFilter = !!(client.services?.googleAds);
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
@@ -311,26 +305,28 @@ export default function AdminDashboardPage() {
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{alertsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
             </div>
             {!alertsCollapsed && (
-              <div style={{ padding: '8px 12px 12px' }}>
+              <div style={{ padding: '8px 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '4px' }}>
                 {alerts.map(a => (
                   <div key={a.clientId}
                     onClick={() => router.push(`/admin-dashboard/${clients.find(c => c.id === a.clientId)?.slug || ''}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 150ms' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'background 150ms' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.06)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <TrendingDown size={14} style={{ color: '#ef4444', flexShrink: 0 }} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', minWidth: '180px' }}>{a.name}</span>
-                    {a.leadsPct <= -20 && (
-                      <span style={{ fontSize: '12px', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '4px' }}>
-                        Leads {a.prevLeads} → {a.curLeads} ({a.leadsPct}%)
-                      </span>
-                    )}
-                    {a.sessionsPct <= -30 && (
-                      <span style={{ fontSize: '12px', color: '#d97706', background: '#fef3c7', padding: '2px 8px', borderRadius: '4px' }}>
-                        Traffic {fmtNum(a.prevSessions)} → {fmtNum(a.curSessions)} ({a.sessionsPct}%)
-                      </span>
-                    )}
+                    <TrendingDown size={13} style={{ color: '#ef4444', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                    <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                      {a.leadsPct <= -20 && (
+                        <span style={{ fontSize: '11px', color: '#dc2626', background: '#fee2e2', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          Leads {a.leadsPct}%
+                        </span>
+                      )}
+                      {a.sessionsPct <= -30 && (
+                        <span style={{ fontSize: '11px', color: '#d97706', background: '#fef3c7', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          Traffic {a.sessionsPct}%
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -435,9 +431,7 @@ export default function AdminDashboardPage() {
               {[
                 { id: 'all', label: 'All', count: clients.length },
                 { id: 'active', label: 'Active', count: clients.filter(c => c.is_active).length },
-                { id: 'both', label: 'Both Services', count: clients.filter(c => c.services?.googleAds && c.services?.seo).length },
-                { id: 'seo', label: 'SEO Only', count: clients.filter(c => c.services?.seo && !c.services?.googleAds).length },
-                { id: 'ads', label: 'Ads Only', count: clients.filter(c => c.services?.googleAds && !c.services?.seo).length },
+                { id: 'ads', label: 'Ads', count: clients.filter(c => c.services?.googleAds).length },
               ].map(f => (
                 <button key={f.id} onClick={() => setServiceFilter(f.id as any)}
                   style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1.5px solid rgba(44,36,25,0.15)', background: serviceFilter === f.id ? '#2c2419' : 'transparent', color: serviceFilter === f.id ? '#fff' : '#5c5850', transition: 'all 150ms' }}>
@@ -448,12 +442,21 @@ export default function AdminDashboardPage() {
           </div>
 
           <style>{`
-            .client-table td { padding: 14px 10px; vertical-align: middle; }
-            .client-table th { padding: 10px 10px; }
+            .client-table { table-layout: fixed; }
+            .client-table td { padding: 12px 10px; vertical-align: middle; }
+            .client-table th { padding: 8px 10px; }
             .client-table tbody tr { border-bottom: 1px solid rgba(44,36,25,0.05); transition: background 150ms; cursor: pointer; }
             .client-table tbody tr:hover { background: rgba(196,112,79,0.04); }
             .client-table tbody tr:last-child { border-bottom: none; }
             .col-divider { border-right: 1px solid rgba(44,36,25,0.08) !important; }
+            .client-table .col-client { width: 24%; }
+            .client-table .col-svc    { width: 8%; }
+            .client-table .col-leads  { width: 9%; }
+            .client-table .col-forms  { width: 9%; }
+            .client-table .col-calls  { width: 9%; }
+            .client-table .col-conv   { width: 9%; }
+            .client-table .col-cpl    { width: 9%; }
+            .client-table .col-trend  { width: 23%; }
           `}</style>
 
           {loading ? (
@@ -462,23 +465,23 @@ export default function AdminDashboardPage() {
             <div style={{ textAlign: 'center', padding: '40px', color: '#c5221f' }}>{error}</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table className="client-table w-full" style={{ minWidth: '860px', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <table className="client-table w-full" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
-                    <th rowSpan={2} style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em', minWidth: '180px' }}>Client</th>
+                    <th rowSpan={2} className="col-client" style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em' }}>Client</th>
                     <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857', borderBottom: '2.5px solid #047857', paddingBottom: '6px' }}>GBP</th>
                     <th colSpan={3} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', borderBottom: '2.5px solid #6b7280', paddingBottom: '6px' }}>Google Ads</th>
                   </tr>
                   <tr style={{ borderBottom: '1.5px solid rgba(44,36,25,0.1)' }}>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Services</th>
-                    <th className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
-                    <th className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
-                    <th className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>CPL</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Trend</th>
+                    <th className="col-svc" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Svc</th>
+                    <th className="col-leads col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
+                    <th className="col-forms col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
+                    <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
+                    <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
+                    <th className="col-cpl" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>CPL</th>
+                    <th className="col-trend" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Trend 30d</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -493,36 +496,36 @@ export default function AdminDashboardPage() {
                     return (
                       <tr key={client.id} onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
                         style={{ opacity: client.is_active ? 1 : 0.55, background: client.is_active ? 'transparent' : '#faf7f4' }}>
-                        <td>
-                          <div style={{ fontWeight: 600, fontSize: '13px', color: client.is_active ? '#2c2419' : '#9ca3af' }}>{client.name}</div>
-                          {client.owner && <div style={{ fontSize: '11px', color: '#8a7f74', marginTop: '1px' }}>{client.owner}</div>}
-                          <div style={{ fontSize: '11px', color: '#c4c4c4', marginTop: '1px' }}>@{client.slug}</div>
+                        <td className="col-client">
+                          <div style={{ fontWeight: 600, fontSize: '13px', color: client.is_active ? '#2c2419' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</div>
+                          {client.owner && <div style={{ fontSize: '11px', color: '#8a7f74', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.owner}</div>}
+                          {client.city && <div style={{ fontSize: '11px', color: '#c4c4c4', marginTop: '1px' }}>{client.city}</div>}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            {client.services?.googleAds && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '2px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>Ads</span>}
-                            {client.services?.seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>SEO</span>}
+                        <td className="col-svc" style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '3px', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
+                            {client.services?.googleAds && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>Ads</span>}
+                            {client.services?.seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>SEO</span>}
                           </div>
                         </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f', borderRight: '1px solid rgba(44,36,25,0.08)' }}>{fmtNum(client.total_leads)}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309', borderRight: '1px solid rgba(44,36,25,0.08)' }}>{fmtNum(client.seo_form_submits)}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#047857', borderRight: '1px solid rgba(44,36,25,0.08)' }}>{fmtNum(client.gbp_calls)}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td className="col-leads col-divider" style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</td>
+                        <td className="col-forms col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
+                        <td className="col-calls col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#047857' }}>{fmtNum(client.gbp_calls)}</td>
+                        <td className="col-conv" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
+                        <td className="col-cpl" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
+                        <td className="col-trend" style={{ textAlign: 'center' }}>
                           {pts ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                              <svg width="60" height="24">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <svg width="80" height="24" style={{ flexShrink: 0 }}>
                                 <defs>
                                   <linearGradient id={`g-${client.id}`} x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor={lineColor} stopOpacity={0.2} />
                                     <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
                                   </linearGradient>
                                 </defs>
-                                <polygon points={`0,24 ${pts.map((v, i) => `${(i / (pts.length - 1)) * 60},${24 - (v / maxPt) * 22}`).join(' ')} 60,24`} fill={`url(#g-${client.id})`} />
-                                <polyline points={pts.map((v, i) => `${(i / (pts.length - 1)) * 60},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                <polygon points={`0,24 ${pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
+                                <polyline points={pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: lineColor }}>{trendPct > 0 ? '+' : ''}{trendPct}%</span>
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: lineColor, minWidth: '36px', textAlign: 'left' }}>{trendPct > 0 ? '+' : ''}{trendPct}%</span>
                             </div>
                           ) : <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>}
                         </td>
