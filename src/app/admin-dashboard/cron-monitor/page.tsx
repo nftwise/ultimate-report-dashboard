@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import AdminLayout from '@/components/admin/AdminLayout'
 import {
   RefreshCw, CheckCircle, AlertTriangle, XCircle,
-  Clock, Database, ArrowLeft, Play, Activity
+  Clock, Database, Play, Activity
 } from 'lucide-react'
 
 interface SourceHealth {
@@ -103,12 +104,14 @@ export default function CronMonitorPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FAF8F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <Activity size={40} color="#8B7355" style={{ margin: '0 auto 12px' }} />
-          <p style={{ color: '#8B7355', fontSize: 16 }}>Loading cron status...</p>
+      <AdminLayout>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Activity size={40} color="#8B7355" style={{ margin: '0 auto 12px' }} />
+            <p style={{ color: '#8B7355', fontSize: 16 }}>Loading cron status...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
@@ -116,17 +119,12 @@ export default function CronMonitorPage() {
   const overallBg = health?.overall === 'OK' ? '#d1fae5' : health?.overall === 'WARNING' ? '#fef3c7' : '#fee2e2'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF8F5', padding: '32px 24px' }}>
+    <AdminLayout>
+      <div style={{ padding: '32px 24px' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-          <button
-            onClick={() => router.back()}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8B7355', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2c2419', margin: 0 }}>Cron Monitor</h1>
             <p style={{ color: '#8B7355', margin: '4px 0 0', fontSize: 14 }}>
@@ -319,6 +317,7 @@ export default function CronMonitorPage() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

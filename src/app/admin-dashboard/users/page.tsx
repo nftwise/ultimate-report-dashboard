@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, UserPlus, Loader2, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { UserPlus, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import AdminLayout from '@/components/admin/AdminLayout';
 import { createClient } from '@supabase/supabase-js';
 
 const inputStyle = {
@@ -44,7 +44,6 @@ interface Client {
 }
 
 export default function UsersPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +54,7 @@ export default function UsersPage() {
   const [form, setForm] = useState({
     email: '',
     password: '',
-    role: 'client' as 'client' | 'admin',
+    role: 'client' as 'client' | 'admin' | 'team',
     clientId: '',
   });
 
@@ -153,32 +152,16 @@ export default function UsersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#c4704f' }} />
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#c4704f' }} />
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Header */}
-      <nav className="sticky top-0 z-50 flex items-center gap-4 px-8 py-4" style={{
-        background: 'rgba(245, 241, 237, 0.95)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
-      }}>
-        <button
-          onClick={() => router.push('/admin-dashboard')}
-          className="flex items-center gap-2 hover:opacity-70 transition"
-          style={{ color: '#c4704f', fontWeight: 600, fontSize: '14px' }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-        <span style={{ color: 'rgba(44,36,25,0.3)' }}>|</span>
-        <span style={{ fontSize: '14px', fontWeight: '600', color: '#2c2419' }}>Manage Users</span>
-      </nav>
-
+    <AdminLayout>
       <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 24px 60px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#2c2419', marginBottom: '8px', letterSpacing: '-0.02em' }}>
           User Accounts
@@ -229,11 +212,12 @@ export default function UsersPage() {
                 <label style={labelStyle}>Role</label>
                 <select
                   value={form.role}
-                  onChange={e => setForm(f => ({ ...f, role: e.target.value as 'client' | 'admin', clientId: '' }))}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value as 'client' | 'admin' | 'team', clientId: '' }))}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
                   <option value="client">Client</option>
                   <option value="admin">Admin</option>
+                  <option value="team">Team</option>
                 </select>
               </div>
               {form.role === 'client' && (
@@ -374,6 +358,6 @@ export default function UsersPage() {
           </table>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

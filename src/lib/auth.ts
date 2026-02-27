@@ -66,6 +66,7 @@ export const authOptions: NextAuthOptions = {
         const clientData = Array.isArray(user.client) ? user.client[0] as ClientData | undefined : user.client as ClientData | null
 
         // Return user object for session
+        // Supported roles: 'admin' | 'team' | 'client'
         return {
           id: user.id,
           email: user.email,

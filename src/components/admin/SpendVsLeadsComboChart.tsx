@@ -231,26 +231,26 @@ export default function SpendVsLeadsComboChart({
 
           <YAxis
             yAxisId="left"
-            stroke="#c4704f"
+            stroke="#9db5a0"
             style={{ fontSize: '12px' }}
             label={{
-              value: 'Ad Spend ($)',
+              value: 'Leads',
               angle: -90,
               position: 'insideLeft',
-              style: { color: '#c4704f', fontSize: '12px', fontWeight: '600' }
+              style: { color: '#9db5a0', fontSize: '12px', fontWeight: '600' }
             }}
           />
 
           <YAxis
             yAxisId="right"
             orientation="right"
-            stroke="#9db5a0"
+            stroke="#c4704f"
             style={{ fontSize: '12px' }}
             label={{
-              value: 'Leads',
+              value: 'Ad Spend ($)',
               angle: 90,
               position: 'insideRight',
-              style: { color: '#9db5a0', fontSize: '12px', fontWeight: '600' }
+              style: { color: '#c4704f', fontSize: '12px', fontWeight: '600' }
             }}
           />
 
@@ -264,33 +264,33 @@ export default function SpendVsLeadsComboChart({
             }}
           />
 
-          {/* Bar for Spend */}
+          {/* Bar for Leads */}
           <Bar
             yAxisId="left"
-            dataKey="ad_spend"
-            fill="#c4704f"
-            name="Ad Spend ($)"
+            dataKey="total_leads"
+            fill="#9db5a0"
+            name="Leads"
             opacity={0.8}
             radius={[8, 8, 0, 0]}
           />
 
-          {/* Line for Leads */}
+          {/* Line for Spend */}
           <Line
             yAxisId="right"
             type="monotone"
-            dataKey="total_leads"
-            stroke="#9db5a0"
-            name="Leads"
+            dataKey="ad_spend"
+            stroke="#c4704f"
+            name="Ad Spend ($)"
             strokeWidth={3}
             dot={{
               fill: '#fff',
-              stroke: '#9db5a0',
+              stroke: '#c4704f',
               strokeWidth: 2,
               r: 4
             }}
             activeDot={{
               r: 6,
-              fill: '#9db5a0'
+              fill: '#c4704f'
             }}
           />
         </ComposedChart>

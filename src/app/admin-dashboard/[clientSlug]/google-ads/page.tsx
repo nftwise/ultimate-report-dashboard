@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import DateRangePicker from '@/components/admin/DateRangePicker';
-import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
+import AdminLayout from '@/components/admin/AdminLayout';
+import ClientTabBar from '@/components/admin/ClientTabBar';
 import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
@@ -178,7 +178,6 @@ const supabase = createClient(
 );
 
 export default function GoogleAdsPage() {
-  const router = useRouter();
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
 
@@ -553,56 +552,32 @@ export default function GoogleAdsPage() {
   const momCtr = calcMoM(currentCtr, prevCtr);
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Sidebar */}
-      <ClientDetailsSidebar clientSlug={clientSlug} />
+    <AdminLayout>
+      <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
 
-      {/* Main Content */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Header Navigation */}
-        <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{
-          background: 'rgba(245, 241, 237, 0.95)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
-        }}>
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 hover:opacity-70 transition"
-            style={{ color: '#c4704f' }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back
-          </button>
-
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>Google Ads</h1>
-            <p className="text-sm" style={{ color: '#5c5850' }}>{client.name}</p>
+      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+        {/* Date Controls */}
+        <div className="flex items-center justify-end gap-3 mb-6">
+          <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
+            {[7, 30, 90].map((days) => (
+              <button
+                key={days}
+                onClick={() => handlePresetDays(days as 7 | 30 | 90)}
+                className="px-3 py-1 rounded-full text-xs font-semibold transition"
+                style={{
+                  background: days === selectedDays ? '#fff' : 'transparent',
+                  color: days === selectedDays ? '#2c2419' : '#5c5850',
+                  cursor: 'pointer'
+                }}
+              >
+                {days}d
+              </button>
+            ))}
           </div>
+          <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
+        </div>
 
-          <div className="ml-auto flex items-center gap-3">
-            <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-              {[7, 30, 90].map((days) => (
-                <button
-                  key={days}
-                  onClick={() => handlePresetDays(days as 7 | 30 | 90)}
-                  className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                  style={{
-                    background: days === selectedDays ? '#fff' : 'transparent',
-                    color: days === selectedDays ? '#2c2419' : '#5c5850',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {days}d
-                </button>
-              ))}
-            </div>
-            <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
-          </div>
-        </nav>
-
-        {/* Main Content Area */}
-        <div className="p-8">
-          <div className="max-w-7xl mx-auto">
+        <div>
             {/* Section 1: Page Header */}
             <div className="mb-12">
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>GOOGLE ADS ANALYTICS</span>
@@ -916,9 +891,8 @@ export default function GoogleAdsPage() {
               </button>
               {showAdGroups && <AdGroupPerformanceTable data={adGroups} />}
             </div>
-          </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -1,0 +1,170 @@
+'use client';
+
+import { usePathname, useRouter } from 'next/navigation';
+import { signOut, useSession } from 'next-auth/react';
+import {
+  LayoutDashboard,
+  Users,
+  Activity,
+  ChevronRight,
+  LogOut,
+  Briefcase,
+} from 'lucide-react';
+
+interface AdminLayoutProps {
+  children: React.ReactNode;
+}
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', href: '/admin-dashboard', icon: LayoutDashboard },
+  { label: 'Clients', href: '/admin-dashboard/clients', icon: Briefcase },
+  { label: 'Users', href: '/admin-dashboard/users', icon: Users },
+  { label: 'Cron Monitor', href: '/admin-dashboard/cron-monitor', icon: Activity },
+];
+
+export default function AdminLayout({ children }: AdminLayoutProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const userEmail = (session?.user as any)?.email || '';
+  const userRole = (session?.user as any)?.role || '';
+
+  const isActive = (href: string) => {
+    if (href === '/admin-dashboard') return pathname === '/admin-dashboard';
+    return pathname?.startsWith(href) ?? false;
+  };
+
+  return (
+    <div className="flex min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
+      {/* Sidebar */}
+      <aside
+        style={{
+          width: '220px',
+          minWidth: '220px',
+          background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
+          borderRight: '1px solid rgba(44,36,25,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflowY: 'auto',
+        }}
+      >
+        {/* Logo */}
+        <div style={{ padding: '24px 20px 20px 20px' }}>
+          <span style={{
+            fontSize: '20px',
+            fontWeight: 800,
+            color: '#2c2419',
+            fontFamily: '"Outfit", sans-serif',
+            letterSpacing: '-0.02em',
+          }}>
+            Wise<span style={{ color: '#c4704f' }}>CRM</span>
+          </span>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '0 8px' }}>
+          {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <button
+                key={href}
+                onClick={() => router.push(href)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '11px 14px',
+                  marginBottom: '2px',
+                  borderRadius: '8px',
+                  border: active ? '1.5px solid rgba(196,112,79,0.35)' : '1.5px solid transparent',
+                  background: active ? 'rgba(196,112,79,0.08)' : 'transparent',
+                  color: active ? '#c4704f' : '#5c5850',
+                  fontSize: '13px',
+                  fontWeight: active ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => {
+                  if (!active) {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
+                    (e.currentTarget as HTMLElement).style.color = '#2c2419';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!active) {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = '#5c5850';
+                  }
+                }}
+              >
+                <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
+                <span>{label}</span>
+                {active && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom: user info + logout */}
+        <div style={{
+          padding: '12px 8px 20px 8px',
+          borderTop: '1px solid rgba(44,36,25,0.08)',
+          marginTop: 'auto',
+        }}>
+          <div style={{ padding: '8px 14px', marginBottom: '6px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#2c2419', marginBottom: '2px', textTransform: 'capitalize' }}>
+              {userRole}
+            </div>
+            <div style={{
+              fontSize: '11px',
+              color: '#9ca3af',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '170px',
+            }}>
+              {userEmail}
+            </div>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 14px',
+              borderRadius: '8px',
+              border: '1px solid rgba(196,112,79,0.2)',
+              background: 'transparent',
+              color: '#c4704f',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.06)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <LogOut size={13} />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+        {children}
+      </main>
+    </div>
+  );
+}

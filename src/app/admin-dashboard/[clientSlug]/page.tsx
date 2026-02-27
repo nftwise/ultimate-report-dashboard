@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import DateRangePicker from '@/components/admin/DateRangePicker';
-import ClientDetailsSidebar from '@/components/admin/ClientDetailsSidebar';
+import AdminLayout from '@/components/admin/AdminLayout';
+import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
@@ -328,54 +328,22 @@ export default function ClientDetailPage() {
   const isTrendUp = leadTrendData.type === 'up';
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-      {/* Sidebar */}
-      <ClientDetailsSidebar clientSlug={clientSlug} />
+    <AdminLayout>
+      <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="overview" />
 
-      {/* Main Content */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {/* Header Navigation */}
-        <nav className="sticky top-0 z-50 flex items-center gap-6 px-8 py-4" style={{
-          background: 'rgba(245, 241, 237, 0.95)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(44, 36, 25, 0.1)'
-        }}>
-        {(session?.user as any)?.role !== 'client' && (
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 hover:opacity-70 transition"
-            style={{ color: '#c4704f' }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back
-          </button>
-        )}
-
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: '#2c2419' }}>{client.name}</h1>
-          <p className="text-sm" style={{ color: '#5c5850' }}>{client.city || 'Location'}</p>
+      {/* Date controls */}
+      <div className="sticky top-0 z-40 flex items-center gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+        <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
+          {[7, 30, 90].map((days) => (
+            <button key={days} onClick={() => handlePresetDays(days as 7 | 30 | 90)}
+              className="px-3 py-1 rounded-full text-xs font-semibold transition"
+              style={{ background: days === selectedDays ? '#c4704f' : 'transparent', color: days === selectedDays ? '#fff' : '#5c5850', cursor: 'pointer' }}>
+              {days}d
+            </button>
+          ))}
         </div>
-
-        <div className="ml-auto flex items-center gap-3">
-          <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-            {[7, 30, 90].map((days) => (
-              <button
-                key={days}
-                onClick={() => handlePresetDays(days as 7 | 30 | 90)}
-                className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                style={{
-                  background: days === selectedDays ? '#fff' : 'transparent',
-                  color: days === selectedDays ? '#2c2419' : '#5c5850',
-                  cursor: 'pointer'
-                }}
-              >
-                {days} days
-              </button>
-            ))}
-          </div>
-          <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
-        </div>
-      </nav>
+        <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
@@ -743,7 +711,6 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </div>
-      </div>
-    </div>
+    </AdminLayout>
   );
 }
