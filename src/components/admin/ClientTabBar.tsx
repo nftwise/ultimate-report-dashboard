@@ -2,20 +2,21 @@
 
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft, Bot } from 'lucide-react';
 
 interface ClientTabBarProps {
   clientSlug: string;
   clientName?: string;
   clientCity?: string;
-  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp';
+  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo';
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard, href: '' },
-  { id: 'seo', label: 'SEO', icon: Search, href: '/seo' },
-  { id: 'google-ads', label: 'Google Ads', icon: TrendingUp, href: '/google-ads' },
-  { id: 'gbp', label: 'GBP', icon: MapPin, href: '/gbp' },
+  { id: 'overview',    label: 'Overview',    icon: LayoutDashboard, href: '',          badge: null },
+  { id: 'seo',         label: 'SEO',         icon: Search,          href: '/seo',       badge: null },
+  { id: 'google-ads',  label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads',badge: null },
+  { id: 'gbp',         label: 'GBP',         icon: MapPin,          href: '/gbp',       badge: null },
+  { id: 'geo',         label: 'GEO / AI',    icon: Bot,             href: '/geo',       badge: 'NEW' },
 ] as const;
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {
@@ -57,7 +58,7 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
 
       {/* Tab row */}
       <div style={{ display: 'flex', gap: '0', borderTop: '1px solid rgba(44,36,25,0.06)' }}>
-        {TABS.map(({ id, label, icon: Icon, href }) => {
+        {TABS.map(({ id, label, icon: Icon, href, badge }) => {
           const active = activeTab === id;
           return (
             <button
@@ -78,6 +79,15 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
             >
               <Icon size={13} strokeWidth={active ? 2.2 : 1.8} />
               {label}
+              {badge && (
+                <span style={{
+                  fontSize: '9px', fontWeight: 700, padding: '1px 5px',
+                  borderRadius: '4px', background: 'rgba(107,70,193,0.12)',
+                  color: '#6b46c1', letterSpacing: '0.04em',
+                }}>
+                  {badge}
+                </span>
+              )}
             </button>
           );
         })}
