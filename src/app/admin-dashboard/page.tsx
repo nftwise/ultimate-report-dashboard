@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
 
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select(`id, name, slug, city, contact_email, is_active, owner,
+        .select(`id, name, slug, city, contact_email, is_active, owner, has_ads, has_seo,
           service_configs (ga_property_id, gads_customer_id, gbp_location_id, gsc_site_url, callrail_account_id)`)
         .order('name', { ascending: true });
 
@@ -136,9 +136,11 @@ export default function AdminDashboardPage() {
           gbp_calls: m.gbp_calls, ads_conversions: m.ads_conversions,
           ads_cpl: cpl, ad_spend: m.ad_spend, trendPoints,
           service_configs: Array.isArray(client.service_configs) ? client.service_configs : [],
+          // Use has_ads / has_seo (explicit admin flags) as source of truth,
+          // fall back to service_configs IDs for clients without the flag set
           services: {
-            googleAds: !!(cfg.gads_customer_id?.trim()),
-            seo: !!(cfg.gsc_site_url?.trim()),
+            googleAds: client.has_ads ?? !!(cfg.gads_customer_id?.trim()),
+            seo: client.has_seo ?? !!(cfg.gsc_site_url?.trim()),
           },
         };
       });
