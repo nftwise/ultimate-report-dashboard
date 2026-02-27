@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<'all' | 'active' | 'ads'>('active');
+  const [serviceFilter, setServiceFilter] = useState<'seo' | 'active' | 'ads'>('active');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
@@ -215,6 +215,7 @@ export default function AdminDashboardPage() {
     let matchesServiceFilter = true;
     if (serviceFilter === 'active') matchesServiceFilter = client.is_active;
     else if (serviceFilter === 'ads') matchesServiceFilter = !!(client.services?.googleAds);
+    else if (serviceFilter === 'seo') matchesServiceFilter = !!(client.services?.seo);
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
@@ -242,20 +243,20 @@ export default function AdminDashboardPage() {
         gap: '16px',
         flexWrap: 'wrap',
       }}>
-        {/* Date presets */}
-        <div className="flex gap-1 bg-white/40 p-1 rounded-full backdrop-blur-md">
-          {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }].map(p => {
-            const active = getDaysDiff() === p.days;
-            return (
-              <button key={p.label} onClick={() => setPreset(p.days)}
-                className="px-3 py-1.5 text-xs font-semibold rounded-full transition-all"
-                style={{ background: active ? '#c4704f' : 'transparent', color: active ? '#fff' : '#5c5850' }}>
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Date presets — sát calendar */}
+          <div className="flex gap-1 bg-white/40 p-1 rounded-full backdrop-blur-md">
+            {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }].map(p => {
+              const active = getDaysDiff() === p.days;
+              return (
+                <button key={p.label} onClick={() => setPreset(p.days)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-full transition-all"
+                  style={{ background: active ? '#c4704f' : 'transparent', color: active ? '#fff' : '#5c5850' }}>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
           <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
         </div>
       </div>
@@ -422,9 +423,9 @@ export default function AdminDashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {[
-                { id: 'all', label: 'All', count: clients.length },
                 { id: 'active', label: 'Active', count: clients.filter(c => c.is_active).length },
-                { id: 'ads', label: 'Ads', count: clients.filter(c => c.services?.googleAds).length },
+                { id: 'seo',    label: 'SEO',    count: clients.filter(c => c.services?.seo).length },
+                { id: 'ads',    label: 'Ads',    count: clients.filter(c => c.services?.googleAds).length },
               ].map(f => (
                 <button key={f.id} onClick={() => setServiceFilter(f.id as any)}
                   style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1.5px solid rgba(44,36,25,0.15)', background: serviceFilter === f.id ? '#2c2419' : 'transparent', color: serviceFilter === f.id ? '#fff' : '#5c5850', transition: 'all 150ms' }}>
@@ -442,14 +443,15 @@ export default function AdminDashboardPage() {
             .client-table tbody tr:hover { background: rgba(196,112,79,0.04); }
             .client-table tbody tr:last-child { border-bottom: none; }
             .col-divider { border-right: 1px solid rgba(44,36,25,0.08) !important; }
-            .client-table .col-client { width: 24%; }
-            .client-table .col-svc    { width: 8%; }
+            .client-table .col-client { width: 22%; }
+            .client-table .col-svc    { width: 6%; }
             .client-table .col-leads  { width: 9%; }
-            .client-table .col-forms  { width: 9%; }
+            .client-table .col-forms  { width: 8%; }
+            .client-table .col-kw10   { width: 8%; }
             .client-table .col-calls  { width: 9%; }
-            .client-table .col-conv   { width: 9%; }
-            .client-table .col-cpl    { width: 9%; }
-            .client-table .col-trend  { width: 23%; }
+            .client-table .col-conv   { width: 8%; }
+            .client-table .col-cpl    { width: 8%; }
+            .client-table .col-trend  { width: 22%; }
           `}</style>
 
           {loading ? (
@@ -463,14 +465,15 @@ export default function AdminDashboardPage() {
                   <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                     <th rowSpan={2} className="col-client" style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em' }}>Client</th>
                     <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
-                    <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
+                    <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857', borderBottom: '2.5px solid #047857', paddingBottom: '6px' }}>GBP</th>
                     <th colSpan={3} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', borderBottom: '2.5px solid #6b7280', paddingBottom: '6px' }}>Google Ads</th>
                   </tr>
                   <tr style={{ borderBottom: '1.5px solid rgba(44,36,25,0.1)' }}>
                     <th className="col-svc" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Svc</th>
                     <th className="col-leads col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
-                    <th className="col-forms col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
+                    <th className="col-forms" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
+                    <th className="col-kw10 col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>KW10</th>
                     <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
                     <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
                     <th className="col-cpl" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>CPL</th>
@@ -501,13 +504,9 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
                         <td className="col-leads col-divider" style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</td>
-                        <td className="col-forms col-divider" style={{ textAlign: 'center' }}>
-                          <div style={{ fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</div>
-                          {client.services?.seo && (
-                            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px', whiteSpace: 'nowrap' }}>
-                              {client.top_keywords ? `↑${fmtNum(client.top_keywords)} top10` : ''}
-                            </div>
-                          )}
+                        <td className="col-forms" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
+                        <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
+                          {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
                         </td>
                         <td className="col-calls col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#047857' }}>{fmtNum(client.gbp_calls)}</td>
                         <td className="col-conv" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
