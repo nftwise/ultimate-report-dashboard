@@ -24,6 +24,9 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
   const { data: session } = useSession();
   const isClient = (session?.user as any)?.role === 'client';
 
+  // Client role: navigation is in the left sidebar (AdminLayout), no top tab bar needed
+  if (isClient) return null;
+
   return (
     <div style={{
       background: 'rgba(255,255,255,0.98)',

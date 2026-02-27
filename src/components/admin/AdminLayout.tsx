@@ -9,6 +9,10 @@ import {
   ChevronRight,
   LogOut,
   Briefcase,
+  Search,
+  TrendingUp,
+  MapPin,
+  Bot,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -21,6 +25,18 @@ const NAV_ITEMS = [
   { label: 'Users', href: '/admin-dashboard/users', icon: Users },
   { label: 'Cron Monitor', href: '/admin-dashboard/cron-monitor', icon: Activity },
 ];
+
+const CLIENT_TABS = [
+  { id: 'overview',   label: 'Overview',    icon: LayoutDashboard, href: '',            badge: null },
+  { id: 'seo',        label: 'SEO',         icon: Search,          href: '/seo',        badge: null },
+  { id: 'google-ads', label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads', badge: null },
+  { id: 'gbp',        label: 'GBP',         icon: MapPin,          href: '/gbp',        badge: null },
+  { id: 'geo',        label: 'GEO / AI',    icon: Bot,             href: '/geo',        badge: 'NEW' },
+] as const;
+
+function formatSlug(slug: string) {
+  return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
@@ -35,35 +51,107 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return pathname?.startsWith(href) ?? false;
   };
 
-  // Client login: no sidebar, full-width with minimal top bar
+  // Client login: left sidebar with page tabs
   if (isClient) {
+    // Extract clientSlug from pathname: /admin-dashboard/{slug}/{tab?}
+    const parts = pathname?.split('/') || [];
+    const clientSlug = parts[2] || '';
+    const activeTabId = parts[3] || 'overview';
+    const clientDisplayName = clientSlug ? formatSlug(clientSlug) : 'Portal';
+
     return (
-      <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
-        {/* Minimal top bar: email + logout */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '8px 24px', gap: '12px',
-          background: 'rgba(249,247,244,0.98)',
-          borderBottom: '1px solid rgba(44,36,25,0.07)',
+      <div className="flex min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
+        {/* Client sidebar */}
+        <aside style={{
+          width: '220px', minWidth: '220px',
+          background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
+          borderRight: '1px solid rgba(44,36,25,0.1)',
+          display: 'flex', flexDirection: 'column',
+          position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
         }}>
-          <span style={{ fontSize: '12px', color: '#9ca3af' }}>{userEmail}</span>
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '6px 12px', borderRadius: '8px',
-              border: '1px solid rgba(196,112,79,0.2)',
-              background: 'transparent', color: '#c4704f',
-              fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.06)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <LogOut size={13} />
-            Logout
-          </button>
-        </div>
-        <main style={{ minWidth: 0, overflowX: 'hidden' }}>
+          {/* Client name / logo area */}
+          <div style={{ padding: '24px 20px 18px 20px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#2c2419', letterSpacing: '-0.01em', marginBottom: '2px' }}>
+              {clientDisplayName}
+            </div>
+            <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>Client Portal</div>
+          </div>
+
+          {/* Tab nav */}
+          <nav style={{ flex: 1, padding: '0 8px' }}>
+            {CLIENT_TABS.map(({ id, label, icon: Icon, href, badge }) => {
+              const active = activeTabId === id;
+              const dest = `/admin-dashboard/${clientSlug}${href}`;
+              return (
+                <button
+                  key={id}
+                  onClick={() => router.push(dest)}
+                  style={{
+                    width: '100%',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '11px 14px', marginBottom: '2px',
+                    borderRadius: '8px',
+                    border: active ? '1.5px solid rgba(196,112,79,0.35)' : '1.5px solid transparent',
+                    background: active ? 'rgba(196,112,79,0.08)' : 'transparent',
+                    color: active ? '#c4704f' : '#5c5850',
+                    fontSize: '13px', fontWeight: active ? 600 : 500,
+                    cursor: 'pointer', transition: 'all 150ms ease', textAlign: 'left',
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
+                      (e.currentTarget as HTMLElement).style.color = '#2c2419';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      (e.currentTarget as HTMLElement).style.color = '#5c5850';
+                    }
+                  }}
+                >
+                  <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
+                  <span style={{ flex: 1 }}>{label}</span>
+                  {badge && (
+                    <span style={{
+                      fontSize: '9px', fontWeight: 700, padding: '1px 5px',
+                      borderRadius: '4px', background: 'rgba(107,70,193,0.12)',
+                      color: '#6b46c1', letterSpacing: '0.04em',
+                    }}>
+                      {badge}
+                    </span>
+                  )}
+                  {active && !badge && <ChevronRight size={12} style={{ opacity: 0.5 }} />}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Bottom: email + logout */}
+          <div style={{ padding: '12px 8px 20px 8px', borderTop: '1px solid rgba(44,36,25,0.08)', marginTop: 'auto' }}>
+            <div style={{ padding: '6px 14px 10px', fontSize: '11px', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {userEmail}
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '9px 14px', borderRadius: '8px',
+                border: '1px solid rgba(196,112,79,0.2)',
+                background: 'transparent', color: '#c4704f',
+                fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all 150ms ease',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.06)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <LogOut size={13} />
+              Logout
+            </button>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
           {children}
         </main>
       </div>
