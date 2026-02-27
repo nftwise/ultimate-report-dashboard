@@ -183,7 +183,7 @@ async function processClient(
       .then(r => r.data || []),
     supabaseAdmin
       .from('ads_campaign_metrics')
-      .select('impressions, clicks, cost, ctr, cpc, quality_score, impression_share, search_impression_share, search_lost_is_budget')
+      .select('impressions, clicks, cost, conversions, ctr, cpc, quality_score, impression_share, search_impression_share, search_lost_is_budget')
       .eq('client_id', clientId)
       .eq('date', targetDate)
       .then(r => r.data || []),
@@ -385,12 +385,13 @@ async function processClient(
   // =====================================================
   // AGGREGATE ADS CAMPAIGN METRICS
   // =====================================================
-  // Conversions come from campaign_conversion_actions (accurate, matches Google Ads UI)
-  // NOT from ads_campaign_metrics.conversions (can be inflated with view-through etc.)
+  // Conversions from ads_campaign_metrics.conversions — matches Google Ads UI exactly.
+  // campaign_conversion_actions can double-count (same call tracked by multiple action names).
   let googleAdsConversions = 0;
-  for (const row of adsConversionActionsData) {
-    googleAdsConversions += Math.round(row.conversions || 0);
+  for (const row of adsCampaignData) {
+    googleAdsConversions += row.conversions || 0;
   }
+  googleAdsConversions = Math.round(googleAdsConversions);
 
   let adSpend = 0;
   let adsImpressions = 0;
