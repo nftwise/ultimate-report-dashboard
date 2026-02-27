@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { checkAndSendAlerts } from '@/lib/telegram';
 
 const BATCH_SIZE = 5;
 
@@ -106,6 +107,11 @@ async function runRollup(date?: string, clientId?: string) {
 
     const duration = Date.now() - startTime;
     console.log(`[Rollup] Completed rollup for ${metricsToSave.length} clients in ${duration}ms`);
+
+    // Send Telegram alerts if any metrics dropped significantly (non-blocking)
+    checkAndSendAlerts(supabaseAdmin, targetDate).catch(err =>
+      console.error('[Rollup] Alert check failed:', err)
+    );
 
     return NextResponse.json({
       success: true,

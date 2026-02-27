@@ -388,7 +388,7 @@ export default function ClientsManagementPage() {
                           }}>
                             {client.is_active ? 'Active' : 'Inactive'}
                           </span>
-                          {client.status && (
+                          {client.is_active && client.status && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{
                               background: client.status === 'Cancelled' ? '#fef2f2' : client.status === 'Paused' ? '#fefce8' : client.status === 'Onboarding' ? '#eff6ff' : '#f9fafb',
                               color: client.status === 'Cancelled' ? '#dc2626' : client.status === 'Paused' ? '#b45309' : client.status === 'Onboarding' ? '#1d4ed8' : '#6b7280',
