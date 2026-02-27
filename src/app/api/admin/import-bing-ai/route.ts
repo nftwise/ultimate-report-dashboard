@@ -12,8 +12,9 @@ import { authOptions } from '@/lib/auth';
  * Body:
  * {
  *   clientId: string,
- *   dailyCitations: Array<{ date: string; citations: number; citedPages: number }>,
- *   pageCitations:  Array<{ pageUrl: string; citations: number }>
+ *   dailyCitations:  Array<{ date: string; citations: number; citedPages: number }>,
+ *   pageCitations:   Array<{ pageUrl: string; citations: number }>,
+ *   queryCitations:  Array<{ queryText: string; citations: number }>
  * }
  */
 export async function POST(request: NextRequest) {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
     clientId: string;
     dailyCitations?: Array<{ date: string; citations: number; citedPages: number }>;
     pageCitations?: Array<{ pageUrl: string; citations: number }>;
+    queryCitations?: Array<{ queryText: string; citations: number }>;
   };
 
   try {
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { clientId, dailyCitations = [], pageCitations = [] } = body;
+  const { clientId, dailyCitations = [], pageCitations = [], queryCitations = [] } = body;
   if (!clientId) {
     return NextResponse.json({ error: 'clientId required' }, { status: 400 });
   }
@@ -51,7 +53,6 @@ export async function POST(request: NextRequest) {
       citations: r.citations ?? 0,
       cited_pages: r.citedPages ?? 0,
     }));
-    // Batch upsert in chunks of 200
     for (let i = 0; i < rows.length; i += 200) {
       const batch = rows.slice(i, i + 200);
       const { error } = await supabaseAdmin
@@ -89,6 +90,31 @@ export async function POST(request: NextRequest) {
     }
     if (!results.pageCitations) {
       results.pageCitations = { upserted: rows.length };
+    }
+  }
+
+  // Upsert query citations in batches
+  if (queryCitations.length > 0) {
+    const today = new Date().toISOString().split('T')[0];
+    const rows = queryCitations.map(r => ({
+      client_id: clientId,
+      query_text: r.queryText,
+      citations: r.citations ?? 0,
+      date: today,
+    }));
+    for (let i = 0; i < rows.length; i += 200) {
+      const batch = rows.slice(i, i + 200);
+      const { error } = await supabaseAdmin
+        .from('bing_ai_queries')
+        .upsert(batch, { onConflict: 'client_id,query_text,date' });
+      if (error) {
+        results.queryCitations = { error: error.message, code: error.code, hint: error.hint };
+        hasError = true;
+        break;
+      }
+    }
+    if (!results.queryCitations) {
+      results.queryCitations = { upserted: rows.length };
     }
   }
 
