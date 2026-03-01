@@ -88,12 +88,28 @@ export async function GET(request: NextRequest) {
 
           const apiUrl = `https://googleads.googleapis.com/v20/customers/${client.customerId}/googleAds:searchStream`;
 
+          const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
+            try {
+              return await fn();
+            } catch (err: any) {
+              console.log(`[sync-ads] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+              try {
+                await new Promise(r => setTimeout(r, 2000));
+                return await fn();
+              } catch (err2: any) {
+                console.log(`[sync-ads] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
+                errors.push(`${client.name} ${label}: ${err2.message}`);
+                return [];
+              }
+            }
+          };
+
           // Fetch all 4 report types in parallel
           const [campaigns, adGroups, keywords, ads] = await Promise.all([
-            fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, targetDate).catch((e) => { console.log(`[sync-ads] Campaign error ${client.name}:`, e.message); return []; }),
-            fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, targetDate).catch((e) => { console.log(`[sync-ads] AdGroup error ${client.name}:`, e.message); return []; }),
-            fetchKeywordMetrics(apiUrl, headers, gaqlDate, client.id, targetDate).catch((e) => { console.log(`[sync-ads] Keyword error ${client.name}:`, e.message); return []; }),
-            fetchAdPerformance(apiUrl, headers, gaqlDate, client.id, targetDate).catch((e) => { console.log(`[sync-ads] Ad error ${client.name}:`, e.message); return []; }),
+            fetchWithRetry(() => fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'campaigns'),
+            fetchWithRetry(() => fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'adGroups'),
+            fetchWithRetry(() => fetchKeywordMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'keywords'),
+            fetchWithRetry(() => fetchAdPerformance(apiUrl, headers, gaqlDate, client.id, targetDate), 'ads'),
           ]);
 
           // Upsert each table
