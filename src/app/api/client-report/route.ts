@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     let clientId = searchParams.get('clientId');
@@ -28,6 +35,14 @@ export async function GET(request: NextRequest) {
       }
       clientId = slugData.id;
       console.log('[client-report] Found client ID:', clientId);
+    }
+
+    // Client role users can only access their own data
+    if ((session.user as any).role === 'client') {
+      const sessionClientId = (session.user as any).clientId;
+      if (!sessionClientId || sessionClientId !== clientId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     if (!clientId) {

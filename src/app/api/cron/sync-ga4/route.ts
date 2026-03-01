@@ -101,12 +101,13 @@ export async function GET(request: NextRequest) {
             }
           };
 
-          let [events, sessions, conversions, landingPages] = await Promise.all([
+          const [events, initialSessions, conversions, landingPages] = await Promise.all([
             fetchWithRetry(() => fetchGA4Events(token, client.propertyId, targetDate, timeoutMs), 'events'),
             fetchWithRetry(() => fetchGA4Sessions(token, client.propertyId, targetDate, timeoutMs), 'sessions'),
             fetchWithRetry(() => fetchGA4Conversions(token, client.propertyId, targetDate, timeoutMs), 'conversions'),
             fetchWithRetry(() => fetchGA4LandingPages(token, client.propertyId, targetDate, timeoutMs), 'landingPages'),
           ]);
+          let sessions = initialSessions;
 
           // Fallback: if sessions query returned 0 rows (possible GA4 thresholding with 3 dimensions),
           // try a simpler query with no dimensions to get aggregate session count

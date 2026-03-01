@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 
@@ -7,6 +9,11 @@ import bcrypt from 'bcryptjs';
  * Add a new user to the database
  */
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role === 'client') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { email, role, clientId, password } = body;
@@ -83,6 +90,11 @@ export async function POST(request: NextRequest) {
  * Update user (toggle is_active or reset password)
  */
 export async function PATCH(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role === 'client') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { id, is_active, password } = body;
@@ -115,6 +127,11 @@ export async function PATCH(request: NextRequest) {
  * Delete a user by ID
  */
 export async function DELETE(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role === 'client') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await request.json();
 
@@ -139,6 +156,11 @@ export async function DELETE(request: NextRequest) {
  * List all users
  */
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role === 'client') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { data: users, error } = await supabaseAdmin
       .from('users')

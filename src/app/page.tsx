@@ -14,7 +14,7 @@ export default function Home() {
     // Redirect authenticated users to dashboard
     if (status === 'authenticated' && session?.user) {
       if (session.user.role === 'admin') {
-        router.push('/admin');
+        router.push('/admin-dashboard');
       } else {
         router.push('/dashboard');
       }

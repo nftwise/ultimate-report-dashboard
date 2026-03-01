@@ -129,20 +129,22 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {/* Test Accounts Info */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center mb-3">Test Accounts:</p>
-              <div className="space-y-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-                <div>
-                  <p className="font-semibold text-gray-700">Admin:</p>
-                  <p>seo@mychiropractice.com / Admin123!@#</p>
-                </div>
-                <div className="mt-2">
-                  <p className="font-semibold text-gray-700">Client (Dr Ron):</p>
-                  <p>Ron@gmail.com / TempPassword456</p>
+            {/* Test Accounts Info - only shown in non-production or when explicitly enabled */}
+            {(process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === 'true') && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-xs text-gray-500 text-center mb-3">Test Accounts:</p>
+                <div className="space-y-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  <div>
+                    <p className="font-semibold text-gray-700">Admin:</p>
+                    <p>seo@mychiropractice.com / Admin123!@#</p>
+                  </div>
+                  <div className="mt-2">
+                    <p className="font-semibold text-gray-700">Client (Dr Ron):</p>
+                    <p>Ron@gmail.com / TempPassword456</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
