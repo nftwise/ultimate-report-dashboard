@@ -75,8 +75,23 @@ export async function GET(request: NextRequest) {
       const batch = validLocations.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.all(batch.map(async (location) => {
+        const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
+          try {
+            return await fn();
+          } catch (err: any) {
+            console.log(`[sync-gbp] ${location.location_name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+            try {
+              await new Promise(r => setTimeout(r, 2000));
+              return await fn();
+            } catch (err2: any) {
+              console.log(`[sync-gbp] ${location.location_name} ${label} attempt 2 failed: ${err2.message}`);
+              throw err2;
+            }
+          }
+        };
+
         try {
-          const metrics = await fetchLocationMetrics(accessToken, location.gbp_location_id, targetDate);
+          const metrics = await fetchWithRetry(() => fetchLocationMetrics(accessToken, location.gbp_location_id, targetDate), 'metrics');
 
           const row = {
             location_id: location.id,
