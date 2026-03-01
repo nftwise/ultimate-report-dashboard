@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-ads] Processing ${clientsWithAds.length} clients`);
 
-    let totalCampaigns = 0, totalAdGroups = 0, totalKeywords = 0, totalAds = 0;
+    let totalCampaigns = 0, totalAdGroups = 0, totalKeywords = 0, totalAds = 0, totalConversions = 0, totalSearchTerms = 0;
     const errors: string[] = [];
     const cleanMccId = mccId?.replace(/-|\s/g, '');
 
@@ -104,12 +104,14 @@ export async function GET(request: NextRequest) {
             }
           };
 
-          // Fetch all 4 report types in parallel
-          const [campaigns, adGroups, keywords, ads] = await Promise.all([
+          // Fetch all 6 report types in parallel
+          const [campaigns, adGroups, keywords, ads, conversions, searchTerms] = await Promise.all([
             fetchWithRetry(() => fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'campaigns'),
             fetchWithRetry(() => fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'adGroups'),
             fetchWithRetry(() => fetchKeywordMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'keywords'),
             fetchWithRetry(() => fetchAdPerformance(apiUrl, headers, gaqlDate, client.id, targetDate), 'ads'),
+            fetchWithRetry(() => fetchConversionActions(apiUrl, headers, gaqlDate, client.id, targetDate), 'conversions'),
+            fetchWithRetry(() => fetchSearchTerms(apiUrl, headers, gaqlDate, client.id, targetDate), 'searchTerms'),
           ]);
 
           // Upsert each table
@@ -129,11 +131,19 @@ export async function GET(request: NextRequest) {
             const { error } = await supabaseAdmin.from('google_ads_ad_performance').upsert(ads, { onConflict: 'client_id,ad_id,date' });
             if (error) console.log(`[sync-ads] Ad upsert error ${client.name}:`, error.message);
           }
+          if (conversions.length > 0) {
+            const { error } = await supabaseAdmin.from('campaign_conversion_actions').upsert(conversions, { onConflict: 'client_id,campaign_id,date,conversion_action_name' });
+            if (error) console.log(`[sync-ads] Conversion upsert error ${client.name}:`, error.message);
+          }
+          if (searchTerms.length > 0) {
+            const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(searchTerms, { onConflict: 'client_id,campaign_id,date,search_term' });
+            if (error) console.log(`[sync-ads] SearchTerm upsert error ${client.name}:`, error.message);
+          }
 
-          return { campaigns: campaigns.length, adGroups: adGroups.length, keywords: keywords.length, ads: ads.length };
+          return { campaigns: campaigns.length, adGroups: adGroups.length, keywords: keywords.length, ads: ads.length, conversions: conversions.length, searchTerms: searchTerms.length };
         } catch (err: any) {
           errors.push(`${client.name}: ${err.message}`);
-          return { campaigns: 0, adGroups: 0, keywords: 0, ads: 0 };
+          return { campaigns: 0, adGroups: 0, keywords: 0, ads: 0, conversions: 0, searchTerms: 0 };
         }
       }));
 
@@ -142,18 +152,20 @@ export async function GET(request: NextRequest) {
         totalAdGroups += r.adGroups;
         totalKeywords += r.keywords;
         totalAds += r.ads;
+        totalConversions += r.conversions;
+        totalSearchTerms += r.searchTerms;
       });
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalKeywords} keywords, ${totalAds} ads`);
+    console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalKeywords} keywords, ${totalAds} ads, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
 
     return NextResponse.json({
       success: true,
       date: targetDate,
       clients: clientsWithAds.length,
-      records: { campaigns: totalCampaigns, adGroups: totalAdGroups, keywords: totalKeywords, ads: totalAds },
-      total: totalCampaigns + totalAdGroups + totalKeywords + totalAds,
+      records: { campaigns: totalCampaigns, adGroups: totalAdGroups, keywords: totalKeywords, ads: totalAds, conversions: totalConversions, searchTerms: totalSearchTerms },
+      total: totalCampaigns + totalAdGroups + totalKeywords + totalAds + totalConversions + totalSearchTerms,
       errors: errors.length > 0 ? errors : undefined,
       duration,
     });
@@ -339,6 +351,67 @@ async function fetchAdPerformance(apiUrl: string, headers: Record<string, string
       conversions,
       conversion_rate: clicks > 0 ? Math.round((conversions / clicks) * 10000) / 100 : 0,
       cost_per_conversion: conversions > 0 ? Math.round(costMicros / conversions / 10000) / 100 : 0,
+    };
+  });
+}
+
+async function fetchConversionActions(apiUrl: string, headers: Record<string, string>, gaqlDate: string, clientId: string, date: string) {
+  const query = `
+    SELECT campaign.id,
+      segments.conversion_action_name,
+      segments.conversion_action_category,
+      metrics.conversions, metrics.conversions_value
+    FROM campaign
+    WHERE segments.date = '${gaqlDate}'
+      AND campaign.status != 'REMOVED'
+      AND metrics.conversions > 0
+  `;
+
+  const rows = await executeGAQL(apiUrl, headers, query);
+  return rows.map((r: any) => {
+    const m = r.metrics || {};
+    const seg = r.segments || {};
+    return {
+      client_id: clientId,
+      campaign_id: r.campaign?.id?.toString() || '',
+      date,
+      conversion_action_name: seg.conversionActionName || seg.conversion_action_name || 'Unknown',
+      conversion_action_type: seg.conversionActionCategory || seg.conversion_action_category || '',
+      conversions: parseFloat(m.conversions || '0'),
+      conversion_value: parseFloat(m.conversionsValue || m.conversions_value || '0'),
+      avg_conversion_lag_days: 0,
+    };
+  });
+}
+
+async function fetchSearchTerms(apiUrl: string, headers: Record<string, string>, gaqlDate: string, clientId: string, date: string) {
+  const query = `
+    SELECT campaign.id,
+      search_term_view.search_term,
+      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
+    FROM search_term_view
+    WHERE segments.date = '${gaqlDate}'
+      AND campaign.status != 'REMOVED'
+      AND (metrics.conversions > 0 OR metrics.clicks >= 3)
+  `;
+
+  const rows = await executeGAQL(apiUrl, headers, query);
+  return rows.map((r: any) => {
+    const m = r.metrics || {};
+    const stv = r.searchTermView || r.search_term_view || {};
+    const costMicros = parseInt(m.costMicros || m.cost_micros || '0');
+    return {
+      client_id: clientId,
+      campaign_id: r.campaign?.id?.toString() || '',
+      date,
+      search_term: stv.searchTerm || stv.search_term || '',
+      match_type: '',
+      impressions: parseInt(m.impressions || '0'),
+      clicks: parseInt(m.clicks || '0'),
+      cost: Math.round(costMicros / 10000) / 100,
+      conversions: parseFloat(m.conversions || '0'),
+      is_irrelevant: false,
+      wasted_spend: 0,
     };
   });
 }
