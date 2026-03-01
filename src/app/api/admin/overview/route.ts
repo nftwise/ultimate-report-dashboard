@@ -101,7 +101,11 @@ export async function GET(request: NextRequest) {
     // Step 3: Batch fetch Google Ads data (parallel, 5 at a time)
     const BATCH_SIZE = 5
     const TIMEOUT_MS = 5000
-    const mccId = process.env.GOOGLE_ADS_MCC_ID || '8432700368'
+    const mccId = process.env.GOOGLE_ADS_MCC_ID
+    if (!mccId) {
+      console.error('[Admin Overview] GOOGLE_ADS_MCC_ID not configured');
+      return NextResponse.json({ success: false, error: 'Google Ads MCC ID not configured' }, { status: 500 });
+    }
     const adsConnector = new GoogleAdsServiceAccountConnector()
 
     const clientsWithAds = clientsData.filter(c => c.adsCustomerId)

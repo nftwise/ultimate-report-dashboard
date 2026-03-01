@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId');
 
-    if (!clientId) {
+    if (!clientId || !/^[a-zA-Z0-9_-]+$/.test(clientId)) {
       return NextResponse.json({
         success: false,
-        error: 'clientId parameter is required'
+        error: 'Valid clientId parameter is required'
       }, { status: 400 });
     }
 

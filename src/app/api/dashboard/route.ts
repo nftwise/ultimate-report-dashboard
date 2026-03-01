@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         clientConfig = {
           gaPropertyId: serviceConfig.ga_property_id,
           adsCustomerId: serviceConfig.gads_customer_id,
-          adsMccId: process.env.GOOGLE_ADS_MCC_ID || '8432700368', // Use env var for MCC
+          adsMccId: process.env.GOOGLE_ADS_MCC_ID || '', // Require env var
           callrailAccountId: '', // CallRail not in service_configs yet
         };
         console.log('[Dashboard API] Client config from DB:', {
