@@ -98,12 +98,25 @@ export async function GET(request: NextRequest) {
             }
           };
 
-          const [events, sessions, conversions, landingPages] = await Promise.all([
+          let [events, sessions, conversions, landingPages] = await Promise.all([
             fetchWithRetry(() => fetchGA4Events(token, client.propertyId, targetDate, timeoutMs), 'events'),
             fetchWithRetry(() => fetchGA4Sessions(token, client.propertyId, targetDate, timeoutMs), 'sessions'),
             fetchWithRetry(() => fetchGA4Conversions(token, client.propertyId, targetDate, timeoutMs), 'conversions'),
             fetchWithRetry(() => fetchGA4LandingPages(token, client.propertyId, targetDate, timeoutMs), 'landingPages'),
           ]);
+
+          // Fallback: if sessions query returned 0 rows (possible GA4 thresholding with 3 dimensions),
+          // try a simpler query with no dimensions to get aggregate session count
+          if (sessions.length === 0) {
+            const fallbackSessions = await fetchWithRetry(
+              () => fetchGA4SessionsAggregate(token, client.propertyId, targetDate, timeoutMs),
+              'sessions-fallback'
+            );
+            if (fallbackSessions.length > 0) {
+              console.log(`[sync-ga4] ${client.name}: used aggregate fallback for sessions (thresholding bypass)`);
+              sessions = fallbackSessions;
+            }
+          }
 
           // Only store 3 conversion events — skip scroll/click/page_view noise
           const ALLOWED_EVENTS = ['submit_form_successful', 'Appointment_Successful', 'call_from_web'];
@@ -263,6 +276,33 @@ async function fetchGA4Conversions(token: string, propertyId: string, date: stri
     conversions: parseInt(row.metricValues[0].value) || 0,
     total_users: parseInt(row.metricValues[1].value) || 0,
     conversion_value: parseFloat(row.metricValues[2].value) || 0,
+  }));
+}
+
+// Fallback: aggregate sessions with no dimensional breakdown (bypasses GA4 thresholding)
+async function fetchGA4SessionsAggregate(token: string, propertyId: string, date: string, timeout: number = DEFAULT_TIMEOUT_MS) {
+  const rows = await runGA4Report(token, propertyId, {
+    dateRanges: [{ startDate: date, endDate: date }],
+    metrics: [
+      { name: 'sessions' }, { name: 'totalUsers' }, { name: 'newUsers' },
+      { name: 'screenPageViews' }, { name: 'engagementRate' },
+      { name: 'averageSessionDuration' }, { name: 'bounceRate' },
+      { name: 'eventCount' },
+    ],
+  }, timeout);
+
+  return rows.map((row: any) => ({
+    source_medium: '(all) / (all)',
+    device: 'all',
+    country: 'all',
+    sessions: parseInt(row.metricValues[0].value) || 0,
+    total_users: parseInt(row.metricValues[1].value) || 0,
+    new_users: parseInt(row.metricValues[2].value) || 0,
+    screen_page_views: parseInt(row.metricValues[3].value) || 0,
+    engagement_rate: parseFloat(row.metricValues[4].value) || 0,
+    avg_session_duration: parseFloat(row.metricValues[5].value) || 0,
+    bounce_rate: parseFloat(row.metricValues[6].value) || 0,
+    event_count: parseInt(row.metricValues[7].value) || 0,
   }));
 }
 
