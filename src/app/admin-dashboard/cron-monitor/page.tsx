@@ -122,12 +122,29 @@ export default function CronMonitorPage() {
         .order('name')
 
       // Fetch latest date per client for each source (last 30 days)
-      const [ga4Res, gscRes, adsRes, gbpRes, rollupRes] = await Promise.all([
-        supabase.from('ga4_sessions').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
-        supabase.from('gsc_daily_summary').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
-        supabase.from('ads_campaign_metrics').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
-        supabase.from('gbp_location_daily_metrics').select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }),
-        supabase.from('client_metrics_summary').select('client_id, date').eq('period_type', 'daily').gte('date', cutoffStr).order('date', { ascending: false }),
+      // Paginate to avoid Supabase 1000-row default limit
+      const fetchAllRows = async (table: string, extraFilter?: (q: any) => any) => {
+        let allData: any[] = []
+        let from = 0
+        const pageSize = 1000
+        while (true) {
+          let q = supabase.from(table).select('client_id, date').gte('date', cutoffStr).order('date', { ascending: false }).range(from, from + pageSize - 1)
+          if (extraFilter) q = extraFilter(q)
+          const { data } = await q
+          if (!data || data.length === 0) break
+          allData = allData.concat(data)
+          if (data.length < pageSize) break
+          from += pageSize
+        }
+        return allData
+      }
+
+      const [ga4Data, gscData, adsData, gbpData, rollupData] = await Promise.all([
+        fetchAllRows('ga4_sessions'),
+        fetchAllRows('gsc_daily_summary'),
+        fetchAllRows('ads_campaign_metrics'),
+        fetchAllRows('gbp_location_daily_metrics'),
+        fetchAllRows('client_metrics_summary', (q: any) => q.eq('period_type', 'daily')),
       ])
 
       // Build maxDate maps (client_id → latest date string)
@@ -139,11 +156,11 @@ export default function CronMonitorPage() {
         return m
       }
 
-      const ga4Map    = maxDate(ga4Res.data    || [])
-      const gscMap    = maxDate(gscRes.data    || [])
-      const adsMap    = maxDate(adsRes.data    || [])
-      const gbpMap    = maxDate(gbpRes.data    || [])
-      const rollupMap = maxDate(rollupRes.data || [])
+      const ga4Map    = maxDate(ga4Data)
+      const gscMap    = maxDate(gscData)
+      const adsMap    = maxDate(adsData)
+      const gbpMap    = maxDate(gbpData)
+      const rollupMap = maxDate(rollupData)
 
       const built: ClientRow[] = (clientsData || []).map((c: any) => {
         const cfg: ServiceConfig = Array.isArray(c.service_configs) ? (c.service_configs[0] || {}) : (c.service_configs || {})
@@ -194,7 +211,11 @@ export default function CronMonitorPage() {
     setRunning(p => ({ ...p, [label]: true }))
     setRunResults(p => ({ ...p, [label]: '' }))
     try {
-      const res = await fetch(endpoint, { cache: 'no-store' })
+      const res = await fetch('/api/admin/trigger-cron', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+      })
       const data = await res.json()
       setRunResults(p => ({ ...p, [label]: (res.ok && data.success !== false) ? 'success' : (data.error || 'Failed') }))
       setTimeout(() => fetchData(true), 1500)
