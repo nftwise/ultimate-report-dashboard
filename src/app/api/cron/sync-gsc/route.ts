@@ -75,10 +75,26 @@ export async function GET(request: NextRequest) {
     for (let i = 0; i < clientsWithGSC.length; i += BATCH_SIZE) {
       const batch = clientsWithGSC.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch.map(async (client: any) => {
+        const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
+          try {
+            return await fn();
+          } catch (err: any) {
+            console.log(`[sync-gsc] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+            try {
+              await new Promise(r => setTimeout(r, 2000));
+              return await fn();
+            } catch (err2: any) {
+              console.log(`[sync-gsc] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
+              errors.push(`${client.name} ${label}: ${err2.message}`);
+              return [];
+            }
+          }
+        };
+
         try {
           const [allQueries, allPages] = await Promise.all([
-            fetchGSCQueries(token, client.siteUrl, targetDate, client.id).catch((e) => { console.log(`[sync-gsc] Queries error ${client.name}:`, e.message); return []; }),
-            fetchGSCPages(token, client.siteUrl, targetDate, client.id).catch((e) => { console.log(`[sync-gsc] Pages error ${client.name}:`, e.message); return []; }),
+            fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, targetDate, client.id), 'queries'),
+            fetchWithRetry(() => fetchGSCPages(token, client.siteUrl, targetDate, client.id), 'pages'),
           ]);
 
           // LAYER 1: Save daily totals to gsc_daily_summary (pre-aggregate before filtering)
