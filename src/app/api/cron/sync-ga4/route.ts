@@ -5,7 +5,8 @@ import { JWT } from 'google-auth-library';
 export const maxDuration = 300;
 
 const BATCH_SIZE = 3;
-const TIMEOUT_MS = 20000;
+const DEFAULT_TIMEOUT_MS = 20000;
+const SINGLE_CLIENT_TIMEOUT_MS = 60000;
 
 /**
  * GET /api/cron/sync-ga4
@@ -27,8 +28,10 @@ export async function GET(request: NextRequest) {
       const d = new Date(); d.setDate(d.getDate() - 1);
       return d.toISOString().split('T')[0];
     })();
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
+    const timeoutMs = clientIdParam ? SINGLE_CLIENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 
-    console.log(`[sync-ga4] Starting for ${targetDate}`);
+    console.log(`[sync-ga4] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -53,13 +56,21 @@ export async function GET(request: NextRequest) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-    const clientsWithGA = (clients || [])
+    let clientsWithGA = (clients || [])
       .map((c: any) => ({
         id: c.id,
         name: c.name,
         propertyId: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.ga_property_id,
       }))
       .filter((c: any) => c.propertyId);
+
+    // Filter to specific client if requested
+    if (clientIdParam) {
+      clientsWithGA = clientsWithGA.filter((c: any) => c.id === clientIdParam);
+      if (clientsWithGA.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no GA4 config` }, { status: 404 });
+      }
+    }
 
     console.log(`[sync-ga4] Processing ${clientsWithGA.length} clients`);
 
@@ -71,11 +82,27 @@ export async function GET(request: NextRequest) {
       const batch = clientsWithGA.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch.map(async (client: any) => {
         try {
+          const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
+            try {
+              return await fn();
+            } catch (err: any) {
+              console.log(`[sync-ga4] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+              try {
+                await new Promise(r => setTimeout(r, 2000));
+                return await fn();
+              } catch (err2: any) {
+                console.log(`[sync-ga4] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
+                errors.push(`${client.name} ${label}: ${err2.message}`);
+                return [];
+              }
+            }
+          };
+
           const [events, sessions, conversions, landingPages] = await Promise.all([
-            fetchGA4Events(token, client.propertyId, targetDate).catch(() => []),
-            fetchGA4Sessions(token, client.propertyId, targetDate).catch(() => []),
-            fetchGA4Conversions(token, client.propertyId, targetDate).catch(() => []),
-            fetchGA4LandingPages(token, client.propertyId, targetDate).catch(() => []),
+            fetchWithRetry(() => fetchGA4Events(token, client.propertyId, targetDate, timeoutMs), 'events'),
+            fetchWithRetry(() => fetchGA4Sessions(token, client.propertyId, targetDate, timeoutMs), 'sessions'),
+            fetchWithRetry(() => fetchGA4Conversions(token, client.propertyId, targetDate, timeoutMs), 'conversions'),
+            fetchWithRetry(() => fetchGA4LandingPages(token, client.propertyId, targetDate, timeoutMs), 'landingPages'),
           ]);
 
           // Only store 3 conversion events — skip scroll/click/page_view noise
@@ -152,9 +179,9 @@ export async function GET(request: NextRequest) {
 // GA4 DATA API HELPERS
 // =====================================================
 
-async function runGA4Report(token: string, propertyId: string, body: any): Promise<any[]> {
+async function runGA4Report(token: string, propertyId: string, body: any, reportTimeout: number = DEFAULT_TIMEOUT_MS): Promise<any[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), reportTimeout);
 
   const response = await fetch(
     `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
@@ -172,13 +199,13 @@ async function runGA4Report(token: string, propertyId: string, body: any): Promi
   return data.rows || [];
 }
 
-async function fetchGA4Events(token: string, propertyId: string, date: string) {
+async function fetchGA4Events(token: string, propertyId: string, date: string, timeout: number = DEFAULT_TIMEOUT_MS) {
   const rows = await runGA4Report(token, propertyId, {
     dateRanges: [{ startDate: date, endDate: date }],
     dimensions: [{ name: 'eventName' }, { name: 'sessionSourceMedium' }, { name: 'deviceCategory' }],
     metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }, { name: 'eventValue' }],
     limit: 10000,
-  });
+  }, timeout);
 
   return rows.map((row: any) => ({
     event_name: row.dimensionValues[0].value || '(not set)',
@@ -190,7 +217,7 @@ async function fetchGA4Events(token: string, propertyId: string, date: string) {
   }));
 }
 
-async function fetchGA4Sessions(token: string, propertyId: string, date: string) {
+async function fetchGA4Sessions(token: string, propertyId: string, date: string, timeout: number = DEFAULT_TIMEOUT_MS) {
   const rows = await runGA4Report(token, propertyId, {
     dateRanges: [{ startDate: date, endDate: date }],
     dimensions: [{ name: 'sessionSourceMedium' }, { name: 'deviceCategory' }, { name: 'country' }],
@@ -201,7 +228,7 @@ async function fetchGA4Sessions(token: string, propertyId: string, date: string)
       { name: 'eventCount' },
     ],
     limit: 10000,
-  });
+  }, timeout);
 
   return rows.map((row: any) => ({
     source_medium: row.dimensionValues[0].value || '(not set)',
@@ -218,7 +245,7 @@ async function fetchGA4Sessions(token: string, propertyId: string, date: string)
   }));
 }
 
-async function fetchGA4Conversions(token: string, propertyId: string, date: string) {
+async function fetchGA4Conversions(token: string, propertyId: string, date: string, timeout: number = DEFAULT_TIMEOUT_MS) {
   const rows = await runGA4Report(token, propertyId, {
     dateRanges: [{ startDate: date, endDate: date }],
     dimensions: [{ name: 'eventName' }, { name: 'sessionSourceMedium' }, { name: 'deviceCategory' }],
@@ -227,7 +254,7 @@ async function fetchGA4Conversions(token: string, propertyId: string, date: stri
       filter: { fieldName: 'isConversionEvent', stringFilter: { matchType: 'EXACT', value: 'true' } },
     },
     limit: 10000,
-  });
+  }, timeout);
 
   return rows.map((row: any) => ({
     conversion_event: row.dimensionValues[0].value || '(not set)',
@@ -239,7 +266,7 @@ async function fetchGA4Conversions(token: string, propertyId: string, date: stri
   }));
 }
 
-async function fetchGA4LandingPages(token: string, propertyId: string, date: string) {
+async function fetchGA4LandingPages(token: string, propertyId: string, date: string, timeout: number = DEFAULT_TIMEOUT_MS) {
   const rows = await runGA4Report(token, propertyId, {
     dateRanges: [{ startDate: date, endDate: date }],
     dimensions: [{ name: 'landingPagePlusQueryString' }, { name: 'sessionSourceMedium' }],
@@ -249,7 +276,7 @@ async function fetchGA4LandingPages(token: string, propertyId: string, date: str
       { name: 'conversions' },
     ],
     limit: 10000,
-  });
+  }, timeout);
 
   return rows.map((row: any) => {
     const sessions = parseInt(row.metricValues[0].value) || 0;
