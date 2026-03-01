@@ -23,9 +23,11 @@ export async function GET(request: NextRequest) {
 
   try {
     // GSC data has a 2-3 day delay, so fetch 3 days ago for reliable data
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const targetDate = threeDaysAgo.toISOString().split('T')[0];
+    const dateParam = request.nextUrl.searchParams.get('date');
+    const targetDate = dateParam || (() => {
+      const d = new Date(); d.setDate(d.getDate() - 3);
+      return d.toISOString().split('T')[0];
+    })();
 
     console.log(`[sync-gsc] Starting for ${targetDate}`);
 

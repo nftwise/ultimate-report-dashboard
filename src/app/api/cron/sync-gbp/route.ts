@@ -36,9 +36,11 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const targetDate = yesterday.toISOString().split('T')[0];
+    const dateParam = request.nextUrl.searchParams.get('date');
+    const targetDate = dateParam || (() => {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    })();
 
     console.log(`[sync-gbp] Starting for ${targetDate}`);
 
