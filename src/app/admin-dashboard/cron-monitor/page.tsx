@@ -107,10 +107,12 @@ export default function CronMonitorPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       )
 
-      const today = new Date().toISOString().split('T')[0]
-      const cutoff = new Date()
-      cutoff.setDate(cutoff.getDate() - 30)
-      const cutoffStr = cutoff.toISOString().split('T')[0]
+      // Use California timezone for date calculations
+      const caToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+      const today = `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`
+      const caCutoff = new Date(caToday)
+      caCutoff.setDate(caCutoff.getDate() - 30)
+      const cutoffStr = `${caCutoff.getFullYear()}-${String(caCutoff.getMonth() + 1).padStart(2, '0')}-${String(caCutoff.getDate()).padStart(2, '0')}`
 
       // Fetch all active clients with service configs
       const { data: clientsData } = await supabase

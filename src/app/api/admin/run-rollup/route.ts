@@ -44,9 +44,11 @@ async function runRollup(date?: string, clientId?: string) {
   try {
     let targetDate = date;
     if (!targetDate) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      targetDate = yesterday.toISOString().split('T')[0];
+      // Use California timezone for "yesterday" calculation
+      const now = new Date();
+      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      caToday.setDate(caToday.getDate() - 1);
+      targetDate = `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     }
 
     console.log(`[Rollup] Starting rollup for ${targetDate}`);
@@ -70,8 +72,8 @@ async function runRollup(date?: string, clientId?: string) {
 
     console.log(`[Rollup] Processing ${clients.length} clients`);
 
-    // Get previous day data for comparison
-    const previousDate = new Date(targetDate);
+    // Get previous day data for comparison (use noon UTC to avoid timezone boundary issues)
+    const previousDate = new Date(targetDate + 'T12:00:00Z');
     previousDate.setDate(previousDate.getDate() - 1);
     const prevDateStr = previousDate.toISOString().split('T')[0];
 

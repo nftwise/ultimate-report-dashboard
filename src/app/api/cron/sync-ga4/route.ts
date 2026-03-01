@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
     const targetDate = dateParam || (() => {
-      const d = new Date(); d.setDate(d.getDate() - 1);
-      return d.toISOString().split('T')[0];
+      // Use California timezone for "yesterday" calculation
+      const now = new Date();
+      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      caToday.setDate(caToday.getDate() - 1);
+      return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
     const timeoutMs = clientIdParam ? SINGLE_CLIENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;

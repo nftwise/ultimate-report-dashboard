@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
     // GSC data has a 2-3 day delay, so fetch 3 days ago for reliable data
     const dateParam = request.nextUrl.searchParams.get('date');
     const targetDate = dateParam || (() => {
-      const d = new Date(); d.setDate(d.getDate() - 3);
-      return d.toISOString().split('T')[0];
+      // Use California timezone for date calculation
+      const now = new Date();
+      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      caToday.setDate(caToday.getDate() - 3);
+      return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
 
     console.log(`[sync-gsc] Starting for ${targetDate}`);
