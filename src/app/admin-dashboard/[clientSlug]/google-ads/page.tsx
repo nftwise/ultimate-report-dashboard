@@ -392,7 +392,7 @@ export default function GoogleAdsPage() {
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
-        const totalConversions = (metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0);
+        const totalConversions = Math.round((metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0));
         setFormConversions(totalConversions);
 
         // Keep campaign_conversion_actions only for breakdown chart (action type breakdown)

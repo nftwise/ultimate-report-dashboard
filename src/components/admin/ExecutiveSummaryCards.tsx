@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { fmtNum, fmtCurrency } from '@/lib/format';
 
 interface MoMData {
   pct: string;
@@ -118,7 +119,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            ${totalSpend.toFixed(2)}
+            {fmtCurrency(totalSpend)}
           </div>
           <p style={{
             fontSize: '11px',
@@ -166,7 +167,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            {totalConversions}
+            {fmtNum(Math.round(totalConversions))}
           </div>
           <p style={{
             fontSize: '11px',
@@ -214,7 +215,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            ${costPerLead.toFixed(2)}
+            {fmtCurrency(costPerLead)}
           </div>
           <p style={{
             fontSize: '11px',
@@ -262,7 +263,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            {conversionRate.toFixed(2)}%
+            {fmtNum(conversionRate, 2)}%
           </div>
           <p style={{
             fontSize: '11px',
