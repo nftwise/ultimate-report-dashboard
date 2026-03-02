@@ -255,7 +255,7 @@ export default function ClientDetailPage() {
   const totalGbpDirections = dailyData.reduce((sum: number, d: any) => sum + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions = dailyData.reduce((sum: number, d: any) => sum + (d.google_ads_conversions || 0), 0);
   const adSpend = dailyData.reduce((sum: number, d: any) => sum + ((d.ad_spend || 0)), 0);
-  const costPerLead = totalLeads > 0 ? Math.round((adSpend / totalLeads) * 100) / 100 : 0;
+  const costPerLead = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
   const sessions = dailyData.reduce((sum: number, d: any) => sum + (d.sessions || 0), 0);
 
   // Calculate metrics from daily data
@@ -287,7 +287,7 @@ export default function ClientDetailPage() {
     };
   };
 
-  const prevCpl = prevData.leads > 0 ? prevData.adSpend / prevData.leads : 0;
+  const prevCpl = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
 
   const leadTrendData = calcMoM(totalLeads, prevData.leads);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
