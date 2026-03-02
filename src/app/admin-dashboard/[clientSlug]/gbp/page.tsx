@@ -58,17 +58,20 @@ export default function GBPPage() {
   const [location, setLocation] = useState<GBPLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
+  // GBP API has ~5-day data lag — initialize and cap to dates with real data
+  const gbpDataCutoff = () => { const d = new Date(); d.setDate(d.getDate() - 5); return d; };
+
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = new Date();
-    const from = new Date();
+    const to = gbpDataCutoff();
+    const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date();
-    const from = new Date();
+    const to = gbpDataCutoff();
+    const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -133,10 +136,8 @@ export default function GBPPage() {
 
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        // GBP API has ~5-day data lag — cap end date so we don't query empty days
-        const gbpCap = new Date();
-        gbpCap.setDate(gbpCap.getDate() - 5);
-        const effectiveTo = dateRange.to > gbpCap ? gbpCap : dateRange.to;
+        // Always cap to GBP data cutoff (5-day lag) regardless of user-selected date
+        const effectiveTo = dateRange.to > gbpDataCutoff() ? gbpDataCutoff() : dateRange.to;
         const dateToISO = effectiveTo.toISOString().split('T')[0];
 
         // Fetch from gbp_location_daily_metrics (detailed GBP data)
@@ -238,13 +239,17 @@ export default function GBPPage() {
           };
         });
 
-        // Sort by date
+        // Sort by date and remove days with no real GBP data (all-zero from rollup)
         mergedData.sort((a, b) => a.date.localeCompare(b.date));
+        const validData = mergedData.filter(row =>
+          (row.views || 0) > 0 || (row.phone_calls || 0) > 0 ||
+          (row.website_clicks || 0) > 0 || (row.direction_requests || 0) > 0
+        );
 
-        setDailyData(mergedData);
+        setDailyData(validData);
 
-        // Fetch previous period data for MoM comparison
-        const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        // MoM: use effectiveTo so period length matches what's actually shown
+        const periodDays = Math.round((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
         const prevTo = new Date(dateRange.from);
         prevTo.setDate(prevTo.getDate() - 1);
         const prevFrom = new Date(prevTo);
