@@ -160,7 +160,7 @@ export default function UsersPage() {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '360px 1fr' : '1fr', gap: '20px', alignItems: 'start' }}>
+        <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start' : 'grid grid-cols-1 gap-5 items-start'}>
 
           {/* ── Create User Form ── */}
           {isAdmin && (
@@ -169,7 +169,7 @@ export default function UsersPage() {
               border: '1px solid rgba(44,36,25,0.08)',
               borderRadius: '20px', padding: '24px',
               boxShadow: '0 4px 20px rgba(44,36,25,0.06)',
-              position: 'sticky', top: '64px',
+              position: 'sticky', top: '56px',
             }}>
               <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '18px' }}>
                 Create New User
