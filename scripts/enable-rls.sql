@@ -5,12 +5,14 @@
 --          SELECT from tables needed by the dashboard UI.
 --          The service_role key (supabaseAdmin) always bypasses RLS.
 --
+-- IMPORTANT: Run drop-unused-tables.sql FIRST, then this script.
+--
 -- Run this in: Supabase Dashboard → SQL Editor
--- Date: 2026-03-01
+-- Date: 2026-03-02
 -- ============================================================
 
 -- ============================================================
--- STEP 1: Enable RLS on ALL tables
+-- STEP 1: Enable RLS on ALL remaining tables (21 tables)
 -- ============================================================
 -- Once enabled, default is DENY ALL for anon.
 -- Only explicitly created policies will allow access.
@@ -24,8 +26,6 @@ ALTER TABLE service_configs ENABLE ROW LEVEL SECURITY;
 -- GBP tables
 ALTER TABLE gbp_location_daily_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gbp_locations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gbp_posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gbp_location_photos ENABLE ROW LEVEL SECURITY;
 
 -- Google Ads tables
 ALTER TABLE ads_campaign_metrics ENABLE ROW LEVEL SECURITY;
@@ -41,7 +41,6 @@ ALTER TABLE ga4_landing_pages ENABLE ROW LEVEL SECURITY;
 
 -- GSC tables
 ALTER TABLE gsc_queries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gsc_pages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gsc_daily_summary ENABLE ROW LEVEL SECURITY;
 
 -- GEO/Bing tables
@@ -49,11 +48,7 @@ ALTER TABLE bing_ai_citations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bing_ai_page_citations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bing_ai_queries ENABLE ROW LEVEL SECURITY;
 
--- Additional server-only tables (may or may not exist — skip if error)
-ALTER TABLE ads_keyword_metrics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE google_ads_ad_performance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bing_page_stats ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bing_news_mentions ENABLE ROW LEVEL SECURITY;
+-- Utility tables (server-only, no anon policy)
 ALTER TABLE api_cache ENABLE ROW LEVEL SECURITY;
 
 -- SENSITIVE tables (NO policies = completely blocked for anon)
@@ -97,14 +92,14 @@ CREATE POLICY "anon_select" ON campaign_conversion_actions
 CREATE POLICY "anon_select" ON campaign_search_terms
   FOR SELECT TO anon USING (true);
 
--- GA4 tables (used in SEO page + overview + cron-monitor)
+-- GA4 tables (used in SEO page + overview)
 CREATE POLICY "anon_select" ON ga4_sessions
   FOR SELECT TO anon USING (true);
 
 CREATE POLICY "anon_select" ON ga4_events
   FOR SELECT TO anon USING (true);
 
--- GSC tables (used in SEO page + cron-monitor)
+-- GSC tables (used in SEO page)
 CREATE POLICY "anon_select" ON gsc_queries
   FOR SELECT TO anon USING (true);
 
@@ -129,13 +124,8 @@ CREATE POLICY "anon_select" ON bing_ai_queries
 --   system_settings    → has OAuth refresh tokens!
 --
 -- SERVER-ONLY (used by cron jobs/rollup via supabaseAdmin):
---   gbp_posts, gbp_location_photos  → empty tables
---   ga4_conversions, ga4_landing_pages → GA4 raw data
---   gsc_pages                        → GSC raw data
---   ads_keyword_metrics              → Ads keywords
---   google_ads_ad_performance        → Ads ad performance
---   bing_page_stats, bing_news_mentions → Bing sync data
---   api_cache                        → API response cache
+--   ga4_conversions, ga4_landing_pages → GA4 raw data (rollup only)
+--   api_cache                          → API response cache
 --
 -- All have RLS enabled but NO policies for anon,
 -- so anon key gets zero access. Server-side code uses

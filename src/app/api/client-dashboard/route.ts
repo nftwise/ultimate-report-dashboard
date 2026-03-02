@@ -102,8 +102,8 @@ export async function GET(request: NextRequest) {
         .eq('period_type', 'daily'),
       // Campaigns for the current period (aggregated by campaign)
       supabaseAdmin
-        .from('client_campaigns')
-        .select('campaign_id, campaign_name, status, impressions, clicks, cost, conversions, ctr, cpc, cost_per_conversion, search_impression_share')
+        .from('ads_campaign_metrics')
+        .select('campaign_id, campaign_name, campaign_status, impressions, clicks, cost, conversions, ctr, cpc, cpa, search_impression_share')
         .eq('client_id', clientUUID)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
         campaignsMap.set(c.campaign_id, {
           id: c.campaign_id,
           name: c.campaign_name,
-          status: c.status,
+          status: c.campaign_status || c.status,
           impressions: c.impressions || 0,
           clicks: c.clicks || 0,
           cost: parseFloat(c.cost) || 0,

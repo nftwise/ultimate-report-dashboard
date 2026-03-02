@@ -208,13 +208,11 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
   // Fetch dashboard data from pre-computed database (FAST: ~50-100ms)
   useEffect(() => {
     const fetchCoreData = async () => {
-      console.log('⚡ Fetching from pre-computed database', { userId: user.id, period });
       setLoading(true);
       clearCachePattern('dashboard-fast');
 
       try {
         await fetchDashboardData();
-        console.log('⚡ Dashboard loaded from DB');
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -342,7 +340,6 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
           setClientServices(result.services);
         }
 
-        console.log(`⚡ Loaded in ${result.duration}ms`);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);

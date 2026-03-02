@@ -47,8 +47,6 @@ export default function MonthlyLeadsTrendChart() {
         const dateFromStr = dateFrom.toISOString().split('T')[0];
         const dateToStr = yesterday.toISOString().split('T')[0];
 
-        console.log('[MonthlyLeadsTrendChart] Fetching directly from Supabase:', { dateFromStr, dateToStr });
-
         // Fetch metrics directly from Supabase
         const { data: metrics, error: fetchError } = await supabase
           .from('client_metrics_summary')
@@ -60,13 +58,6 @@ export default function MonthlyLeadsTrendChart() {
         if (fetchError) {
           throw new Error(fetchError.message);
         }
-
-        console.log('[MonthlyLeadsTrendChart] Raw data from Supabase:', {
-          recordCount: metrics?.length || 0,
-          firstRecord: metrics?.[0],
-          lastRecord: metrics?.[metrics.length - 1],
-          sample: metrics?.slice(0, 5)
-        });
 
         // Group by month and sum
         const monthlyData: { [key: string]: number } = {};
@@ -84,11 +75,6 @@ export default function MonthlyLeadsTrendChart() {
           monthlyData[monthKey] += metric.form_fills || 0;
         });
 
-        console.log('[MonthlyLeadsTrendChart] After aggregation:', {
-          monthsFound: monthOrder,
-          monthlyData
-        });
-
         // Generate chart data
         const monthLabels: { [key: string]: string } = {
           '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
@@ -103,8 +89,6 @@ export default function MonthlyLeadsTrendChart() {
             value: monthlyData[monthKey]
           };
         });
-
-        console.log('[MonthlyLeadsTrendChart] Final chart data:', chartData);
 
         // Calculate stats
         const values = Object.values(monthlyData);

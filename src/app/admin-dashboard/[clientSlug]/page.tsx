@@ -127,8 +127,6 @@ export default function ClientDetailPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        console.log('[Client Details] Fetching metrics from Supabase:', { clientId: client.id, dateFromISO, dateToISO, clientName: client.name });
-
         // Fetch main metrics from client_metrics_summary
         const { data: metricsData, error: metricsError } = await supabase
           .from('client_metrics_summary')
@@ -182,19 +180,7 @@ export default function ClientDetailPage() {
           .order('date', { ascending: true });
 
         if (gbpError) {
-          console.warn('[Client Details] GBP data fetch warning:', gbpError);
           // Don't fail if GBP data unavailable, just use metrics data
-        } else {
-          const gbpArray = Array.isArray(gbpData) ? gbpData : [];
-          const latestGbpDate = gbpArray.length > 0
-            ? gbpArray[gbpArray.length - 1].date
-            : 'No data';
-          console.log('[Client Details] GBP data received:', {
-            isArray: Array.isArray(gbpData),
-            count: gbpArray.length,
-            dateRange: `${gbpArray[0]?.date || 'N/A'} to ${latestGbpDate}`,
-            sample: gbpArray[0] || null
-          });
         }
 
         // Merge GBP data into metrics data
@@ -213,20 +199,6 @@ export default function ClientDetailPage() {
           };
         });
 
-        // Debug logging
-        if (merged.length > 0) {
-          const gbpMetricsCount = merged.filter((d: any) => d.gbp_calls > 0).length;
-          const gbpWebClicksCount = merged.filter((d: any) => d.gbp_website_clicks > 0).length;
-          const gbpDirectionsCount = merged.filter((d: any) => d.gbp_direction_requests > 0).length;
-
-          console.log('[Client Details] Merged data stats:', {
-            total: merged.length,
-            gbpCalls: { count: gbpMetricsCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) },
-            gbpWebClicks: { count: gbpWebClicksCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_website_clicks || 0), 0) },
-            gbpDirections: { count: gbpDirectionsCount, total: merged.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0) },
-            sample: merged[0]
-          });
-        }
         setDailyData((merged || []) as DailyMetrics[]);
 
         // Fetch previous period for MoM comparison

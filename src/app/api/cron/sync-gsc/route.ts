@@ -10,7 +10,7 @@ const TIMEOUT_MS = 20000;
 /**
  * GET /api/cron/sync-gsc
  * Daily cron: Sync yesterday's Google Search Console data to raw tables
- * Tables: gsc_queries, gsc_pages
+ * Tables: gsc_queries, gsc_daily_summary
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-gsc] Processing ${clientsWithGSC.length} clients`);
 
-    let totalQueries = 0, totalPages = 0;
+    let totalQueries = 0;
     const errors: string[] = [];
 
     // Process clients in batches
@@ -92,10 +92,7 @@ export async function GET(request: NextRequest) {
         };
 
         try {
-          const [allQueries, allPages] = await Promise.all([
-            fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, targetDate, client.id), 'queries'),
-            fetchWithRetry(() => fetchGSCPages(token, client.siteUrl, targetDate, client.id), 'pages'),
-          ]);
+          const allQueries = await fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, targetDate, client.id), 'queries');
 
           // LAYER 1: Save daily totals to gsc_daily_summary (pre-aggregate before filtering)
           if (allQueries.length > 0) {
@@ -127,35 +124,27 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // Only store top 5 pages by clicks per client/day
-          const topPages = [...allPages].sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0)).slice(0, 5);
-          if (topPages.length > 0) {
-            const { error } = await supabaseAdmin.from('gsc_pages').upsert(topPages, { onConflict: 'client_id,site_url,date,page' });
-            if (error) console.log(`[sync-gsc] Pages upsert error ${client.name}:`, error.message);
-          }
-
-          return { queries: filteredQueries.length, pages: topPages.length };
+          return { queries: filteredQueries.length };
         } catch (err: any) {
           errors.push(`${client.name}: ${err.message}`);
-          return { queries: 0, pages: 0 };
+          return { queries: 0 };
         }
       }));
 
       results.forEach((r) => {
         totalQueries += r.queries;
-        totalPages += r.pages;
       });
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[sync-gsc] Done in ${duration}ms: ${totalQueries} queries, ${totalPages} pages`);
+    console.log(`[sync-gsc] Done in ${duration}ms: ${totalQueries} queries`);
 
     return NextResponse.json({
       success: true,
       date: targetDate,
       clients: clientsWithGSC.length,
-      records: { queries: totalQueries, pages: totalPages },
-      total: totalQueries + totalPages,
+      records: { queries: totalQueries },
+      total: totalQueries,
       errors: errors.length > 0 ? errors : undefined,
       duration,
     });
@@ -210,21 +199,6 @@ async function fetchGSCQueries(token: string, siteUrl: string, date: string, cli
     site_url: siteUrl,
     date,
     query: row.keys[0] || '',
-    clicks: row.clicks || 0,
-    impressions: row.impressions || 0,
-    ctr: Math.round((row.ctr || 0) * 10000) / 100,
-    position: Math.round((row.position || 0) * 10) / 10,
-  }));
-}
-
-async function fetchGSCPages(token: string, siteUrl: string, date: string, clientId: string) {
-  const rows = await fetchGSCData(token, siteUrl, date, ['page'], 5000);
-
-  return rows.map((row: any) => ({
-    client_id: clientId,
-    site_url: siteUrl,
-    date,
-    page: row.keys[0] || '',
     clicks: row.clicks || 0,
     impressions: row.impressions || 0,
     ctr: Math.round((row.ctr || 0) * 10000) / 100,

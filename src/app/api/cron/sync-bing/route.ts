@@ -187,36 +187,11 @@ export async function GET(request: NextRequest) {
     if (!bwtSiteUrl) { results[client.slug] = { skip: `domain ${domain} not in BWT` }; continue; }
 
     try {
-      // ── Bing page stats ──
-      const pageStats = await getBWTPageStats(bwtSiteUrl, startDate, endDate);
-      if (pageStats.length > 0) {
-        const rows = pageStats.map(r => ({
-          client_id: client.id,
-          date: r.date,
-          page_url: r.page_url,
-          clicks: r.clicks,
-          impressions: r.impressions,
-          avg_position: r.avg_position,
-        }));
-        // Batch upsert in chunks of 500
-        for (let i = 0; i < rows.length; i += 500) {
-          await supabaseAdmin.from('bing_page_stats').upsert(rows.slice(i, i + 500), { onConflict: 'client_id,date,page_url' });
-        }
-      }
-
-      // ── Bing news ──
-      const news = await getBingNews(client.name);
-      if (news.length > 0) {
-        await supabaseAdmin.from('bing_news_mentions').upsert(
-          news.map(n => ({ client_id: client.id, date: endDate, ...n })),
-          { onConflict: 'client_id,url' }
-        );
-      }
-
+      // Note: bing_page_stats and bing_news_mentions tables removed (unused by dashboard).
+      // sync-bing now only verifies BWT connectivity per client.
       results[client.slug] = {
         bwtSite: bwtSiteUrl,
-        pageStatsRows: pageStats.length,
-        newsFound: news.length,
+        status: 'matched',
       };
     } catch (err: any) {
       results[client.slug] = { error: err.message };

@@ -10,7 +10,7 @@ const TIMEOUT_MS = 25000;
 /**
  * GET /api/cron/sync-ads
  * Daily cron: Sync yesterday's Google Ads data to raw tables
- * Tables: ads_campaign_metrics, ads_ad_group_metrics, ads_keyword_metrics, google_ads_ad_performance
+ * Tables: ads_campaign_metrics, ads_ad_group_metrics, campaign_conversion_actions, campaign_search_terms
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-ads] Processing ${clientsWithAds.length} clients`);
 
-    let totalCampaigns = 0, totalAdGroups = 0, totalKeywords = 0, totalAds = 0, totalConversions = 0, totalSearchTerms = 0;
+    let totalCampaigns = 0, totalAdGroups = 0, totalConversions = 0, totalSearchTerms = 0;
     const errors: string[] = [];
     const cleanMccId = mccId?.replace(/-|\s/g, '');
 
@@ -104,12 +104,10 @@ export async function GET(request: NextRequest) {
             }
           };
 
-          // Fetch all 6 report types in parallel
-          const [campaigns, adGroups, keywords, ads, conversions, searchTerms] = await Promise.all([
+          // Fetch all 4 report types in parallel
+          const [campaigns, adGroups, conversions, searchTerms] = await Promise.all([
             fetchWithRetry(() => fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'campaigns'),
             fetchWithRetry(() => fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'adGroups'),
-            fetchWithRetry(() => fetchKeywordMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'keywords'),
-            fetchWithRetry(() => fetchAdPerformance(apiUrl, headers, gaqlDate, client.id, targetDate), 'ads'),
             fetchWithRetry(() => fetchConversionActions(apiUrl, headers, gaqlDate, client.id, targetDate), 'conversions'),
             fetchWithRetry(() => fetchSearchTerms(apiUrl, headers, gaqlDate, client.id, targetDate), 'searchTerms'),
           ]);
@@ -123,49 +121,44 @@ export async function GET(request: NextRequest) {
             const { error } = await supabaseAdmin.from('ads_ad_group_metrics').upsert(adGroups, { onConflict: 'client_id,campaign_id,ad_group_id,date' });
             if (error) console.log(`[sync-ads] AdGroup upsert error ${client.name}:`, error.message);
           }
-          if (keywords.length > 0) {
-            const { error } = await supabaseAdmin.from('ads_keyword_metrics').upsert(keywords, { onConflict: 'client_id,campaign_id,keyword,date' });
-            if (error) console.log(`[sync-ads] Keyword upsert error ${client.name}:`, error.message);
-          }
-          if (ads.length > 0) {
-            const { error } = await supabaseAdmin.from('google_ads_ad_performance').upsert(ads, { onConflict: 'client_id,ad_id,date' });
-            if (error) console.log(`[sync-ads] Ad upsert error ${client.name}:`, error.message);
-          }
           if (conversions.length > 0) {
             const { error } = await supabaseAdmin.from('campaign_conversion_actions').upsert(conversions, { onConflict: 'client_id,campaign_id,date,conversion_action_name' });
             if (error) console.log(`[sync-ads] Conversion upsert error ${client.name}:`, error.message);
           }
           if (searchTerms.length > 0) {
-            const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(searchTerms, { onConflict: 'client_id,campaign_id,date,search_term' });
-            if (error) console.log(`[sync-ads] SearchTerm upsert error ${client.name}:`, error.message);
+            // Batch upsert search terms (can be large — 500 rows per batch)
+            const UPSERT_BATCH = 500;
+            for (let j = 0; j < searchTerms.length; j += UPSERT_BATCH) {
+              const chunk = searchTerms.slice(j, j + UPSERT_BATCH);
+              const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(chunk, { onConflict: 'client_id,campaign_id,date,search_term' });
+              if (error) { console.log(`[sync-ads] SearchTerm upsert error ${client.name} batch ${j}:`, error.message); break; }
+            }
           }
 
-          return { campaigns: campaigns.length, adGroups: adGroups.length, keywords: keywords.length, ads: ads.length, conversions: conversions.length, searchTerms: searchTerms.length };
+          return { campaigns: campaigns.length, adGroups: adGroups.length, conversions: conversions.length, searchTerms: searchTerms.length };
         } catch (err: any) {
           errors.push(`${client.name}: ${err.message}`);
-          return { campaigns: 0, adGroups: 0, keywords: 0, ads: 0, conversions: 0, searchTerms: 0 };
+          return { campaigns: 0, adGroups: 0, conversions: 0, searchTerms: 0 };
         }
       }));
 
       results.forEach((r) => {
         totalCampaigns += r.campaigns;
         totalAdGroups += r.adGroups;
-        totalKeywords += r.keywords;
-        totalAds += r.ads;
         totalConversions += r.conversions;
         totalSearchTerms += r.searchTerms;
       });
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalKeywords} keywords, ${totalAds} ads, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
+    console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
 
     return NextResponse.json({
       success: true,
       date: targetDate,
       clients: clientsWithAds.length,
-      records: { campaigns: totalCampaigns, adGroups: totalAdGroups, keywords: totalKeywords, ads: totalAds, conversions: totalConversions, searchTerms: totalSearchTerms },
-      total: totalCampaigns + totalAdGroups + totalKeywords + totalAds + totalConversions + totalSearchTerms,
+      records: { campaigns: totalCampaigns, adGroups: totalAdGroups, conversions: totalConversions, searchTerms: totalSearchTerms },
+      total: totalCampaigns + totalAdGroups + totalConversions + totalSearchTerms,
       errors: errors.length > 0 ? errors : undefined,
       duration,
     });
@@ -269,88 +262,6 @@ async function fetchAdGroupMetrics(apiUrl: string, headers: Record<string, strin
       ctr: Math.round(parseFloat(m.ctr || '0') * 10000) / 100,
       cpc: Math.round(parseFloat(m.averageCpc || m.average_cpc || '0') / 10000) / 100,
       cpa: parseFloat(m.conversions || '0') > 0 ? Math.round(costMicros / parseFloat(m.conversions || '1') / 10000) / 100 : 0,
-    };
-  });
-}
-
-async function fetchKeywordMetrics(apiUrl: string, headers: Record<string, string>, gaqlDate: string, clientId: string, date: string) {
-  const query = `
-    SELECT campaign.id, ad_group.id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
-      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions,
-      metrics.ctr, metrics.average_cpc, metrics.cost_per_conversion,
-      ad_group_criterion.quality_info.quality_score
-    FROM keyword_view
-    WHERE segments.date = '${gaqlDate}' AND campaign.status != 'REMOVED'
-  `;
-
-  const rows = await executeGAQL(apiUrl, headers, query);
-  return rows.map((r: any) => {
-    const m = r.metrics || {};
-    const kw = r.adGroupCriterion?.keyword || r.ad_group_criterion?.keyword || {};
-    const qi = r.adGroupCriterion?.qualityInfo || r.ad_group_criterion?.quality_info || {};
-    const costMicros = parseInt(m.costMicros || m.cost_micros || '0');
-    return {
-      client_id: clientId,
-      date,
-      campaign_id: r.campaign?.id?.toString() || '',
-      ad_group_id: r.adGroup?.id?.toString() || r.ad_group?.id?.toString() || '',
-      keyword: kw.text || '',
-      match_type: kw.matchType || kw.match_type || '',
-      impressions: parseInt(m.impressions || '0'),
-      clicks: parseInt(m.clicks || '0'),
-      cost: Math.round(costMicros / 10000) / 100,
-      conversions: parseFloat(m.conversions || '0'),
-      ctr: Math.round(parseFloat(m.ctr || '0') * 10000) / 100,
-      cpc: Math.round(parseFloat(m.averageCpc || m.average_cpc || '0') / 10000) / 100,
-      cpa: parseFloat(m.conversions || '0') > 0 ? Math.round(costMicros / parseFloat(m.conversions || '1') / 10000) / 100 : 0,
-      quality_score: parseInt(qi.qualityScore || qi.quality_score || '0') || null,
-    };
-  });
-}
-
-async function fetchAdPerformance(apiUrl: string, headers: Record<string, string>, gaqlDate: string, clientId: string, date: string) {
-  const query = `
-    SELECT campaign.id, campaign.name, ad_group.id, ad_group.name,
-      ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.ad.final_urls,
-      ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions,
-      ad_group_ad.status, ad_group_ad.ad_strength,
-      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions,
-      metrics.ctr, metrics.average_cpc, metrics.cost_per_conversion
-    FROM ad_group_ad
-    WHERE segments.date = '${gaqlDate}' AND campaign.status != 'REMOVED' AND ad_group_ad.status != 'REMOVED'
-  `;
-
-  const rows = await executeGAQL(apiUrl, headers, query);
-  return rows.map((r: any) => {
-    const m = r.metrics || {};
-    const ad = r.adGroupAd?.ad || r.ad_group_ad?.ad || {};
-    const rsa = ad.responsiveSearchAd || ad.responsive_search_ad || {};
-    const costMicros = parseInt(m.costMicros || m.cost_micros || '0');
-    const clicks = parseInt(m.clicks || '0');
-    const conversions = parseFloat(m.conversions || '0');
-
-    return {
-      client_id: clientId,
-      date,
-      campaign_id: r.campaign?.id?.toString() || '',
-      campaign_name: r.campaign?.name || '',
-      ad_group_id: r.adGroup?.id?.toString() || r.ad_group?.id?.toString() || '',
-      ad_group_name: r.adGroup?.name || r.ad_group?.name || '',
-      ad_id: ad.id?.toString() || '',
-      ad_type: ad.type || '',
-      headlines: (rsa.headlines || []).map((h: any) => h.text).filter(Boolean),
-      descriptions: (rsa.descriptions || []).map((d: any) => d.text).filter(Boolean),
-      final_url: (ad.finalUrls || ad.final_urls || [])[0] || '',
-      ad_status: r.adGroupAd?.status || r.ad_group_ad?.status || '',
-      ad_strength: r.adGroupAd?.adStrength || r.ad_group_ad?.ad_strength || '',
-      impressions: parseInt(m.impressions || '0'),
-      clicks,
-      ctr: Math.round(parseFloat(m.ctr || '0') * 10000) / 100,
-      cost: Math.round(costMicros / 10000) / 100,
-      average_cpc: clicks > 0 ? Math.round(costMicros / clicks / 10000) / 100 : 0,
-      conversions,
-      conversion_rate: clicks > 0 ? Math.round((conversions / clicks) * 10000) / 100 : 0,
-      cost_per_conversion: conversions > 0 ? Math.round(costMicros / conversions / 10000) / 100 : 0,
     };
   });
 }
