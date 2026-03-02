@@ -467,7 +467,7 @@ export default function GoogleAdsPage() {
   const totalSpend = dailyData.reduce((sum: number, d: any) => sum + (d.ad_spend || 0), 0);
   const totalImpressions = dailyData.reduce((sum: number, d: any) => sum + (d.ads_impressions || 0), 0);
   const totalClicks = dailyData.reduce((sum: number, d: any) => sum + (d.ads_clicks || 0), 0);
-  const totalConversions = formConversions; // From campaign_conversion_actions (Google Ads API)
+  const totalConversions = formConversions; // From ads_campaign_metrics (campaign-level, correct)
 
   const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
   const cpc = totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0.00';
