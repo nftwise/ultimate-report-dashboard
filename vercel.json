@@ -3,25 +3,7 @@
   "regions": ["iad1"],
   "functions": {
     "app/api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "app/api/admin/run-rollup/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/fix-summary-lag/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/sync-ga4/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/sync-ads/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/sync-gsc/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/sync-gbp/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   },
   "crons": [
