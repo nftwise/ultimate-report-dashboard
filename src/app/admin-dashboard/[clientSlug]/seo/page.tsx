@@ -905,7 +905,7 @@ export default function SEOPage() {
                       <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{avgConversionRate}%</span>
                     </div>
                     <div style={{ width: '100%', height: '10px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(parseFloat(avgConversionRate) * 10, 100)}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
+                      <div style={{ width: `${Math.min(parseFloat(avgConversionRate) * 5, 100)}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
                     </div>
                   </div>
                   <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '20px 0 8px 0', textTransform: 'uppercase' }}>CTR Performance</p>
