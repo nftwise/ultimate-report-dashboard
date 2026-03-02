@@ -483,7 +483,7 @@ export default function SEOPage() {
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="seo" />
 
       {/* Date controls */}
-      <div className="sticky top-0 z-40 flex items-center gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+      <div className="sticky top-14 md:top-0 z-30 flex items-center gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
         <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
           {[7, 30, 90].map((days) => (
             <button key={days} onClick={() => handlePresetDays(days as 7 | 30 | 90)}

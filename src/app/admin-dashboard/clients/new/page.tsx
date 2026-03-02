@@ -116,7 +116,7 @@ export default function NewClientPage() {
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Header */}
-      <nav className="sticky top-0 z-50 flex items-center gap-4 px-8 py-4" style={{
+      <nav className="sticky top-14 md:top-0 z-30 flex items-center gap-4 px-8 py-4" style={{
         background: 'rgba(245, 241, 237, 0.95)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44, 36, 25, 0.1)',

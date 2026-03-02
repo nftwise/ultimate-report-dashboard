@@ -122,7 +122,7 @@ export default function UsersPage() {
   return (
     <AdminLayout>
       {/* Sticky header — same pattern as all other pages */}
-      <div className="sticky top-0 z-40 px-6 py-3" style={{
+      <div className="sticky top-14 md:top-0 z-30 px-6 py-3" style={{
         background: 'rgba(245,241,237,0.98)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44,36,25,0.08)',
