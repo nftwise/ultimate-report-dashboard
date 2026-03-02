@@ -79,7 +79,7 @@ export default function ExecutiveSummaryCards({
       {/* 4-Grid Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
         gap: '16px'
       }}>
         {/* Card 1: Total Ad Spend */}

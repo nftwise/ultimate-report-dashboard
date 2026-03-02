@@ -58,6 +58,7 @@ export default function GBPPage() {
   const [prevDailyData, setPrevDailyData] = useState<GBPDailyMetrics[]>([]);
   const [location, setLocation] = useState<GBPLocation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   // Cap at yesterday — GBP cron syncs yesterday's data. Zero-row filter handles any
   // days where the API didn't deliver (those rows won't exist in gbp_location_daily_metrics).
@@ -136,6 +137,7 @@ export default function GBPPage() {
     const fetchMetrics = async () => {
       if (!client) return;
 
+      setChartLoading(true);
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         // Cap to yesterday — GBP cron syncs up to yesterday. Zero-row filter handles missing days.
@@ -304,6 +306,8 @@ export default function GBPPage() {
         setPrevDailyData(prevMerged);
       } catch (error) {
         console.error('Error fetching GBP metrics:', error);
+      } finally {
+        setChartLoading(false);
       }
     };
 
@@ -312,8 +316,12 @@ export default function GBPPage() {
 
   if (loading || !client) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <p style={{ color: '#2c2419' }}>Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading...</p>
+        </div>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -429,6 +437,14 @@ export default function GBPPage() {
         </div>
 
         <div>
+            {/* Empty state for all-zero data */}
+            {!chartLoading && totalViews === 0 && totalPhoneCalls === 0 && totalWebsiteClicks === 0 && totalDirections === 0 && (
+              <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(255,255,255,0.9)', borderRadius: 12, margin: '24px 0', color: '#2c2419', opacity: 0.6 }}>
+                <p style={{ fontSize: 16, marginBottom: 8 }}>No GBP data for this period</p>
+                <p style={{ fontSize: 13 }}>GBP data typically has a 3–7 day lag. Try selecting an earlier date range.</p>
+              </div>
+            )}
+
             {/* Section 1: Page Header */}
             <div className="mb-12">
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>LOCAL SEO</span>
@@ -441,7 +457,7 @@ export default function GBPPage() {
             {/* TIER 1: KPI Cards (4 cards) */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
               gap: '16px',
               marginBottom: '32px'
             }}>
@@ -475,7 +491,7 @@ export default function GBPPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                   <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: 0, textTransform: 'uppercase' }}>Phone Calls</p>
-                  <span title="Số lần khách nhấn nút gọi trên Google Maps / Search. Bao gồm cả cuộc gọi chưa kết nối (giới hạn của Google API)." style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help', lineHeight: 1 }}>ⓘ</span>
+                  <span title="Number of times customers tapped the call button (includes unanswered calls)" style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help', lineHeight: 1 }}>ⓘ</span>
                 </div>
                 <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{fmtNum(totalPhoneCalls)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -547,25 +563,31 @@ export default function GBPPage() {
 
               {/* Line Chart */}
               <div style={{ height: '350px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44, 36, 25, 0.1)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#5c5850' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid rgba(44, 36, 25, 0.1)',
-                        borderRadius: '8px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2} dot={false} name="Views" />
-                    <Line type="monotone" dataKey="calls" stroke="#10b981" strokeWidth={2} dot={false} name="Calls" />
-                    <Line type="monotone" dataKey="webClicks" stroke="#d9a854" strokeWidth={2} dot={false} name="Web Clicks" />
-                    <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={false} name="Directions" />
-                  </LineChart>
-                </ResponsiveContainer>
+                {chartLoading ? (
+                  <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 32, height: 32, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44, 36, 25, 0.1)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#5c5850' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          border: '1px solid rgba(44, 36, 25, 0.1)',
+                          borderRadius: '8px',
+                          fontSize: '11px'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2} dot={false} name="Views" />
+                      <Line type="monotone" dataKey="calls" stroke="#10b981" strokeWidth={2} dot={false} name="Calls" />
+                      <Line type="monotone" dataKey="webClicks" stroke="#d9a854" strokeWidth={2} dot={false} name="Web Clicks" />
+                      <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={false} name="Directions" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
 
               {/* Summary Stats Below Chart */}

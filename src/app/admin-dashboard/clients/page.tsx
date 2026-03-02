@@ -156,7 +156,9 @@ export default function ClientsManagementPage() {
   // Derived stats
   const activeClients = clients.filter(c => c.is_active);
   const cancelledClients = clients.filter(c => !c.is_active);
-  const churnRate = clients.length > 0 ? ((cancelledClients.length / clients.length) * 100).toFixed(1) : '0.0';
+  const churnRate = clients.length > 0
+    ? Math.round((cancelledClients.length / clients.length) * 100)
+    : 0;
   const adsClients = clients.filter(c => c.has_ads && c.is_active).length;
   const seoClients = clients.filter(c => c.has_seo && c.is_active).length;
 
@@ -376,6 +378,11 @@ export default function ClientsManagementPage() {
               {sortedAndFiltered.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '48px', color: '#9ca3af', fontSize: '13px' }}>
                   {searchQuery ? 'No clients match your search' : 'No clients found'}
+                  {!searchQuery && !showCancelled && cancelledClients.length > 0 && (
+                    <p style={{ fontSize: 13, marginTop: 8, opacity: 0.7 }}>
+                      {cancelledClients.length} cancelled client{cancelledClients.length !== 1 ? 's' : ''} hidden — toggle "Show Cancelled" to view
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -396,7 +403,7 @@ export default function ClientsManagementPage() {
               <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>Cancel Contract</h3>
             </div>
             <p className="text-sm mb-6" style={{ color: '#5c5850' }}>
-              Client sẽ bị đánh dấu Cancelled và không hiển thị trong dashboard. Có thể reactivate bất cứ lúc nào.
+              Client will be marked as Cancelled. All active services will be noted as discontinued. You can reactivate at any time.
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmCancel(null)} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>Keep Active</button>

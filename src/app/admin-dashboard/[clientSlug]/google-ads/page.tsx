@@ -190,6 +190,7 @@ export default function GoogleAdsPage() {
   const [prevPeriodData, setPrevPeriodData] = useState<{ spend: number; conversions: number; clicks: number; impressions: number }>({ spend: 0, conversions: 0, clicks: 0, impressions: 0 });
   const [showAdGroups, setShowAdGroups] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
@@ -241,6 +242,7 @@ export default function GoogleAdsPage() {
     const fetchMetrics = async () => {
       if (!client) return;
 
+      setChartLoading(true);
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
@@ -293,6 +295,8 @@ export default function GoogleAdsPage() {
         setDailyData(aggregated as DailyMetrics[]);
       } catch (error) {
         console.error('Error fetching metrics:', error);
+      } finally {
+        setChartLoading(false);
       }
     };
 
@@ -446,8 +450,12 @@ export default function GoogleAdsPage() {
 
   if (loading || !client) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <p style={{ color: '#2c2419' }}>Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading...</p>
+        </div>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -519,7 +527,7 @@ export default function GoogleAdsPage() {
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Date Controls */}
-        <div className="flex items-center justify-end gap-3 mb-6">
+        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
             {[7, 30, 90].map((days) => (
               <button
@@ -562,8 +570,21 @@ export default function GoogleAdsPage() {
 
             {/* Section 3: Visual Trend Analysis */}
             <div className="mb-12">
-              <SpendVsLeadsComboChart data={dailyData} height={350} />
+              {chartLoading ? (
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 32, height: 32, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : dailyData.length > 0 ? (
+                <SpendVsLeadsComboChart data={dailyData} height={350} />
+              ) : null}
             </div>
+
+            {/* Empty state for no data */}
+            {dailyData.length === 0 && !loading && (
+              <div style={{ textAlign: 'center', padding: '48px', color: '#2c2419', opacity: 0.5 }}>
+                <p style={{ fontSize: 16 }}>No Google Ads data for this date range</p>
+              </div>
+            )}
 
             {/* Section 3.5: Device Split */}
             {(totalMobileSessions > 0 || totalDesktopSessions > 0) && (
@@ -616,10 +637,12 @@ export default function GoogleAdsPage() {
             {/* Section 4: Technical Deep-Dive (60/40 Layout) */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '60% 40%',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
               gap: '24px',
               marginBottom: '32px'
-            }}>
+            }}
+            className="xl:grid-cols-[60%_40%]"
+            >
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
