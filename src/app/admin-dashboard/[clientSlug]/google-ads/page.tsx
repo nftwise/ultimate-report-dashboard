@@ -11,6 +11,7 @@ import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerm
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
+import { fmtNum, fmtCurrency } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -591,7 +592,7 @@ export default function GoogleAdsPage() {
                     <p style={{ fontSize: '28px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0', fontVariantNumeric: 'tabular-nums' }}>
                       {(totalMobileSessions + totalDesktopSessions) > 0 ? ((totalMobileSessions / (totalMobileSessions + totalDesktopSessions)) * 100).toFixed(1) : '0.0'}%
                     </p>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{totalMobileSessions.toLocaleString()} sessions</p>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{fmtNum(totalMobileSessions)} sessions</p>
                   </div>
                   <div style={{
                     background: 'rgba(255, 255, 255, 0.9)',
@@ -606,7 +607,7 @@ export default function GoogleAdsPage() {
                     <p style={{ fontSize: '28px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0', fontVariantNumeric: 'tabular-nums' }}>
                       {(totalMobileSessions + totalDesktopSessions) > 0 ? ((totalDesktopSessions / (totalMobileSessions + totalDesktopSessions)) * 100).toFixed(1) : '0.0'}%
                     </p>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{totalDesktopSessions.toLocaleString()} sessions</p>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{fmtNum(totalDesktopSessions)} sessions</p>
                   </div>
                 </div>
               </div>
@@ -688,7 +689,7 @@ export default function GoogleAdsPage() {
                         color: '#10b981',
                         margin: 0
                       }}>
-                        ${cpa}
+                        {fmtCurrency(parseFloat(cpa))}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -721,7 +722,7 @@ export default function GoogleAdsPage() {
                         color: '#d9a854',
                         margin: 0
                       }}>
-                        ${cpc}
+                        {fmtCurrency(parseFloat(cpc))}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -729,7 +730,7 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        {totalClicks} clicks total
+                        {fmtNum(totalClicks)} clicks total
                       </p>
                     </div>
 
@@ -762,7 +763,7 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        {totalImpressions} impressions
+                        {fmtNum(totalImpressions)} impressions
                       </p>
                     </div>
 
@@ -787,7 +788,7 @@ export default function GoogleAdsPage() {
                         color: '#c4704f',
                         margin: 0
                       }}>
-                        {totalImpressions.toLocaleString()}
+                        {fmtNum(totalImpressions)}
                       </p>
                       <p style={{
                         fontSize: '10px',
@@ -795,7 +796,7 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        from {totalClicks} clicks
+                        from {fmtNum(totalClicks)} clicks
                       </p>
                     </div>
                   </div>
@@ -828,7 +829,7 @@ export default function GoogleAdsPage() {
                     lineHeight: '1.5'
                   }}>
                     {totalConversions > 0
-                      ? `${totalConversions} conversions from ${totalClicks} clicks (${ctr}% CTR). Average cost per conversion: $${cpa}.`
+                      ? `${fmtNum(totalConversions)} conversions from ${fmtNum(totalClicks)} clicks (${ctr}% CTR). Average cost per conversion: ${fmtCurrency(parseFloat(cpa))}.`
                       : 'No conversion data available for this period.'}
                   </p>
                 </div>

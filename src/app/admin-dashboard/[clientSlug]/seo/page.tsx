@@ -9,6 +9,7 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
+import { fmtNum } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -522,7 +523,7 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>User Sessions</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalSessions.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{fmtNum(totalSessions)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: sessionsMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
                     {sessionsMoM.pct >= 0 ? '+' : ''}{sessionsMoM.pct.toFixed(1)}%
@@ -541,7 +542,7 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Users</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalUsers.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{fmtNum(totalUsers)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: usersMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
                     {usersMoM.pct >= 0 ? '+' : ''}{usersMoM.pct.toFixed(1)}%
@@ -579,7 +580,7 @@ export default function SEOPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Organic Traffic</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalOrganicTraffic.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{fmtNum(totalOrganicTraffic)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: organicMoM.pct >= 0 ? '#10b981' : '#ef4444' }}>
                     {organicMoM.pct >= 0 ? '+' : ''}{organicMoM.pct.toFixed(1)}%
@@ -658,7 +659,7 @@ export default function SEOPage() {
                     color: '#c4704f',
                     margin: '0 0 4px 0'
                   }}>
-                    {totalImpressions.toLocaleString()}
+                    {fmtNum(totalImpressions)}
                   </p>
                   <p style={{
                     fontSize: '9px',
@@ -690,7 +691,7 @@ export default function SEOPage() {
                     color: '#10b981',
                     margin: '0 0 4px 0'
                   }}>
-                    {totalClicks.toLocaleString()}
+                    {fmtNum(totalClicks)}
                   </p>
                   <p style={{
                     fontSize: '9px',
@@ -767,7 +768,7 @@ export default function SEOPage() {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>All Sessions</span>
-                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0' }}>{s1.toLocaleString()}</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0' }}>{fmtNum(s1)}</span>
                         </div>
                         <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
                           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #9db5a0, #b8ceba)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
@@ -788,7 +789,7 @@ export default function SEOPage() {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Organic Traffic</span>
-                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f' }}>{s2.toLocaleString()}</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#c4704f' }}>{fmtNum(s2)}</span>
                         </div>
                         <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
                           <div style={{ width: `${Math.max((s2 / maxVal) * 100, 2)}%`, height: '100%', background: 'linear-gradient(90deg, #c4704f, #d4845f)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
@@ -809,7 +810,7 @@ export default function SEOPage() {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', fontWeight: '600', color: '#5c5850', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversions</span>
-                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#10b981' }}>{s3.toLocaleString()}</span>
+                          <span style={{ fontSize: '22px', fontWeight: '700', color: '#10b981' }}>{fmtNum(s3)}</span>
                         </div>
                         <div style={{ width: '100%', height: '36px', background: 'rgba(44,36,25,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
                           <div style={{ width: `${Math.max((s3 / maxVal) * 100, 1)}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: '8px', display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
@@ -1000,7 +1001,7 @@ export default function SEOPage() {
                     {totalBlogSessions > 0 && (
                       <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
                         <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Blog Sessions</p>
-                        <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalBlogSessions.toLocaleString()}</p>
+                        <p style={{ fontSize: '20px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{fmtNum(totalBlogSessions)}</p>
                       </div>
                     )}
                     <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
@@ -1094,7 +1095,7 @@ export default function SEOPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
                       <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
-                        {item.value.toLocaleString()} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
+                        {fmtNum(item.value)} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1112,7 +1113,7 @@ export default function SEOPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
                       <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
-                        {item.value.toLocaleString()} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
+                        {fmtNum(item.value)} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1132,7 +1133,7 @@ export default function SEOPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                         <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: '500' }}>{item.label}</span>
                         <span style={{ fontSize: '11px', fontWeight: '700', color: item.color }}>
-                          {item.value.toLocaleString()} ({total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%)
+                          {fmtNum(item.value)} ({total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%)
                         </span>
                       </div>
                       <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1168,7 +1169,7 @@ export default function SEOPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                           <span style={{ fontSize: '11px', fontWeight: '600', color: '#2c2419' }}>{source.name}</span>
                           <span style={{ fontSize: '11px', fontWeight: '700', color: source.color }}>
-                            {source.value.toLocaleString()} ({percentage}%)
+                            {fmtNum(source.value)} ({percentage}%)
                           </span>
                         </div>
                         <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1212,8 +1213,8 @@ export default function SEOPage() {
                 margin: 0,
                 lineHeight: '1.5'
               }}>
-                Your site appeared in search results <strong>{totalImpressions.toLocaleString()} times</strong>, generating <strong>{totalClicks.toLocaleString()} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
-                Organic search traffic generated <strong>{totalOrganicTraffic.toLocaleString()} sessions</strong> with <strong>{avgEngagementRate}% engagement rate</strong>.
+                Your site appeared in search results <strong>{fmtNum(totalImpressions)} times</strong>, generating <strong>{fmtNum(totalClicks)} clicks</strong> with an average CTR of <strong>{avgCtr}%</strong>.
+                Organic search traffic generated <strong>{fmtNum(totalOrganicTraffic)} sessions</strong> with <strong>{avgEngagementRate}% engagement rate</strong>.
                 Keywords improved (period over period): <strong>{totalKeywordsImproved}</strong> | Keywords declined: <strong>{totalKeywordsDeclined}</strong>.
                 {sessionsMoM.pct > 0 ? `Sessions are up ${sessionsMoM.pct.toFixed(1)}% compared to the previous period.` : sessionsMoM.pct < 0 ? `Sessions are down ${Math.abs(sessionsMoM.pct).toFixed(1)}% compared to the previous period.` : ''}
               </p>

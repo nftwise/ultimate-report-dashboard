@@ -8,6 +8,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
+import { fmtNum } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -454,7 +455,7 @@ export default function GBPPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Profile Views</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{totalViews.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{fmtNum(totalViews)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: momViews.type === 'up' ? '#10b981' : momViews.type === 'down' ? '#ef4444' : '#9ca3af' }}>
                     {momViews.type === 'up' ? '\u25B2' : momViews.type === 'down' ? '\u25BC' : ''} {momViews.pct}
@@ -476,7 +477,7 @@ export default function GBPPage() {
                   <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: 0, textTransform: 'uppercase' }}>Phone Calls</p>
                   <span title="Số lần khách nhấn nút gọi trên Google Maps / Search. Bao gồm cả cuộc gọi chưa kết nối (giới hạn của Google API)." style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help', lineHeight: 1 }}>ⓘ</span>
                 </div>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{totalPhoneCalls.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{fmtNum(totalPhoneCalls)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: momCalls.type === 'up' ? '#10b981' : momCalls.type === 'down' ? '#ef4444' : '#9ca3af' }}>
                     {momCalls.type === 'up' ? '\u25B2' : momCalls.type === 'down' ? '\u25BC' : ''} {momCalls.pct}
@@ -495,7 +496,7 @@ export default function GBPPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Website Clicks</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>{totalWebsiteClicks.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>{fmtNum(totalWebsiteClicks)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: momClicks.type === 'up' ? '#10b981' : momClicks.type === 'down' ? '#ef4444' : '#9ca3af' }}>
                     {momClicks.type === 'up' ? '\u25B2' : momClicks.type === 'down' ? '\u25BC' : ''} {momClicks.pct}
@@ -514,7 +515,7 @@ export default function GBPPage() {
                 boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
               }}>
                 <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Directions</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>{totalDirections.toLocaleString()}</p>
+                <p style={{ fontSize: '32px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>{fmtNum(totalDirections)}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: momDirections.type === 'up' ? '#10b981' : momDirections.type === 'down' ? '#ef4444' : '#9ca3af' }}>
                     {momDirections.type === 'up' ? '\u25B2' : momDirections.type === 'down' ? '\u25BC' : ''} {momDirections.pct}
@@ -571,7 +572,7 @@ export default function GBPPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginTop: '24px' }}>
                 <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #9db5a0', textAlign: 'center' }}>
                   <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Total Actions</p>
-                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>{totalActions.toLocaleString()}</p>
+                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>{fmtNum(totalActions)}</p>
                   <p style={{ fontSize: '9px', color: '#9ca3af', margin: '0' }}>All interactions</p>
                 </div>
 
@@ -621,15 +622,15 @@ export default function GBPPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Phone Calls</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalPhoneCalls}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(totalPhoneCalls)}</p>
                   </div>
                   <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #d9a854' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Web Clicks</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{totalWebsiteClicks}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{fmtNum(totalWebsiteClicks)}</p>
                   </div>
                   <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #c4704f' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Directions</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{totalDirections}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{fmtNum(totalDirections)}</p>
                   </div>
                 </div>
 
@@ -711,11 +712,11 @@ export default function GBPPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #10b981' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Total Reviews</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{latestReviews}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(latestReviews)}</p>
                   </div>
                   <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
                     <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>New Reviews</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalNewReviews}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{fmtNum(totalNewReviews)}</p>
                     <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>This period</p>
                   </div>
                   <div style={{ background: daysSinceReview !== null && daysSinceReview > 30 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: `3px solid ${daysSinceReview !== null && daysSinceReview > 30 ? '#ef4444' : '#d9a854'}` }}>
@@ -752,7 +753,7 @@ export default function GBPPage() {
                 <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
                   <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Photo Views</p>
                   <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>
-                    {(totalBusinessPhotoViews + (totalCustomerPhotoViews || 0)).toLocaleString()}
+                    {fmtNum(totalBusinessPhotoViews + (totalCustomerPhotoViews || 0))}
                   </p>
                   <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>Total photo views</p>
                 </div>
@@ -782,11 +783,11 @@ export default function GBPPage() {
                   </div>
                   <div style={{ background: 'rgba(157, 181, 160, 0.1)', borderRadius: '12px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
                     <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Post Views</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{totalPostsViews.toLocaleString()}</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{fmtNum(totalPostsViews)}</p>
                   </div>
                   <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', padding: '12px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
                     <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Post Actions</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#10b981', margin: 0 }}>{totalPostsActions.toLocaleString()}</p>
+                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(totalPostsActions)}</p>
                   </div>
                 </div>
 
@@ -861,10 +862,10 @@ export default function GBPPage() {
                 GBP Key Insights
               </p>
               <p style={{ fontSize: '11px', color: '#5c5850', margin: 0, lineHeight: '1.5' }}>
-                Your Google Business Profile received <strong>{totalViews.toLocaleString()} views</strong> with an engagement rate of <strong>{engagementRate}%</strong>.
-                Customers took <strong>{totalActions} actions</strong> including <strong>{totalPhoneCalls} phone calls</strong>, <strong>{totalWebsiteClicks} website clicks</strong>, and <strong>{totalDirections} direction requests</strong>.
-                {latestRating > 0 && ` Your business maintains a <strong>${latestRating.toFixed(1)}-star rating</strong> with <strong>${latestReviews} total reviews</strong>.`}
-                {totalNewReviews > 0 && ` You received <strong>${totalNewReviews} new reviews</strong> during this period.`}
+                Your Google Business Profile received <strong>{fmtNum(totalViews)} views</strong> with an engagement rate of <strong>{engagementRate}%</strong>.
+                Customers took <strong>{fmtNum(totalActions)} actions</strong> including <strong>{fmtNum(totalPhoneCalls)} phone calls</strong>, <strong>{fmtNum(totalWebsiteClicks)} website clicks</strong>, and <strong>{fmtNum(totalDirections)} direction requests</strong>.
+                {latestRating > 0 && ` Your business maintains a <strong>${latestRating.toFixed(1)}-star rating</strong> with <strong>${fmtNum(latestReviews)} total reviews</strong>.`}
+                {totalNewReviews > 0 && ` You received <strong>${fmtNum(totalNewReviews)} new reviews</strong> during this period.`}
               </p>
             </div>
         </div>

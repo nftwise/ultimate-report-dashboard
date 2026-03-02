@@ -8,6 +8,7 @@ import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
+import { fmtNum, fmtCurrency } from '@/lib/format';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
@@ -334,10 +335,10 @@ export default function ClientDetailPage() {
           {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
           <div className="grid grid-cols-4 gap-6 mb-8">
             {[
-              { label: 'Total Leads', value: totalLeads, trend: leadTrendData.pct, trendType: leadTrendData.type },
-              { label: 'Website Sessions', value: sessions, trend: sessionsTrendData.pct, trendType: sessionsTrendData.type },
-              { label: 'Ad Spend', value: `$${Math.round(adSpend)}`, trend: adSpendTrendData.pct, trendType: adSpendTrendData.type },
-              { label: 'Cost Per Lead', value: `$${costPerLead}`, trend: cplTrendData.pct, trendType: cplTrendData.type }
+              { label: 'Total Leads', value: fmtNum(totalLeads), trend: leadTrendData.pct, trendType: leadTrendData.type },
+              { label: 'Website Sessions', value: fmtNum(sessions), trend: sessionsTrendData.pct, trendType: sessionsTrendData.type },
+              { label: 'Ad Spend', value: fmtCurrency(adSpend, 0), trend: adSpendTrendData.pct, trendType: adSpendTrendData.type },
+              { label: 'Cost Per Lead', value: fmtCurrency(costPerLead), trend: cplTrendData.pct, trendType: cplTrendData.type }
             ].map((metric, i) => (
               <div key={i} className="rounded-2xl p-6" style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -441,11 +442,11 @@ export default function ClientDetailPage() {
                 }}>
                   <div>
                     <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Sessions</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{Math.round(sessions / Math.max(dailyData.length, 1))}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Leads</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{Math.round(totalLeads / Math.max(dailyData.length, 1))}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
                   </div>
                 </div>
               </div>
@@ -483,7 +484,7 @@ export default function ClientDetailPage() {
                     }}>
                       <div style={{ fontSize: '28px', marginBottom: '8px' }}>{channel.icon}</div>
                       <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>{channel.label}</p>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: channel.color }}>{channel.value}</div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: channel.color }}>{fmtNum(channel.value)}</div>
                       <p className="text-xs mt-1" style={{ color: '#5c5850' }}>Conversions</p>
                       <span className="text-xs font-semibold px-2 py-0.5 rounded mt-2 inline-block" style={{
                         background: channel.mom.type === 'up' ? 'rgba(157, 181, 160, 0.15)' : channel.mom.type === 'down' ? 'rgba(196, 112, 79, 0.15)' : 'rgba(92, 88, 80, 0.1)',
@@ -511,10 +512,10 @@ export default function ClientDetailPage() {
                 {/* SEO Metrics Grid - Real Data from Database */}
                 <div className="grid grid-cols-4 gap-4 mb-8">
                   {[
-                    { label: 'Search Impressions', value: seoImpressions.toLocaleString(), color: '#9db5a0' },
-                    { label: 'Clicks', value: seoClicks.toLocaleString(), color: '#d9a854' },
+                    { label: 'Search Impressions', value: fmtNum(seoImpressions), color: '#9db5a0' },
+                    { label: 'Clicks', value: fmtNum(seoClicks), color: '#d9a854' },
                     { label: 'CTR', value: `${seoCtr}%`, color: '#c4704f' },
-                    { label: 'Organic Traffic', value: trafficOrganic > 0 ? trafficOrganic.toLocaleString() : '—', color: '#2c2419' }
+                    { label: 'Organic Traffic', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' }
                   ].map((metric, i) => (
                     <div key={i} style={{
                       padding: '16px',
@@ -545,7 +546,7 @@ export default function ClientDetailPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '13px', color: '#5c5850' }}>Organic Traffic</span>
-                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{trafficOrganic > 0 ? trafficOrganic.toLocaleString() : '—'}</span>
+                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—'}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '13px', color: '#5c5850' }}>% of Total</span>
@@ -566,7 +567,7 @@ export default function ClientDetailPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>AI Sessions</p>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{trafficAi > 0 ? trafficAi.toLocaleString() : '—'}</div>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{trafficAi > 0 ? fmtNum(trafficAi) : '—'}</div>
                       </div>
                       <div>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>% of Total</p>
@@ -604,7 +605,7 @@ export default function ClientDetailPage() {
                   <div key={i} style={{ marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '600', color: '#2c2419' }}>{channel.label}</span>
-                      <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{channel.value} ({Math.round((channel.value / channelTotal) * 100)}%)</span>
+                      <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{fmtNum(channel.value)} ({Math.round((channel.value / channelTotal) * 100)}%)</span>
                     </div>
                     <div style={{
                       height: '6px',
@@ -628,21 +629,21 @@ export default function ClientDetailPage() {
               {/* Channel Details */}
               {[
                 ...(client.services?.googleAds !== false ? [{ title: 'Google Ads', status: totalAdsConversions > 0 || adSpend > 0 ? 'Active' : 'Inactive', statusColor: totalAdsConversions > 0 || adSpend > 0 ? '#4a6b4e' : '#9ca3af', statusBg: totalAdsConversions > 0 || adSpend > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
-                  { label: 'Conversions', value: totalAdsConversions },
-                  { label: 'Clicks', value: adsClicks },
-                  { label: 'Spend', value: `$${Math.round(adSpend)}` },
+                  { label: 'Conversions', value: fmtNum(totalAdsConversions) },
+                  { label: 'Clicks', value: fmtNum(adsClicks) },
+                  { label: 'Spend', value: fmtCurrency(adSpend, 0) },
                   { label: 'CTR', value: `${adsCtr}%` },
                   { label: 'Budget Used', value: `${Math.round(budgetUtilization)}%` }
                 ]}] : []),
                 ...(client.services?.seo !== false ? [{ title: 'SEO Performance', status: seoClicks > 0 ? 'Active' : 'Inactive', statusColor: seoClicks > 0 ? '#4a6b4e' : '#9ca3af', statusBg: seoClicks > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
-                  { label: 'Organic Clicks', value: seoClicks },
-                  { label: 'Impressions', value: seoImpressions },
+                  { label: 'Organic Clicks', value: fmtNum(seoClicks) },
+                  { label: 'Impressions', value: fmtNum(seoImpressions) },
                   { label: 'CTR', value: `${seoCtr}%` }
                 ]}] : []),
                 ...(client.services?.googleLocalService !== false ? [{ title: 'Google Business', status: totalGbpCalls > 0 ? 'Active' : 'Inactive', statusColor: totalGbpCalls > 0 ? '#4a6b4e' : '#9ca3af', statusBg: totalGbpCalls > 0 ? 'rgba(157, 181, 160, 0.1)' : 'rgba(156, 163, 175, 0.1)', metrics: [
-                  { label: 'Phone Calls', value: totalGbpCalls },
-                  { label: 'Web Clicks', value: totalGbpWebsiteClicks },
-                  { label: 'Directions', value: totalGbpDirections },
+                  { label: 'Phone Calls', value: fmtNum(totalGbpCalls) },
+                  { label: 'Web Clicks', value: fmtNum(totalGbpWebsiteClicks) },
+                  { label: 'Directions', value: fmtNum(totalGbpDirections) },
                   { label: 'Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' }
                 ]}] : [])
               ].map((channel, i) => (
