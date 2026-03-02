@@ -100,7 +100,7 @@ function aggregateConvertingTerms(data: any[]): ConvertingSearchTerm[] {
     .sort((a, b) => b.conversions - a.conversions);
 }
 
-// Helper function: Aggregate campaigns
+// Helper function: Aggregate campaigns from ads_campaign_metrics (has campaign_name)
 function aggregateCampaigns(data: any[]): Campaign[] {
   const campaignMap = new Map();
 
@@ -109,17 +109,13 @@ function aggregateCampaigns(data: any[]): Campaign[] {
     if (!campaignMap.has(campId)) {
       campaignMap.set(campId, {
         id: campId,
-        name: row.ad_group_name,
-        adGroups: new Set(),
+        name: row.campaign_name || `Campaign ${campId}`,
         spend: 0,
-        clicks: 0,
         conversions: 0
       });
     }
     const camp = campaignMap.get(campId);
-    camp.adGroups.add(row.ad_group_name);
     camp.spend += row.cost || 0;
-    camp.clicks += row.clicks || 0;
     camp.conversions += row.conversions || 0;
   });
 
@@ -129,12 +125,13 @@ function aggregateCampaigns(data: any[]): Campaign[] {
     spend: camp.spend,
     conversions: camp.conversions,
     cpl: camp.conversions > 0 ? camp.spend / camp.conversions : 0,
-    adGroupCount: camp.adGroups.size
+    adGroupCount: 0 // populated separately via ad group count
   }));
 }
 
 // Helper function: Aggregate ad groups - SUM by ad_group_id across date range
-function aggregateAdGroups(data: any[]): AdGroup[] {
+// campaignNameMap: campaign_id → campaign_name (from ads_campaign_metrics)
+function aggregateAdGroups(data: any[], campaignNameMap: Map<string, string> = new Map()): AdGroup[] {
   const groupMap = new Map();
 
   // Sum metrics for each ad group across all dates
@@ -160,8 +157,8 @@ function aggregateAdGroups(data: any[]): AdGroup[] {
   // Convert to array and calculate derived metrics
   return Array.from(groupMap.values()).map(entry => ({
     campaignId: entry.campaignId,
-    campaignName: entry.adGroupName?.split(' ')[0] || 'Campaign',
-    adGroupId: entry.campaignId + '-' + entry.adGroupName, // unique key
+    campaignName: campaignNameMap.get(entry.campaignId) || `Campaign ${entry.campaignId}`,
+    adGroupId: entry.campaignId + '-' + entry.adGroupName,
     adGroupName: entry.adGroupName,
     status: entry.conversions > 0 || entry.clicks > 0 ? 'active' : 'paused',
     impressions: entry.impressions,
@@ -359,62 +356,47 @@ export default function GoogleAdsPage() {
     fetchTerms();
   }, [client, dateRange]);
 
-  // Fetch campaigns
+  // Fetch campaigns + ad groups together so we can pass campaign names to ad group aggregation
   useEffect(() => {
-    const fetchCampaigns = async () => {
+    const fetchCampaignsAndAdGroups = async () => {
       if (!client) return;
 
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        const { data } = await supabase
-          .from('ads_ad_group_metrics')
-          .select('campaign_id, ad_group_name, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
+        // ads_campaign_metrics has campaign_name; ads_ad_group_metrics does not
+        const [{ data: campData }, { data: adGroupData }] = await Promise.all([
+          supabase
+            .from('ads_campaign_metrics')
+            .select('campaign_id, campaign_name, cost, conversions')
+            .eq('client_id', client.id)
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO),
+          supabase
+            .from('ads_ad_group_metrics')
+            .select('campaign_id, ad_group_id, ad_group_name, impressions, clicks, cost, conversions')
+            .eq('client_id', client.id)
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO),
+        ]);
 
-        if (data) {
-          const aggregated = aggregateCampaigns(data);
-          setCampaigns(aggregated);
-        }
+        // Build campaign_id → campaign_name map from campaign-level data
+        const campaignNameMap = new Map<string, string>();
+        (campData || []).forEach((row: any) => {
+          if (row.campaign_name) campaignNameMap.set(row.campaign_id, row.campaign_name);
+        });
+
+        if (campData) setCampaigns(aggregateCampaigns(campData));
+        if (adGroupData) setAdGroups(aggregateAdGroups(adGroupData, campaignNameMap));
       } catch (error) {
-        console.error('Error fetching campaigns:', error);
+        console.error('Error fetching campaigns/ad groups:', error);
         setCampaigns([]);
-      }
-    };
-
-    fetchCampaigns();
-  }, [client, dateRange]);
-
-  // Fetch ad groups
-  useEffect(() => {
-    const fetchAdGroups = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
-
-        const { data } = await supabase
-          .from('ads_ad_group_metrics')
-          .select('campaign_id, ad_group_id, ad_group_name, impressions, clicks, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        if (data) {
-          const aggregated = aggregateAdGroups(data);
-          setAdGroups(aggregated);
-        }
-      } catch (error) {
-        console.error('Error fetching ad groups:', error);
         setAdGroups([]);
       }
     };
 
-    fetchAdGroups();
+    fetchCampaignsAndAdGroups();
   }, [client, dateRange]);
 
   // Fetch ALL conversions from campaign_conversion_actions (Google Ads API)
