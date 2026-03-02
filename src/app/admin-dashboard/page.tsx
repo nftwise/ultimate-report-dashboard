@@ -162,19 +162,23 @@ export default function AdminDashboardPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       );
-      const today = new Date(dateRange.to);
+      // Shift both windows back 5 days to avoid GBP API data lag (~5-day delay).
+      // Use form_fills + google_ads_conversions (not total_leads) to exclude GBP calls
+      // which are unreliable in the recent window due to the API lag.
+      const anchor = new Date(dateRange.to);
+      anchor.setDate(anchor.getDate() - 5); // lag offset
       const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const cur7End = fmt(today);
-      const cur7Start = new Date(today); cur7Start.setDate(today.getDate() - 6);
-      const prev7End = new Date(today); prev7End.setDate(today.getDate() - 7);
-      const prev7Start = new Date(today); prev7Start.setDate(today.getDate() - 13);
+      const cur7End = fmt(anchor);
+      const cur7Start = new Date(anchor); cur7Start.setDate(anchor.getDate() - 6);
+      const prev7End = new Date(anchor); prev7End.setDate(anchor.getDate() - 7);
+      const prev7Start = new Date(anchor); prev7Start.setDate(anchor.getDate() - 13);
 
       const [curRes, prevRes, clientsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, sessions').eq('period_type', 'daily')
+          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
           .gte('date', fmt(cur7Start)).lte('date', cur7End),
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, sessions').eq('period_type', 'daily')
+          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
           .gte('date', fmt(prev7Start)).lte('date', fmt(prev7End)),
         supabase.from('clients').select('id, name').eq('is_active', true),
       ]);
@@ -183,7 +187,8 @@ export default function AdminDashboardPage() {
         const m: Record<string, { leads: number; sessions: number }> = {};
         for (const r of rows || []) {
           if (!m[r.client_id]) m[r.client_id] = { leads: 0, sessions: 0 };
-          m[r.client_id].leads += r.total_leads || 0;
+          // Exclude GBP calls — they have a 5-day API lag and distort recent comparisons
+          m[r.client_id].leads += (r.form_fills || 0) + (r.google_ads_conversions || 0);
           m[r.client_id].sessions += r.sessions || 0;
         }
         return m;
@@ -294,7 +299,7 @@ export default function AdminDashboardPage() {
             >
               <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
-                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (7-day comparison)
+                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (7-day, excl. last 5d GBP lag)
               </span>
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{alertsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
             </div>
@@ -484,10 +489,12 @@ export default function AdminDashboardPage() {
                   {filteredClients.map(client => {
                     const pts = client.trendPoints && client.trendPoints.length > 1 ? client.trendPoints : null;
                     const maxPt = pts ? Math.max(...pts, 1) : 1;
-                    const firstPt = pts ? pts[0] : 0;
-                    const lastPt = pts ? pts[pts.length - 1] : 0;
-                    const trendPct = firstPt > 0 ? Math.round(((lastPt - firstPt) / firstPt) * 100) : 0;
-                    const lineColor = pts ? (lastPt >= firstPt ? '#10b981' : '#ef4444') : '#9ca3af';
+                    // Compare first-half avg vs last-half avg (more stable than single-day first vs last)
+                    const midIdx = pts ? Math.floor(pts.length / 2) : 0;
+                    const firstAvg = pts && midIdx > 0 ? pts.slice(0, midIdx).reduce((a, b) => a + b, 0) / midIdx : 0;
+                    const lastAvg = pts ? pts.slice(midIdx).reduce((a, b) => a + b, 0) / (pts.length - midIdx) : 0;
+                    const trendPct = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : 0;
+                    const lineColor = pts ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
 
                     return (
                       <tr key={client.id} onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
