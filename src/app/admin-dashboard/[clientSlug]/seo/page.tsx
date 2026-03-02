@@ -509,7 +509,7 @@ export default function SEOPage() {
             {/* Section 2: SEO Key Metrics */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '16px',
               marginBottom: '32px'
             }}>

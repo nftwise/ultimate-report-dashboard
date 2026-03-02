@@ -10,8 +10,18 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtCurrency } from '@/lib/format';
 
-const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
-const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
+const ChartSkeleton = () => (
+  <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    Loading chart…
+  </div>
+);
+
+const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false, loading: ChartSkeleton });
+const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false, loading: ChartSkeleton });
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -71,6 +81,7 @@ export default function ClientDetailPage() {
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0 });
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
@@ -124,6 +135,7 @@ export default function ClientDetailPage() {
     const fetchDailyMetrics = async () => {
       if (!client) return;
 
+      setChartLoading(true);
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
@@ -233,6 +245,8 @@ export default function ClientDetailPage() {
       } catch (error) {
         console.error('[Client Details] Error fetching daily metrics:', error);
         setDailyData([]);
+      } finally {
+        setChartLoading(false);
       }
     };
 
@@ -333,7 +347,7 @@ export default function ClientDetailPage() {
           {/* Section 2: Executive Summary removed - cards were hardcoded */}
 
           {/* Section 3: Key Performance Metrics (Full Width - 4 Cards) */}
-          <div className="grid grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
             {[
               { label: 'Total Leads', value: fmtNum(totalLeads), trend: leadTrendData.pct, trendType: leadTrendData.type },
               { label: 'Website Sessions', value: fmtNum(sessions), trend: sessionsTrendData.pct, trendType: sessionsTrendData.type },
@@ -359,7 +373,7 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Main Layout: 2 Columns */}
-          <div className="grid grid-cols-[1.618fr_1fr] gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.618fr_1fr] gap-8">
             {/* Left Column */}
             <div className="flex flex-col gap-8">
               {/* 6-Month Performance */}
@@ -389,17 +403,14 @@ export default function ClientDetailPage() {
                   padding: '20px',
                   marginTop: '24px'
                 }}>
-                  {dailyData.length > 0 ? (
+                  {chartLoading ? (
+                    <ChartSkeleton />
+                  ) : dailyData.length > 0 ? (
                     <SixMonthBarChart data={dailyData} />
                   ) : (
-                    <div style={{
-                      height: '300px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#5c5850'
-                    }}>
-                      No data available for this date range
+                    <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                      <span style={{ fontSize: '13px' }}>No data for this date range</span>
                     </div>
                   )}
                 </div>
@@ -421,17 +432,14 @@ export default function ClientDetailPage() {
                   borderRadius: '12px',
                   padding: '20px'
                 }}>
-                  {dailyData.length > 0 ? (
+                  {chartLoading ? (
+                    <ChartSkeleton />
+                  ) : dailyData.length > 0 ? (
                     <DailyTrafficLineChart data={dailyData} />
                   ) : (
-                    <div style={{
-                      height: '300px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#5c5850'
-                    }}>
-                      No data available for this date range
+                    <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                      <span style={{ fontSize: '13px' }}>No data for this date range</span>
                     </div>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
@@ -13,6 +14,8 @@ import {
   TrendingUp,
   MapPin,
   Bot,
+  Menu,
+  X,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -38,6 +41,19 @@ function formatSlug(slug: string) {
   return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
+const sidebarStyles = {
+  base: {
+    width: '220px',
+    minWidth: '220px',
+    background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
+    borderRight: '1px solid rgba(44,36,25,0.1)',
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    height: '100vh',
+    overflowY: 'auto' as const,
+  },
+};
+
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -46,14 +62,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const userRole = (session?.user as any)?.role || '';
   const isClient = userRole === 'client';
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const isActive = (href: string) => {
     if (href === '/admin-dashboard') return pathname === '/admin-dashboard';
     return pathname?.startsWith(href) ?? false;
   };
 
+  const navButtonStyle = (active: boolean) => ({
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center' as const,
+    gap: '10px',
+    padding: '11px 14px',
+    marginBottom: '2px',
+    borderRadius: '8px',
+    border: active ? '1.5px solid rgba(196,112,79,0.35)' : '1.5px solid transparent',
+    background: active ? 'rgba(196,112,79,0.08)' : 'transparent',
+    color: active ? '#c4704f' : '#5c5850',
+    fontSize: '13px',
+    fontWeight: active ? 600 : 500,
+    cursor: 'pointer',
+    transition: 'all 150ms ease',
+    textAlign: 'left' as const,
+  });
+
   // Client login: left sidebar with page tabs
   if (isClient) {
-    // Extract clientSlug from pathname: /admin-dashboard/{slug}/{tab?}
     const parts = pathname?.split('/') || [];
     const clientSlug = parts[2] || '';
     const activeTabId = parts[3] || 'overview';
@@ -61,15 +96,49 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
     return (
       <div className="flex min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
-        {/* Client sidebar */}
-        <aside style={{
-          width: '220px', minWidth: '220px',
-          background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
-          borderRight: '1px solid rgba(44,36,25,0.1)',
-          display: 'flex', flexDirection: 'column',
-          position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
-        }}>
-          {/* Client name / logo area */}
+
+        {/* Mobile top bar */}
+        <div
+          className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center h-14 px-4 gap-3"
+          style={{ background: '#f9f7f4', borderBottom: '1px solid rgba(44,36,25,0.1)' }}
+        >
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#2c2419' }}
+          >
+            <Menu size={20} />
+          </button>
+          <span style={{ fontSize: '17px', fontWeight: 800, color: '#2c2419', letterSpacing: '-0.01em' }}>
+            {clientDisplayName}
+          </span>
+        </div>
+
+        {/* Mobile backdrop */}
+        {mobileOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-40"
+            style={{ background: 'rgba(0,0,0,0.45)' }}
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <aside
+          className={`fixed md:sticky top-0 z-50 md:z-auto transition-transform duration-300 ease-in-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+          style={sidebarStyles.base}
+        >
+          {/* Mobile close button */}
+          <button
+            className="md:hidden absolute top-4 right-4"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#5c5850' }}
+          >
+            <X size={18} />
+          </button>
+
+          {/* Client name */}
           <div style={{ padding: '24px 20px 18px 20px' }}>
             <div style={{ fontSize: '13px', fontWeight: 800, color: '#2c2419', letterSpacing: '-0.01em', marginBottom: '2px' }}>
               {clientDisplayName}
@@ -85,18 +154,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               return (
                 <button
                   key={id}
-                  onClick={() => router.push(dest)}
-                  style={{
-                    width: '100%',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '11px 14px', marginBottom: '2px',
-                    borderRadius: '8px',
-                    border: active ? '1.5px solid rgba(196,112,79,0.35)' : '1.5px solid transparent',
-                    background: active ? 'rgba(196,112,79,0.08)' : 'transparent',
-                    color: active ? '#c4704f' : '#5c5850',
-                    fontSize: '13px', fontWeight: active ? 600 : 500,
-                    cursor: 'pointer', transition: 'all 150ms ease', textAlign: 'left',
-                  }}
+                  onClick={() => { router.push(dest); setMobileOpen(false); }}
+                  style={navButtonStyle(active)}
                   onMouseEnter={e => {
                     if (!active) {
                       (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
@@ -134,6 +193,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
+              aria-label="Logout"
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '9px 14px', borderRadius: '8px',
@@ -152,6 +212,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Main content */}
         <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+          {/* Spacer for mobile fixed top bar */}
+          <div className="md:hidden h-14" />
           {children}
         </main>
       </div>
@@ -161,21 +223,48 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // Admin / Team: full sidebar layout
   return (
     <div className="flex min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0%, #ede8e3 100%)' }}>
+
+      {/* Mobile top bar */}
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center h-14 px-4 gap-3"
+        style={{ background: '#f9f7f4', borderBottom: '1px solid rgba(44,36,25,0.1)' }}
+      >
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#2c2419' }}
+        >
+          <Menu size={20} />
+        </button>
+        <span style={{ fontSize: '18px', fontWeight: 800, color: '#2c2419', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
+          Wise<span style={{ color: '#c4704f' }}>CRM</span>
+        </span>
+      </div>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        style={{
-          width: '220px',
-          minWidth: '220px',
-          background: 'linear-gradient(180deg, #f9f7f4 0%, #f5f1ed 100%)',
-          borderRight: '1px solid rgba(44,36,25,0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto',
-        }}
+        className={`fixed md:sticky top-0 z-50 md:z-auto transition-transform duration-300 ease-in-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        style={sidebarStyles.base}
       >
+        {/* Mobile close button */}
+        <button
+          className="md:hidden absolute top-4 right-4"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
+          style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#5c5850' }}
+        >
+          <X size={18} />
+        </button>
+
         {/* Logo */}
         <div style={{ padding: '24px 20px 20px 20px' }}>
           <span style={{
@@ -196,24 +285,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             return (
               <button
                 key={href}
-                onClick={() => router.push(href)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '11px 14px',
-                  marginBottom: '2px',
-                  borderRadius: '8px',
-                  border: active ? '1.5px solid rgba(196,112,79,0.35)' : '1.5px solid transparent',
-                  background: active ? 'rgba(196,112,79,0.08)' : 'transparent',
-                  color: active ? '#c4704f' : '#5c5850',
-                  fontSize: '13px',
-                  fontWeight: active ? 600 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease',
-                  textAlign: 'left',
-                }}
+                onClick={() => { router.push(href); setMobileOpen(false); }}
+                style={navButtonStyle(active)}
                 onMouseEnter={e => {
                   if (!active) {
                     (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
@@ -258,6 +331,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
+            aria-label="Logout"
             style={{
               width: '100%',
               display: 'flex',
@@ -288,6 +362,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main content */}
       <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+        {/* Spacer for mobile fixed top bar */}
+        <div className="md:hidden h-14" />
         {children}
       </main>
     </div>
