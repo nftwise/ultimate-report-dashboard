@@ -9,122 +9,90 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function runDeepGapAnalysis() {
-    console.log('🔍 Starting Deep 365-Day Gap Analysis...\n');
+async function runDeepGapAudit() {
+    console.log('🕵️ Starting Deep Gap Analysis (Day-by-Day Audit)...');
 
     const { data: clients } = await supabase
         .from('clients')
-        .select('id, slug, name')
+        .select('id, name, slug, has_ads, has_gbp, has_seo')
         .eq('is_active', true);
 
     if (!clients) return;
 
-    const today = new Date();
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    const startDate = new Date('2025-01-01');
+    const endDate = new Date();
+    const totalDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    const sources = [
-        { name: 'Google Ads', table: 'ads_campaign_metrics', column: 'cost' },
-        { name: 'GA4', table: 'ga4_sessions', column: 'sessions' },
-        { name: 'GBP', table: 'gbp_location_daily_metrics', column: 'phone_calls' },
-        { name: 'Summary', table: 'client_metrics_summary', column: 'total_leads' }
-    ];
+    console.log(`📅 Auditing approximately ${totalDays} days per client...\n`);
 
-    const results: any[] = [];
+    let report = "# 🚨 Detailed Backfill Gap Report (2025-2026)\n\n";
+    report += "Report generated on: " + new Date().toLocaleString() + "\n\n";
 
     for (const client of clients) {
-        console.log(`Processing ${client.slug}...`);
-        const clientReport: any = { client: client.name, slug: client.slug, gaps: [] };
+        console.log(`Processing: ${client.name}`);
+        report += `## 🏢 ${client.name} (${client.slug})\n`;
 
-        for (const source of sources) {
-            // Fetch all dates for this client in the last year
-            const { data: records, error } = await supabase
-                .from(source.table)
-                .select(`date, ${source.column}`)
-                .eq('client_id', client.id)
-                .gte('date', oneYearAgo.toISOString().split('T')[0])
-                .lte('date', today.toISOString().split('T')[0]);
+        // Fetch all summary records for this client at once to be efficient
+        const { data: records } = await supabase
+            .from('client_metrics_summary')
+            .select('date, ad_spend, total_leads, gbp_calls, google_ads_conversions, form_fills')
+            .eq('client_id', client.id)
+            .gte('date', '2025-01-01')
+            .order('date', { ascending: true });
 
-            if (error) {
-                console.error(`Error fetching ${source.name} for ${client.slug}:`, error);
-                continue;
+        const recordMap = new Map();
+        if (records) {
+            records.forEach(r => recordMap.set(r.date, r));
+        }
+
+        const gaps: string[] = [];
+        const zeroes: string[] = [];
+
+        let current = new Date(startDate);
+        while (current <= endDate) {
+            const dStr = current.toISOString().split('T')[0];
+            const record = recordMap.get(dStr);
+
+            if (!record) {
+                gaps.push(dStr);
+            } else {
+                const isZero = (Number(record.ad_spend) === 0 &&
+                    Number(record.total_leads) === 0 &&
+                    Number(record.gbp_calls) === 0);
+                if (isZero) {
+                    zeroes.push(dStr);
+                }
             }
+            current.setDate(current.getDate() + 1);
+        }
 
-            const dateMap = new Map();
-            records?.forEach(r => {
-                // If it's the Summary table, check if total_leads is 0 but it has a record
-                const rec = r as Record<string, any>;
-                const val = rec[source.column];
-                dateMap.set(rec.date, val);
-            });
-
-            // Scan day by day
-            let currentGapStart: string | null = null;
-            let zeroValRanges: any[] = [];
-            let missingRanges: any[] = [];
-
-            for (let d = new Date(oneYearAgo); d <= today; d.setDate(d.getDate() + 1)) {
-                const dateStr = d.toISOString().split('T')[0];
-                const val = dateMap.get(dateStr);
-
-                if (val === undefined) {
-                    // Missing record entirely
-                    if (!currentGapStart) currentGapStart = dateStr;
+        if (gaps.length === 0 && zeroes.length === 0) {
+            report += "✅ **Dữ liệu hoàn hảo**: Không phát hiện lỗ hổng nào.\n\n";
+        } else {
+            if (gaps.length > 0) {
+                report += `❌ **Miss hoàn toàn (Missing Records)**: ${gaps.length} ngày.\n`;
+                if (gaps.length > 20) {
+                    report += `   - Giai đoạn: ${gaps[0]} đến ${gaps[gaps.length - 1]}\n`;
                 } else {
-                    if (currentGapStart) {
-                        missingRanges.push({ start: currentGapStart, end: dateStr === firstDayOf(d) ? dateStr : prevDay(d) });
-                        currentGapStart = null;
-                    }
-
-                    // Check for "Hollow Data" (Record exists but main metric is zero/null)
-                    if (val === 0 || val === null) {
-                        // We could track these too
-                    }
+                    report += `   - Các ngày: ${gaps.join(', ')}\n`;
                 }
             }
 
-            if (currentGapStart) {
-                missingRanges.push({ start: currentGapStart, end: today.toISOString().split('T')[0] });
+            if (zeroes.length > 0) {
+                report += `⚠️ **Có record nhưng 0 metrics (Empty Records)**: ${zeroes.length} ngày.\n`;
+                if (zeroes.length > 20) {
+                    report += `   - Giai đoạn: ${zeroes[0]} đến ${zeroes[zeroes.length - 1]}\n`;
+                } else {
+                    report += `   - Các ngày: ${zeroes.join(', ')}\n`;
+                }
             }
-
-            if (missingRanges.length > 0) {
-                clientReport.gaps.push({ source: source.name, missing: missingRanges });
-            }
+            report += "\n";
         }
-        results.push(clientReport);
-    }
-
-    // Generate Report
-    let report = "# Deep Data Gap Report (Past 365 Days)\n\n";
-    report += `Generated: ${new Date().toLocaleString()}\n\n`;
-
-    for (const res of results) {
-        report += `## ${res.client} (${res.slug})\n`;
-        if (res.gaps.length === 0) {
-            report += "✅ All data sources appear continuous for the last year.\n\n";
-        } else {
-            for (const gap of res.gaps) {
-                report += `### 🔴 ${gap.source}\n`;
-                gap.missing.forEach((m: any) => {
-                    report += `- Missing: **${m.start}** to **${m.end}**\n`;
-                });
-                report += "\n";
-            }
-        }
+        report += "--- \n\n";
     }
 
     fs.writeFileSync('gemini/365_DAY_GAP_REPORT.md', report);
-    console.log('\n✅ Deep Gap Report generated: gemini/365_DAY_GAP_REPORT.md');
+    console.log('\n✅ Deep Gap Analysis complete. Report saved to: gemini/365_DAY_GAP_REPORT.md');
 }
 
-function prevDay(date: Date) {
-    const d = new Date(date);
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-}
-
-function firstDayOf(date: Date) {
-    return date.toISOString().split('T')[0];
-}
-
-runDeepGapAnalysis();
+runDeepGapAudit();

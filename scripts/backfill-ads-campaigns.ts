@@ -233,6 +233,46 @@ async function main() {
   console.log(`  Total campaign-day records upserted: ${totalCampaigns}`);
   console.log(`  Errors: ${totalErrors}`);
   console.log(`  Duration: ${duration}s`);
+
+  // Auto-run rollup for all backfilled dates so client_metrics_summary stays in sync
+  if (totalCampaigns > 0) {
+    await runRollupForRange(startDate, endDate);
+  }
+}
+
+async function runRollupForRange(startDate: Date, endDate: Date) {
+  const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  console.log('');
+  console.log('--- Auto-running rollup for backfilled date range ---');
+
+  const d = new Date(startDate);
+  let success = 0, failed = 0;
+
+  while (d <= endDate) {
+    const dateStr = formatDate(d);
+    try {
+      const res = await fetch(`${appUrl}/api/admin/run-rollup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateStr }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        process.stdout.write('.');
+        success++;
+      } else {
+        console.error(`\n  Rollup failed ${dateStr}: ${result.error}`);
+        failed++;
+      }
+    } catch (err: any) {
+      console.error(`\n  Rollup error ${dateStr}: ${err.message}`);
+      failed++;
+    }
+    d.setDate(d.getDate() + 1);
+    await sleep(200);
+  }
+
+  console.log(`\n  Rollup done: ${success} days OK, ${failed} failed`);
 }
 
 main()
