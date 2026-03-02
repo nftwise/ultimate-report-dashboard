@@ -407,16 +407,19 @@ export default function SEOPage() {
                           totalTrafficPaid + totalTrafficDirect + totalTrafficReferral + totalTrafficAI;
 
   // Engagement metrics
-  const avgEngagementRate = dailyData.length > 0
-    ? (dailyData.reduce((sum: number, d: any) => sum + (d.engagement_rate || 0), 0) / (dailyData.filter((d: any) => d.engagement_rate).length || 1)).toFixed(1)
+  const engagementDays = dailyData.filter((d: any) => d.engagement_rate);
+  const avgEngagementRate = engagementDays.length > 0
+    ? (engagementDays.reduce((sum: number, d: any) => sum + (d.engagement_rate || 0), 0) / engagementDays.length).toFixed(1)
     : '0.0';
-  const avgConversionRate = dailyData.length > 0
-    ? (dailyData.reduce((sum: number, d: any) => sum + (d.conversion_rate || 0), 0) / dailyData.filter((d: any) => d.conversion_rate).length || 0).toFixed(2)
+  const conversionDays = dailyData.filter((d: any) => d.conversion_rate);
+  const avgConversionRate = conversionDays.length > 0
+    ? (conversionDays.reduce((sum: number, d: any) => sum + (d.conversion_rate || 0), 0) / conversionDays.length).toFixed(2)
     : '0.00';
 
   // GSC metrics
-  const avgGoogleRank = dailyData.length > 0
-    ? (dailyData.reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / dailyData.filter((d: any) => d.google_rank).length).toFixed(1)
+  const rankDays = dailyData.filter((d: any) => d.google_rank);
+  const avgGoogleRank = rankDays.length > 0
+    ? (rankDays.reduce((sum: number, d: any) => sum + (d.google_rank || 0), 0) / rankDays.length).toFixed(1)
     : '0.0';
 
   const latestTopKeywords = dailyData.length > 0 ? dailyData[dailyData.length - 1].top_keywords : null;

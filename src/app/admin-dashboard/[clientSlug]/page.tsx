@@ -374,7 +374,7 @@ export default function ClientDetailPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: isTrendUp ? '#9db5a0' : '#c4704f', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {isTrendUp ? '↑' : '↓'} {Math.abs(parseFloat(leadTrend))}%
+                      {leadTrendData.type === 'neutral' ? '—' : `${isTrendUp ? '↑' : '↓'} ${Math.abs(isNaN(parseFloat(leadTrend)) ? 0 : parseFloat(leadTrend))}%`}
                     </div>
                     <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Period vs Period</p>
                   </div>
@@ -548,7 +548,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '13px', color: '#5c5850' }}>% of Total</span>
-                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{(trafficOrganic / (trafficOrganic + trafficPaid + trafficDirect) * 100).toFixed(1)}%</span>
+                        <span style={{ fontWeight: 'bold', color: '#d9a854' }}>{((trafficOrganic + trafficPaid + trafficDirect) > 0 ? (trafficOrganic / (trafficOrganic + trafficPaid + trafficDirect) * 100) : 0).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
@@ -569,7 +569,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px', fontSize: '9px' }}>% of Total</p>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{((trafficAi / (trafficOrganic + trafficPaid + trafficDirect + trafficAi) * 100) || 0).toFixed(1)}%</div>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c4704f' }}>{((trafficOrganic + trafficPaid + trafficDirect + trafficAi) > 0 ? (trafficAi / (trafficOrganic + trafficPaid + trafficDirect + trafficAi) * 100) : 0).toFixed(1)}%</div>
                       </div>
                     </div>
                     <p style={{ fontSize: '11px', color: '#5c5850', marginTop: '12px', fontStyle: 'italic' }}>

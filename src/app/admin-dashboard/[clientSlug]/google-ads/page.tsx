@@ -730,7 +730,7 @@ export default function GoogleAdsPage() {
                         margin: '4px 0 0 0',
                         fontWeight: '500'
                       }}>
-                        {totalConversions > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : 0}% conversion rate
+                        {(totalClicks > 0 ? ((totalConversions / totalClicks) * 100) : 0).toFixed(1)}% conversion rate
                       </p>
                     </div>
 
