@@ -58,8 +58,9 @@ export default function GBPPage() {
   const [location, setLocation] = useState<GBPLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
-  // GBP API has ~5-day data lag — initialize and cap to dates with real data
-  const gbpDataCutoff = () => { const d = new Date(); d.setDate(d.getDate() - 5); return d; };
+  // Cap at yesterday — GBP cron syncs yesterday's data. Zero-row filter handles any
+  // days where the API didn't deliver (those rows won't exist in gbp_location_daily_metrics).
+  const gbpDataCutoff = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d; };
 
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = gbpDataCutoff();
@@ -136,7 +137,7 @@ export default function GBPPage() {
 
       try {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        // Always cap to GBP data cutoff (5-day lag) regardless of user-selected date
+        // Cap to yesterday — GBP cron syncs up to yesterday. Zero-row filter handles missing days.
         const effectiveTo = dateRange.to > gbpDataCutoff() ? gbpDataCutoff() : dateRange.to;
         const dateToISO = effectiveTo.toISOString().split('T')[0];
 
@@ -397,12 +398,10 @@ export default function GBPPage() {
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="gbp" />
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-        {/* GBP API delay notice */}
+        {/* GBP data note */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
-          <span style={{ fontWeight: 700 }}>⏱ GBP data delay:</span>
-          Google Business Profile API has a ~5-day lag. Data shown through{' '}
-          <strong>{(() => { const d = new Date(); d.setDate(d.getDate() - 5); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })()}</strong>
-          {' '}— comparisons exclude recent incomplete days.
+          <span style={{ fontWeight: 700 }}>ℹ️ GBP data:</span>
+          Phone calls reflect button taps (includes unanswered). Data synced daily — days with no API response are automatically excluded from charts.
         </div>
 
         {/* Date Controls */}
