@@ -37,15 +37,24 @@ export async function GET(request: NextRequest) {
 
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
-    const targetDate = dateParam || (() => {
-      // Use California timezone for "yesterday" calculation
+
+    // If a specific date is requested, use it. Otherwise sync the last 10 days
+    // to automatically backfill any days that were previously written as zeros
+    // due to GBP API lag (Google typically has 3-7 day data lag).
+    const datesToSync: string[] = dateParam ? [dateParam] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-      caToday.setDate(caToday.getDate() - 1);
-      return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
+      const dates: string[] = [];
+      for (let i = 1; i <= 10; i++) {
+        const d = new Date(caToday);
+        d.setDate(d.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      return dates;
     })();
 
-    console.log(`[sync-gbp] Starting for ${targetDate}`);
+    const targetDate = datesToSync[0]; // for backwards compat in response
+    console.log(`[sync-gbp] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}`);
 
     // Step 1: Get access token (auto-refreshes if expired, reads from Supabase)
     const accessToken = await GBPTokenManager.getAccessToken();
@@ -70,66 +79,69 @@ export async function GET(request: NextRequest) {
     let synced = 0;
     const errors: string[] = [];
 
-    // Step 3: Process in batches of 3
-    for (let i = 0; i < validLocations.length; i += BATCH_SIZE) {
-      const batch = validLocations.slice(i, i + BATCH_SIZE);
+    // Step 3: For each date, process all locations in batches of 3
+    for (const syncDate of datesToSync) {
+      console.log(`[sync-gbp] Processing date ${syncDate}`);
 
-      const results = await Promise.all(batch.map(async (location) => {
-        const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
-          try {
-            return await fn();
-          } catch (err: any) {
-            console.log(`[sync-gbp] ${location.location_name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+      for (let i = 0; i < validLocations.length; i += BATCH_SIZE) {
+        const batch = validLocations.slice(i, i + BATCH_SIZE);
+
+        const results = await Promise.all(batch.map(async (location) => {
+          const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
             try {
-              await new Promise(r => setTimeout(r, 2000));
               return await fn();
-            } catch (err2: any) {
-              console.log(`[sync-gbp] ${location.location_name} ${label} attempt 2 failed: ${err2.message}`);
-              throw err2;
+            } catch (err: any) {
+              console.log(`[sync-gbp] ${location.location_name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+              try {
+                await new Promise(r => setTimeout(r, 2000));
+                return await fn();
+              } catch (err2: any) {
+                console.log(`[sync-gbp] ${location.location_name} ${label} attempt 2 failed: ${err2.message}`);
+                throw err2;
+              }
             }
-          }
-        };
-
-        try {
-          const metrics = await fetchWithRetry(() => fetchLocationMetrics(accessToken, location.gbp_location_id, targetDate), 'metrics');
-
-          const row = {
-            location_id: location.id,
-            client_id: location.client_id,
-            date: targetDate,
-            // Profile views = all impressions combined
-            views: metrics.BUSINESS_IMPRESSIONS_DESKTOP_MAPS
-              + metrics.BUSINESS_IMPRESSIONS_MOBILE_MAPS
-              + metrics.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH
-              + metrics.BUSINESS_IMPRESSIONS_MOBILE_SEARCH,
-            // Actions total
-            actions: metrics.WEBSITE_CLICKS + metrics.BUSINESS_DIRECTION_REQUESTS + metrics.CALL_CLICKS,
-            direction_requests: metrics.BUSINESS_DIRECTION_REQUESTS,
-            phone_calls: metrics.CALL_CLICKS,
-            website_clicks: metrics.WEBSITE_CLICKS,
           };
 
-          const { error } = await supabaseAdmin
-            .from('gbp_location_daily_metrics')
-            .upsert(row, { onConflict: 'location_id,date' });
+          try {
+            const metrics = await fetchWithRetry(() => fetchLocationMetrics(accessToken, location.gbp_location_id, syncDate), 'metrics');
 
-          if (error) {
-            console.log(`[sync-gbp] Upsert error ${location.location_name}:`, error.message);
+            const row = {
+              location_id: location.id,
+              client_id: location.client_id,
+              date: syncDate,
+              // Profile views = all impressions combined
+              views: metrics.BUSINESS_IMPRESSIONS_DESKTOP_MAPS
+                + metrics.BUSINESS_IMPRESSIONS_MOBILE_MAPS
+                + metrics.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH
+                + metrics.BUSINESS_IMPRESSIONS_MOBILE_SEARCH,
+              // Actions total
+              actions: metrics.WEBSITE_CLICKS + metrics.BUSINESS_DIRECTION_REQUESTS + metrics.CALL_CLICKS,
+              direction_requests: metrics.BUSINESS_DIRECTION_REQUESTS,
+              phone_calls: metrics.CALL_CLICKS,
+              website_clicks: metrics.WEBSITE_CLICKS,
+            };
+
+            const { error } = await supabaseAdmin
+              .from('gbp_location_daily_metrics')
+              .upsert(row, { onConflict: 'location_id,date' });
+
+            if (error) {
+              console.log(`[sync-gbp] Upsert error ${location.location_name}:`, error.message);
+            }
+
+            return 1;
+          } catch (err: any) {
+            errors.push(`${syncDate} ${location.location_name}: ${err.message}`);
+            return 0;
           }
+        }));
 
-          console.log(`[sync-gbp] ${location.location_name}: views=${row.views}, calls=${row.phone_calls}, clicks=${row.website_clicks}, directions=${row.direction_requests}`);
-          return 1;
-        } catch (err: any) {
-          errors.push(`${location.location_name}: ${err.message}`);
-          return 0;
-        }
-      }));
-
-      synced += results.reduce((sum: number, r: number) => sum + r, 0);
+        synced += results.reduce((sum: number, r: number) => sum + r, 0);
+      }
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[sync-gbp] Done in ${duration}ms: ${synced}/${validLocations.length} locations synced`);
+    console.log(`[sync-gbp] Done in ${duration}ms: ${synced}/${validLocations.length * datesToSync.length} location-days synced across ${datesToSync.length} dates`);
 
     return NextResponse.json({
       success: true,
