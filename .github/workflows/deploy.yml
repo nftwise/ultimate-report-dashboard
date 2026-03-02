@@ -1,13 +1,16 @@
-name: Deploy to Vercel
+name: Type Check
 
 on:
   push:
     branches:
       - production-clean
+  pull_request:
+    branches:
+      - production-clean
 
 jobs:
-  deploy:
-    name: Type Check & Deploy
+  typecheck:
+    name: TypeScript Check
     runs-on: ubuntu-latest
 
     steps:
@@ -25,9 +28,3 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
-
-      - name: Deploy to Vercel
-        run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
