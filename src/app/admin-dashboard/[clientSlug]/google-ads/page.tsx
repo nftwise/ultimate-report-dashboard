@@ -9,6 +9,7 @@ import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
+import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
 
 interface ClientMetrics {
@@ -499,6 +500,18 @@ export default function GoogleAdsPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
         <p style={{ color: '#2c2419' }}>Loading...</p>
       </div>
+    );
+  }
+
+  if (client && (client as any).services?.googleAds === false) {
+    return (
+      <AdminLayout>
+        <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
+        <ServiceNotActive
+          serviceName="Google Ads"
+          description="Your account does not have Google Ads configured. Contact our team to set up paid search campaigns and start driving leads."
+        />
+      </AdminLayout>
     );
   }
 

@@ -7,6 +7,7 @@ import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
+import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
 
 interface ClientMetrics {
@@ -355,6 +356,18 @@ export default function SEOPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
         <p style={{ color: '#2c2419' }}>Loading...</p>
       </div>
+    );
+  }
+
+  if (client && (client as any).services?.seo === false) {
+    return (
+      <AdminLayout>
+        <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="seo" />
+        <ServiceNotActive
+          serviceName="SEO Analytics"
+          description="Your account does not have SEO tracking configured. Contact our team to set up Google Search Console and start monitoring your organic search performance."
+        />
+      </AdminLayout>
     );
   }
 

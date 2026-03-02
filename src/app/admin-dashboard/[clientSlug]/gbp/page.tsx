@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
+import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
 
 interface ClientMetrics {
@@ -301,6 +302,18 @@ export default function GBPPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
         <p style={{ color: '#2c2419' }}>Loading...</p>
       </div>
+    );
+  }
+
+  if (client && (client as any).services?.googleLocalService === false) {
+    return (
+      <AdminLayout>
+        <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="gbp" />
+        <ServiceNotActive
+          serviceName="Google Business Profile"
+          description="Your account does not have Google Business Profile configured. Contact our team to set up GBP tracking and monitor your local search presence."
+        />
+      </AdminLayout>
     );
   }
 
