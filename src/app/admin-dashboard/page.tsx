@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, AlertTriangle, TrendingDown } from 'lucide-react';
+import { Search, AlertTriangle, TrendingDown, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -49,6 +50,8 @@ interface AlertItem {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'admin';
   const [clients, setClients] = useState<ClientWithMetrics[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -263,6 +266,20 @@ export default function AdminDashboardPage() {
             })}
           </div>
           <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+          {isAdmin && (
+            <button
+              onClick={() => router.push('/admin-dashboard/clients/new')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', background: '#c4704f', color: '#fff',
+                border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              <PlusCircle size={14} />
+              Add Client
+            </button>
+          )}
         </div>
       </div>
 
