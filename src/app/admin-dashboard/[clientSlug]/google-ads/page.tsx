@@ -244,22 +244,14 @@ export default function GoogleAdsPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        // Fetch campaign metrics data
+        // Fetch campaign metrics data (includes conversions — source of truth)
         const { data: campaignMetricsData } = await supabase
           .from('ads_campaign_metrics')
-          .select('date, impressions, clicks, cost')
+          .select('date, impressions, clicks, cost, conversions')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
-
-        // Fetch conversions by date
-        const { data: conversionsData } = await supabase
-          .from('campaign_conversion_actions')
-          .select('date, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
 
         // Aggregate by date
         const dateMap = new Map();
@@ -285,28 +277,7 @@ export default function GoogleAdsPage() {
           entry.ads_impressions += row.impressions || 0;
           entry.ads_clicks += row.clicks || 0;
           entry.ad_spend += row.cost || 0;
-        });
-
-        // Add conversions
-        (conversionsData || []).forEach(row => {
-          const date = row.date;
-          if (!dateMap.has(date)) {
-            dateMap.set(date, {
-              date,
-              ads_impressions: 0,
-              ads_clicks: 0,
-              ads_ctr: 0,
-              ad_spend: 0,
-              cpl: 0,
-              google_ads_conversions: 0,
-              total_leads: 0,
-              ads_phone_calls: 0,
-              form_fills: 0,
-              sessions_mobile: 0,
-              sessions_desktop: 0
-            });
-          }
-          const entry = dateMap.get(date);
+          entry.google_ads_conversions += row.conversions || 0;
           entry.total_leads += row.conversions || 0;
         });
 
@@ -399,7 +370,8 @@ export default function GoogleAdsPage() {
     fetchCampaignsAndAdGroups();
   }, [client, dateRange]);
 
-  // Fetch ALL conversions from campaign_conversion_actions (Google Ads API)
+  // Fetch conversions total from ads_campaign_metrics (correct, not action-level)
+  // Keep campaign_conversion_actions only for the breakdown pie chart
   useEffect(() => {
     const fetchConversions = async () => {
       if (!client) return;
@@ -408,22 +380,24 @@ export default function GoogleAdsPage() {
         const dateFromISO = dateRange.from.toISOString().split('T')[0];
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
-        const { data } = await supabase
+        // Total conversions from campaign-level metrics (matches Google Ads UI)
+        const { data: metricsConvData } = await supabase
+          .from('ads_campaign_metrics')
+          .select('conversions')
+          .eq('client_id', client.id)
+          .gte('date', dateFromISO)
+          .lte('date', dateToISO);
+        const totalConversions = (metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0);
+        setFormConversions(totalConversions);
+
+        // Keep campaign_conversion_actions only for breakdown chart (action type breakdown)
+        const { data: actionsData } = await supabase
           .from('campaign_conversion_actions')
           .select('conversions, conversion_action_name')
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
-
-        if (data && data.length > 0) {
-          // Total all conversions
-          const totalConversions = data.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0);
-          setFormConversions(totalConversions);
-          setConversionActionsData(data);
-        } else {
-          setFormConversions(0);
-          setConversionActionsData([]);
-        }
+        setConversionActionsData(actionsData || []);
       } catch (error) {
         console.error('Error fetching conversions:', error);
         setFormConversions(0);
@@ -448,25 +422,17 @@ export default function GoogleAdsPage() {
       const prevToISO = prevTo.toISOString().split('T')[0];
 
       try {
-        const [campaignRes, convRes] = await Promise.all([
-          supabase
-            .from('ads_campaign_metrics')
-            .select('impressions, clicks, cost')
-            .eq('client_id', client.id)
-            .gte('date', prevFromISO)
-            .lte('date', prevToISO),
-          supabase
-            .from('campaign_conversion_actions')
-            .select('conversions')
-            .eq('client_id', client.id)
-            .gte('date', prevFromISO)
-            .lte('date', prevToISO)
-        ]);
+        const { data: campaignResData } = await supabase
+          .from('ads_campaign_metrics')
+          .select('impressions, clicks, cost, conversions')
+          .eq('client_id', client.id)
+          .gte('date', prevFromISO)
+          .lte('date', prevToISO);
 
-        const prevSpend = (campaignRes.data || []).reduce((s, r) => s + (r.cost || 0), 0);
-        const prevClicks = (campaignRes.data || []).reduce((s, r) => s + (r.clicks || 0), 0);
-        const prevImpressions = (campaignRes.data || []).reduce((s, r) => s + (r.impressions || 0), 0);
-        const prevConversions = (convRes.data || []).reduce((s, r) => s + (r.conversions || 0), 0);
+        const prevSpend = (campaignResData || []).reduce((s, r) => s + (r.cost || 0), 0);
+        const prevClicks = (campaignResData || []).reduce((s, r) => s + (r.clicks || 0), 0);
+        const prevImpressions = (campaignResData || []).reduce((s, r) => s + (r.impressions || 0), 0);
+        const prevConversions = (campaignResData || []).reduce((s, r) => s + (r.conversions || 0), 0);
 
         setPrevPeriodData({ spend: prevSpend, conversions: prevConversions, clicks: prevClicks, impressions: prevImpressions });
       } catch (error) {

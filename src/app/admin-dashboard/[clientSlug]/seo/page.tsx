@@ -131,6 +131,7 @@ export default function SEOPage() {
           .from('client_metrics_summary')
           .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, top_landing_pages, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, keywords_improved, keywords_declined, seo_impressions, seo_clicks, seo_ctr, google_rank, top_keywords, engagement_rate, conversion_rate')
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
@@ -157,6 +158,7 @@ export default function SEOPage() {
           .from('client_metrics_summary')
           .select('sessions, content_conversions, engagement_rate')
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
 
@@ -177,6 +179,7 @@ export default function SEOPage() {
           .from('client_metrics_summary')
           .select('top_landing_pages')
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: false })
@@ -193,6 +196,7 @@ export default function SEOPage() {
           .from('client_metrics_summary')
           .select('top_keywords')
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: false })
@@ -321,6 +325,7 @@ export default function SEOPage() {
           .from('client_metrics_summary')
           .select('sessions, users, seo_ctr, seo_clicks')
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', prevFromISO)
           .lte('date', prevToISO);
 

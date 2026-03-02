@@ -184,6 +184,7 @@ export default function GBPPage() {
             gbp_posts_clicks
           `)
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
@@ -270,6 +271,7 @@ export default function GBPPage() {
             .from('client_metrics_summary')
             .select('date, gbp_calls, gbp_website_clicks, gbp_directions, gbp_profile_views')
             .eq('client_id', client.id)
+            .eq('period_type', 'daily')
             .gte('date', prevFromISO)
             .lte('date', prevToISO)
             .order('date', { ascending: true })

@@ -153,6 +153,7 @@ export default function ClientDetailPage() {
             budget_utilization
           `)
           .eq('client_id', client.id)
+          .eq('period_type', 'daily')
           .gte('date', dateFromISO)
           .lte('date', dateToISO)
           .order('date', { ascending: true });
@@ -213,7 +214,7 @@ export default function ClientDetailPage() {
         const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
           supabase.from('client_metrics_summary')
             .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls')
-            .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
+            .eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
           supabase.from('gbp_location_daily_metrics')
             .select('phone_calls')
             .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
