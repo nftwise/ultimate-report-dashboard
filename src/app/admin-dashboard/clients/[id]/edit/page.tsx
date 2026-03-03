@@ -88,7 +88,7 @@ export default function EditClientPage({ params }: EditClientParams) {
 
       const { data: client, error: fetchError } = await supabase
         .from('clients')
-        .select('*, service_configs(ga_property_id, gads_customer_id, gbp_location_id, gsc_site_url)')
+        .select('*, service_configs(ga_property_id, gads_customer_id, gsc_site_url)')
         .eq('id', id)
         .single();
 
@@ -396,6 +396,16 @@ export default function EditClientPage({ params }: EditClientParams) {
               </div>
             </div>
           )}
+
+          {/* Section 5: GBP note */}
+          <div style={sectionStyle}>
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '8px' }}>
+              Google Business Profile
+            </p>
+            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
+              GBP locations are managed via the Cron Monitor.
+            </p>
+          </div>
 
           {/* Error */}
           {error && (

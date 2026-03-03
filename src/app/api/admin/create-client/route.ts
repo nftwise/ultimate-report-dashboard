@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
       gadsCustomerId,
       gscSiteUrl,
       callrailAccountId,
-      gbpLocationId
     } = body;
 
     const email = contactEmail || contact_email || null;
@@ -86,7 +85,6 @@ export async function POST(request: NextRequest) {
         gads_customer_id: gadsCustomerId || null,
         gsc_site_url: gscSiteUrl || null,
         callrail_account_id: callrailAccountId || null,
-        gbp_location_id: gbpLocationId || null
       });
 
     if (configError) {

@@ -30,24 +30,31 @@ export async function GET(request: NextRequest) {
     console.log(`⚡ [Overview Fast] Fetching pre-computed metrics: ${startDate} to ${endDate}`);
 
     // Step 1: Get all active clients with service configs
-    const { data: clients, error: clientsError } = await supabaseAdmin
-      .from('clients')
-      .select(`
-        id,
-        name,
-        slug,
-        service_configs (
-          gads_customer_id,
-          gsc_site_url,
-          gbp_location_id
-        )
-      `)
-      .eq('is_active', true)
-      .order('name', { ascending: true });
+    const [{ data: clients, error: clientsError }, { data: gbpRows }] = await Promise.all([
+      supabaseAdmin
+        .from('clients')
+        .select(`
+          id,
+          name,
+          slug,
+          service_configs (
+            gads_customer_id,
+            gsc_site_url
+          )
+        `)
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+      supabaseAdmin
+        .from('gbp_locations')
+        .select('client_id')
+        .eq('is_active', true),
+    ]);
 
     if (clientsError) {
       throw new Error(`Failed to fetch clients: ${clientsError.message}`);
     }
+
+    const gbpClientSet = new Set<string>((gbpRows || []).map((r: any) => r.client_id));
 
     // Step 2: Get pre-computed metrics for date range (SUM aggregation)
     const { data: metrics, error: metricsError } = await supabaseAdmin
@@ -273,7 +280,7 @@ export async function GET(request: NextRequest) {
         services: {
           googleAds: !!(config.gads_customer_id && config.gads_customer_id.trim()),
           seo: !!(config.gsc_site_url && config.gsc_site_url.trim()),
-          googleLocalService: !!(config.gbp_location_id && config.gbp_location_id.trim()),
+          googleLocalService: gbpClientSet.has(client.id),
           fbAds: false,
         },
       };

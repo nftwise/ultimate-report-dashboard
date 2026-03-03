@@ -18,7 +18,6 @@ interface ServiceConfig {
   ga_property_id?: string | null
   gads_customer_id?: string | null
   gsc_site_url?: string | null
-  gbp_location_id?: string | null
 }
 
 interface ClientRow {
@@ -163,11 +162,17 @@ export default function CronMonitorPage() {
       const cutoffDate = new Date(caToday); cutoffDate.setDate(cutoffDate.getDate() - 30)
       const cutoffStr  = toISODate(cutoffDate)
 
-      const { data: clientsData } = await supabase
-        .from('clients')
-        .select('id, name, slug, is_active, service_configs(ga_property_id, gads_customer_id, gsc_site_url, gbp_location_id)')
-        .eq('is_active', true)
-        .order('name')
+      const [{ data: clientsData }, { data: gbpLocData }] = await Promise.all([
+        supabase
+          .from('clients')
+          .select('id, name, slug, is_active, service_configs(ga_property_id, gads_customer_id, gsc_site_url)')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('gbp_locations')
+          .select('client_id')
+          .eq('is_active', true),
+      ])
 
       const fetchAllRows = async (table: string, extraFilter?: (q: any) => any) => {
         let allData: any[] = [], from = 0
@@ -206,12 +211,14 @@ export default function CronMonitorPage() {
       const gbpMap    = maxDate(gbpData)
       const rollupMap = maxDate(rollupData)
 
+      const gbpClientIds = new Set<string>((gbpLocData || []).map((r: any) => r.client_id))
+
       const built: ClientRow[] = (clientsData || []).map((c: any) => {
         const cfg: ServiceConfig = Array.isArray(c.service_configs) ? (c.service_configs[0] || {}) : (c.service_configs || {})
         const hasGA4 = !!(cfg.ga_property_id?.trim())
         const hasGSC = !!(cfg.gsc_site_url?.trim())
         const hasAds = !!(cfg.gads_customer_id?.trim())
-        const hasGBP = !!(cfg.gbp_location_id?.trim())
+        const hasGBP = gbpClientIds.has(c.id)
         const mk = (map: Record<string, string>, enabled: boolean) => {
           const ld = enabled ? (map[c.id] || null) : null
           const da = ld ? daysAgoFromDate(ld, today) : null

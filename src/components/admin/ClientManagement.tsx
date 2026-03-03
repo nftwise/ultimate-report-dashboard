@@ -14,7 +14,6 @@ interface Client {
   service_configs?: {
     ga_property_id?: string;
     gads_customer_id?: string;
-    gbp_location_id?: string;
     gsc_site_url?: string;
   }[];
 }
@@ -31,6 +30,7 @@ interface ClientWithUser extends Client {
 
 export default function ClientManagement() {
   const [clients, setClients] = useState<ClientWithUser[]>([]);
+  const [gbpClientSet, setGbpClientSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,28 +53,35 @@ export default function ClientManagement() {
 
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Fetch all clients with service configs
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select(`
-          id,
-          name,
-          contact_email,
-          slug,
-          city,
-          is_active,
-          service_configs (
-            ga_property_id,
-            gads_customer_id,
-            gbp_location_id,
-            gsc_site_url
-          )
-        `)
-        .order('name', { ascending: true });
+      // Fetch all clients with service configs and GBP locations in parallel
+      const [{ data: clientsData, error: clientsError }, { data: gbpRows }] = await Promise.all([
+        supabase
+          .from('clients')
+          .select(`
+            id,
+            name,
+            contact_email,
+            slug,
+            city,
+            is_active,
+            service_configs (
+              ga_property_id,
+              gads_customer_id,
+              gsc_site_url
+            )
+          `)
+          .order('name', { ascending: true }),
+        supabase
+          .from('gbp_locations')
+          .select('client_id')
+          .eq('is_active', true),
+      ]);
 
       if (clientsError) {
         throw new Error(`Failed to fetch clients: ${clientsError.message}`);
       }
+
+      setGbpClientSet(new Set<string>((gbpRows || []).map((r: any) => r.client_id)));
 
       const typedClients = (clientsData || []) as Client[];
 
@@ -253,7 +260,7 @@ export default function ClientManagement() {
                     )}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                    {client.service_configs?.[0]?.gbp_location_id ? (
+                    {gbpClientSet.has(client.id) ? (
                       <span style={{ color: '#10b981', fontSize: '16px' }}>✓</span>
                     ) : (
                       <span style={{ color: '#d1d5db', fontSize: '16px' }}>✗</span>

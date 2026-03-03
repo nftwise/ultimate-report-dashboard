@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const dateToParam = searchParams.get('dateTo')
 
     // Parallel fetch: clients and metrics at the same time for better performance
-    const [clientsResult, metricsResult, gbpMetricsResult] = await Promise.all([
+    const [clientsResult, metricsResult, gbpMetricsResult, gbpLocResult] = await Promise.all([
       // Fetch clients — admin sees all, client role sees only their own
       (() => {
         let query = supabaseAdmin
@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
           service_configs (
             ga_property_id,
             gads_customer_id,
-            gbp_location_id,
             gsc_site_url,
             callrail_account_id
           )
@@ -73,12 +72,20 @@ export async function GET(request: NextRequest) {
         }
 
         return query
-      })()
+      })(),
+
+      // Fetch active GBP location client_ids
+      supabaseAdmin
+        .from('gbp_locations')
+        .select('client_id')
+        .eq('is_active', true),
     ])
 
     const { data: clients, error } = clientsResult
     const { data: metrics, error: metricsError } = metricsResult
     const { data: gbpMetrics, error: gbpError } = gbpMetricsResult
+    const { data: gbpLocRows } = gbpLocResult
+    const gbpSet = new Set<string>((gbpLocRows || []).map((r: any) => r.client_id))
 
     if (error) {
       console.error('Error fetching clients:', error)
@@ -170,7 +177,7 @@ export async function GET(request: NextRequest) {
         services: {
           googleAds: hasGoogleAds,
           seo: hasSeo,
-          googleLocalService: !!(config.gbp_location_id && config.gbp_location_id.trim()),
+          googleLocalService: gbpSet.has(client.id),
           fbAds: false,
         }
       }

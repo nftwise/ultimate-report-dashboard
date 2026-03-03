@@ -12,7 +12,6 @@ import { fmtNum, fmtCurrency } from '@/lib/format';
 interface ServiceConfig {
   ga_property_id?: string;
   gads_customer_id?: string;
-  gbp_location_id?: string;
   gsc_site_url?: string;
   callrail_account_id?: string;
 }
@@ -53,6 +52,7 @@ export default function AdminDashboardPage() {
   const { data: session } = useSession();
   const isAdmin = (session?.user as any)?.role === 'admin';
   const [clients, setClients] = useState<ClientWithMetrics[]>([]);
+  const [gbpClientSet, setGbpClientSet] = useState<Set<string>>(new Set());
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -90,10 +90,14 @@ export default function AdminDashboardPage() {
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select(`id, name, slug, city, contact_email, is_active, owner, has_ads, has_seo,
-          service_configs (ga_property_id, gads_customer_id, gbp_location_id, gsc_site_url, callrail_account_id)`)
+          service_configs (ga_property_id, gads_customer_id, gsc_site_url, callrail_account_id)`)
         .order('name', { ascending: true });
 
       if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
+
+      const { data: gbpRows } = await supabase.from('gbp_locations').select('client_id').eq('is_active', true);
+      const gbpSet = new Set<string>((gbpRows || []).map((r: any) => r.client_id));
+      setGbpClientSet(gbpSet);
 
       const [metricsRes, gbpRes, formRes] = await Promise.all([
         supabase.from('client_metrics_summary')
@@ -399,18 +403,15 @@ export default function AdminDashboardPage() {
             <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 16px 0' }}>Configuration</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
-                { label: 'GA Configured', color: '#10b981', key: 'ga_property_id' },
-                { label: 'GSC Configured', color: '#3b82f6', key: 'gsc_site_url' },
-                { label: 'ADS Configured', color: '#d9a854', key: 'gads_customer_id' },
-                { label: 'GBP Configured', color: '#f59e0b', key: 'gbp_location_id' },
-              ].map(({ label, color, key }) => (
+                { label: 'GA Configured',  color: '#10b981', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.ga_property_id; }).length },
+                { label: 'GSC Configured', color: '#3b82f6', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.gsc_site_url; }).length },
+                { label: 'ADS Configured', color: '#d9a854', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.gads_customer_id; }).length },
+                { label: 'GBP Configured', color: '#f59e0b', count: clients.filter(c => gbpClientSet.has(c.id)).length },
+              ].map(({ label, color, count }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#5c5850', fontSize: '13px' }}>{label}</span>
                   <span style={{ fontSize: '16px', fontWeight: 700, color }}>
-                    {clients.filter(c => {
-                      const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
-                      return cfg?.[key as keyof ServiceConfig];
-                    }).length} ✓
+                    {count} ✓
                   </span>
                 </div>
               ))}
