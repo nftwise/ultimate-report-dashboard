@@ -103,8 +103,8 @@ export default function GBPPage() {
   };
 
   // ── 12-month monthly data (STATIC — not affected by date picker) ──────────
-  const [viewsChart, setViewsChart] = useState<{ month: string; views: number }[]>([]);
-  const [actionsChart, setActionsChart] = useState<{ month: string; calls: number; clicks: number; directions: number }[]>([]);
+  const [viewsChart, setViewsChart] = useState<{ month: string; views: number; clicks: number; directions: number }[]>([]);
+  const [actionsChart, setActionsChart] = useState<{ month: string; calls: number }[]>([]);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   // ── period data (DYNAMIC — from date picker) ──────────────────────────────
@@ -183,10 +183,13 @@ export default function GBPPage() {
         b.views += v; b.calls += c; b.clicks += cl; b.directions += dir;
       }
 
-      setViewsChart(current12.map(m => ({ month: m.label, views: buckets.get(m.key)?.views ?? 0 })));
+      setViewsChart(current12.map(m => {
+        const b = buckets.get(m.key)!;
+        return { month: m.label, views: b.views, clicks: b.clicks, directions: b.directions };
+      }));
       setActionsChart(current12.map(m => {
         const b = buckets.get(m.key)!;
-        return { month: m.label, calls: b.calls, clicks: b.clicks, directions: b.directions };
+        return { month: m.label, calls: b.calls };
       }));
       setMonthlyLoading(false);
     });
@@ -371,7 +374,7 @@ export default function GBPPage() {
             {/* Profile Views — line */}
             <div style={bigCard}>
               <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Trend</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Profile Views</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Views · Clicks · Directions</h3>
               {monthlyLoading ? spinner(220) : (
                 <div style={{ height: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -380,7 +383,10 @@ export default function GBPPage() {
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
                       <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
                       <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2.5} dot={{ r: 3, fill: '#9db5a0' }} name="Views" />
+                      <Line type="monotone" dataKey="clicks" stroke="#d9a854" strokeWidth={2} dot={{ r: 2, fill: '#d9a854' }} name="Web Clicks" />
+                      <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={{ r: 2, fill: '#c4704f' }} name="Directions" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -390,7 +396,7 @@ export default function GBPPage() {
             {/* Calls · Clicks · Directions — stacked bar */}
             <div style={bigCard}>
               <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Actions</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Calls · Clicks · Directions</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Phone Calls</h3>
               {monthlyLoading ? spinner(220) : (
                 <div style={{ height: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -399,10 +405,7 @@ export default function GBPPage() {
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
                       <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
-                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
-                      <Bar dataKey="calls" name="Calls" stackId="a" fill="#10b981" />
-                      <Bar dataKey="clicks" name="Web Clicks" stackId="a" fill="#d9a854" />
-                      <Bar dataKey="directions" name="Directions" stackId="a" fill="#c4704f" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="calls" name="Calls" fill="#10b981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
