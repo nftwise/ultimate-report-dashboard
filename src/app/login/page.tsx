@@ -29,7 +29,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password. Please try again.')
       } else if (result?.ok) {
-        router.push('/admin-dashboard')
+        router.push('/')
         router.refresh()
       }
     } catch (err) {

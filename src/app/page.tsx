@@ -210,8 +210,12 @@ export default function Home() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      const role = (session.user as { role?: string }).role;
-      router.push(role === 'admin' || role === 'team' ? '/admin-dashboard' : '/dashboard');
+      const user = session.user as { role?: string; clientSlug?: string };
+      if (user.role === 'admin' || user.role === 'team') {
+        router.push('/admin-dashboard');
+      } else if (user.role === 'client' && user.clientSlug) {
+        router.push(`/admin-dashboard/${user.clientSlug}`);
+      }
     }
   }, [status, session, router]);
 

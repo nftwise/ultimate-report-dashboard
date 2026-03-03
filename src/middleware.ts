@@ -25,6 +25,7 @@ export const config = {
   // Protect dashboard pages + ALL API routes except auth/* and cron/*
   // withAuth returns 401 JSON for /api/* routes, redirects to /login for pages
   matcher: [
+    '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/api/((?!auth|cron).*)',
   ]
