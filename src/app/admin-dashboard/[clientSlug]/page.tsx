@@ -386,7 +386,6 @@ export default function ClientDetailPage() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Performance Trend</p>
-                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>6-Month Lead Generation</h3>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: isTrendUp ? '#9db5a0' : '#c4704f', display: 'flex', alignItems: 'center', gap: '8px' }}>
