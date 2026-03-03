@@ -6,10 +6,12 @@ export default withAuth(
     const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
 
-    // client role: restricted to their own slug for dashboard pages
+    // client role: always redirect to their own slug
     if (token?.role === 'client' && token?.clientSlug) {
       const allowedPrefix = `/admin-dashboard/${token.clientSlug}`
-      if (pathname.startsWith('/admin-dashboard/') && !pathname.startsWith(allowedPrefix)) {
+      const onAdminRoot = pathname === '/admin-dashboard'
+      const onWrongPath = pathname.startsWith('/admin-dashboard/') && !pathname.startsWith(allowedPrefix)
+      if (onAdminRoot || onWrongPath) {
         return NextResponse.redirect(new URL(allowedPrefix, req.url))
       }
     }
