@@ -3,17 +3,16 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Globe, BarChart3, TrendingUp, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search, TrendingUp, MapPin, Bot, LogIn } from 'lucide-react';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect authenticated users to dashboard
     if (status === 'authenticated' && session?.user) {
-      if (session.user.role === 'admin') {
+      const role = (session.user as any).role;
+      if (role === 'admin' || role === 'team') {
         router.push('/admin-dashboard');
       } else {
         router.push('/dashboard');
@@ -21,103 +20,224 @@ export default function Home() {
     }
   }, [status, session, router]);
 
-  const loading = status === 'loading';
-
-  if (loading) {
+  if (status === 'loading' || status === 'authenticated') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f1ed' }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          border: '3px solid rgba(196,112,79,0.2)',
+          borderTopColor: '#c4704f',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  if (status === 'authenticated') {
-    return null; // Will redirect to dashboard or admin
-  }
+  const features = [
+    {
+      icon: Search,
+      color: '#9db5a0',
+      bgColor: 'rgba(157,181,160,0.12)',
+      title: 'SEO & Organic',
+      description: 'GA4 sessions, keyword rankings, and traffic trends — all tracked automatically every day.',
+    },
+    {
+      icon: TrendingUp,
+      color: '#c4704f',
+      bgColor: 'rgba(196,112,79,0.1)',
+      title: 'Google Ads',
+      description: 'Campaign spend, conversions, and cost per lead with month-over-month comparison.',
+    },
+    {
+      icon: MapPin,
+      color: '#d9a854',
+      bgColor: 'rgba(217,168,84,0.12)',
+      title: 'Google Business',
+      description: 'Calls, direction requests, and profile views from your Google Business listing.',
+    },
+    {
+      icon: Bot,
+      color: '#7c3aed',
+      bgColor: 'rgba(124,58,237,0.1)',
+      title: 'GEO / AI Visibility',
+      description: 'Bing organic rankings, AI citation tracking, and search visibility trends.',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Header */}
-      <nav className="p-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          </div>
-          <Button onClick={() => router.push('/login')} className="bg-blue-600 hover:bg-blue-700">
-            Sign In
-          </Button>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f5f1ed 0%, #ede8e3 100%)', fontFamily: 'Inter, sans-serif' }}>
+
+      {/* Nav */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: 'rgba(245,241,237,0.92)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44,36,25,0.07)',
+        padding: '0 24px',
+        height: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontFamily: 'Outfit, Inter, sans-serif',
+            fontWeight: 800, fontSize: 20,
+            color: '#2c2419', letterSpacing: '-0.02em',
+          }}>
+            Wise<span style={{ color: '#c4704f' }}>CRM</span>
+          </span>
         </div>
+        <button
+          onClick={() => router.push('/login')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 20px',
+            background: 'transparent',
+            border: '1.5px solid #c4704f',
+            borderRadius: 100,
+            color: '#c4704f',
+            fontSize: 13, fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = '#c4704f';
+            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = '#c4704f';
+          }}
+        >
+          <LogIn size={14} />
+          Sign In
+        </button>
       </nav>
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Your Marketing Analytics
-            <span className="block text-blue-600">All in One Place</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Get comprehensive insights from Google Analytics, Google Ads, and CallRail. 
-            Track your website performance, ad campaigns, and phone call conversions in real-time.
-          </p>
-          <Button 
-            onClick={() => router.push('/login')}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            Access Your Dashboard
-          </Button>
+      {/* Hero */}
+      <section style={{
+        maxWidth: 760,
+        margin: '0 auto',
+        padding: '96px 24px 80px',
+        textAlign: 'center',
+      }}>
+        <h1 style={{
+          fontFamily: 'Outfit, Inter, sans-serif',
+          fontWeight: 700,
+          fontSize: 'clamp(32px, 5vw, 52px)',
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+          color: '#2c2419',
+          margin: '0 0 20px',
+        }}>
+          Marketing Intelligence<br />
+          <span style={{ color: '#c4704f' }}>Built for Your Practice</span>
+        </h1>
+        <p style={{
+          fontSize: 18, lineHeight: 1.6,
+          color: '#5c5850', margin: '0 0 40px',
+          maxWidth: 520, marginLeft: 'auto', marginRight: 'auto',
+        }}>
+          Real-time SEO, Google Ads, GBP, and AI visibility — all in one dashboard.
+        </p>
+        <button
+          onClick={() => router.push('/login')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '14px 32px',
+            background: '#c4704f',
+            border: 'none',
+            borderRadius: 100,
+            color: '#fff',
+            fontSize: 15, fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 20px rgba(196,112,79,0.35)',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = '#b05f40';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 28px rgba(196,112,79,0.45)';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = '#c4704f';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(196,112,79,0.35)';
+          }}
+        >
+          <LogIn size={16} />
+          Access Your Dashboard
+        </button>
+      </section>
+
+      {/* Features Grid */}
+      <section style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px 100px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 20,
+        }}>
+          {features.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={f.title}
+                style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(44,36,25,0.08)',
+                  borderRadius: 16,
+                  padding: '28px 24px',
+                  transition: 'all 0.2s ease',
+                  cursor: 'default',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 30px rgba(44,36,25,0.12)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44,
+                  borderRadius: 12,
+                  background: f.bgColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 16,
+                }}>
+                  <Icon size={20} color={f.color} strokeWidth={2} />
+                </div>
+                <h3 style={{
+                  fontFamily: 'Outfit, Inter, sans-serif',
+                  fontWeight: 700, fontSize: 16,
+                  color: '#2c2419', margin: '0 0 8px',
+                  letterSpacing: '-0.01em',
+                }}>
+                  {f.title}
+                </h3>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: '#5c5850', margin: 0 }}>
+                  {f.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-          <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <BarChart3 className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Real-time Analytics</h3>
-            <p className="text-gray-600">
-              Monitor your website traffic, user behavior, and conversions with live Google Analytics data.
-            </p>
-          </div>
-
-          <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <TrendingUp className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Ad Performance</h3>
-            <p className="text-gray-600">
-              Track your Google Ads campaigns, cost per click, conversions, and ROI all in one dashboard.
-            </p>
-          </div>
-
-          <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Users className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Call Tracking</h3>
-            <p className="text-gray-600">
-              Monitor phone calls, track call sources, and measure call-to-conversion rates with CallRail integration.
-            </p>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-12 text-white">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Sign in to access your personalized analytics dashboard
-          </p>
-          <Button 
-            onClick={() => router.push('/login')}
-            className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg font-medium shadow-lg"
-          >
-            Sign In Now
-          </Button>
-        </div>
-      </div>
+      {/* Footer */}
+      <footer style={{
+        textAlign: 'center',
+        padding: '24px',
+        borderTop: '1px solid rgba(44,36,25,0.07)',
+        color: '#5c5850',
+        fontSize: 13,
+      }}>
+        © 2026 WiseCRM · Contact your administrator
+      </footer>
     </div>
   );
 }
