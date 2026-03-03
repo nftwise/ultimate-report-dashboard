@@ -214,7 +214,7 @@ export default function Home() {
       if (user.role === 'admin' || user.role === 'team') {
         router.push('/admin-dashboard');
       } else if (user.role === 'client' && user.clientSlug) {
-        router.push(`/admin-dashboard/${user.clientSlug}`);
+        router.push(`/portal/${user.clientSlug}`);
       }
     }
   }, [status, session, router]);

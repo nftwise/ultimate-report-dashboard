@@ -23,9 +23,7 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
   const router = useRouter();
   const { data: session } = useSession();
   const isClient = (session?.user as any)?.role === 'client';
-
-  // Client role: navigation is in the left sidebar (AdminLayout), no top tab bar needed
-  if (isClient) return null;
+  const baseUrl = isClient ? `/portal/${clientSlug}` : `/admin-dashboard/${clientSlug}`;
 
   return (
     <div style={{
@@ -66,7 +64,7 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
           return (
             <button
               key={id}
-              onClick={() => router.push(`/admin-dashboard/${clientSlug}${href}`)}
+              onClick={() => router.push(`${baseUrl}${href}`)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '10px 18px',
