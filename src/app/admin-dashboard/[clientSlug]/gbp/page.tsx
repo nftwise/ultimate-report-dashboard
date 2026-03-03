@@ -364,6 +364,11 @@ export default function GBPPage() {
         {/* ── Date Controls (sticky, same as other tabs) ────────────────── */}
         <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3"
           style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+          {actionsChart.length > 0 && (
+            <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
+              Data through {new Date(dateRange.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
             {([7, 30, 90] as const).map(d => (
               <button key={d} onClick={() => handlePresetDays(d)}
@@ -385,8 +390,8 @@ export default function GBPPage() {
 
         {/* GBP data note */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
-          <span style={{ fontWeight: 700 }}>ℹ️ GBP data:</span>
-          Phone calls = button taps (includes unanswered). Synced daily — days with no API response excluded automatically.
+          <span style={{ fontWeight: 700 }}>ℹ️ Note:</span>
+          Calls reflect customers who tapped your Call button on Google Maps or Search. Data updated daily.
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -396,7 +401,7 @@ export default function GBPPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Monthly Performance</h2>
             <span style={{ fontSize: '11px', color: '#9ca3af', background: 'rgba(44,36,25,0.06)', padding: '2px 10px', borderRadius: '100px', fontWeight: 500 }}>
-              Last 12 months · not affected by date filter
+              {viewsChart.length > 0 ? `${viewsChart[0].month} – ${viewsChart[viewsChart.length - 1].month}` : 'Last 12 months'}
             </span>
           </div>
 
@@ -470,7 +475,7 @@ export default function GBPPage() {
                         <div>
                           {momBadge(momCalls, `vs prev ${periodDays}d`)}
                           <p style={{ fontSize: '11px', color: '#5c5850', margin: '6px 0 0' }}>
-                            Call conversion: <strong>{callConv}%</strong> of profile views
+                            Call rate: <strong>{callConv}%</strong> of people who viewed your profile called
                           </p>
                         </div>
                       </div>
@@ -479,7 +484,7 @@ export default function GBPPage() {
                       {[
                         { label: 'Share of Actions', val: `${callsPct}%`, color: '#10b981' },
                         { label: 'Avg / Day', val: periodDataCount > 0 ? (pCalls / periodDataCount).toFixed(1) : '0', color: '#10b981' },
-                        { label: 'Call Conversion', val: `${callConv}%`, color: '#10b981' },
+                        { label: 'Call Rate', val: `${callConv}%`, color: '#10b981' },
                       ].map(item => (
                         <div key={item.label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                           <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>{item.label}</p>
@@ -538,7 +543,7 @@ export default function GBPPage() {
                         </p>
                       </div>
                       <div style={{ background: 'rgba(217,168,84,0.06)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Call Conversion</p>
+                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Call Rate</p>
                         <p style={{ fontSize: '20px', fontWeight: 700, color: '#d9a854', margin: 0 }}>{callConv}%</p>
                       </div>
                     </div>
@@ -584,7 +589,7 @@ export default function GBPPage() {
                   </p>
                   <p style={{ fontSize: '12px', color: '#5c5850', margin: 0, lineHeight: '1.7' }}>
                     In the last <strong>{periodDays} days</strong>, your Google Business Profile received <strong>{fmtNum(pViews)} profile views</strong> and generated{' '}
-                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call conversion rate</strong>.
+                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call rate</strong> (calls per profile view).
                     Customers also visited your website <strong>{fmtNum(pClicks)} times</strong> and requested directions <strong>{fmtNum(pDir)} times</strong>.
                     Overall engagement rate: <strong>{engRate}%</strong>.
                     {latestRating > 0 && <> Business maintains a <strong>{latestRating.toFixed(1)}-star</strong> rating across <strong>{fmtNum(latestReviews)} reviews</strong>{pNewReviews > 0 ? `, with ${fmtNum(pNewReviews)} new this period` : ''}.</>}

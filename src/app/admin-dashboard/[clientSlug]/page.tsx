@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
+import { TrendingUp, Search, MapPin } from 'lucide-react';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
@@ -236,12 +237,14 @@ export default function ClientDetailPage() {
   }
 
   // ── Aggregates ────────────────────────────────────────────────────────────
-  const totalLeads = dailyData.reduce((s: number, d: any) => s + (d.total_leads || 0), 0);
+  // Individual channel metrics computed first so totalLeads = their exact sum (no mismatch)
   const totalFormFills = dailyData.reduce((s: number, d: any) => s + (d.form_fills || 0), 0);
   const totalGbpCalls = dailyData.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0);
   const totalGbpWebsiteClicks = dailyData.reduce((s: number, d: any) => s + (d.gbp_website_clicks || 0), 0);
   const totalGbpDirections = dailyData.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions = dailyData.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0);
+  // Total Leads = sum of active channels → always matches Lead Sources breakdown
+  const totalLeads = totalFormFills + totalAdsConversions + totalGbpCalls;
   const adSpend = dailyData.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0);
   const costPerLead = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
   const sessions = dailyData.reduce((s: number, d: any) => s + (d.sessions || 0), 0);
@@ -271,6 +274,12 @@ export default function ClientDetailPage() {
     return { pct: isPos ? `+${raw.toFixed(1)}%` : `${raw.toFixed(1)}%`, type: (raw === 0 ? 'neutral' : isGood ? 'up' : 'down') as 'up' | 'down' | 'neutral' };
   };
 
+  // Compute previous period label for display in MoM badges
+  const prevPeriodEnd = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+  const prevPeriodStart = new Date(prevPeriodEnd); prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays);
+  const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
+
   const prevCpl = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
   const leadTrendData = calcMoM(totalLeads, prevData.leads);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
@@ -288,7 +297,7 @@ export default function ClientDetailPage() {
       background: mom.type === 'up' ? 'rgba(157,181,160,0.15)' : mom.type === 'down' ? 'rgba(196,112,79,0.15)' : 'rgba(92,88,80,0.1)',
       color: mom.type === 'up' ? '#4a6b4e' : mom.type === 'down' ? '#8a4a2e' : '#5c5850'
     }}>
-      {mom.pct} vs prev {periodDays}d
+      {mom.pct} vs {prevLabel}
     </span>
   );
 
@@ -296,8 +305,13 @@ export default function ClientDetailPage() {
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="overview" />
 
-      {/* FIX #7: justify-end — align right like other tabs */}
+      {/* Sticky date bar */}
       <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+        {dailyData.length > 0 && (
+          <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
+            Data through {new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+        )}
         <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
           {[7, 30, 90].map((days) => (
             <button key={days} onClick={() => handlePresetDays(days as 7 | 30 | 90)}
@@ -330,9 +344,9 @@ export default function ClientDetailPage() {
               {trendBadge(leadTrendData)}
             </div>
 
-            {/* Website Sessions — always shown */}
+            {/* Website Visits — always shown */}
             <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Sessions</p>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visits</p>
               <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>All traffic sources</p>
               <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(sessions)}</div>
               {trendBadge(sessionsTrendData)}
@@ -419,7 +433,7 @@ export default function ClientDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-6 mt-6" style={{ borderTop: '1px solid rgba(44,36,25,0.1)', paddingTop: '24px' }}>
                   <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Sessions</p>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Visits</p>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
                   </div>
                   <div>
@@ -437,15 +451,15 @@ export default function ClientDetailPage() {
                 </div>
                 {(() => {
                   const channels = [
-                    ...(hasAds ? [{ label: 'Google Ads', value: totalAdsConversions, sublabel: 'Conversions', icon: '📊', color: '#c4704f', mom: adsCvTrendData }] : []),
-                    ...(hasSeo ? [{ label: 'SEO / Organic', value: totalFormFills, sublabel: 'Form fills', icon: '🔍', color: '#9db5a0', mom: formFillsTrendData }] : []),
-                    ...(hasGbp ? [{ label: 'Google Business', value: totalGbpCalls, sublabel: 'Call button taps', icon: '📍', color: '#d9a854', mom: gbpCallsTrendData }] : []),
+                    ...(hasAds ? [{ label: 'Google Ads', value: totalAdsConversions, sublabel: 'Conversions', icon: TrendingUp, color: '#c4704f', mom: adsCvTrendData }] : []),
+                    ...(hasSeo ? [{ label: 'SEO / Organic', value: totalFormFills, sublabel: 'Contact forms', icon: Search, color: '#9db5a0', mom: formFillsTrendData }] : []),
+                    ...(hasGbp ? [{ label: 'Google Business', value: totalGbpCalls, sublabel: 'Phone calls', icon: MapPin, color: '#d9a854', mom: gbpCallsTrendData }] : []),
                   ];
                   return (
                     <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${channels.length}, 1fr)` }}>
                       {channels.map((ch, i) => (
                         <div key={i} style={{ padding: '20px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `4px solid ${ch.color}` }}>
-                          <div style={{ fontSize: '28px', marginBottom: '8px' }}>{ch.icon}</div>
+                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}><ch.icon size={24} style={{ color: ch.color }} /></div>
                           <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>{ch.label}</p>
                           <div style={{ fontSize: '28px', fontWeight: 'bold', color: ch.color }}>{fmtNum(ch.value)}</div>
                           <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 8px' }}>{ch.sublabel}</p>
@@ -470,10 +484,10 @@ export default function ClientDetailPage() {
 
                   <div className="grid grid-cols-4 gap-4 mb-6">
                     {[
-                      { label: 'Search Impressions', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
-                      { label: 'Organic Clicks', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
+                      { label: 'Google Impressions', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
+                      { label: 'Google Clicks', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
                       { label: 'Click-Through Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: '#c4704f' },
-                      { label: 'Organic Sessions', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
+                      { label: 'Organic Visits', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
                     ].map((m, i) => (
                       <div key={i} style={{ padding: '16px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `3px solid ${m.color}` }}>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{m.label}</p>
@@ -556,10 +570,10 @@ export default function ClientDetailPage() {
                   title: 'SEO Performance',
                   active: hasSeo,
                   metrics: [
-                    { label: 'Organic Clicks', value: fmtNum(seoClicks) },
+                    { label: 'Google Clicks', value: fmtNum(seoClicks) },
                     { label: 'Impressions', value: fmtNum(seoImpressions) },
                     { label: 'CTR', value: `${seoCtr}%` },
-                    { label: 'Organic Sessions', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
+                    { label: 'Organic Visits', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
                   ]
                 }] : []),
                 ...(hasGbp ? [{
