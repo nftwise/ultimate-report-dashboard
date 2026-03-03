@@ -507,7 +507,7 @@ export default function GBPPage() {
                 </div>
 
                 {/* ── SECTION 4: Action Breakdown + Reviews ───────────────── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: latestReviews > 0 || latestRating > 0 ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '24px' }}>
                   {/* Action breakdown */}
                   <div style={bigCard}>
                     <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Customer Actions</p>
@@ -544,33 +544,37 @@ export default function GBPPage() {
                     </div>
                   </div>
 
-                  {/* Reviews */}
-                  <div style={bigCard}>
-                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Reviews & Reputation</p>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Customer Feedback</h3>
-                    <div style={{ background: 'linear-gradient(135deg,rgba(217,168,84,0.15),rgba(196,112,79,0.12))', borderRadius: '14px', padding: '20px', textAlign: 'center', marginBottom: '16px' }}>
-                      <p style={{ fontSize: '10px', fontWeight: 600, color: '#5c5850', margin: '0 0 6px 0', textTransform: 'uppercase' }}>Average Rating</p>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '44px', fontWeight: 800, color: '#d9a854', lineHeight: 1 }}>{latestRating.toFixed(1)}</span>
-                        <span style={{ fontSize: '20px', color: '#d9a854' }}>/ 5</span>
+                  {/* Reviews — only render if we have real data */}
+                  {latestReviews > 0 || latestRating > 0 ? (
+                    <div style={bigCard}>
+                      <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Reviews & Reputation</p>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Customer Feedback</h3>
+                      <div style={{ background: 'linear-gradient(135deg,rgba(217,168,84,0.15),rgba(196,112,79,0.12))', borderRadius: '14px', padding: '20px', textAlign: 'center', marginBottom: '16px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 600, color: '#5c5850', margin: '0 0 6px 0', textTransform: 'uppercase' }}>Average Rating</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '44px', fontWeight: 800, color: '#d9a854', lineHeight: 1 }}>{latestRating.toFixed(1)}</span>
+                          <span style={{ fontSize: '20px', color: '#d9a854' }}>/ 5</span>
+                        </div>
+                        <div style={{ marginTop: '6px' }}>
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <span key={s} style={{ fontSize: '18px', color: s <= Math.round(latestRating) ? '#d9a854' : '#e5e5e5' }}>★</span>
+                          ))}
+                        </div>
                       </div>
-                      <div style={{ marginTop: '6px' }}>
-                        {[1, 2, 3, 4, 5].map(s => (
-                          <span key={s} style={{ fontSize: '18px', color: s <= Math.round(latestRating) ? '#d9a854' : '#e5e5e5' }}>★</span>
-                        ))}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #10b981' }}>
+                          <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>Total Reviews</p>
+                          <p style={{ fontSize: '26px', fontWeight: 700, color: '#10b981', margin: 0 }}>{fmtNum(latestReviews)}</p>
+                        </div>
+                        {pNewReviews > 0 && (
+                          <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #9db5a0' }}>
+                            <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>New (this period)</p>
+                            <p style={{ fontSize: '26px', fontWeight: 700, color: '#9db5a0', margin: 0 }}>{fmtNum(pNewReviews)}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #10b981' }}>
-                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>Total Reviews</p>
-                        <p style={{ fontSize: '26px', fontWeight: 700, color: '#10b981', margin: 0 }}>{fmtNum(latestReviews)}</p>
-                      </div>
-                      <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #9db5a0' }}>
-                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>New (this period)</p>
-                        <p style={{ fontSize: '26px', fontWeight: 700, color: '#9db5a0', margin: 0 }}>{fmtNum(pNewReviews)}</p>
-                      </div>
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
 
                 {/* ── SECTION 5: Key Insights ──────────────────────────────── */}
