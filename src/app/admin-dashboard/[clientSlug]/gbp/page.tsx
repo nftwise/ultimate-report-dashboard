@@ -145,6 +145,41 @@ export default function GBPPage() {
       .then(({ data }) => { if (data) setLocationName(data.location_name); });
   }, [client]);
 
+  // ── fetch latest reviews/rating (once per client, independent of date range) ──
+  useEffect(() => {
+    if (!client) return;
+    // Try gbp_location_daily_metrics first (most accurate)
+    supabase.from('gbp_location_daily_metrics')
+      .select('total_reviews, average_rating')
+      .eq('client_id', client.id)
+      .gt('total_reviews', 0)
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data: det }) => {
+        if (det && (det as any).total_reviews > 0) {
+          setLatestReviews((det as any).total_reviews);
+          setLatestRating((det as any).average_rating ?? 0);
+        } else {
+          // Fallback to client_metrics_summary
+          supabase.from('client_metrics_summary')
+            .select('gbp_reviews_count, gbp_rating_avg')
+            .eq('client_id', client.id)
+            .eq('period_type', 'daily')
+            .gt('gbp_reviews_count', 0)
+            .order('date', { ascending: false })
+            .limit(1)
+            .single()
+            .then(({ data: sum }) => {
+              if (sum && (sum as any).gbp_reviews_count > 0) {
+                setLatestReviews((sum as any).gbp_reviews_count);
+                setLatestRating((sum as any).gbp_rating_avg ?? 0);
+              }
+            });
+        }
+      });
+  }, [client]);
+
   // ── fetch 12-month data (once per client) ─────────────────────────────────
   useEffect(() => {
     if (!client) return;
@@ -232,7 +267,6 @@ export default function GBPPage() {
       const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)])).sort();
 
       let totViews = 0, totCalls = 0, totClicks = 0, totDir = 0, totNewRev = 0, dataRows = 0;
-      let lastReviews = 0, lastRating = 0;
 
       for (const date of allDates) {
         const d = detMap.get(date), s = sumMap.get(date);
@@ -243,16 +277,12 @@ export default function GBPPage() {
         if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
         totViews += v; totCalls += c; totClicks += cl; totDir += dir;
         totNewRev += pickVal(d?.new_reviews_today, s?.gbp_reviews_new);
-        const tr = d?.total_reviews ?? s?.gbp_reviews_count ?? 0;
-        const avg = d?.average_rating ?? s?.gbp_rating_avg ?? 0;
-        if (tr > 0) lastReviews = tr;
-        if (avg > 0) lastRating = avg;
         dataRows++;
       }
 
       setPViews(totViews); setPCalls(totCalls); setPClicks(totClicks); setPDir(totDir);
       setPActions(totCalls + totClicks + totDir); setPNewReviews(totNewRev);
-      setLatestReviews(lastReviews); setLatestRating(lastRating); setPeriodDataCount(dataRows);
+      setPeriodDataCount(dataRows);
 
       // previous period
       const pDetMap = new Map<string, any>(); (pDet || []).forEach((r: any) => pDetMap.set(r.date, r));
