@@ -374,7 +374,7 @@ export default function ClientDetailPage() {
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Lead</p>
                 <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Ads spend ÷ conversions</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtCurrency(costPerLead)}</div>
+                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
                 {trendBadge(cplTrendData)}
               </div>
             ) : hasGbp ? (
@@ -500,7 +500,7 @@ export default function ClientDetailPage() {
                   {trafficAi > 0 && (
                     <div style={{ padding: '20px', background: 'linear-gradient(135deg,rgba(44,36,25,0.05),rgba(44,36,25,0.02))', borderRadius: '12px', border: '1px solid rgba(44,36,25,0.08)' }}>
                       <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
-                        ✨ AI Assistant Traffic
+                        AI Assistant Traffic
                       </h4>
                       <div style={{ display: 'flex', gap: '32px' }}>
                         <div>
