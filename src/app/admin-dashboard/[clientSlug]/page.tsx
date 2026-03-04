@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
-import { TrendingUp, Search, MapPin } from 'lucide-react';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtCurrency } from '@/lib/format';
+import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
 
 const ChartSkeleton = () => (
   <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
@@ -387,6 +387,36 @@ export default function ClientDetailPage() {
             ) : null}
           </div>
 
+          {/* Full-width: Daily Traffic & Leads */}
+          <div className="rounded-2xl p-8 mb-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+              <div>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Traffic & Leads</p>
+                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Daily Traffic & Leads</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-6" style={{ textAlign: 'right' }}>
+                <div>
+                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Visits</p>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Leads</p>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px' }}>
+              {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
+                <DailyTrafficLineChart data={dailyData} />
+              ) : (
+                <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <span style={{ fontSize: '13px' }}>No data for this date range</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Main 2-column layout */}
           <div className="grid grid-cols-1 xl:grid-cols-[1.618fr_1fr] gap-8">
 
@@ -418,61 +448,6 @@ export default function ClientDetailPage() {
                 </div>
               </div>
 
-              {/* Daily Traffic & Leads */}
-              <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <h3 className="text-2xl font-black mb-6" style={{ color: '#2c2419' }}>Daily Traffic & Leads</h3>
-                <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px' }}>
-                  {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
-                    <DailyTrafficLineChart data={dailyData} />
-                  ) : (
-                    <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                      <span style={{ fontSize: '13px' }}>No data for this date range</span>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-6 mt-6" style={{ borderTop: '1px solid rgba(44,36,25,0.1)', paddingTop: '24px' }}>
-                  <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Visits</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>Avg. Daily Leads</p>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* FIX #2: Lead Attribution — correct labels + correct values per channel */}
-              <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <div className="mb-6">
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Performance</p>
-                  <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Lead Sources</h3>
-                </div>
-                {(() => {
-                  const channels = [
-                    ...(hasAds ? [{ label: 'Google Ads', value: totalAdsConversions, sublabel: 'Conversions', icon: TrendingUp, color: '#c4704f', mom: adsCvTrendData }] : []),
-                    ...(hasSeo ? [{ label: 'SEO / Organic', value: totalFormFills, sublabel: 'Contact forms', icon: Search, color: '#9db5a0', mom: formFillsTrendData }] : []),
-                    ...(hasGbp ? [{ label: 'Google Business', value: totalGbpCalls, sublabel: 'Phone calls', icon: MapPin, color: '#d9a854', mom: gbpCallsTrendData }] : []),
-                  ];
-                  return (
-                    <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${channels.length}, 1fr)` }}>
-                      {channels.map((ch, i) => (
-                        <div key={i} style={{ padding: '20px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `4px solid ${ch.color}` }}>
-                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}><ch.icon size={24} style={{ color: ch.color }} /></div>
-                          <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>{ch.label}</p>
-                          <div style={{ fontSize: '28px', fontWeight: 'bold', color: ch.color }}>{fmtNum(ch.value)}</div>
-                          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 8px' }}>{ch.sublabel}</p>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded inline-block" style={{
-                            background: ch.mom.type === 'up' ? 'rgba(157,181,160,0.15)' : ch.mom.type === 'down' ? 'rgba(196,112,79,0.15)' : 'rgba(92,88,80,0.1)',
-                            color: ch.mom.type === 'up' ? '#4a6b4e' : ch.mom.type === 'down' ? '#8a4a2e' : '#5c5850'
-                          }}>{ch.mom.pct}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
 
               {/* SEO Analytics */}
               {hasSeo && (
@@ -524,31 +499,69 @@ export default function ClientDetailPage() {
             {/* ── Right Sidebar ────────────────────────────────────────── */}
             <div className="flex flex-col gap-8">
 
-              {/* FIX #3: Lead Distribution — clear sublabels per channel */}
+              {/* Lead Distribution — Donut Chart */}
               <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Impact</p>
-                <h3 className="text-2xl font-black mt-2 mb-6" style={{ color: '#2c2419' }}>Lead Distribution</h3>
+                <h3 className="text-2xl font-black mt-2 mb-4" style={{ color: '#2c2419' }}>Lead Distribution</h3>
                 {(() => {
                   const channels = [
                     ...(hasAds ? [{ label: 'Google Ads', sublabel: 'conversions', value: totalAdsConversions, color: '#c4704f' }] : []),
                     ...(hasSeo ? [{ label: 'SEO / Organic', sublabel: 'form fills', value: totalFormFills, color: '#9db5a0' }] : []),
                     ...(hasGbp ? [{ label: 'Google Business', sublabel: 'call taps', value: totalGbpCalls, color: '#d9a854' }] : []),
                   ];
-                  const total = Math.max(channels.reduce((s, c) => s + c.value, 0), 1);
-                  return channels.map((ch, i) => (
-                    <div key={i} style={{ marginBottom: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                        <div>
-                          <span style={{ fontWeight: 600, color: '#2c2419' }}>{ch.label}</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '6px' }}>{ch.sublabel}</span>
+                  const total = channels.reduce((s, c) => s + c.value, 0);
+                  return (
+                    <>
+                      <div style={{ position: 'relative' }}>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie
+                              data={channels.length > 0 && total > 0 ? channels : [{ label: 'No data', sublabel: '', value: 1, color: 'rgba(44,36,25,0.08)' }]}
+                              cx="50%" cy="50%"
+                              innerRadius={58} outerRadius={88}
+                              paddingAngle={channels.length > 1 ? 3 : 0}
+                              dataKey="value"
+                              strokeWidth={0}
+                            >
+                              {(channels.length > 0 && total > 0 ? channels : [{ color: 'rgba(44,36,25,0.08)' }]).map((entry, i) => (
+                                <Cell key={i} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            {total > 0 && (
+                              <PieTooltip
+                                contentStyle={{ fontSize: '12px', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                formatter={(v: any, _: any, props: any) => [`${fmtNum(v)} (${Math.round((v / total) * 100)}%)`, props.payload?.label]}
+                              />
+                            )}
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* Center label */}
+                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{fmtNum(total)}</div>
+                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>total leads</div>
                         </div>
-                        <span style={{ fontWeight: 'bold', color: '#2c2419' }}>{fmtNum(ch.value)} ({Math.round((ch.value / total) * 100)}%)</span>
                       </div>
-                      <div style={{ height: '6px', background: 'rgba(44,36,25,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${(ch.value / total) * 100}%`, background: ch.color, borderRadius: '3px', transition: 'width 0.3s ease' }} />
-                      </div>
-                    </div>
-                  ));
+                      {/* Legend */}
+                      {total > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+                          {channels.map((ch, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, display: 'inline-block', flexShrink: 0 }} />
+                                <div>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419' }}>{ch.label}</span>
+                                  <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '6px' }}>{ch.sublabel}</span>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: '#2c2419' }}>
+                                {fmtNum(ch.value)} <span style={{ fontSize: '11px', fontWeight: 400, color: '#9ca3af' }}>({Math.round((ch.value / Math.max(total, 1)) * 100)}%)</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
                 })()}
               </div>
 
