@@ -56,7 +56,7 @@ export default function GeoPage() {
   const [aiPages, setAiPages] = useState<AiPageCitation[]>([]);
   const [aiQueries, setAiQueries] = useState<AiQuery[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDays, setSelectedDays] = useState<Preset>(30);
+  const [selectedDays, setSelectedDays] = useState<Preset>(0);
 
   // Import modal state
   const [showImport, setShowImport] = useState(false);
@@ -120,6 +120,29 @@ export default function GeoPage() {
     ? Math.round(totalCitations / filteredDaily.length)
     : 0;
   const peakDay = filteredDaily.reduce((best, r) => r.citations > best.citations ? r : best, { citations: 0, date: '' });
+
+  // ── MoM comparison (only for 30D / 90D) ────────────────────────────────────
+  const momCitations = useMemo(() => {
+    if (selectedDays === 0 || aiDaily.length === 0) return null;
+    const cutoff = new Date(lastDataDate!);
+    cutoff.setDate(cutoff.getDate() - selectedDays + 1);
+    const prevEnd = new Date(cutoff); prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - selectedDays + 1);
+    const prevEndStr = prevEnd.toISOString().split('T')[0];
+    const prevStartStr = prevStart.toISOString().split('T')[0];
+    const prevTotal = aiDaily.filter(r => r.date >= prevStartStr && r.date <= prevEndStr).reduce((s, r) => s + r.citations, 0);
+    if (prevTotal === 0) return null;
+    const pct = ((totalCitations - prevTotal) / prevTotal * 100);
+    const sign = pct > 0 ? '+' : '';
+    return {
+      pct: `${sign}${pct.toFixed(1)}%`,
+      type: pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral',
+      prevStart: prevStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      prevEnd: prevEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    };
+  }, [aiDaily, selectedDays, totalCitations, lastDataDate]);
+
+  const periodSubLabel = selectedDays === 0 ? 'all time' : `last ${filteredDaily.length} days`;
 
   // ── Parse helpers ──────────────────────────────────────────────────────────
   function parseDailyCitations(raw: string) {
@@ -550,13 +573,19 @@ export default function GeoPage() {
               <Bot size={28} style={{ color: '#7c3aed' }} />
             </div>
             <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', marginBottom: '10px' }}>No AI citation data yet</h3>
-            <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '400px', margin: '0 auto 28px', lineHeight: '1.6' }}>
-              AI assistants like Copilot, ChatGPT Browse, and Perplexity all pull from Bing&apos;s index. Import data from Bing Webmaster Tools to start tracking visibility.
-            </p>
-            {canImport && (
-              <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '14px', background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                <Upload size={15} /> Import AI Data
-              </button>
+            {canImport ? (
+              <>
+                <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '400px', margin: '0 auto 28px', lineHeight: '1.6' }}>
+                  AI assistants like Copilot, ChatGPT Browse, and Perplexity all pull from Bing&apos;s index. Import data from Bing Webmaster Tools to start tracking visibility.
+                </p>
+                <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '14px', background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                  <Upload size={15} /> Import AI Data
+                </button>
+              </>
+            ) : (
+              <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '400px', margin: '0 auto', lineHeight: '1.6' }}>
+                Your agency team will import AI citation data from Bing Webmaster Tools. Check back soon to see how often AI assistants like Copilot and ChatGPT recommend your website.
+              </p>
             )}
           </div>
 
@@ -568,30 +597,38 @@ export default function GeoPage() {
                 {
                   label: 'AI Citations',
                   value: fmtNum(totalCitations),
-                  sub: selectedDays === 0 ? `${aiDaily.length} days tracked` : `last ${filteredDaily.length} days`,
-                  color: '#7c3aed',
+                  sub: periodSubLabel,
                   icon: <Bot size={18} style={{ color: '#7c3aed' }} />,
+                  allTime: false,
+                  showMom: true,
+                  showPeak: true,
                 },
                 {
                   label: 'Avg Per Day',
                   value: fmtNum(avgCitationsPerDay),
-                  sub: 'daily citations average',
-                  color: '#7c3aed',
+                  sub: periodSubLabel,
                   icon: <TrendingUp size={18} style={{ color: '#7c3aed' }} />,
+                  allTime: false,
+                  showMom: false,
+                  showPeak: false,
                 },
                 {
                   label: 'Cited Pages',
                   value: fmtNum(aiPages.length),
                   sub: 'unique pages referenced',
-                  color: '#7c3aed',
                   icon: <FileSpreadsheet size={18} style={{ color: '#7c3aed' }} />,
+                  allTime: true,
+                  showMom: false,
+                  showPeak: false,
                 },
                 {
                   label: 'AI Queries',
                   value: fmtNum(aiQueries.length),
                   sub: 'search terms tracked',
-                  color: '#7c3aed',
                   icon: <Search size={18} style={{ color: '#7c3aed' }} />,
+                  allTime: true,
+                  showMom: false,
+                  showPeak: false,
                 },
               ].map(card => (
                 <div key={card.label}
@@ -610,17 +647,29 @@ export default function GeoPage() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                     <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: 0 }}>{card.label}</p>
-                    <div style={{ width: 32, height: 32, borderRadius: '10px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {card.icon}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {card.allTime && (
+                        <span style={{ fontSize: '9px', fontWeight: 600, color: '#9ca3af', background: 'rgba(44,36,25,0.06)', borderRadius: '4px', padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          All time
+                        </span>
+                      )}
+                      <div style={{ width: 32, height: 32, borderRadius: '10px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {card.icon}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 800, color: card.color, marginBottom: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: '#7c3aed', marginBottom: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
                     {card.value}
                   </div>
                   <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{card.sub}</p>
-                  {card.label === 'AI Citations' && peakDay.citations > 0 && (
+                  {card.showPeak && peakDay.citations > 0 && (
                     <p style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 600, margin: '6px 0 0 0' }}>
                       Peak: {fmtNum(peakDay.citations)} on {fmtDate(peakDay.date)}
+                    </p>
+                  )}
+                  {card.showMom && momCitations && (
+                    <p style={{ fontSize: '11px', fontWeight: 600, color: momCitations.type === 'up' ? '#10b981' : momCitations.type === 'down' ? '#ef4444' : '#9ca3af', margin: '6px 0 0 0' }}>
+                      {momCitations.pct} <span style={{ fontWeight: 400, color: '#9ca3af' }}>vs {momCitations.prevStart} – {momCitations.prevEnd}</span>
                     </p>
                   )}
                 </div>
@@ -679,7 +728,7 @@ export default function GeoPage() {
                     Total Citations
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: 16, height: 2, background: '#a78bfa', display: 'inline-block', borderRadius: 2, borderBottom: '2px dashed #a78bfa' }} />
+                    <span style={{ width: 16, height: 0, borderTop: '2px dashed #a78bfa', display: 'inline-block' }} />
                     Pages Cited
                   </span>
                 </div>
@@ -800,7 +849,7 @@ export default function GeoPage() {
                   <p style={{ fontSize: '13px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px 0' }}>Why This Matters</p>
                   <p style={{ fontSize: '13px', color: '#5c5850', margin: 0, lineHeight: '1.6' }}>
                     Microsoft Copilot, ChatGPT Browse, and Perplexity all use Bing&apos;s index as their primary data source.
-                    Every AI citation means a patient asking an AI assistant about chiropractors saw your website recommended.
+                    Every AI citation means a potential patient asking an AI assistant about local healthcare providers saw your website recommended.
                     {aiPages.length > 0 && ` Your most cited page — "${shortUrl(aiPages[0].page_url)}" — has been referenced ${fmtNum(aiPages[0].citations)} times.`}
                   </p>
                 </div>
