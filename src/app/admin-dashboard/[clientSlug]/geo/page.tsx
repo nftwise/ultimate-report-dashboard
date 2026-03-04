@@ -746,7 +746,7 @@ export default function GeoPage() {
                 </div>
                 {aiQueries.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
-                    No query data — use <strong>Import AI Data</strong> to add search queries.
+                    {canImport ? <>No query data — use <strong>Import AI Data</strong> to add search queries.</> : 'Your agency team will update this data soon.'}
                   </div>
                 ) : (
                   <>
@@ -794,7 +794,7 @@ export default function GeoPage() {
                 </div>
                 {aiPages.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
-                    No page data — use <strong>Import AI Data</strong> to add page-level citations.
+                    {canImport ? <>No page data — use <strong>Import AI Data</strong> to add page-level citations.</> : 'Your agency team will update this data soon.'}
                   </div>
                 ) : (
                   <>
