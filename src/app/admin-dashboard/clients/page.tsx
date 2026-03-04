@@ -64,18 +64,66 @@ export default function ClientsManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
 
+  // Last sync dates per client
+  const [lastSync, setLastSync] = useState<Record<string, string>>({});
+
   // Backfill modal
   const [backfillClient, setBackfillClient] = useState<Client | null>(null);
   const [backfillDays, setBackfillDays] = useState(90);
+  type ModalStep = 'idle' | 'testing' | 'ready' | 'running' | 'done';
+  const [modalStep, setModalStep] = useState<ModalStep>('idle');
+  const [testResults, setTestResults] = useState<{ label: string; ok: boolean; message: string }[]>([]);
   const [backfill, setBackfill] = useState<{
-    running: boolean; currentDay: number; totalDays: number;
-    currentService: string; done: boolean; errors: string[];
-  }>({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+    currentDay: number; totalDays: number; currentService: string; errors: string[];
+  }>({ currentDay: 0, totalDays: 0, currentService: '', errors: [] });
 
   function openBackfillModal(client: Client) {
     setBackfillClient(client);
     setBackfillDays(90);
-    setBackfill({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+    setModalStep('idle');
+    setTestResults([]);
+    setBackfill({ currentDay: 0, totalDays: 0, currentService: '', errors: [] });
+  }
+
+  function getYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  async function testConnections() {
+    if (!backfillClient) return;
+    setModalStep('testing');
+    const yesterday = getYesterday();
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4 (Analytics)', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC (Search Console)', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
+    ];
+    const results = [];
+    for (const svc of services) {
+      if (!svc.enabled) {
+        results.push({ label: svc.label, ok: false, message: 'Not enabled' });
+        continue;
+      }
+      try {
+        const res = await fetch('/api/admin/trigger-cron', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: svc.endpoint, params: { date: yesterday, clientId: backfillClient.id } }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+          results.push({ label: svc.label, ok: true, message: `${data.total ?? data.synced ?? '✓'} records` });
+        } else {
+          results.push({ label: svc.label, ok: false, message: data.error || 'No data returned' });
+        }
+      } catch (e: any) {
+        results.push({ label: svc.label, ok: false, message: e.message || 'Network error' });
+      }
+    }
+    setTestResults(results);
+    setModalStep('ready');
   }
 
   async function runBackfill() {
@@ -84,7 +132,7 @@ export default function ClientsManagementPage() {
       { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
-      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true }, // always try, fails silently if no location
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
     ].filter(s => s.enabled);
 
     const dates: string[] = [];
@@ -95,7 +143,8 @@ export default function ClientsManagementPage() {
       dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     }
 
-    setBackfill({ running: true, currentDay: 0, totalDays: dates.length, currentService: '', done: false, errors: [] });
+    setModalStep('running');
+    setBackfill({ currentDay: 0, totalDays: dates.length, currentService: '', errors: [] });
     const errors: string[] = [];
 
     for (let i = 0; i < dates.length; i++) {
@@ -118,7 +167,8 @@ export default function ClientsManagementPage() {
       } catch { errors.push(`${date} rollup`); }
     }
 
-    setBackfill(prev => ({ ...prev, running: false, done: true, errors }));
+    setBackfill(prev => ({ ...prev, errors }));
+    setModalStep('done');
   }
 
   const supabase = createClient(
@@ -137,6 +187,23 @@ export default function ClientsManagementPage() {
         .order('name', { ascending: true });
       if (fetchError) throw new Error(fetchError.message);
       setClients(data || []);
+
+      // Fetch last sync date per client (last 60 days)
+      const since = new Date(); since.setDate(since.getDate() - 60);
+      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,'0')}-${String(since.getDate()).padStart(2,'0')}`;
+      const { data: syncData } = await supabase
+        .from('client_metrics_summary')
+        .select('client_id, date')
+        .eq('period_type', 'daily')
+        .gte('date', sinceStr)
+        .order('date', { ascending: false });
+      if (syncData) {
+        const map: Record<string, string> = {};
+        for (const row of syncData) {
+          if (!map[row.client_id]) map[row.client_id] = row.date;
+        }
+        setLastSync(map);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
@@ -219,6 +286,13 @@ export default function ClientsManagementPage() {
     const cancelled = cancelledClients.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
     return showCancelled ? [...active, ...cancelled] : active;
   })();
+
+  function syncAge(clientId: string): { days: number; stale: boolean } | null {
+    const d = lastSync[clientId];
+    if (!d) return null;
+    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+    return { days: diff, stale: diff > 2 };
+  }
 
   const statusColor = (s: string | null) => {
     if (s === 'Cancelled') return { bg: '#fef2f2', color: '#dc2626' };
@@ -374,7 +448,15 @@ export default function ClientsManagementPage() {
                         >
                           <td className="col-name">
                             <div style={{ fontWeight: 600, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</div>
-                            {client.owner && <div style={{ fontSize: '11px', color: '#8a7f74', marginTop: '1px' }}>{client.owner}</div>}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              {client.owner && <span style={{ fontSize: '11px', color: '#8a7f74' }}>{client.owner}</span>}
+                              {(() => {
+                                const sync = syncAge(client.id);
+                                if (!sync) return client.is_active ? <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 600 }}>No data</span> : null;
+                                if (sync.stale) return <span style={{ fontSize: '10px', color: '#d97706', fontWeight: 600 }}>{sync.days}d ago ⚠</span>;
+                                return <span style={{ fontSize: '10px', color: '#9ca3af' }}>{sync.days}d ago</span>;
+                              })()}
+                            </div>
                           </td>
                           <td className="col-city sep" style={{ color: '#5c5850' }}>{client.city || '—'}</td>
                           <td className="col-svc sep" style={{ textAlign: 'center' }}>
@@ -602,7 +684,7 @@ export default function ClientsManagementPage() {
       {backfillClient && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center"
           style={{ background: 'rgba(44,36,25,0.5)', backdropFilter: 'blur(4px)' }}
-          onClick={() => !backfill.running && setBackfillClient(null)}>
+          onClick={() => modalStep !== 'running' && modalStep !== 'testing' && setBackfillClient(null)}>
           <div className="rounded-2xl w-full max-w-md mx-4"
             style={{ background: '#fff', boxShadow: '0 20px 60px rgba(44,36,25,0.3)' }}
             onClick={e => e.stopPropagation()}>
@@ -618,89 +700,146 @@ export default function ClientsManagementPage() {
                   <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{backfillClient.name}</p>
                 </div>
               </div>
-              {!backfill.running && (
+              {modalStep !== 'running' && modalStep !== 'testing' && (
                 <button onClick={() => setBackfillClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={18} /></button>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* Services enabled */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {backfillClient.has_seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>SEO</span>}
-                {backfillClient.has_ads && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>Google Ads</span>}
-                <span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>GBP (if configured)</span>
-              </div>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-              {/* Day preset */}
-              {!backfill.running && (
-                <div>
-                  <p style={{ fontSize: '12px', color: '#5c5850', marginBottom: '8px', fontWeight: 600 }}>Date range</p>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {[30, 60, 90].map(d => (
-                      <button key={d} type="button" onClick={() => setBackfillDays(d)}
-                        style={{
-                          flex: 1, padding: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                          border: '1.5px solid', cursor: 'pointer',
-                          borderColor: backfillDays === d ? '#d9a854' : 'rgba(44,36,25,0.12)',
-                          background: backfillDays === d ? 'rgba(217,168,84,0.1)' : 'transparent',
-                          color: backfillDays === d ? '#b45309' : '#5c5850',
-                        }}>
-                        {d} days
-                      </button>
-                    ))}
+              {/* STEP: idle — pick days */}
+              {modalStep === 'idle' && (
+                <>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {backfillClient.has_seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>SEO</span>}
+                    {backfillClient.has_ads && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>Google Ads</span>}
+                    <span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>GBP (if configured)</span>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#5c5850', marginBottom: '8px', fontWeight: 600 }}>Date range to backfill</p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[30, 60, 90].map(d => (
+                        <button key={d} type="button" onClick={() => setBackfillDays(d)}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, border: '1.5px solid', cursor: 'pointer',
+                            borderColor: backfillDays === d ? '#d9a854' : 'rgba(44,36,25,0.12)',
+                            background: backfillDays === d ? 'rgba(217,168,84,0.1)' : 'transparent',
+                            color: backfillDays === d ? '#b45309' : '#5c5850' }}>
+                          {d} days
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>First, we'll test each connection before running the full backfill.</p>
+                </>
+              )}
+
+              {/* STEP: testing */}
+              {modalStep === 'testing' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850' }}>
+                    <Loader2 size={14} className="animate-spin" style={{ color: '#d9a854' }} />
+                    Testing connections for yesterday's data...
                   </div>
                 </div>
               )}
 
-              {/* Progress */}
-              {backfill.running && (
+              {/* STEP: ready — show test results */}
+              {modalStep === 'ready' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#5c5850', margin: 0 }}>Connection Test Results</p>
+                  {testResults.map(r => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px',
+                      background: r.ok ? 'rgba(16,185,129,0.05)' : r.message === 'Not enabled' ? 'rgba(44,36,25,0.03)' : 'rgba(239,68,68,0.05)',
+                      border: `1px solid ${r.ok ? 'rgba(16,185,129,0.15)' : r.message === 'Not enabled' ? 'rgba(44,36,25,0.08)' : 'rgba(239,68,68,0.15)'}` }}>
+                      <span style={{ fontSize: '13px', color: '#2c2419', fontWeight: 500 }}>{r.label}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: r.ok ? '#059669' : r.message === 'Not enabled' ? '#9ca3af' : '#dc2626' }}>
+                        {r.ok ? `✓ ${r.message}` : r.message === 'Not enabled' ? '— disabled' : `✗ ${r.message}`}
+                      </span>
+                    </div>
+                  ))}
+                  {testResults.every(r => !r.ok || r.message === 'Not enabled') && (
+                    <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#dc2626' }}>
+                      All connections failed. Check service IDs in Edit Client before backfilling.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP: running */}
+              {modalStep === 'running' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#5c5850', marginBottom: '6px' }}>
                     <span>Day {backfill.currentDay} / {backfill.totalDays} — {backfill.currentService}</span>
-                    <span style={{ fontWeight: 700 }}>{Math.round((backfill.currentDay / backfill.totalDays) * 100)}%</span>
+                    <span style={{ fontWeight: 700 }}>{backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%</span>
                   </div>
                   <div style={{ height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '99px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${Math.round((backfill.currentDay / backfill.totalDays) * 100)}%`,
-                      background: 'linear-gradient(90deg, #d9a854, #c4704f)',
-                      borderRadius: '99px', transition: 'width 0.4s ease',
-                    }} />
+                    <div style={{ height: '100%', width: `${backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%`,
+                      background: 'linear-gradient(90deg, #d9a854, #c4704f)', borderRadius: '99px', transition: 'width 0.4s ease' }} />
                   </div>
                   <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Keep this tab open while running...</p>
                 </div>
               )}
 
-              {/* Done */}
-              {backfill.done && (
-                <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '10px', padding: '12px 16px', fontSize: '13px', color: '#059669' }}>
-                  Backfill complete{backfill.errors.length > 0 ? ` · ${backfill.errors.length} errors` : ' · all data synced'}
+              {/* STEP: done */}
+              {modalStep === 'done' && (
+                <div style={{ background: backfill.errors.length > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)',
+                  border: `1px solid ${backfill.errors.length > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)'}`,
+                  borderRadius: '10px', padding: '14px 16px', fontSize: '13px',
+                  color: backfill.errors.length > 0 ? '#b45309' : '#059669' }}>
+                  {backfill.errors.length > 0
+                    ? `Done with ${backfill.errors.length} error${backfill.errors.length > 1 ? 's' : ''} — data may be partially synced`
+                    : `Backfill complete · all ${backfill.totalDays * 4} sync jobs succeeded`}
                 </div>
               )}
             </div>
 
             {/* Footer */}
             <div className="flex gap-3 justify-end p-6 pt-2" style={{ borderTop: '1px solid rgba(44,36,25,0.08)' }}>
-              {!backfill.running && (
+              {modalStep === 'idle' && (
                 <>
                   <button onClick={() => setBackfillClient(null)}
                     style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
-                    {backfill.done ? 'Close' : 'Cancel'}
+                    Cancel
                   </button>
-                  <button onClick={() => {
-                    setBackfill({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
-                    runBackfill();
-                  }}
+                  <button onClick={testConnections}
                     style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#d9a854', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                    {backfill.done ? 'Re-run' : `Start Backfill (${backfillDays}d)`}
+                    Test Connection →
                   </button>
                 </>
               )}
-              {backfill.running && (
+              {modalStep === 'testing' && (
+                <div style={{ fontSize: '13px', color: '#9ca3af', padding: '9px 0' }}>Testing...</div>
+              )}
+              {modalStep === 'ready' && (
+                <>
+                  <button onClick={() => setModalStep('idle')}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    Back
+                  </button>
+                  <button onClick={runBackfill}
+                    disabled={testResults.every(r => !r.ok || r.message === 'Not enabled')}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                      background: testResults.every(r => !r.ok || r.message === 'Not enabled') ? '#d1d5db' : '#c4704f', color: '#fff' }}>
+                    Start Backfill ({backfillDays}d)
+                  </button>
+                </>
+              )}
+              {modalStep === 'running' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850', padding: '9px 0' }}>
-                  <Loader2 size={14} className="animate-spin" />
-                  Running...
+                  <Loader2 size={14} className="animate-spin" />Running...
                 </div>
+              )}
+              {modalStep === 'done' && (
+                <>
+                  <button onClick={() => setBackfillClient(null)}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    Close
+                  </button>
+                  <button onClick={() => { setModalStep('idle'); setTestResults([]); }}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#d9a854', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                    Re-run
+                  </button>
+                </>
               )}
             </div>
           </div>
