@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
@@ -10,8 +10,7 @@ import { fmtNum } from '@/lib/format';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { Upload, Bot, FileSpreadsheet, Search } from 'lucide-react';
-import type * as XLSXType from 'xlsx';
+import { Upload, Bot, FileSpreadsheet, Search, TrendingUp, Zap } from 'lucide-react';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -42,6 +41,9 @@ interface Client {
   city: string;
 }
 
+const PRESETS = [30, 90, 0] as const; // 0 = All time
+type Preset = typeof PRESETS[number];
+
 export default function GeoPage() {
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
@@ -54,7 +56,7 @@ export default function GeoPage() {
   const [aiPages, setAiPages] = useState<AiPageCitation[]>([]);
   const [aiQueries, setAiQueries] = useState<AiQuery[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasData, setHasData] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<Preset>(30);
 
   // Import modal state
   const [showImport, setShowImport] = useState(false);
@@ -83,37 +85,15 @@ export default function GeoPage() {
       if (!clientData) return;
       setClient(clientData);
 
-      // AI Citations daily
-      const { data: aiData } = await supabase
-        .from('bing_ai_citations')
-        .select('date, citations, cited_pages')
-        .eq('client_id', clientData.id)
-        .order('date', { ascending: true });
+      const [{ data: aiData }, { data: aiPageData }, { data: queryData }] = await Promise.all([
+        supabase.from('bing_ai_citations').select('date, citations, cited_pages').eq('client_id', clientData.id).order('date', { ascending: true }),
+        supabase.from('bing_ai_page_citations').select('page_url, citations').eq('client_id', clientData.id).order('citations', { ascending: false }).limit(20),
+        supabase.from('bing_ai_queries').select('query_text, citations, date').eq('client_id', clientData.id).order('citations', { ascending: false }).limit(50),
+      ]);
 
-      // AI Citations per page
-      const { data: aiPageData } = await supabase
-        .from('bing_ai_page_citations')
-        .select('page_url, citations')
-        .eq('client_id', clientData.id)
-        .order('citations', { ascending: false })
-        .limit(20);
-
-      // AI Queries
-      const { data: queryData } = await supabase
-        .from('bing_ai_queries')
-        .select('query_text, citations, date')
-        .eq('client_id', clientData.id)
-        .order('citations', { ascending: false })
-        .limit(50);
-
-      const ai = aiData || [];
-      const aip = aiPageData || [];
-      const aq = queryData || [];
-
-      setAiDaily(ai);
-      setAiPages(aip);
-      setAiQueries(aq);
-      setHasData(ai.length > 0 || aip.length > 0 || aq.length > 0);
+      setAiDaily(aiData || []);
+      setAiPages(aiPageData || []);
+      setAiQueries(queryData || []);
     } catch (err) {
       console.error('[GeoPage] Error:', err);
     } finally {
@@ -121,7 +101,27 @@ export default function GeoPage() {
     }
   }
 
-  // Parse tab-separated citation data pasted from BWT dashboard
+  // ── Date filtering ─────────────────────────────────────────────────────────
+  const lastDataDate = aiDaily.length > 0 ? aiDaily[aiDaily.length - 1].date : null;
+
+  const filteredDaily = useMemo(() => {
+    if (selectedDays === 0 || aiDaily.length === 0) return aiDaily;
+    const cutoff = new Date(lastDataDate!);
+    cutoff.setDate(cutoff.getDate() - selectedDays + 1);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    return aiDaily.filter(r => r.date >= cutoffStr);
+  }, [aiDaily, selectedDays, lastDataDate]);
+
+  const hasData = aiDaily.length > 0 || aiPages.length > 0 || aiQueries.length > 0;
+
+  // ── KPIs ───────────────────────────────────────────────────────────────────
+  const totalCitations = filteredDaily.reduce((s, r) => s + r.citations, 0);
+  const avgCitationsPerDay = filteredDaily.length > 0
+    ? Math.round(totalCitations / filteredDaily.length)
+    : 0;
+  const peakDay = filteredDaily.reduce((best, r) => r.citations > best.citations ? r : best, { citations: 0, date: '' });
+
+  // ── Parse helpers ──────────────────────────────────────────────────────────
   function parseDailyCitations(raw: string) {
     return raw.trim().split('\n').map(line => {
       const parts = line.trim().split(/\t/);
@@ -134,7 +134,6 @@ export default function GeoPage() {
     }).filter(r => r.date && !isNaN(r.citations));
   }
 
-  // Parse page citations: "https://example.com/page\t2070\n..."
   function parsePageCitations(raw: string) {
     return raw.trim().split('\n').map(line => {
       const parts = line.trim().split(/\t/);
@@ -144,7 +143,6 @@ export default function GeoPage() {
     }).filter(r => r.pageUrl && !isNaN(r.citations));
   }
 
-  // Parse query citations: "query text\t150\n..."
   function parseQueryCitations(raw: string) {
     return raw.trim().split('\n').map(line => {
       const parts = line.trim().split(/\t/);
@@ -154,7 +152,6 @@ export default function GeoPage() {
     }).filter(r => r.queryText && !isNaN(r.citations));
   }
 
-  // Parse Excel file and extract daily citations + page citations + queries
   async function handleExcelFile(file: File) {
     setExcelFileName(file.name);
     setImportMsg('Loading file...');
@@ -164,7 +161,6 @@ export default function GeoPage() {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-
         const daily: Array<{ date: string; citations: number; citedPages: number }> = [];
         const pages: Array<{ pageUrl: string; citations: number }> = [];
         const queries: Array<{ queryText: string; citations: number }> = [];
@@ -173,39 +169,28 @@ export default function GeoPage() {
           const sheet = workbook.Sheets[sheetName];
           const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
           if (rows.length === 0) continue;
-
           const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim());
-
           const hasDate = headers.some(h => h.includes('date'));
           const hasCitations = headers.some(h => h.includes('citation') || h.includes('total'));
           const hasUrl = headers.some(h => h.includes('url') || h.includes('page') || h.includes('link'));
           const hasQuery = headers.some(h => h.includes('query') || h.includes('search') || h.includes('keyword') || h.includes('term'));
 
           if (hasQuery && hasCitations) {
-            // Query citations sheet
             for (const row of rows) {
               const keys = Object.keys(row);
-              const queryKey = keys.find(k => {
-                const kl = k.toLowerCase();
-                return kl.includes('query') || kl.includes('search') || kl.includes('keyword') || kl.includes('term');
-              });
+              const queryKey = keys.find(k => { const kl = k.toLowerCase(); return kl.includes('query') || kl.includes('search') || kl.includes('keyword') || kl.includes('term'); });
               const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('count') || k.toLowerCase().includes('total'));
-
               if (!queryKey) continue;
               const queryText = String(row[queryKey]).trim();
               const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
-              if (queryText && citations > 0) {
-                queries.push({ queryText, citations });
-              }
+              if (queryText && citations > 0) queries.push({ queryText, citations });
             }
           } else if (hasDate && hasCitations && !hasUrl) {
-            // Daily citations sheet
             for (const row of rows) {
               const keys = Object.keys(row);
               const dateKey = keys.find(k => k.toLowerCase().includes('date'));
               const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('total'));
               const pagesKey = keys.find(k => k.toLowerCase().includes('page') || k.toLowerCase().includes('cited'));
-
               if (!dateKey) continue;
               let dateVal = row[dateKey];
               if (dateVal instanceof Date) {
@@ -217,26 +202,19 @@ export default function GeoPage() {
                 const d = XLSX.SSF.parse_date_code(dateVal);
                 dateVal = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
               }
-
               const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
               const citedPages = parseInt(pagesKey ? row[pagesKey] : '0', 10) || 0;
-              if (dateVal && citations > 0) {
-                daily.push({ date: dateVal, citations, citedPages });
-              }
+              if (dateVal && citations > 0) daily.push({ date: dateVal, citations, citedPages });
             }
           } else if (hasUrl) {
-            // Page-level citations sheet
             for (const row of rows) {
               const keys = Object.keys(row);
               const urlKey = keys.find(k => k.toLowerCase().includes('url') || k.toLowerCase().includes('page') || k.toLowerCase().includes('link'));
               const citKey = keys.find(k => k.toLowerCase().includes('citation') || k.toLowerCase().includes('count') || k.toLowerCase().includes('total'));
-
               if (!urlKey) continue;
               const pageUrl = String(row[urlKey]).trim();
               const citations = parseInt(citKey ? row[citKey] : '0', 10) || 0;
-              if (pageUrl.startsWith('http') && citations > 0) {
-                pages.push({ pageUrl, citations });
-              }
+              if (pageUrl.startsWith('http') && citations > 0) pages.push({ pageUrl, citations });
             }
           }
         }
@@ -246,7 +224,6 @@ export default function GeoPage() {
         if (daily.length > 0) parts.push(`${daily.length} daily rows`);
         if (pages.length > 0) parts.push(`${pages.length} page rows`);
         if (queries.length > 0) parts.push(`${queries.length} query rows`);
-
         if (parts.length === 0) {
           setImportMsg('Could not detect citation data. Make sure columns include "Date" + "Citations", "URL" + "Citations", or "Query" + "Citations".');
         } else {
@@ -302,9 +279,7 @@ export default function GeoPage() {
           if (queryCitations.length > 0) saved.push(`${queryCitations.length} queries`);
           setImportMsg(`Saved: ${saved.join(', ')} rows.`);
         }
-        setImportRaw('');
-        setImportPageRaw('');
-        setImportQueryRaw('');
+        setImportRaw(''); setImportPageRaw(''); setImportQueryRaw('');
         setExcelPreview({ daily: [], pages: [], queries: [] });
         setExcelFileName('');
         await fetchData();
@@ -319,20 +294,17 @@ export default function GeoPage() {
     }
   }
 
-  const totalCitations = aiDaily.reduce((s, r) => s + r.citations, 0);
-  const totalQueryCitations = aiQueries.reduce((s, r) => s + r.citations, 0);
-
   const fmtDate = (d: string) => {
-    try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+    try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
     catch { return d; }
   };
-
   const fmtDateLong = (d: string) => {
-    try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }); }
+    try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }); }
     catch { return d; }
   };
-
   const shortUrl = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+
+  const presetLabel = (d: Preset) => d === 0 ? 'All' : `${d}D`;
 
   return (
     <AdminLayout>
@@ -343,35 +315,68 @@ export default function GeoPage() {
         activeTab="geo"
       />
 
-      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Sticky date bar */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 10,
+        background: 'rgba(245, 241, 237, 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(44, 36, 25, 0.08)',
+        padding: '10px 24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px',
+      }}>
+        {hasData && PRESETS.map(d => (
+          <button
+            key={d}
+            onClick={() => setSelectedDays(d)}
+            style={{
+              padding: '5px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+              border: '1px solid rgba(44,36,25,0.15)', cursor: 'pointer',
+              background: selectedDays === d ? '#fff' : 'transparent',
+              color: selectedDays === d ? '#2c2419' : '#9ca3af',
+              boxShadow: selectedDays === d ? '0 1px 4px rgba(44,36,25,0.1)' : 'none',
+              transition: 'all 150ms',
+            }}
+          >
+            {presetLabel(d)}
+          </button>
+        ))}
+        {lastDataDate && (
+          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '4px' }}>
+            Data through {new Date(lastDataDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+        )}
+      </div>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ padding: '28px 24px', maxWidth: '1400px', margin: '0 auto' }}>
+
+        {/* Page header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px 0' }}>
-              GEO · AI Search Visibility
-            </h2>
+            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#7c3aed', margin: '0 0 6px 0' }}>
+              GEO / AI VISIBILITY
+            </p>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#2c2419', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+              AI Search Visibility
+            </h1>
             <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
-              AI Citations · Cited Pages · Search Queries — from Bing Webmaster Tools
+              How often AI assistants like Copilot, ChatGPT, and Perplexity cite your website
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {canImport && (
-              <button
-                onClick={() => setShowImport(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 14px', borderRadius: '9px',
-                  background: 'rgba(107,70,193,0.1)', color: '#6b46c1',
-                  border: '1px solid rgba(107,70,193,0.2)', cursor: 'pointer',
-                  fontSize: '12px', fontWeight: 600,
-                }}
-              >
-                <Upload size={13} />
-                Import AI Data
-              </button>
-            )}
-          </div>
+          {canImport && (
+            <button
+              onClick={() => setShowImport(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                padding: '10px 18px', borderRadius: '12px',
+                background: 'rgba(124,58,237,0.1)', color: '#7c3aed',
+                border: '1px solid rgba(124,58,237,0.2)', cursor: 'pointer',
+                fontSize: '13px', fontWeight: 600,
+              }}
+            >
+              <Upload size={14} />
+              Import AI Data
+            </button>
+          )}
         </div>
 
         {/* Import Modal */}
@@ -386,19 +391,10 @@ export default function GeoPage() {
                 <button onClick={() => setShowImport(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#9ca3af', lineHeight: 1 }}>×</button>
               </div>
 
-              {/* Mode toggle */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '18px', background: 'rgba(44,36,25,0.04)', borderRadius: '10px', padding: '3px' }}>
                 {(['excel', 'paste'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => { setImportMode(mode); setImportMsg(''); }}
-                    style={{
-                      flex: 1, padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                      fontSize: '12px', fontWeight: 600, transition: 'all 150ms',
-                      background: importMode === mode ? '#6b46c1' : 'transparent',
-                      color: importMode === mode ? '#fff' : '#5c5850',
-                    }}
-                  >
+                  <button key={mode} onClick={() => { setImportMode(mode); setImportMsg(''); }}
+                    style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'all 150ms', background: importMode === mode ? '#7c3aed' : 'transparent', color: importMode === mode ? '#fff' : '#5c5850' }}>
                     {mode === 'excel' ? 'Upload Excel File' : 'Paste Data'}
                   </button>
                 ))}
@@ -406,159 +402,90 @@ export default function GeoPage() {
 
               {importMode === 'excel' ? (
                 <>
-                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
-                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click <strong>Export</strong> → save as .xlsx or .csv. Supports sheets for daily citations, page citations, and query citations.
+                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
+                    <strong style={{ color: '#7c3aed' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → click <strong>Export</strong> → save as .xlsx or .csv. Supports sheets for daily citations, page citations, and query citations.
                   </div>
-
-                  {/* File drop zone */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    style={{ display: 'none' }}
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleExcelFile(file);
-                    }}
-                  />
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#6b46c1'; }}
-                    onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(107,70,193,0.3)'; }}
-                    onDrop={e => {
-                      e.preventDefault();
-                      e.currentTarget.style.borderColor = 'rgba(107,70,193,0.3)';
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) handleExcelFile(file);
-                    }}
-                    style={{
-                      border: '2px dashed rgba(107,70,193,0.3)', borderRadius: '14px',
-                      padding: excelFileName ? '16px 20px' : '36px 20px',
-                      textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
-                      background: 'rgba(107,70,193,0.02)', transition: 'border-color 150ms',
-                    }}
-                  >
+                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+                    onChange={e => { const file = e.target.files?.[0]; if (file) handleExcelFile(file); }} />
+                  <div onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'; }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'; const file = e.dataTransfer.files?.[0]; if (file) handleExcelFile(file); }}
+                    style={{ border: '2px dashed rgba(124,58,237,0.3)', borderRadius: '14px', padding: excelFileName ? '16px 20px' : '36px 20px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', background: 'rgba(124,58,237,0.02)', transition: 'border-color 150ms' }}>
                     {excelFileName ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
                         <FileSpreadsheet size={20} style={{ color: '#059669' }} />
                         <div style={{ textAlign: 'left' }}>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419' }}>{excelFileName}</div>
-                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {excelPreview.daily.length} daily · {excelPreview.pages.length} pages · {excelPreview.queries.length} queries
-                          </div>
+                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>{excelPreview.daily.length} daily · {excelPreview.pages.length} pages · {excelPreview.queries.length} queries</div>
                         </div>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setExcelFileName('');
-                            setExcelPreview({ daily: [], pages: [], queries: [] });
-                            setImportMsg('');
-                            if (fileInputRef.current) fileInputRef.current.value = '';
-                          }}
-                          style={{ marginLeft: '8px', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}
-                        >
+                        <button onClick={e => { e.stopPropagation(); setExcelFileName(''); setExcelPreview({ daily: [], pages: [], queries: [] }); setImportMsg(''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                          style={{ marginLeft: '8px', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>
                           Remove
                         </button>
                       </div>
                     ) : (
                       <>
-                        <FileSpreadsheet size={28} style={{ color: '#6b46c1', marginBottom: '8px' }} />
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', marginBottom: '4px' }}>
-                          Click to upload or drag & drop
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                          .xlsx, .xls, or .csv — exported from Bing Webmaster Tools
-                        </div>
+                        <FileSpreadsheet size={28} style={{ color: '#7c3aed', marginBottom: '8px' }} />
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', marginBottom: '4px' }}>Click to upload or drag & drop</div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>.xlsx, .xls, or .csv — exported from Bing Webmaster Tools</div>
                       </>
                     )}
                   </div>
 
-                  {/* Preview: Daily */}
                   {excelPreview.daily.length > 0 && (
                     <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
-                        Preview: Daily Citations ({excelPreview.daily.length} rows)
-                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', marginBottom: '6px' }}>Preview: Daily Citations ({excelPreview.daily.length} rows)</div>
                       <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
-                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Date</th>
-                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
-                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Cited Pages</th>
-                            </tr>
-                          </thead>
+                          <thead><tr style={{ background: 'rgba(124,58,237,0.04)' }}>{['Date', 'Citations', 'Cited Pages'].map(h => <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Date' ? 'left' : 'center', fontWeight: 600, color: '#5c5850' }}>{h}</th>)}</tr></thead>
                           <tbody>
                             {excelPreview.daily.slice(0, 5).map((r, i) => (
                               <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
                                 <td style={{ padding: '5px 10px', color: '#2c2419' }}>{r.date}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#7c3aed' }}>{r.citations}</td>
                                 <td style={{ padding: '5px 10px', textAlign: 'center', color: '#5c5850' }}>{r.citedPages}</td>
                               </tr>
                             ))}
-                            {excelPreview.daily.length > 5 && (
-                              <tr><td colSpan={3} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.daily.length - 5} more</td></tr>
-                            )}
+                            {excelPreview.daily.length > 5 && <tr><td colSpan={3} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.daily.length - 5} more</td></tr>}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )}
-
-                  {/* Preview: Pages */}
                   {excelPreview.pages.length > 0 && (
                     <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
-                        Preview: Page Citations ({excelPreview.pages.length} pages)
-                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', marginBottom: '6px' }}>Preview: Page Citations ({excelPreview.pages.length} pages)</div>
                       <div style={{ maxHeight: '100px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
-                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Page URL</th>
-                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
-                            </tr>
-                          </thead>
+                          <thead><tr style={{ background: 'rgba(124,58,237,0.04)' }}>{['Page URL', 'Citations'].map(h => <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Page URL' ? 'left' : 'center', fontWeight: 600, color: '#5c5850' }}>{h}</th>)}</tr></thead>
                           <tbody>
                             {excelPreview.pages.slice(0, 5).map((r, i) => (
                               <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
                                 <td style={{ padding: '5px 10px', color: '#2c2419', maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.pageUrl}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#7c3aed' }}>{r.citations}</td>
                               </tr>
                             ))}
-                            {excelPreview.pages.length > 5 && (
-                              <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.pages.length - 5} more</td></tr>
-                            )}
+                            {excelPreview.pages.length > 5 && <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.pages.length - 5} more</td></tr>}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )}
-
-                  {/* Preview: Queries */}
                   {excelPreview.queries.length > 0 && (
                     <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b46c1', marginBottom: '6px' }}>
-                        Preview: Query Citations ({excelPreview.queries.length} queries)
-                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', marginBottom: '6px' }}>Preview: Query Citations ({excelPreview.queries.length} queries)</div>
                       <div style={{ maxHeight: '100px', overflowY: 'auto', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ background: 'rgba(107,70,193,0.04)' }}>
-                              <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#5c5850' }}>Query</th>
-                              <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: '#5c5850' }}>Citations</th>
-                            </tr>
-                          </thead>
+                          <thead><tr style={{ background: 'rgba(124,58,237,0.04)' }}>{['Query', 'Citations'].map(h => <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Query' ? 'left' : 'center', fontWeight: 600, color: '#5c5850' }}>{h}</th>)}</tr></thead>
                           <tbody>
                             {excelPreview.queries.slice(0, 5).map((r, i) => (
                               <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
                                 <td style={{ padding: '5px 10px', color: '#2c2419' }}>{r.queryText}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#6b46c1' }}>{r.citations}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 600, color: '#7c3aed' }}>{r.citations}</td>
                               </tr>
                             ))}
-                            {excelPreview.queries.length > 5 && (
-                              <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.queries.length - 5} more</td></tr>
-                            )}
+                            {excelPreview.queries.length > 5 && <tr><td colSpan={2} style={{ padding: '5px 10px', color: '#9ca3af', textAlign: 'center' }}>... +{excelPreview.queries.length - 5} more</td></tr>}
                           </tbody>
                         </table>
                       </div>
@@ -567,73 +494,40 @@ export default function GeoPage() {
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(107,70,193,0.05)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
-                    <strong style={{ color: '#6b46c1' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → copy data. Paste tab-separated rows below.
+                  <div style={{ fontSize: '12px', color: '#5c5850', padding: '10px 14px', background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.12)', borderRadius: '8px', marginBottom: '18px' }}>
+                    <strong style={{ color: '#7c3aed' }}>How to export from BWT:</strong> Go to Bing Webmaster Tools → AI section → select date range → copy data. Paste tab-separated rows below.
                   </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
-                      Daily Citations (paste rows: Date · Citations · Cited Pages)
-                    </label>
-                    <textarea
-                      value={importRaw}
-                      onChange={e => setImportRaw(e.target.value)}
-                      placeholder={'11/27/2025 12:00:00 AM\t63\t12\n11/28/2025 12:00:00 AM\t71\t14'}
-                      rows={5}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
-                      Page-level Citations (paste rows: Page URL · Citations)
-                    </label>
-                    <textarea
-                      value={importPageRaw}
-                      onChange={e => setImportPageRaw(e.target.value)}
-                      placeholder={'https://example.com/page-one\t2070\nhttps://example.com/page-two\t840'}
-                      rows={4}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '6px' }}>
-                      Query Citations (paste rows: Query Text · Citations)
-                    </label>
-                    <textarea
-                      value={importQueryRaw}
-                      onChange={e => setImportQueryRaw(e.target.value)}
-                      placeholder={'chiropractor near me\t150\nbest chiropractor orange county\t89'}
-                      rows={4}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-                    />
-                  </div>
+                  {[
+                    { label: 'Daily Citations', key: 'raw', value: importRaw, setter: setImportRaw, placeholder: '11/27/2025 12:00:00 AM\t63\t12\n11/28/2025 12:00:00 AM\t71\t14', hint: 'Paste rows: Date · Citations · Cited Pages' },
+                    { label: 'Page Citations', key: 'page', value: importPageRaw, setter: setImportPageRaw, placeholder: 'https://example.com/page-one\t2070\nhttps://example.com/page-two\t840', hint: 'Paste rows: Page URL · Citations' },
+                    { label: 'Query Citations', key: 'query', value: importQueryRaw, setter: setImportQueryRaw, placeholder: 'chiropractor near me\t150\nbest chiropractor orange county\t89', hint: 'Paste rows: Query Text · Citations' },
+                  ].map(({ label, value, setter, placeholder, hint }) => (
+                    <div key={label} style={{ marginBottom: '16px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#5c5850', display: 'block', marginBottom: '4px' }}>{label}</label>
+                      <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 6px 0' }}>{hint}</p>
+                      <textarea value={value} onChange={e => setter(e.target.value)} placeholder={placeholder} rows={4}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
                 </>
               )}
 
               {importMsg && (
-                <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '7px', marginBottom: '14px', background: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.08)' : importMsg.startsWith('Found') ? 'rgba(107,70,193,0.06)' : 'rgba(16,185,129,0.08)', color: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? '#dc2626' : importMsg.startsWith('Found') ? '#6b46c1' : '#059669', border: `1px solid ${importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.2)' : importMsg.startsWith('Found') ? 'rgba(107,70,193,0.15)' : 'rgba(16,185,129,0.2)'}` }}>
+                <div style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '7px', marginBottom: '14px',
+                  background: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.08)' : importMsg.startsWith('Found') ? 'rgba(124,58,237,0.06)' : 'rgba(16,185,129,0.08)',
+                  color: importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? '#dc2626' : importMsg.startsWith('Found') ? '#7c3aed' : '#059669',
+                  border: `1px solid ${importMsg.startsWith('Error') || importMsg.startsWith('Could not') ? 'rgba(239,68,68,0.2)' : importMsg.startsWith('Found') ? 'rgba(124,58,237,0.15)' : 'rgba(16,185,129,0.2)'}` }}>
                   {importMsg}
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowImport(false)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                  Cancel
-                </button>
-                <button
-                  onClick={handleImport}
+                <button onClick={() => setShowImport(false)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Cancel</button>
+                <button onClick={handleImport}
                   disabled={importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0)}
-                  style={{
-                    padding: '9px 20px', borderRadius: '8px',
-                    background: importing ? '#a78bfa' : '#6b46c1',
-                    color: '#fff', border: 'none',
-                    cursor: importing || (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0) ? 'not-allowed' : 'pointer',
-                    fontSize: '13px', fontWeight: 600,
-                    opacity: (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0) ? 0.5 : 1,
-                  }}
-                >
+                  style={{ padding: '9px 20px', borderRadius: '8px', background: importing ? '#a78bfa' : '#7c3aed', color: '#fff', border: 'none',
+                    cursor: importing ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600,
+                    opacity: (importMode === 'excel' && excelPreview.daily.length === 0 && excelPreview.pages.length === 0 && excelPreview.queries.length === 0) ? 0.5 : 1 }}>
                   {importing ? 'Saving…' : 'Save to Database'}
                 </button>
               </div>
@@ -641,166 +535,277 @@ export default function GeoPage() {
           </div>
         )}
 
+        {/* ── LOADING ── */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px', color: '#9ca3af', fontSize: '14px' }}>
+            <div style={{ width: 36, height: 36, border: '3px solid rgba(124,58,237,0.15)', borderTop: '3px solid #7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+            <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
             Loading AI data…
           </div>
         ) : !hasData ? (
-          /* Empty state */
-          <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '60px 40px', textAlign: 'center', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-            <Bot size={36} style={{ color: '#6b46c1', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#2c2419', marginBottom: '8px' }}>No AI citation data yet</h3>
-            <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '420px', margin: '0 auto 24px' }}>
-              Use <strong>Import AI Data</strong> to add citation data, page citations, and search queries from the Bing Webmaster Tools dashboard.
+
+          /* ── EMPTY STATE ── */
+          <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '24px', padding: '72px 40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(44,36,25,0.06)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '20px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Bot size={28} style={{ color: '#7c3aed' }} />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', marginBottom: '10px' }}>No AI citation data yet</h3>
+            <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '400px', margin: '0 auto 28px', lineHeight: '1.6' }}>
+              AI assistants like Copilot, ChatGPT Browse, and Perplexity all pull from Bing&apos;s index. Import data from Bing Webmaster Tools to start tracking visibility.
             </p>
             {canImport && (
-              <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', background: 'rgba(107,70,193,0.1)', color: '#6b46c1', border: '1px solid rgba(107,70,193,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => setShowImport(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '14px', background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                 <Upload size={15} /> Import AI Data
               </button>
             )}
           </div>
+
         ) : (
           <>
-            {/* KPI Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            {/* ── KPI CARDS ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
               {[
-                { label: 'AI Citations', value: fmtNum(totalCitations), color: '#6b46c1', border: '#6b46c1', sub: aiDaily.length > 0 ? `${aiDaily.length} days tracked` : 'import data' },
-                { label: 'Cited Pages', value: fmtNum(aiPages.length), color: '#6b46c1', border: '#a78bfa', sub: 'unique pages cited' },
-                { label: 'AI Queries', value: fmtNum(aiQueries.length), color: '#6b46c1', border: '#8b5cf6', sub: totalQueryCitations > 0 ? `${fmtNum(totalQueryCitations)} total citations` : 'search queries' },
-              ].map(s => (
-                <div key={s.label} style={{
-                  background: 'rgba(255,255,255,0.95)',
-                  border: '1px solid rgba(44,36,25,0.08)',
-                  borderLeft: `3px solid ${s.border}`,
-                  borderRadius: '14px', padding: '16px 18px',
-                  boxShadow: '0 2px 12px rgba(44,36,25,0.06)',
-                }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', marginBottom: '6px' }}>{s.label}</div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: s.color, letterSpacing: '-0.02em', lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{s.sub}</div>
+                {
+                  label: 'AI Citations',
+                  value: fmtNum(totalCitations),
+                  sub: selectedDays === 0 ? `${aiDaily.length} days tracked` : `last ${filteredDaily.length} days`,
+                  color: '#7c3aed',
+                  icon: <Bot size={18} style={{ color: '#7c3aed' }} />,
+                },
+                {
+                  label: 'Avg Per Day',
+                  value: fmtNum(avgCitationsPerDay),
+                  sub: 'daily citations average',
+                  color: '#7c3aed',
+                  icon: <TrendingUp size={18} style={{ color: '#7c3aed' }} />,
+                },
+                {
+                  label: 'Cited Pages',
+                  value: fmtNum(aiPages.length),
+                  sub: 'unique pages referenced',
+                  color: '#7c3aed',
+                  icon: <FileSpreadsheet size={18} style={{ color: '#7c3aed' }} />,
+                },
+                {
+                  label: 'AI Queries',
+                  value: fmtNum(aiQueries.length),
+                  sub: 'search terms tracked',
+                  color: '#7c3aed',
+                  icon: <Search size={18} style={{ color: '#7c3aed' }} />,
+                },
+              ].map(card => (
+                <div key={card.label}
+                  style={{
+                    background: 'rgba(255,255,255,0.9)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(44,36,25,0.1)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    boxShadow: '0 4px 20px rgba(44,36,25,0.08)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(44,36,25,0.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(44,36,25,0.08)'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: 0 }}>{card.label}</p>
+                    <div style={{ width: 32, height: 32, borderRadius: '10px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {card.icon}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: card.color, marginBottom: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                    {card.value}
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{card.sub}</p>
+                  {card.label === 'AI Citations' && peakDay.citations > 0 && (
+                    <p style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 600, margin: '6px 0 0 0' }}>
+                      Peak: {fmtNum(peakDay.citations)} on {fmtDate(peakDay.date)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
 
-            {/* AI Citations Trend */}
-            {aiDaily.length > 1 && (
-              <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                  <Bot size={15} style={{ color: '#6b46c1' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>AI Citations Trend</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>Total: {fmtNum(totalCitations)} citations</span>
+            {/* ── TREND CHART ── */}
+            {filteredDaily.length > 1 && (
+              <div style={{
+                background: 'rgba(255,255,255,0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44,36,25,0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                marginBottom: '24px',
+                boxShadow: '0 4px 20px rgba(44,36,25,0.08)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af', margin: '0 0 4px 0' }}>AI Citations Trend</p>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0, letterSpacing: '-0.01em' }}>
+                      How Often AI Assistants Cite Your Website
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    {fmtDateLong(filteredDaily[0].date)} — {fmtDateLong(filteredDaily[filteredDaily.length - 1].date)}
+                  </div>
                 </div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={aiDaily} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={filteredDaily} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="aiGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6b46c1" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#6b46c1" stopOpacity={0.01} />
+                      <linearGradient id="citGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.18} />
+                        <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.01} />
+                      </linearGradient>
+                      <linearGradient id="pagesGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.07)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
                     <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={40} />
                     <Tooltip
-                      contentStyle={{ fontSize: '12px', borderRadius: '8px', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      contentStyle={{ fontSize: '12px', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                       labelFormatter={fmtDateLong}
                       formatter={(v: any, name: string) => [fmtNum(v), name === 'citations' ? 'Citations' : 'Cited Pages']}
                     />
-                    <Area type="monotone" dataKey="citations" name="citations" stroke="#6b46c1" strokeWidth={2} fill="url(#aiGrad)" dot={false} />
-                    <Area type="monotone" dataKey="cited_pages" name="cited_pages" stroke="#a78bfa" strokeWidth={1.5} fill="none" dot={false} strokeDasharray="4 2" />
+                    <Area type="monotone" dataKey="citations" name="citations" stroke="#7c3aed" strokeWidth={2.5} fill="url(#citGrad)" dot={false} activeDot={{ r: 5, fill: '#7c3aed' }} />
+                    <Area type="monotone" dataKey="cited_pages" name="cited_pages" stroke="#a78bfa" strokeWidth={1.5} fill="url(#pagesGrad)" dot={false} strokeDasharray="5 3" />
                   </AreaChart>
                 </ResponsiveContainer>
-                <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '11px', color: '#9ca3af' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '14px', height: '2px', background: '#6b46c1', display: 'inline-block' }} /> Total Citations</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '14px', height: '2px', background: '#a78bfa', display: 'inline-block', borderBottom: '2px dashed #a78bfa', borderTop: 'none' }} /> Cited Pages</span>
+                <div style={{ display: 'flex', gap: '20px', marginTop: '12px', fontSize: '11px', color: '#9ca3af' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: 16, height: 2.5, background: '#7c3aed', display: 'inline-block', borderRadius: 2 }} />
+                    Total Citations
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: 16, height: 2, background: '#a78bfa', display: 'inline-block', borderRadius: 2, borderBottom: '2px dashed #a78bfa' }} />
+                    Pages Cited
+                  </span>
                 </div>
               </div>
             )}
 
-            {/* Grid: AI Queries + AI Pages */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', alignItems: 'start' }}>
+            {/* ── QUERIES + PAGES GRID ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
 
               {/* AI Search Queries */}
-              <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                  <Search size={15} style={{ color: '#8b5cf6' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>AI Search Queries</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>By citation count</span>
+              <div style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af', margin: '0 0 4px 0' }}>AI Search Queries</p>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0, letterSpacing: '-0.01em' }}>What Patients Ask AI Assistants</h3>
                 </div>
-
                 {aiQueries.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
-                    No query data — use <strong>Import AI Data</strong> to add search queries from BWT.
+                    No query data — use <strong>Import AI Data</strong> to add search queries.
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        {['Query', 'Citations'].map(h => (
-                          <th key={h} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', padding: '0 8px 10px', textAlign: h === 'Query' ? 'left' : 'center', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aiQueries.slice(0, 20).map((r, i) => (
-                        <tr key={i}>
-                          <td style={{ padding: '9px 8px', borderBottom: '1px solid rgba(44,36,25,0.05)', maxWidth: '260px' }}>
-                            <span style={{ fontSize: '12px', color: '#2c2419' }}>{r.query_text}</span>
-                          </td>
-                          <td style={{ padding: '9px 8px', textAlign: 'center', borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#8b5cf6' }}>{fmtNum(r.citations)}</span>
-                          </td>
+                  <>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+                          <th style={{ padding: '0 8px 10px 0', textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>Query</th>
+                          <th style={{ padding: '0 0 10px 8px', textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', whiteSpace: 'nowrap' }}>Citations</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {aiQueries.slice(0, 15).map((r, i) => {
+                          const maxCit = aiQueries[0]?.citations || 1;
+                          const pct = Math.round((r.citations / maxCit) * 100);
+                          return (
+                            <tr key={i} style={{ borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
+                              <td style={{ padding: '10px 8px 10px 0' }}>
+                                <div style={{ fontSize: '12px', color: '#2c2419', marginBottom: '4px', lineHeight: 1.3 }}>{r.query_text}</div>
+                                <div style={{ height: '3px', borderRadius: '2px', background: 'rgba(44,36,25,0.06)', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)', borderRadius: '2px' }} />
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 0 10px 8px', textAlign: 'center' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#7c3aed' }}>{fmtNum(r.citations)}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {aiQueries.length > 15 && (
+                      <p style={{ fontSize: '11px', color: '#9ca3af', margin: '12px 0 0 0', textAlign: 'center' }}>
+                        +{aiQueries.length - 15} more queries
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* AI Page Citations */}
-              <div style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '20px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                  <Bot size={15} style={{ color: '#6b46c1' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419' }}>AI-Cited Pages</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>By citation count</span>
+              {/* AI-Cited Pages */}
+              <div style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af', margin: '0 0 4px 0' }}>AI-Cited Pages</p>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0, letterSpacing: '-0.01em' }}>Pages AI Recommends Most</h3>
                 </div>
-
                 {aiPages.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: '13px' }}>
-                    No AI page data — use <strong>Import AI Data</strong> to add page-level data from BWT.
+                    No page data — use <strong>Import AI Data</strong> to add page-level citations.
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        {['Page', 'Citations'].map(h => (
-                          <th key={h} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', padding: '0 8px 10px', textAlign: h === 'Page' ? 'left' : 'center', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aiPages.map((r, i) => (
-                        <tr key={i}>
-                          <td style={{ padding: '9px 8px', borderBottom: '1px solid rgba(44,36,25,0.05)', maxWidth: '260px' }}>
-                            <a href={r.page_url} target="_blank" rel="noreferrer" style={{ color: '#6b46c1', fontSize: '11px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {shortUrl(r.page_url)}
-                            </a>
-                          </td>
-                          <td style={{ padding: '9px 8px', textAlign: 'center', borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#6b46c1' }}>{fmtNum(r.citations)}</span>
-                          </td>
+                  <>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+                          <th style={{ padding: '0 8px 10px 0', textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>Page</th>
+                          <th style={{ padding: '0 0 10px 8px', textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', whiteSpace: 'nowrap' }}>Citations</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {aiPages.map((r, i) => {
+                          const maxCit = aiPages[0]?.citations || 1;
+                          const pct = Math.round((r.citations / maxCit) * 100);
+                          return (
+                            <tr key={i} style={{ borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
+                              <td style={{ padding: '10px 8px 10px 0' }}>
+                                <a href={r.page_url} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: '12px', color: '#7c3aed', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px', marginBottom: '4px' }}>
+                                  {shortUrl(r.page_url)}
+                                </a>
+                                <div style={{ height: '3px', borderRadius: '2px', background: 'rgba(44,36,25,0.06)', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)', borderRadius: '2px' }} />
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 0 10px 8px', textAlign: 'center' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#7c3aed' }}>{fmtNum(r.citations)}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </>
                 )}
               </div>
             </div>
 
-            {/* Info note */}
-            <div style={{ padding: '14px 18px', background: 'rgba(107,70,193,0.04)', border: '1px solid rgba(107,70,193,0.12)', borderRadius: '12px', fontSize: '12px', color: '#5c5850' }}>
-              <strong style={{ color: '#6b46c1' }}>Why AI citations matter:</strong> Microsoft Copilot, ChatGPT Browse, and Perplexity all use Bing&apos;s index as a primary data source. Tracking which queries and pages get cited helps optimize your content for AI-generated responses (GEO — Generative Engine Optimization).
-            </div>
+            {/* ── KEY INSIGHT ── */}
+            {totalCitations > 0 && (
+              <div style={{
+                background: 'rgba(124,58,237,0.04)',
+                border: '1px solid rgba(124,58,237,0.12)',
+                borderRadius: '16px',
+                padding: '20px 24px',
+                display: 'flex', alignItems: 'flex-start', gap: '14px',
+              }}>
+                <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                  <Zap size={16} style={{ color: '#7c3aed' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px 0' }}>Why This Matters</p>
+                  <p style={{ fontSize: '13px', color: '#5c5850', margin: 0, lineHeight: '1.6' }}>
+                    Microsoft Copilot, ChatGPT Browse, and Perplexity all use Bing&apos;s index as their primary data source.
+                    Every AI citation means a patient asking an AI assistant about chiropractors saw your website recommended.
+                    {aiPages.length > 0 && ` Your most cited page — "${shortUrl(aiPages[0].page_url)}" — has been referenced ${fmtNum(aiPages[0].citations)} times.`}
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
