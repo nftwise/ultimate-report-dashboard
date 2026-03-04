@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown } from 'lucide-react';
+import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2 } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 
@@ -63,6 +63,63 @@ export default function ClientsManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+
+  // Backfill modal
+  const [backfillClient, setBackfillClient] = useState<Client | null>(null);
+  const [backfillDays, setBackfillDays] = useState(90);
+  const [backfill, setBackfill] = useState<{
+    running: boolean; currentDay: number; totalDays: number;
+    currentService: string; done: boolean; errors: string[];
+  }>({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+
+  function openBackfillModal(client: Client) {
+    setBackfillClient(client);
+    setBackfillDays(90);
+    setBackfill({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+  }
+
+  async function runBackfill() {
+    if (!backfillClient) return;
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true }, // always try, fails silently if no location
+    ].filter(s => s.enabled);
+
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= backfillDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+
+    setBackfill({ running: true, currentDay: 0, totalDays: dates.length, currentService: '', done: false, errors: [] });
+    const errors: string[] = [];
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
+      for (const service of services) {
+        setBackfill(prev => ({ ...prev, currentDay: i + 1, currentService: service.label }));
+        try {
+          await fetch('/api/admin/trigger-cron', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: service.endpoint, params: { date, clientId: backfillClient.id } }),
+          });
+        } catch { errors.push(`${date} ${service.label}`); }
+      }
+      setBackfill(prev => ({ ...prev, currentService: 'Rollup' }));
+      try {
+        await fetch('/api/admin/trigger-cron', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: '/api/admin/run-rollup', method: 'POST', params: { date, clientId: backfillClient.id } }),
+        });
+      } catch { errors.push(`${date} rollup`); }
+    }
+
+    setBackfill(prev => ({ ...prev, running: false, done: true, errors }));
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -347,6 +404,13 @@ export default function ClientsManagementPage() {
                                   title="Edit">
                                   <Edit2 size={13} />
                                 </button>
+                                <button onClick={() => openBackfillModal(client)}
+                                  style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,168,84,0.2)'; (e.currentTarget as HTMLElement).style.color = '#d9a854'; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
+                                  title="Backfill data">
+                                  <Database size={13} />
+                                </button>
                                 <button onClick={() => handleToggleActive(client)}
                                   style={{ padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer', color: client.is_active ? '#dc2626' : '#059669', background: client.is_active ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75'; }}
@@ -530,6 +594,114 @@ export default function ClientsManagementPage() {
                 style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: saving ? '#d4a68a' : '#c4704f', color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.8 : 1 }}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Backfill Modal */}
+      {backfillClient && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(44,36,25,0.5)', backdropFilter: 'blur(4px)' }}
+          onClick={() => !backfill.running && setBackfillClient(null)}>
+          <div className="rounded-2xl w-full max-w-md mx-4"
+            style={{ background: '#fff', boxShadow: '0 20px 60px rgba(44,36,25,0.3)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 pb-4" style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full" style={{ background: 'rgba(217,168,84,0.12)' }}>
+                  <Database size={18} style={{ color: '#d9a854' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold" style={{ color: '#2c2419', margin: 0 }}>Backfill Data</h3>
+                  <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{backfillClient.name}</p>
+                </div>
+              </div>
+              {!backfill.running && (
+                <button onClick={() => setBackfillClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={18} /></button>
+              )}
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Services enabled */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {backfillClient.has_seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>SEO</span>}
+                {backfillClient.has_ads && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>Google Ads</span>}
+                <span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>GBP (if configured)</span>
+              </div>
+
+              {/* Day preset */}
+              {!backfill.running && (
+                <div>
+                  <p style={{ fontSize: '12px', color: '#5c5850', marginBottom: '8px', fontWeight: 600 }}>Date range</p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[30, 60, 90].map(d => (
+                      <button key={d} type="button" onClick={() => setBackfillDays(d)}
+                        style={{
+                          flex: 1, padding: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                          border: '1.5px solid', cursor: 'pointer',
+                          borderColor: backfillDays === d ? '#d9a854' : 'rgba(44,36,25,0.12)',
+                          background: backfillDays === d ? 'rgba(217,168,84,0.1)' : 'transparent',
+                          color: backfillDays === d ? '#b45309' : '#5c5850',
+                        }}>
+                        {d} days
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Progress */}
+              {backfill.running && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#5c5850', marginBottom: '6px' }}>
+                    <span>Day {backfill.currentDay} / {backfill.totalDays} — {backfill.currentService}</span>
+                    <span style={{ fontWeight: 700 }}>{Math.round((backfill.currentDay / backfill.totalDays) * 100)}%</span>
+                  </div>
+                  <div style={{ height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.round((backfill.currentDay / backfill.totalDays) * 100)}%`,
+                      background: 'linear-gradient(90deg, #d9a854, #c4704f)',
+                      borderRadius: '99px', transition: 'width 0.4s ease',
+                    }} />
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Keep this tab open while running...</p>
+                </div>
+              )}
+
+              {/* Done */}
+              {backfill.done && (
+                <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '10px', padding: '12px 16px', fontSize: '13px', color: '#059669' }}>
+                  Backfill complete{backfill.errors.length > 0 ? ` · ${backfill.errors.length} errors` : ' · all data synced'}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 justify-end p-6 pt-2" style={{ borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+              {!backfill.running && (
+                <>
+                  <button onClick={() => setBackfillClient(null)}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    {backfill.done ? 'Close' : 'Cancel'}
+                  </button>
+                  <button onClick={() => {
+                    setBackfill({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+                    runBackfill();
+                  }}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#d9a854', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                    {backfill.done ? 'Re-run' : `Start Backfill (${backfillDays}d)`}
+                  </button>
+                </>
+              )}
+              {backfill.running && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850', padding: '9px 0' }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  Running...
+                </div>
+              )}
             </div>
           </div>
         </div>
