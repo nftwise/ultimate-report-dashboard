@@ -51,9 +51,11 @@ export default function NewClientPage() {
     owner: '',
     has_seo: false,
     has_ads: false,
+    has_gbp: false,
     gaPropertyId: '',
     gscSiteUrl: '',
     gadsCustomerId: '',
+    gbpLocationId: '',
   });
 
   const [slugManual, setSlugManual] = useState(false);
@@ -73,7 +75,7 @@ export default function NewClientPage() {
     setForm(f => ({ ...f, slug: value }));
   }
 
-  function handleCheck(field: 'has_seo' | 'has_ads', checked: boolean) {
+  function handleCheck(field: 'has_seo' | 'has_ads' | 'has_gbp', checked: boolean) {
     setForm(f => ({ ...f, [field]: checked }));
   }
 
@@ -100,6 +102,7 @@ export default function NewClientPage() {
           gaPropertyId: form.has_seo && form.gaPropertyId ? form.gaPropertyId.trim() : undefined,
           gscSiteUrl: form.has_seo && form.gscSiteUrl ? form.gscSiteUrl.trim() : undefined,
           gadsCustomerId: form.has_ads && form.gadsCustomerId ? form.gadsCustomerId.trim() : undefined,
+          gbpLocationId: form.has_gbp && form.gbpLocationId ? form.gbpLocationId.trim() : undefined,
         }),
       });
 
@@ -220,6 +223,7 @@ export default function NewClientPage() {
               {[
                 { key: 'has_seo' as const, label: 'SEO' },
                 { key: 'has_ads' as const, label: 'Google Ads' },
+                { key: 'has_gbp' as const, label: 'Google Business Profile' },
               ].map(({ key, label }) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#2c2419', fontWeight: 500 }}>
                   <input
@@ -235,7 +239,7 @@ export default function NewClientPage() {
           </div>
 
           {/* Section 3: Integration IDs (conditional) */}
-          {(form.has_seo || form.has_ads) && (
+          {(form.has_seo || form.has_ads || form.has_gbp) && (
             <div style={sectionStyle}>
               <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '4px' }}>
                 Integration IDs
@@ -275,6 +279,18 @@ export default function NewClientPage() {
                       value={form.gadsCustomerId}
                       onChange={e => setForm(f => ({ ...f, gadsCustomerId: e.target.value }))}
                       placeholder="123-456-7890"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
+                {form.has_gbp && (
+                  <div>
+                    <label style={labelStyle}>GBP Location ID</label>
+                    <input
+                      type="text"
+                      value={form.gbpLocationId}
+                      onChange={e => setForm(f => ({ ...f, gbpLocationId: e.target.value }))}
+                      placeholder="locations/1234567890"
                       style={inputStyle}
                     />
                   </div>

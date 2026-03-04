@@ -21,9 +21,11 @@ export async function POST(request: NextRequest) {
       owner,
       has_seo,
       has_ads,
+      has_gbp,
       gaPropertyId,
       gadsCustomerId,
       gscSiteUrl,
+      gbpLocationId,
       callrailAccountId,
     } = body;
 
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
         owner: owner || null,
         has_seo: has_seo ?? false,
         has_ads: has_ads ?? false,
+        has_gbp: has_gbp ?? false,
         is_active: true
       })
       .select('id')
@@ -100,6 +103,23 @@ export async function POST(request: NextRequest) {
         success: false,
         error: `Failed to create service configuration: ${configError.message}`
       }, { status: 500 });
+    }
+
+    // Step 3: Insert gbp_locations if GBP location ID provided
+    if (gbpLocationId) {
+      const { error: gbpError } = await supabaseAdmin
+        .from('gbp_locations')
+        .insert({
+          client_id: newClient.id,
+          gbp_location_id: gbpLocationId,
+          location_name: name,
+          is_active: true,
+        });
+
+      if (gbpError) {
+        console.error('Error creating GBP location (non-fatal):', gbpError);
+        // Non-fatal: client + config already created, just log
+      }
     }
 
     return NextResponse.json({
