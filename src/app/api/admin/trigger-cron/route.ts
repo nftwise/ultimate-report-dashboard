@@ -31,7 +31,14 @@ export async function POST(request: NextRequest) {
   const authHeaders: Record<string, string> = {};
   if (cronSecret) authHeaders['authorization'] = `Bearer ${cronSecret}`;
 
-  // If caller passes method:'POST' + params, forward as POST with body (used by backfill)
+  // Append params as query string for GET crons (date, clientId, etc.)
+  if (params && method !== 'POST') {
+    for (const [key, val] of Object.entries(params)) {
+      if (val != null) url.searchParams.set(key, String(val));
+    }
+  }
+
+  // If caller passes method:'POST' + params, forward as POST with body (used by rollup)
   const res = (method === 'POST' && params)
     ? await fetch(url.toString(), {
         method: 'POST',
