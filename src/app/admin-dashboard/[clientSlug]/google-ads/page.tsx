@@ -521,6 +521,13 @@ export default function GoogleAdsPage() {
   const momCpa = calcMoM(currentCpa, prevCpa, true); // invert: lower CPA is better
   const momCtr = calcMoM(currentCtr, prevCtr);
 
+  // Actual date labels for MoM badges
+  const prevPeriodEnd = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+  const prevPeriodStart = new Date(prevPeriodEnd); prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays);
+  const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
+  const lastDataDate = dailyData.length > 0 ? dailyData[dailyData.length - 1].date : null;
+
   return (
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
@@ -528,6 +535,11 @@ export default function GoogleAdsPage() {
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Date Controls */}
         <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+          {lastDataDate && (
+            <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
+              Data through {new Date(lastDataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
             {[7, 30, 90].map((days) => (
               <button
@@ -552,7 +564,7 @@ export default function GoogleAdsPage() {
             <div className="mb-12">
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>GOOGLE ADS ANALYTICS</span>
               <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Performance Report</h1>
-              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Real-time campaign metrics and optimization insights</p>
+              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Paid search performance — how your ad budget translates into patient leads</p>
             </div>
 
             {/* Section 2: Executive Summary */}
@@ -565,7 +577,7 @@ export default function GoogleAdsPage() {
               momConversions={momConversions}
               momCpa={momCpa}
               momCtr={momCtr}
-              periodLabel={`vs prev ${periodDays}d`}
+              periodLabel={`vs ${prevLabel}`}
             />
 
             {/* Section 3: Visual Trend Analysis */}
@@ -665,7 +677,7 @@ export default function GoogleAdsPage() {
                     color: '#5c5850',
                     margin: '0 0 8px 0'
                   }}>
-                    📊 Performance Details
+                    Performance Details
                   </p>
                   <h3 style={{
                     fontSize: '18px',
@@ -676,13 +688,6 @@ export default function GoogleAdsPage() {
                   }}>
                     Conversion Breakdown
                   </h3>
-                  <p style={{
-                    fontSize: '10px',
-                    color: '#9ca3af',
-                    margin: '0 0 16px 0'
-                  }}>
-                    From Google Ads API
-                  </p>
 
                   {/* Summary Stats */}
                   <div style={{
@@ -704,7 +709,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Cost Per Acquisition
+                        Cost Per Lead
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -876,6 +881,87 @@ export default function GoogleAdsPage() {
               </button>
               {showAdGroups && <AdGroupPerformanceTable data={adGroups} />}
             </div>
+
+            {/* Section 6: Key Insights */}
+            {totalConversions > 0 && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
+              }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: '#5c5850',
+                  margin: '0 0 8px 0'
+                }}>
+                  Key Insights
+                </p>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#2c2419',
+                  margin: '0 0 16px 0',
+                  letterSpacing: '-0.02em'
+                }}>
+                  What This Means for Your Practice
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Spend summary */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(196, 112, 79, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #c4704f'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads spent <strong>{fmtCurrency(totalSpend)}</strong> and generated{' '}
+                      <strong>{fmtNum(Math.round(totalConversions))} patient {totalConversions === 1 ? 'lead' : 'leads'}</strong>{' '}
+                      at <strong>{fmtCurrency(parseFloat(cpa))} per lead</strong>.{' '}
+                      {momCpa.type === 'up'
+                        ? `Cost per lead improved vs. ${prevLabel} — your campaigns are becoming more efficient.`
+                        : momCpa.type === 'down'
+                        ? `Cost per lead increased vs. ${prevLabel}. This may indicate more competitive auctions or lower-quality clicks.`
+                        : `Cost per lead is similar to ${prevLabel}.`}
+                    </p>
+                  </div>
+                  {/* CTR/Click insight */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(157, 181, 160, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #9db5a0'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads appeared <strong>{fmtNum(totalImpressions)} times</strong> on Google and received{' '}
+                      <strong>{fmtNum(totalClicks)} clicks</strong> ({ctr}% click rate).{' '}
+                      Of those clicks, <strong>{conversionRate.toFixed(1)}%</strong> turned into leads.
+                    </p>
+                  </div>
+                  {/* Top search terms insight */}
+                  {convertingTerms.length > 0 && (
+                    <div style={{
+                      padding: '16px',
+                      background: 'rgba(217, 168, 84, 0.06)',
+                      borderRadius: '12px',
+                      borderLeft: '3px solid #d9a854'
+                    }}>
+                      <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                        Your top-performing search term was{' '}
+                        <strong>&ldquo;{convertingTerms[0].term}&rdquo;</strong>{' '}
+                        with {convertingTerms[0].conversions} {convertingTerms[0].conversions === 1 ? 'lead' : 'leads'} generated.{' '}
+                        These are the exact words patients typed into Google before finding you.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
       </div>
     </AdminLayout>
