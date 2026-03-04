@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Database } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const inputStyle = {
@@ -55,6 +55,13 @@ export default function EditClientPage({ params }: EditClientParams) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [hasGbp, setHasGbp] = useState(false);
+
+  const [backfillDays, setBackfillDays] = useState(90);
+  const [backfill, setBackfill] = useState<{
+    running: boolean; currentDay: number; totalDays: number;
+    currentService: string; done: boolean; errors: string[];
+  }>({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
 
   const [form, setForm] = useState({
     name: '',
@@ -100,6 +107,15 @@ export default function EditClientPage({ params }: EditClientParams) {
 
       const config = Array.isArray(client.service_configs) ? client.service_configs[0] : client.service_configs || {};
 
+      // Check GBP
+      const { data: gbpRow } = await supabase
+        .from('gbp_locations')
+        .select('id')
+        .eq('client_id', id)
+        .eq('is_active', true)
+        .maybeSingle();
+      setHasGbp(!!gbpRow);
+
       setForm({
         name: client.name || '',
         slug: client.slug || '',
@@ -120,6 +136,52 @@ export default function EditClientPage({ params }: EditClientParams) {
       setError('Failed to load client');
       setLoading(false);
     }
+  }
+
+  async function runBackfill() {
+    if (!clientId) return;
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: form.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: form.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: form.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: hasGbp },
+    ].filter(s => s.enabled);
+    if (services.length === 0) return;
+
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= backfillDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+
+    setBackfill({ running: true, currentDay: 0, totalDays: dates.length, currentService: '', done: false, errors: [] });
+    const errors: string[] = [];
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
+      for (const service of services) {
+        setBackfill(prev => ({ ...prev, currentDay: i + 1, currentService: service.label }));
+        try {
+          await fetch('/api/admin/trigger-cron', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: service.endpoint, params: { date, clientId } }),
+          });
+        } catch { errors.push(`${date} ${service.label}`); }
+      }
+      setBackfill(prev => ({ ...prev, currentService: 'Rollup' }));
+      try {
+        await fetch('/api/admin/trigger-cron', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: '/api/admin/run-rollup', method: 'POST', params: { date, clientId } }),
+        });
+      } catch { errors.push(`${date} rollup`); }
+    }
+
+    setBackfill(prev => ({ ...prev, running: false, done: true, errors }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -446,6 +508,113 @@ export default function EditClientPage({ params }: EditClientParams) {
             {success ? 'Saved!' : submitting ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
+
+        {/* Data Backfill */}
+        {(form.has_seo || form.has_ads || hasGbp) && (
+          <div style={{ ...sectionStyle, marginTop: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <Database style={{ width: 14, height: 14, color: '#c4704f' }} />
+              <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', margin: 0 }}>
+                Data Backfill
+              </p>
+            </div>
+            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '16px' }}>
+              Sync historical data for this client. Keep this tab open while running.
+            </p>
+
+            {/* Day preset selector */}
+            {!backfill.running && !backfill.done && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                {[30, 60, 90].map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setBackfillDays(d)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      border: '1px solid',
+                      cursor: 'pointer',
+                      borderColor: backfillDays === d ? '#c4704f' : 'rgba(44,36,25,0.15)',
+                      background: backfillDays === d ? 'rgba(196,112,79,0.08)' : 'transparent',
+                      color: backfillDays === d ? '#c4704f' : '#5c5850',
+                    }}
+                  >
+                    {d} days
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Progress */}
+            {backfill.running && (
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#5c5850', marginBottom: '6px' }}>
+                  <span>Day {backfill.currentDay} / {backfill.totalDays} — {backfill.currentService}</span>
+                  <span>{Math.round((backfill.currentDay / backfill.totalDays) * 100)}%</span>
+                </div>
+                <div style={{ height: '6px', background: 'rgba(44,36,25,0.1)', borderRadius: '99px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.round((backfill.currentDay / backfill.totalDays) * 100)}%`,
+                    background: '#c4704f',
+                    borderRadius: '99px',
+                    transition: 'width 0.3s',
+                  }} />
+                </div>
+              </div>
+            )}
+
+            {/* Done */}
+            {backfill.done && (
+              <div style={{
+                background: 'rgba(16,185,129,0.06)',
+                border: '1px solid rgba(16,185,129,0.2)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontSize: '13px',
+                color: '#059669',
+                marginBottom: '12px',
+              }}>
+                Backfill complete — {backfill.errors.length > 0 ? `${backfill.errors.length} errors` : 'all data synced'}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {!backfill.running && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackfill({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
+                    runBackfill();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: 'rgba(196,112,79,0.08)',
+                    border: '1px solid rgba(196,112,79,0.3)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#c4704f',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {backfill.done ? `Re-run Backfill (${backfillDays} days)` : `Start Backfill (${backfillDays} days)`}
+                </button>
+              )}
+              {backfill.running && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850' }}>
+                  <Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                  Running... do not close this tab
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Danger Zone */}
         <div style={{ ...sectionStyle, marginTop: '32px', borderColor: 'rgba(239,68,68,0.2)' }}>
