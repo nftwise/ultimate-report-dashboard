@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
         owner: owner || null,
         has_seo: has_seo ?? false,
         has_ads: has_ads ?? false,
-        has_gbp: has_gbp ?? false,
         is_active: true
       })
       .select('id')
