@@ -25,7 +25,7 @@ interface Client {
   owner: string | null;
 }
 
-type ModalMode = 'add' | 'edit' | null;
+type ModalMode = 'edit' | null;
 
 interface FormData {
   name: string;
@@ -47,9 +47,6 @@ const emptyForm: FormData = {
   ads_budget_month: '', status: 'Working',
 };
 
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 40);
-}
 
 export default function ClientsManagementPage() {
   const router = useRouter();
@@ -90,7 +87,6 @@ export default function ClientsManagementPage() {
     }
   };
 
-  const openAddModal = () => { setFormData(emptyForm); setEditingClient(null); setModalMode('add'); setError(null); };
   const openEditModal = (client: Client) => {
     setEditingClient(client);
     setFormData({
@@ -105,21 +101,13 @@ export default function ClientsManagementPage() {
   };
   const closeModal = () => { setModalMode(null); setEditingClient(null); setFormData(emptyForm); setError(null); };
   const handleNameChange = (value: string) => {
-    setFormData(prev => ({ ...prev, name: value, ...(modalMode === 'add' ? { slug: slugify(value) } : {}) }));
+    setFormData(prev => ({ ...prev, name: value }));
   };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      if (modalMode === 'add') {
-        if (!formData.name || !formData.slug || !formData.city) { setError('Name, slug, and city are required'); setSaving(false); return; }
-        const res = await fetch('/api/admin/create-client', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: formData.name, slug: formData.slug, city: formData.city, contact_name: formData.contact_name || null, contact_email: formData.contact_email || null, has_seo: formData.has_seo, has_ads: formData.has_ads }),
-        });
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'Failed to create client');
-      } else if (modalMode === 'edit' && editingClient) {
+      if (modalMode === 'edit' && editingClient) {
         const res = await fetch(`/api/admin/clients/${editingClient.id}`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formData.name, city: formData.city, contact_name: formData.contact_name || null, contact_email: formData.contact_email || null, website_url: formData.website_url || null, has_seo: formData.has_seo, has_ads: formData.has_ads, notes: formData.notes || null, ads_budget_month: formData.ads_budget_month ? Number(formData.ads_budget_month) : null, status: formData.status || null }),
@@ -196,7 +184,7 @@ export default function ClientsManagementPage() {
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isAdmin && (
-            <button onClick={openAddModal}
+            <button onClick={() => router.push('/admin-dashboard/clients/new')}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               <Plus size={14} /> Add Client
             </button>
@@ -425,10 +413,10 @@ export default function ClientsManagementPage() {
             <div className="flex items-center justify-between p-6 pb-4" style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full" style={{ background: 'rgba(196,112,79,0.1)' }}>
-                  {modalMode === 'add' ? <Plus size={18} style={{ color: '#c4704f' }} /> : <Edit2 size={18} style={{ color: '#c4704f' }} />}
+                  <Edit2 size={18} style={{ color: '#c4704f' }} />
                 </div>
                 <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
-                  {modalMode === 'add' ? 'Add New Client' : `Edit ${editingClient?.name}`}
+                  Edit {editingClient?.name}
                 </h3>
               </div>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={18} /></button>
@@ -439,7 +427,6 @@ export default function ClientsManagementPage() {
 
               {[
                 { key: 'name', label: 'Name', required: true, placeholder: 'Client business name', onChange: (v: string) => handleNameChange(v) },
-                ...(modalMode === 'add' ? [{ key: 'slug', label: 'Slug', required: true, placeholder: 'auto-generated-slug', onChange: (v: string) => setFormData(p => ({ ...p, slug: v })) }] : []),
                 { key: 'city', label: 'City', required: true, placeholder: 'City, State', onChange: (v: string) => setFormData(p => ({ ...p, city: v })) },
               ].map(f => (
                 <div key={f.key}>
@@ -541,7 +528,7 @@ export default function ClientsManagementPage() {
               <button onClick={closeModal} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving}
                 style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: saving ? '#d4a68a' : '#c4704f', color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.8 : 1 }}>
-                {saving ? 'Saving...' : modalMode === 'add' ? 'Create Client' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
