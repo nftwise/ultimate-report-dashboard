@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
     const gaqlDate = targetDate.replace(/-/g, '');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
-    console.log(`[sync-ads] Starting for ${targetDate}`);
+    console.log(`[sync-ads] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
@@ -60,13 +61,20 @@ export async function GET(request: NextRequest) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-    const clientsWithAds = (clients || [])
+    let clientsWithAds = (clients || [])
       .map((c: any) => ({
         id: c.id,
         name: c.name,
         customerId: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.gads_customer_id?.replace(/-|\s/g, ''),
       }))
       .filter((c: any) => c.customerId);
+
+    if (clientIdParam) {
+      clientsWithAds = clientsWithAds.filter((c: any) => c.id === clientIdParam);
+      if (clientsWithAds.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no Ads config` }, { status: 404 });
+      }
+    }
 
     console.log(`[sync-ads] Processing ${clientsWithAds.length} clients`);
 

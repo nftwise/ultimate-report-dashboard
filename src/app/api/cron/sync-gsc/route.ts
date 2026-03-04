@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
     })();
 
     const targetDate = datesToSync[0];
-    console.log(`[sync-gsc] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}`);
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
+    console.log(`[sync-gsc] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-    const clientsWithGSC = (clients || [])
+    let clientsWithGSC = (clients || [])
       .map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -72,6 +73,13 @@ export async function GET(request: NextRequest) {
         siteUrl: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.gsc_site_url,
       }))
       .filter((c: any) => c.siteUrl);
+
+    if (clientIdParam) {
+      clientsWithGSC = clientsWithGSC.filter((c: any) => c.id === clientIdParam);
+      if (clientsWithGSC.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no GSC config` }, { status: 404 });
+      }
+    }
 
     console.log(`[sync-gsc] Processing ${clientsWithGSC.length} clients`);
 

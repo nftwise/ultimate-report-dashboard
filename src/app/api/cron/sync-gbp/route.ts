@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
     })();
 
     const targetDate = datesToSync[0]; // for backwards compat in response
-    console.log(`[sync-gbp] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}`);
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
+    console.log(`[sync-gbp] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Step 1: Get access token (auto-refreshes if expired, reads from Supabase)
     const accessToken = await GBPTokenManager.getAccessToken();
@@ -73,7 +74,13 @@ export async function GET(request: NextRequest) {
 
     if (locError) throw new Error(`Failed to fetch GBP locations: ${locError.message}`);
 
-    const validLocations = (locations || []).filter(l => l.gbp_location_id);
+    let validLocations = (locations || []).filter(l => l.gbp_location_id);
+    if (clientIdParam) {
+      validLocations = validLocations.filter(l => l.client_id === clientIdParam);
+      if (validLocations.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no GBP location` }, { status: 404 });
+      }
+    }
     console.log(`[sync-gbp] Processing ${validLocations.length} locations`);
 
     let synced = 0;
