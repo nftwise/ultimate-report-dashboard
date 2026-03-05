@@ -15,8 +15,8 @@ const TABS = [
   { id: 'overview',    label: 'Overview',    icon: LayoutDashboard, href: '',          badge: null },
   { id: 'seo',         label: 'SEO',         icon: Search,          href: '/seo',       badge: null },
   { id: 'google-ads',  label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads',badge: null },
-  { id: 'gbp',         label: 'GBP',         icon: MapPin,          href: '/gbp',       badge: null },
-  { id: 'geo',         label: 'GEO / AI',    icon: Bot,             href: '/geo',       badge: 'NEW' },
+  { id: 'gbp',         label: 'Google Business', icon: MapPin,      href: '/gbp',       badge: null },
+  { id: 'geo',         label: 'News & AI',   icon: Bot,             href: '/geo',       badge: null },
 ] as const;
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {

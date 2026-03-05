@@ -291,12 +291,15 @@ export default function ClientDetailPage() {
   const isTrendUp = leadTrendData.type === 'up';
 
   const trendBadge = (mom: ReturnType<typeof calcMoM>) => (
-    <span className="text-xs font-semibold px-2 py-1 rounded" style={{
-      background: mom.type === 'up' ? 'rgba(157,181,160,0.15)' : mom.type === 'down' ? 'rgba(196,112,79,0.15)' : 'rgba(92,88,80,0.1)',
-      color: mom.type === 'up' ? '#4a6b4e' : mom.type === 'down' ? '#8a4a2e' : '#5c5850'
-    }}>
-      {mom.pct} vs {prevLabel}
-    </span>
+    <div style={{ marginTop: '8px' }}>
+      <span className="text-xs font-semibold px-2 py-1 rounded" style={{
+        background: mom.type === 'up' ? 'rgba(157,181,160,0.15)' : mom.type === 'down' ? 'rgba(196,112,79,0.15)' : 'rgba(92,88,80,0.1)',
+        color: mom.type === 'up' ? '#4a6b4e' : mom.type === 'down' ? '#8a4a2e' : '#5c5850'
+      }}>
+        {mom.pct}
+      </span>
+      <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '5px' }}>vs prev {periodDays}d</span>
+    </div>
   );
 
   return (
@@ -335,17 +338,16 @@ export default function ClientDetailPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
             {/* Total Leads — always shown */}
             <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Leads</p>
-              {/* FIX #1: subtitle explaining what total leads includes */}
-              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms + Ads + GBP calls</p>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Inquiries</p>
+              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + forms + Google Ads</p>
               <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalLeads)}</div>
               {trendBadge(leadTrendData)}
             </div>
 
             {/* Website Visits — always shown */}
             <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visits</p>
-              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>All traffic sources</p>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visitors</p>
+              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>People who visited your website</p>
               <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(sessions)}</div>
               {trendBadge(sessionsTrendData)}
             </div>
@@ -354,14 +356,14 @@ export default function ClientDetailPage() {
             {hasAds ? (
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Ad Spend</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Google Ads budget used</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Amount spent on Google Ads</p>
                 <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtCurrency(adSpend, 0)}</div>
                 {trendBadge(adSpendTrendData)}
               </div>
             ) : (
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Form Fills</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Website contact forms</p>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Contact Forms</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms submitted on your website</p>
                 <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalFormFills)}</div>
                 {trendBadge(formFillsTrendData)}
               </div>
@@ -370,15 +372,15 @@ export default function ClientDetailPage() {
             {/* CPL — only if Ads active, else GBP Calls */}
             {hasAds ? (
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Lead</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Ads spend ÷ conversions</p>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Inquiry</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Average ad cost per patient inquiry</p>
                 <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
                 {trendBadge(cplTrendData)}
               </div>
             ) : hasGbp ? (
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>GBP Calls</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Call button taps</p>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Google Phone Calls</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Taps on your Google Business phone number</p>
                 <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalGbpCalls)}</div>
                 {trendBadge(gbpCallsTrendData)}
               </div>
@@ -389,16 +391,16 @@ export default function ClientDetailPage() {
           <div className="rounded-2xl p-8 mb-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
               <div>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Traffic & Leads</p>
-                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Daily Traffic & Leads</h3>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Day by Day</p>
+                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Visitors & Inquiries Over Time</h3>
               </div>
               <div className="grid grid-cols-2 gap-6" style={{ textAlign: 'right' }}>
                 <div>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Visits</p>
+                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Visitors</p>
                   <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Leads</p>
+                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Inquiries</p>
                   <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
                 </div>
               </div>
@@ -425,13 +427,13 @@ export default function ClientDetailPage() {
               <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Performance Trend</p>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Monthly Progress</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: isTrendUp ? '#9db5a0' : '#c4704f', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {leadTrendData.type === 'neutral' ? '—' : `${isTrendUp ? '↑' : '↓'} ${Math.abs(isNaN(parseFloat(leadTrend)) ? 0 : parseFloat(leadTrend))}%`}
                     </div>
-                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Leads period vs period</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Inquiries vs previous period</p>
                   </div>
                 </div>
                 <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px', marginTop: '24px' }}>
@@ -451,16 +453,16 @@ export default function ClientDetailPage() {
               {hasSeo && (
                 <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                   <div className="mb-6">
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>SEO Performance</p>
-                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>Search & Traffic Analytics</h3>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Free Google Traffic</p>
+                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>How Patients Find You on Google</h3>
                   </div>
 
                   <div className="grid grid-cols-4 gap-4 mb-6">
                     {[
-                      { label: 'Google Impressions', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
-                      { label: 'Google Clicks', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
-                      { label: 'Click-Through Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: '#c4704f' },
-                      { label: 'Organic Visits', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
+                      { label: 'Shown on Google', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
+                      { label: 'Clicked Your Link', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
+                      { label: 'Click Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: '#c4704f' },
+                      { label: 'Free Search Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
                     ].map((m, i) => (
                       <div key={i} style={{ padding: '16px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `3px solid ${m.color}` }}>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{m.label}</p>
@@ -473,7 +475,7 @@ export default function ClientDetailPage() {
                   {trafficAi > 0 && (
                     <div style={{ padding: '20px', background: 'linear-gradient(135deg,rgba(44,36,25,0.05),rgba(44,36,25,0.02))', borderRadius: '12px', border: '1px solid rgba(44,36,25,0.08)' }}>
                       <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
-                        AI Assistant Traffic
+                        Visitors From AI Tools (ChatGPT, Perplexity, Claude)
                       </h4>
                       <div style={{ display: 'flex', gap: '32px' }}>
                         <div>
@@ -481,11 +483,11 @@ export default function ClientDetailPage() {
                           <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#c4704f' }}>{fmtNum(trafficAi)}</div>
                         </div>
                         <div>
-                          <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>% of Total</p>
+                          <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>% of All Traffic</p>
                           <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#c4704f' }}>{totalTraffic > 0 ? ((trafficAi / totalTraffic) * 100).toFixed(1) : '0'}%</div>
                         </div>
                         <div style={{ alignSelf: 'flex-end' }}>
-                          <p style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>ChatGPT, Perplexity, Claude</p>
+                          <p style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Visitors referred by AI chat tools</p>
                         </div>
                       </div>
                     </div>
@@ -499,13 +501,13 @@ export default function ClientDetailPage() {
 
               {/* Lead Distribution — Donut Chart */}
               <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Channel Impact</p>
-                <h3 className="text-2xl font-black mt-2 mb-4" style={{ color: '#2c2419' }}>Lead Distribution</h3>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Inquiry Sources</p>
+                <h3 className="text-2xl font-black mt-2 mb-4" style={{ color: '#2c2419' }}>Where Inquiries Come From</h3>
                 {(() => {
                   const channels = [
-                    ...(hasAds ? [{ label: 'Google Ads', sublabel: 'conversions', value: totalAdsConversions, color: '#c4704f' }] : []),
-                    ...(hasSeo ? [{ label: 'SEO / Organic', sublabel: 'form fills', value: totalFormFills, color: '#9db5a0' }] : []),
-                    ...(hasGbp ? [{ label: 'Google Business', sublabel: 'call taps', value: totalGbpCalls, color: '#d9a854' }] : []),
+                    ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: '#c4704f' }] : []),
+                    ...(hasSeo ? [{ label: 'Website Forms', sublabel: 'contact forms', value: totalFormFills, color: '#9db5a0' }] : []),
+                    ...(hasGbp ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: '#d9a854' }] : []),
                   ];
                   const total = channels.reduce((s, c) => s + c.value, 0);
                   return (
@@ -536,7 +538,7 @@ export default function ClientDetailPage() {
                         {/* Center label */}
                         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
                           <div style={{ fontSize: '26px', fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{fmtNum(total)}</div>
-                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>total leads</div>
+                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>total inquiries</div>
                         </div>
                       </div>
                       {/* Legend */}
@@ -567,35 +569,32 @@ export default function ClientDetailPage() {
               {[
                 ...(hasAds ? [{
                   title: 'Google Ads',
-                  // FIX #8: Active = service enabled, not based on period data
                   active: hasAds,
                   metrics: [
-                    { label: 'Conversions', value: fmtNum(totalAdsConversions) },
-                    { label: 'Clicks', value: fmtNum(adsClicks) },
-                    { label: 'Spend', value: fmtCurrency(adSpend, 0) },
-                    { label: 'CTR', value: `${adsCtr}%` },
-                    // FIX #4: removed Budget Used (always 0, not in rollup)
+                    { label: 'Patient Inquiries', value: fmtNum(totalAdsConversions) },
+                    { label: 'Ad Clicks', value: fmtNum(adsClicks) },
+                    { label: 'Amount Spent', value: fmtCurrency(adSpend, 0) },
+                    { label: 'Click Rate', value: `${adsCtr}%` },
                   ]
                 }] : []),
                 ...(hasSeo ? [{
-                  title: 'SEO Performance',
+                  title: 'Free Google Search',
                   active: hasSeo,
                   metrics: [
-                    { label: 'Google Clicks', value: fmtNum(seoClicks) },
-                    { label: 'Impressions', value: fmtNum(seoImpressions) },
-                    { label: 'CTR', value: `${seoCtr}%` },
-                    { label: 'Organic Visits', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
+                    { label: 'Clicked Your Link', value: fmtNum(seoClicks) },
+                    { label: 'Times Shown', value: fmtNum(seoImpressions) },
+                    { label: 'Click Rate', value: `${seoCtr}%` },
+                    { label: 'Free Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
                   ]
                 }] : []),
                 ...(hasGbp ? [{
-                  title: 'Google Business',
+                  title: 'Google Business Profile',
                   active: hasGbp,
                   metrics: [
                     { label: 'Phone Calls', value: fmtNum(totalGbpCalls) },
-                    { label: 'Web Clicks', value: fmtNum(totalGbpWebsiteClicks) },
-                    { label: 'Directions', value: fmtNum(totalGbpDirections) },
-                    // FIX #10: use independently-fetched latest rating
-                    { label: 'Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' },
+                    { label: 'Website Clicks', value: fmtNum(totalGbpWebsiteClicks) },
+                    { label: 'Direction Requests', value: fmtNum(totalGbpDirections) },
+                    { label: 'Star Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' },
                   ]
                 }] : []),
               ].map((ch, i) => (
