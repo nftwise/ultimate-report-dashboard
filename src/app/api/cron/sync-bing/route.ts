@@ -5,16 +5,14 @@ export const maxDuration = 300;
 
 /**
  * GET /api/cron/sync-bing
- * Daily cron: Sync Bing Webmaster Tools data (organic page stats) + Bing News mentions
+ * Daily cron: Sync Bing Webmaster Tools organic page stats → bing_page_stats
  *
- * Data sources:
- *   - BWT GetPageStats   → bing_page_stats   (per-page clicks/impressions/position on Bing)
- *   - Bing News Search   → bing_news_mentions (brand news mentions)
+ * Data source: BWT GetPageStats API (clicks / impressions / avg_position per page per day)
  *
  * AI Citations (bing_ai_citations / bing_ai_page_citations) are imported manually
- * via POST /api/admin/import-bing-ai since BWT API doesn't expose AI data yet.
+ * via the Import AI Data modal — BWT API does not expose AI citation data.
  *
- * SQL tables (run once in Supabase):
+ * SQL (run once in Supabase if table doesn't exist):
  *
  *   CREATE TABLE IF NOT EXISTS bing_page_stats (
  *     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,43 +25,10 @@ export const maxDuration = 300;
  *     created_at timestamptz DEFAULT now(),
  *     UNIQUE(client_id, date, page_url)
  *   );
- *
- *   CREATE TABLE IF NOT EXISTS bing_ai_citations (
- *     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- *     client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
- *     date date NOT NULL,
- *     citations integer DEFAULT 0,
- *     cited_pages integer DEFAULT 0,
- *     created_at timestamptz DEFAULT now(),
- *     UNIQUE(client_id, date)
- *   );
- *
- *   CREATE TABLE IF NOT EXISTS bing_ai_page_citations (
- *     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- *     client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
- *     page_url text NOT NULL,
- *     citations integer DEFAULT 0,
- *     updated_at timestamptz DEFAULT now(),
- *     UNIQUE(client_id, page_url)
- *   );
- *
- *   CREATE TABLE IF NOT EXISTS bing_news_mentions (
- *     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- *     client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
- *     date date NOT NULL,
- *     headline text,
- *     url text,
- *     publisher text,
- *     published_at timestamptz,
- *     snippet text,
- *     created_at timestamptz DEFAULT now(),
- *     UNIQUE(client_id, url)
- *   );
  */
 
 const BWT_API_KEY = process.env.BING_SEARCH_API_KEY || '';
 const BWT_BASE = 'https://ssl.bing.com/webmaster/api.svc/json';
-const BING_NEWS_URL = 'https://api.bing.microsoft.com/v7.0/news/search';
 
 // Parse .NET JSON date: /Date(1731657600000-0800)/ → "2024-11-15"
 function parseNetDate(dateStr: string): string {
@@ -71,7 +36,6 @@ function parseNetDate(dateStr: string): string {
   return new Date(ms).toISOString().split('T')[0];
 }
 
-// Extract clean domain from gsc_site_url for matching with BWT site URL
 function extractDomain(url: string): string {
   return url
     .replace(/^sc-domain:/, '')
@@ -82,7 +46,16 @@ function extractDomain(url: string): string {
     .trim();
 }
 
-// Fetch Bing Webmaster Tools page stats for a site
+async function getBWTSites(): Promise<string[]> {
+  const res = await fetch(`${BWT_BASE}/GetUserSites?apikey=${BWT_API_KEY}`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data?.d || []).filter((s: any) => s.IsVerified).map((s: any) => s.Url as string);
+}
+
 async function getBWTPageStats(siteUrl: string, startDate: string, endDate: string): Promise<Array<{
   page_url: string; clicks: number; impressions: number; avg_position: number | null; date: string;
 }>> {
@@ -102,37 +75,6 @@ async function getBWTPageStats(siteUrl: string, startDate: string, endDate: stri
   }));
 }
 
-// Fetch all BWT verified sites
-async function getBWTSites(): Promise<string[]> {
-  const url = `${BWT_BASE}/GetUserSites?apikey=${BWT_API_KEY}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return (data?.d || []).filter((s: any) => s.IsVerified).map((s: any) => s.Url as string);
-}
-
-// Fetch Bing News for a brand name
-async function getBingNews(brandName: string): Promise<Array<{
-  headline: string; url: string; publisher: string; published_at: string; snippet: string;
-}>> {
-  try {
-    const q = encodeURIComponent(`"${brandName}"`);
-    const res = await fetch(`${BING_NEWS_URL}?q=${q}&count=10&freshness=Month&mkt=en-US`, {
-      headers: { 'Ocp-Apim-Subscription-Key': BWT_API_KEY },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data?.value || []).map((item: any) => ({
-      headline: item.name || '',
-      url: item.url || '',
-      publisher: item.provider?.[0]?.name || '',
-      published_at: item.datePublished || new Date().toISOString(),
-      snippet: item.description || '',
-    }));
-  } catch { return []; }
-}
-
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -143,7 +85,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'BING_SEARCH_API_KEY not set' }, { status: 500 });
   }
 
-  // Date range: yesterday back 30 days (or custom for backfill)
   const endParam = request.nextUrl.searchParams.get('endDate');
   const startParam = request.nextUrl.searchParams.get('startDate');
   const targetSlug = request.nextUrl.searchParams.get('slug');
@@ -153,21 +94,18 @@ export async function GET(request: NextRequest) {
     return d.toISOString().split('T')[0];
   })();
   const startDate = startParam || (() => {
-    const d = new Date(endDate); d.setDate(d.getDate() - 30);
+    const d = new Date(endDate); d.setDate(d.getDate() - 7);
     return d.toISOString().split('T')[0];
   })();
 
   console.log(`[sync-bing] ${startDate} → ${endDate}${targetSlug ? ` slug=${targetSlug}` : ''}`);
 
-  // 1. Get all BWT verified sites
   const bwtSites = await getBWTSites();
-  const bwtDomainMap = new Map<string, string>(); // domain → full BWT siteUrl
+  const bwtDomainMap = new Map<string, string>();
   for (const siteUrl of bwtSites) {
-    const domain = extractDomain(siteUrl);
-    bwtDomainMap.set(domain, siteUrl);
+    bwtDomainMap.set(extractDomain(siteUrl), siteUrl);
   }
 
-  // 2. Get active clients with GSC site URL
   let clientsQuery = supabaseAdmin
     .from('clients')
     .select('id, name, slug, service_configs(gsc_site_url)')
@@ -187,17 +125,34 @@ export async function GET(request: NextRequest) {
     if (!bwtSiteUrl) { results[client.slug] = { skip: `domain ${domain} not in BWT` }; continue; }
 
     try {
-      // Note: bing_page_stats and bing_news_mentions tables removed (unused by dashboard).
-      // sync-bing now only verifies BWT connectivity per client.
-      results[client.slug] = {
-        bwtSite: bwtSiteUrl,
-        status: 'matched',
-      };
+      const rows = await getBWTPageStats(bwtSiteUrl, startDate, endDate);
+      if (rows.length === 0) {
+        results[client.slug] = { rows: 0 };
+        continue;
+      }
+
+      const upsertRows = rows
+        .filter(r => r.page_url)
+        .map(r => ({
+          client_id: client.id,
+          date: r.date,
+          page_url: r.page_url,
+          clicks: r.clicks,
+          impressions: r.impressions,
+          avg_position: r.avg_position,
+        }));
+
+      const { error } = await supabaseAdmin
+        .from('bing_page_stats')
+        .upsert(upsertRows, { onConflict: 'client_id,date,page_url' });
+
+      results[client.slug] = error
+        ? { error: error.message }
+        : { rows: upsertRows.length };
     } catch (err: any) {
       results[client.slug] = { error: err.message };
     }
 
-    // Small delay between clients
     await new Promise(r => setTimeout(r, 500));
   }
 
