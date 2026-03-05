@@ -583,9 +583,14 @@ export default function GeoPage() {
                 </button>
               </>
             ) : (
-              <p style={{ fontSize: '14px', color: '#9ca3af', maxWidth: '400px', margin: '0 auto', lineHeight: '1.6' }}>
-                Your agency team will import AI citation data from Bing Webmaster Tools. Check back soon to see how often AI assistants like Copilot and ChatGPT recommend your website.
-              </p>
+              <div style={{ maxWidth: '420px', margin: '0 auto' }}>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#2c2419', marginBottom: '10px' }}>
+                  You are not currently using this service.
+                </p>
+                <p style={{ fontSize: '14px', color: '#9ca3af', lineHeight: '1.6', margin: 0 }}>
+                  AI visibility tracking is not included in your current plan. Please contact our admin team to add this service to your account.
+                </p>
+              </div>
             )}
           </div>
 
