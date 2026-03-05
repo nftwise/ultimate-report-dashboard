@@ -285,8 +285,6 @@ export default function ClientDetailPage() {
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
   const adSpendTrendData = calcMoM(adSpend, prevData.adSpend, true);
   const cplTrendData = calcMoM(costPerLead, prevCpl, true);
-  const adsCvTrendData = calcMoM(totalAdsConversions, prevData.adsCv);
-  const seoClicksTrendData = calcMoM(seoClicks, prevData.seoClicks);
   const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
   const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills);
   const leadTrend = leadTrendData.pct;

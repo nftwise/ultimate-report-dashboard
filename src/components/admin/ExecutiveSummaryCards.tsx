@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { fmtNum, fmtCurrency } from '@/lib/format';
+import { fmtNum, fmtCurrency, fmtPct } from '@/lib/format';
 
 interface MoMData {
   pct: string;
@@ -254,7 +254,7 @@ export default function ExecutiveSummaryCards({
             color: '#5c5850',
             margin: '0 0 12px 0'
           }}>
-            Click-to-Lead Rate
+            Conversion Rate
           </p>
           <div style={{
             fontSize: '32px',
@@ -263,7 +263,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            {fmtNum(conversionRate, 2)}%
+            {fmtPct(conversionRate, 2)}
           </div>
           <p style={{
             fontSize: '11px',
