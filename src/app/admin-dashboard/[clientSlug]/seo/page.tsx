@@ -8,7 +8,7 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum } from '@/lib/format';
+import { fmtNum, fmtPct } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -66,7 +66,7 @@ export default function SEOPage() {
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
   const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
   const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number }>({ improved: 0, declined: 0 });
-  const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0 });
+  const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number; organicVisits: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
   const [realConversions, setRealConversions] = useState<number>(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
@@ -176,7 +176,7 @@ export default function SEOPage() {
     Promise.all([
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
-      supabase.from('client_metrics_summary').select('sessions, users, seo_ctr, seo_clicks').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
+      supabase.from('client_metrics_summary').select('sessions, users, seo_ctr, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('ga4_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).ilike('event_name', '%success%'),
     ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { count: convCount }]) => {
       const prevAvg = avgPos(prevKW || []);
@@ -194,10 +194,11 @@ export default function SEOPage() {
       const prevSessions = (prevMetrics || []).reduce((s, d) => s + (d.sessions || 0), 0);
       const prevUsers = (prevMetrics || []).reduce((s, d) => s + (d.users || 0), 0);
       const prevSeoClicks = (prevMetrics || []).reduce((s, d) => s + (d.seo_clicks || 0), 0);
+      const prevOrganicVisits = (prevMetrics || []).reduce((s, d) => s + ((d as any).traffic_organic || 0), 0);
       const prevCtrDays = (prevMetrics || []).filter(d => d.seo_ctr);
       const prevCtr = prevCtrDays.length > 0
         ? prevCtrDays.reduce((s, d) => s + (d.seo_ctr || 0), 0) / prevCtrDays.length : 0;
-      setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks });
+      setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks, organicVisits: prevOrganicVisits });
       setRealConversions(convCount || 0);
     });
   }, [client, dateRange]);
@@ -236,8 +237,8 @@ export default function SEOPage() {
   const totalMobileSessions = dailyData.reduce((s, d: any) => s + (d.sessions_mobile || 0), 0);
   const totalBlogSessions = dailyData.reduce((s, d: any) => s + (d.blog_sessions || 0), 0);
 
-  const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
-  const avgCtrNum = parseFloat(avgCtr);
+  const avgCtrNum = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const avgCtr = avgCtrNum > 0 ? fmtPct(avgCtrNum, 2) : '—';
   const engagementDays = dailyData.filter((d: any) => d.engagement_rate);
   const avgEngagementRate = engagementDays.length > 0
     ? (engagementDays.reduce((s, d: any) => s + (d.engagement_rate || 0), 0) / engagementDays.length).toFixed(1) : '0.0';
@@ -262,7 +263,7 @@ export default function SEOPage() {
   const visitsMoM = calcMoM(totalVisits, prevPeriodMetrics.sessions);
   const visitorsMoM = calcMoM(totalUniqueVisitors, prevPeriodMetrics.users);
   const ctrMoM = calcMoM(avgCtrNum, prevPeriodMetrics.ctr);
-  const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.seoClicks);
+  const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits);
 
   const momBadge = (mom: { pct: number; label: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
@@ -322,7 +323,7 @@ export default function SEOPage() {
           </div>
 
           {/* ── KPI Cards ──────────────────────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
             {[
               {
                 label: 'Website Visits',
@@ -348,7 +349,7 @@ export default function SEOPage() {
               {
                 label: 'Click Rate',
                 sub: 'Of Google searchers who clicked',
-                value: avgCtr !== '0.00' ? `${avgCtr}%` : '—',
+                value: avgCtr,
                 mom: ctrMoM,
                 color: '#2c2419',
               },
@@ -375,7 +376,7 @@ export default function SEOPage() {
               {[
                 { label: 'Times Shown on Google', value: fmtNum(totalImpressions), color: '#c4704f', sub: 'Search impressions' },
                 { label: 'Times Clicked', value: fmtNum(totalClicks), color: '#10b981', sub: 'From search results' },
-                { label: 'Click Rate', value: avgCtr !== '0.00' ? `${avgCtr}%` : '—', color: '#d9a854', sub: avgCtrNum > 5 ? 'Excellent' : avgCtrNum > 2 ? 'Good' : avgCtr === '0.00' ? '—' : 'Needs work' },
+                { label: 'Click Rate', value: avgCtr, color: '#d9a854', sub: avgCtrNum > 5 ? 'Excellent' : avgCtrNum > 2 ? 'Good' : avgCtrNum === 0 ? '—' : 'Needs work' },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
                   <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: 600, margin: '0 0 8px 0', textTransform: 'uppercase' }}>{s.label}</p>
@@ -395,14 +396,14 @@ export default function SEOPage() {
               const s2 = totalOrganicVisits;
               const s3 = realConversions;
               const maxVal = s1 || 1;
-              const organicRate = s1 > 0 ? ((s2 / s1) * 100).toFixed(1) : '0';
-              const formRate = s2 > 0 ? ((s3 / s2) * 100).toFixed(2) : '0.00';
+              const organicRate = s1 > 0 ? fmtPct((s2 / s1) * 100, 1) : '0%';
+              const formRate = s2 > 0 ? fmtPct((s3 / s2) * 100, 2) : '0%';
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {[
                     { label: 'All Website Visits', value: s1, width: 100, color: '#9db5a0', sub: '' },
-                    { label: 'Visits from Google Search', value: s2, width: s1 > 0 ? (s2 / maxVal) * 100 : 0, color: '#c4704f', sub: `${organicRate}% of all visits` },
-                    ...(s3 > 0 ? [{ label: 'Contact Forms Submitted', value: s3, width: s1 > 0 ? Math.max((s3 / maxVal) * 100, 1) : 0, color: '#10b981', sub: `${formRate}% of Google visitors submitted a form` }] : []),
+                    { label: 'Visits from Google Search', value: s2, width: s1 > 0 ? (s2 / maxVal) * 100 : 0, color: '#c4704f', sub: `${organicRate} of all visits` },
+                    ...(s3 > 0 ? [{ label: 'Contact Forms Submitted', value: s3, width: s1 > 0 ? Math.max((s3 / maxVal) * 100, 1) : 0, color: '#10b981', sub: `${formRate} of Google visitors submitted a form` }] : []),
                   ].map((row, i) => (
                     <div key={i}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
@@ -424,11 +425,11 @@ export default function SEOPage() {
                     </div>
                     <div style={{ background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                       <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>Google Search Share</p>
-                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#c4704f', margin: 0 }}>{organicRate}%</p>
+                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#c4704f', margin: 0 }}>{organicRate}</p>
                     </div>
                     <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                       <p style={{ fontSize: '9px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>Form Submission Rate</p>
-                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', margin: 0 }}>{s3 > 0 ? `${formRate}%` : '—'}</p>
+                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', margin: 0 }}>{s3 > 0 ? formRate : '—'}</p>
                     </div>
                   </div>
                 </div>
@@ -512,11 +513,11 @@ export default function SEOPage() {
                   </div>
                   <p style={{ fontSize: '9px', color: '#9ca3af', marginTop: '4px' }}>% of visitors who stayed and interacted with your site</p>
                 </div>
-                {avgCtr !== '0.00' && (
+                {avgCtrNum > 0 && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '11px', color: '#5c5850' }}>Click Rate (CTR)</span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: avgCtrNum > 5 ? '#10b981' : avgCtrNum > 2 ? '#d9a854' : '#ef4444' }}>{avgCtr}%</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: avgCtrNum > 5 ? '#10b981' : avgCtrNum > 2 ? '#d9a854' : '#ef4444' }}>{avgCtr}</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ width: `${Math.min(avgCtrNum, 100)}%`, height: '100%', background: avgCtrNum > 5 ? '#10b981' : avgCtrNum > 2 ? '#d9a854' : '#c4704f', borderRadius: '4px' }} />
@@ -543,7 +544,7 @@ export default function SEOPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: 500 }}>{item.label}</span>
                     <span style={{ fontSize: '11px', fontWeight: 700, color: item.color }}>
-                      {fmtNum(item.value)} ({item.total > 0 ? ((item.value / item.total) * 100).toFixed(1) : 0}%)
+                      {fmtNum(item.value)} ({item.total > 0 ? fmtPct((item.value / item.total) * 100, 1) : '0%'})
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -560,7 +561,7 @@ export default function SEOPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#5c5850', fontWeight: 500 }}>{item.label}</span>
                     <span style={{ fontSize: '11px', fontWeight: 700, color: item.color }}>
-                      {fmtNum(item.value)} ({totalVisits > 0 ? ((item.value / totalVisits) * 100).toFixed(1) : 0}%)
+                      {fmtNum(item.value)} ({totalVisits > 0 ? fmtPct((item.value / totalVisits) * 100, 1) : '0%'})
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -608,7 +609,7 @@ export default function SEOPage() {
             <p style={{ fontSize: '13px', color: '#5c5850', margin: 0, lineHeight: '1.8' }}>
               In the last <strong>{periodDays} days</strong>, your website appeared in Google search results{' '}
               <strong>{fmtNum(totalImpressions)} times</strong> and received{' '}
-              <strong>{fmtNum(totalClicks)} clicks</strong> (click rate: <strong>{avgCtr}%</strong>).{' '}
+              <strong>{fmtNum(totalClicks)} clicks</strong> (click rate: <strong>{avgCtr}</strong>).{' '}
               Your site received <strong>{fmtNum(totalOrganicVisits)} visitors from Google Search</strong> out of{' '}
               <strong>{fmtNum(totalVisits)} total website visits</strong>.
               {keywordMovement.improved > 0 || keywordMovement.declined > 0 ? (
