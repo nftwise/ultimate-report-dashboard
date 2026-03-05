@@ -47,6 +47,8 @@ ALTER TABLE gsc_daily_summary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bing_ai_citations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bing_ai_page_citations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bing_ai_queries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bing_page_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bing_news_mentions ENABLE ROW LEVEL SECURITY;
 
 -- Utility tables (server-only, no anon policy)
 ALTER TABLE api_cache ENABLE ROW LEVEL SECURITY;
@@ -114,6 +116,12 @@ CREATE POLICY "anon_select" ON bing_ai_page_citations
   FOR SELECT TO anon USING (true);
 
 CREATE POLICY "anon_select" ON bing_ai_queries
+  FOR SELECT TO anon USING (true);
+
+CREATE POLICY "anon_select" ON bing_page_stats
+  FOR SELECT TO anon USING (true);
+
+CREATE POLICY "anon_select" ON bing_news_mentions
   FOR SELECT TO anon USING (true);
 
 -- ============================================================
