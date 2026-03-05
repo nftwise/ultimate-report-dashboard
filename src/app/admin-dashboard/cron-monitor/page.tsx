@@ -429,6 +429,35 @@ export default function CronMonitorPage() {
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
 
+        {/* ── Data Lag Reference ── */}
+        <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 2px 8px rgba(44,36,25,0.05)' }}>
+          <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850', margin: '0 0 12px 0' }}>
+            Expected Data Lag — API vs Supabase
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+            {[
+              { service: 'GA4', lag: '1–2 days', detail: 'Google Analytics processes sessions overnight. Data from yesterday is typically available by 10am.', color: '#10b981', warn: 2 },
+              { service: 'Google Ads', lag: '1–2 days', detail: 'Ad performance data is finalized ~24h after the day ends. 1 day lag is completely normal.', color: '#10b981', warn: 2 },
+              { service: 'GSC', lag: '3–4 days', detail: 'Search Console has a structural 2–3 day delay by design. Data marked "final" takes up to 72h.', color: '#d97706', warn: 4 },
+              { service: 'GBP', lag: '3–7 days', detail: 'Business Profile performance API is the slowest. Call clicks and views can lag 5–7 days before appearing.', color: '#d97706', warn: 7 },
+            ].map(({ service, lag, detail, color, warn }) => (
+              <div key={service} style={{ background: 'rgba(245,241,237,0.5)', borderRadius: '10px', padding: '12px 14px', borderLeft: `3px solid ${color}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#2c2419' }}>{service}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color, background: `${color}18`, padding: '1px 8px', borderRadius: '6px' }}>{lag}</span>
+                </div>
+                <p style={{ fontSize: '11px', color: '#5c5850', margin: 0, lineHeight: 1.5 }}>{detail}</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: '5px 0 0 0' }}>
+                  Status shows <span style={{ color: '#dc2626', fontWeight: 600 }}>ERR</span> only if lag &gt; {warn} days
+                </p>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '12px 0 0 0' }}>
+            ℹ️ Crons run daily at 10:00–10:20 AM PT. Rollup aggregates all raw data into <code style={{ background: 'rgba(44,36,25,0.06)', padding: '1px 5px', borderRadius: '4px' }}>client_metrics_summary</code> at 10:15 AM.
+          </p>
+        </div>
+
         {/* ── Backfill Panel ── */}
         <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(245,158,11,0.06)' }}>
           <button
