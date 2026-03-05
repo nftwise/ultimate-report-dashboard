@@ -233,8 +233,9 @@ export default function AdminDashboardPage() {
 
   const totalLeads = clients.reduce((s, c) => s + (c.total_leads || 0), 0);
   const totalGbpCalls = clients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
-  const cplClients = clients.filter(c => c.ads_cpl && c.ads_cpl > 0);
-  const avgCpl = cplClients.length > 0 ? cplClients.reduce((s, c) => s + (c.ads_cpl || 0), 0) / cplClients.length : 0;
+  const totalAdSpend = clients.reduce((s, c) => s + (c.ad_spend || 0), 0);
+  const totalAdsConversions = clients.reduce((s, c) => s + (c.ads_conversions || 0), 0);
+  const avgCpl = totalAdsConversions > 0 ? totalAdSpend / totalAdsConversions : 0;
 
   const getDaysDiff = () => Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
   const setPreset = (days: number) => {

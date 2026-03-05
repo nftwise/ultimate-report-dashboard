@@ -258,7 +258,8 @@ export default function ClientDetailPage() {
   const trafficPaid = dailyData.reduce((s: number, d: any) => s + (d.traffic_paid || 0), 0);
   const trafficDirect = dailyData.reduce((s: number, d: any) => s + (d.traffic_direct || 0), 0);
   const trafficAi = dailyData.reduce((s: number, d: any) => s + (d.traffic_ai || 0), 0);
-  const totalTraffic = trafficOrganic + trafficPaid + trafficDirect + trafficAi;
+  const trafficReferral = dailyData.reduce((s: number, d: any) => s + (d.traffic_referral || 0), 0);
+  const totalTraffic = trafficOrganic + trafficPaid + trafficDirect + trafficReferral + trafficAi;
 
   const hasAds = client.services?.googleAds !== false;
   const hasSeo = client.services?.seo !== false;

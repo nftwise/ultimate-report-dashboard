@@ -176,7 +176,7 @@ export default function SEOPage() {
     Promise.all([
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
-      supabase.from('client_metrics_summary').select('sessions, users, seo_ctr, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
+      supabase.from('client_metrics_summary').select('sessions, users, seo_impressions, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('ga4_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).ilike('event_name', '%success%'),
     ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { count: convCount }]) => {
       const prevAvg = avgPos(prevKW || []);
@@ -195,9 +195,8 @@ export default function SEOPage() {
       const prevUsers = (prevMetrics || []).reduce((s, d) => s + (d.users || 0), 0);
       const prevSeoClicks = (prevMetrics || []).reduce((s, d) => s + (d.seo_clicks || 0), 0);
       const prevOrganicVisits = (prevMetrics || []).reduce((s, d) => s + ((d as any).traffic_organic || 0), 0);
-      const prevCtrDays = (prevMetrics || []).filter(d => d.seo_ctr);
-      const prevCtr = prevCtrDays.length > 0
-        ? prevCtrDays.reduce((s, d) => s + (d.seo_ctr || 0), 0) / prevCtrDays.length : 0;
+      const prevTotalImpressions = (prevMetrics || []).reduce((s, d) => s + ((d as any).seo_impressions || 0), 0);
+      const prevCtr = prevTotalImpressions > 0 ? (prevSeoClicks / prevTotalImpressions) * 100 : 0;
       setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks, organicVisits: prevOrganicVisits });
       setRealConversions(convCount || 0);
     });
@@ -239,9 +238,10 @@ export default function SEOPage() {
 
   const avgCtrNum = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
   const avgCtr = avgCtrNum > 0 ? fmtPct(avgCtrNum, 2) : '—';
-  const engagementDays = dailyData.filter((d: any) => d.engagement_rate);
-  const avgEngagementRate = engagementDays.length > 0
-    ? (engagementDays.reduce((s, d: any) => s + (d.engagement_rate || 0), 0) / engagementDays.length).toFixed(1) : '0.0';
+  const totalSessionsForEngagement = dailyData.reduce((s, d: any) => s + (d.sessions || 0), 0);
+  const avgEngagementRate = totalSessionsForEngagement > 0
+    ? (dailyData.reduce((s, d: any) => s + ((d.engagement_rate || 0) * (d.sessions || 0)), 0) / totalSessionsForEngagement).toFixed(1)
+    : '0.0';
   const rankDays = dailyData.filter((d: any) => d.google_rank);
   const avgGoogleRankValue = rankDays.length > 0
     ? rankDays.reduce((s, d: any) => s + (d.google_rank || 0), 0) / rankDays.length : 0;
