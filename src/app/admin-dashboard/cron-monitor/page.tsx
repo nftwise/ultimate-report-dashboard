@@ -278,7 +278,7 @@ export default function CronMonitorPage() {
     }
   }
 
-  // ─── backfill: run rollup for date range ────────────────────────────────────
+  // ─── resync: fetch from Google APIs + rollup for date range ────────────────
 
   const runBackfill = async (specificClientId?: string) => {
     const clientId = specificClientId || (backfillClientId || undefined)
@@ -297,6 +297,13 @@ export default function CronMonitorPage() {
 
     let successCount = 0, errorCount = 0
 
+    const syncEndpoints = [
+      '/api/cron/sync-ga4',
+      '/api/cron/sync-gsc',
+      '/api/cron/sync-ads',
+      '/api/cron/sync-gbp',
+    ]
+
     for (let i = 0; i < dates.length; i++) {
       if (specificClientId) {
         setFixProgress({ current: i + 1, total: dates.length })
@@ -304,6 +311,16 @@ export default function CronMonitorPage() {
         setBackfillProgress({ current: i + 1, total: dates.length })
       }
 
+      // Step 1: Re-fetch from all Google APIs in parallel for this date
+      await Promise.all(syncEndpoints.map(endpoint =>
+        fetch('/api/admin/trigger-cron', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint, method: 'GET', params: { date: dates[i], clientId } }),
+        }).catch(() => null)
+      ))
+
+      // Step 2: Rebuild dashboard metrics from refreshed raw data
       try {
         const res = await fetch('/api/admin/trigger-cron', {
           method: 'POST',
@@ -466,8 +483,8 @@ export default function CronMonitorPage() {
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: backfillOpen ? '1px solid rgba(245,158,11,0.15)' : 'none' }}
           >
             <Calendar size={14} style={{ color: '#d97706' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>Rollup Backfill</span>
-            <span style={{ fontSize: '11px', color: '#b45309' }}>Fix historical data gaps by date range</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>Re-sync Historical Data</span>
+            <span style={{ fontSize: '11px', color: '#b45309' }}>Re-download data from Google for a past date range</span>
             <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{backfillOpen ? 'Hide ▴' : 'Show ▾'}</span>
           </button>
 
@@ -517,8 +534,8 @@ export default function CronMonitorPage() {
                   disabled={backfillRunning || !backfillFrom || !backfillTo}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: backfillRunning ? '#f5f0e8' : '#d97706', color: backfillRunning ? '#8B7355' : '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: backfillRunning ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                   {backfillRunning
-                    ? <><RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> Running…</>
-                    : <><Play size={12} /> Run Backfill</>
+                    ? <><RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> Syncing…</>
+                    : <><Play size={12} /> Re-sync Dates</>
                   }
                 </button>
                 {/* Progress bar */}
@@ -528,7 +545,7 @@ export default function CronMonitorPage() {
                       <div style={{ width: `${(backfillProgress.current / backfillProgress.total) * 100}%`, height: '100%', background: '#d97706', borderRadius: '3px', transition: 'width 200ms' }} />
                     </div>
                     <span style={{ fontSize: '11px', color: '#b45309', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                      {backfillProgress.current} / {backfillProgress.total} dates
+                      Day {backfillProgress.current} / {backfillProgress.total}
                     </span>
                   </div>
                 )}
@@ -540,8 +557,9 @@ export default function CronMonitorPage() {
                 )}
               </div>
               <p style={{ fontSize: '11px', color: '#9ca3af', margin: '10px 0 0 0', lineHeight: 1.5 }}>
-                Tip: use the <strong>Fix</strong> button on a specific client row to backfill just that client for the date range above.
-                Running on all clients for large ranges may take several minutes.
+                For each date selected, this re-downloads fresh data from Google (GA4, Search Console, Ads, GBP) and rebuilds the dashboard.
+                Use the <strong>Sync</strong> button on a client row below to re-sync just one client for the date range above.
+                Large date ranges may take several minutes to complete.
               </p>
             </div>
           )}
@@ -651,7 +669,7 @@ export default function CronMonitorPage() {
                     <th className="col-svc">GBP</th>
                     <th className="col-rollup">Rollup</th>
                     <th className="col-overall">Overall</th>
-                    <th className="col-fix">Fix Rollup</th>
+                    <th className="col-fix">Re-sync</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -701,11 +719,11 @@ export default function CronMonitorPage() {
                               <button
                                 onClick={e => { e.stopPropagation(); runBackfill(row.id) }}
                                 disabled={isFixing || backfillRunning}
-                                title={`Run rollup for ${row.name}: ${backfillFrom} → ${backfillTo}`}
+                                title={`Re-sync all data for ${row.name}: ${backfillFrom} → ${backfillTo}`}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: isFixing ? '#f5f0e8' : 'rgba(44,36,25,0.05)', color: isFixing ? '#8B7355' : '#5c5850', border: '1px solid rgba(44,36,25,0.12)', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: (isFixing || backfillRunning) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                                 {isFixing
                                   ? <><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} />{fixProgress ? ` ${fixProgress.current}/${fixProgress.total}` : '…'}</>
-                                  : <><Play size={10} /> Fix</>
+                                  : <><Play size={10} /> Sync</>
                                 }
                               </button>
                               {isFixing && fixProgress && (
