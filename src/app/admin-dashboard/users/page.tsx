@@ -216,25 +216,20 @@ export default function UsersPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      const sixMonthsAgoISO = sixMonthsAgo.toISOString();
-
-      const [usersRes, { data: clientsData }, { data: logsData }] = await Promise.all([
+      const [usersRes, { data: clientsData }] = await Promise.all([
         fetch('/api/admin/add-user'),
         supabase.from('clients').select('id, name, slug').eq('is_active', true).order('name'),
-        supabase.from('login_logs').select('user_id, logged_at')
-          .gte('logged_at', sixMonthsAgoISO).order('logged_at', { ascending: false }),
       ]);
 
       const usersData = await usersRes.json();
       if (usersData.success) setUsers(usersData.users || []);
       setClients(clientsData || []);
 
-      // Build activity map and recent map
+      // login_logs returned by same API (uses service role key — anon key blocked by RLS)
+      const logsData: Array<{ user_id: string; logged_at: string }> = usersData.loginLogs || [];
       const activity: Record<string, Record<string, number>> = {};
       const recent: Record<string, Array<{ logged_at: string }>> = {};
-      for (const log of logsData || []) {
+      for (const log of logsData) {
         const day = log.logged_at.split('T')[0];
         if (!activity[log.user_id]) activity[log.user_id] = {};
         activity[log.user_id][day] = (activity[log.user_id][day] || 0) + 1;

@@ -162,28 +162,29 @@ export async function GET() {
   }
 
   try {
-    const { data: users, error } = await supabaseAdmin
-      .from('users')
-      .select('id, email, role, client_id, is_active, created_at, last_login')
-      .order('created_at', { ascending: false });
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const [{ data: users, error }, { data: loginLogs }] = await Promise.all([
+      supabaseAdmin
+        .from('users')
+        .select('id, email, role, client_id, is_active, created_at, last_login')
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('login_logs')
+        .select('user_id, logged_at')
+        .gte('logged_at', sixMonthsAgo.toISOString())
+        .order('logged_at', { ascending: false }),
+    ]);
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message
-      }, { status: 500 });
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      users
-    });
+    return NextResponse.json({ success: true, users, loginLogs: loginLogs || [] });
 
   } catch (error: any) {
     console.error('Error listing users:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
