@@ -38,15 +38,14 @@ export async function GET(request: NextRequest) {
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
 
-    // If a specific date is requested, use it. Otherwise sync the last 20 days.
-    // Must match the rollup window (20d) — rollup reads from this raw table.
-    // 20 days ensures GBP API backfills (lag 3-7d) are always captured:
-    // dates that showed 0 when first synced (due to API lag) get corrected on re-sync.
+    // If a specific date is requested, use it. Otherwise sync the last 30 days.
+    // 30 days (up from 20) ensures even long GBP API lags (observed up to 16d) are captured:
+    // dates that showed 0 when first synced get corrected when Google finalizes the data.
     const datesToSync: string[] = dateParam ? [dateParam] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       const dates: string[] = [];
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 30; i++) {
         const d = new Date(caToday);
         d.setDate(d.getDate() - i);
         dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
@@ -129,9 +128,17 @@ export async function GET(request: NextRequest) {
               website_clicks: metrics.WEBSITE_CLICKS,
             };
 
+            // If API returned real data → full upsert (overwrite).
+            // If API returned all zeros → only INSERT if no row exists yet;
+            // never overwrite existing real data with zeros (GBP API can lag
+            // 10-16 days before finalizing, returning 0 in the meantime).
+            const hasData = row.phone_calls + row.website_clicks + row.direction_requests + row.views > 0;
             const { error } = await supabaseAdmin
               .from('gbp_location_daily_metrics')
-              .upsert(row, { onConflict: 'location_id,date' });
+              .upsert(row, {
+                onConflict: 'location_id,date',
+                ignoreDuplicates: !hasData,
+              });
 
             if (error) {
               console.log(`[sync-gbp] Upsert error ${location.location_name}:`, error.message);
