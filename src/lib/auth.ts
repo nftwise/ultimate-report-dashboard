@@ -62,12 +62,14 @@ export const authOptions: NextAuthOptions = {
           .update({ last_login: new Date().toISOString() })
           .eq('id', user.id)
 
-        // Log login event (fire-and-forget)
-        void supabaseAdmin.from('login_logs').insert({
-          user_id: user.id,
-          email: user.email,
-          role: user.role,
-        })
+        // Log login event (fire-and-forget async IIFE — Supabase is lazy, needs .then())
+        ;(async () => {
+          await supabaseAdmin.from('login_logs').insert({
+            user_id: user.id,
+            email: user.email,
+            role: user.role,
+          })
+        })()
 
         // Get client data - handle both array and single object responses
         const clientData = Array.isArray(user.client) ? user.client[0] as ClientData | undefined : user.client as ClientData | null
