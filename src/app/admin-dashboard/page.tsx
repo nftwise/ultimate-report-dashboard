@@ -170,16 +170,15 @@ export default function AdminDashboardPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       );
-      // Shift both windows back 5 days to avoid GBP API data lag (~5-day delay).
-      // Use form_fills + google_ads_conversions (not total_leads) to exclude GBP calls
-      // which are unreliable in the recent window due to the API lag.
-      const anchor = new Date(dateRange.to);
-      anchor.setDate(anchor.getDate() - 5); // lag offset
+      // Compare last 7 days vs previous 7 days.
+      // No GBP lag offset needed — alerts use form_fills + google_ads_conversions only (no GBP).
+      // Both windows stay within the 14-day rollup coverage → always fresh data.
       const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const cur7End = fmt(anchor);
-      const cur7Start = new Date(anchor); cur7Start.setDate(anchor.getDate() - 6);
-      const prev7End = new Date(anchor); prev7End.setDate(anchor.getDate() - 7);
-      const prev7Start = new Date(anchor); prev7Start.setDate(anchor.getDate() - 13);
+      const yesterday = new Date(dateRange.to);
+      const cur7End = fmt(yesterday);
+      const cur7Start = new Date(yesterday); cur7Start.setDate(yesterday.getDate() - 6);
+      const prev7End = new Date(yesterday); prev7End.setDate(yesterday.getDate() - 7);
+      const prev7Start = new Date(yesterday); prev7Start.setDate(yesterday.getDate() - 13);
 
       const [curRes, prevRes, clientsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
@@ -325,7 +324,7 @@ export default function AdminDashboardPage() {
             >
               <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
-                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (7-day, excl. last 5d GBP lag)
+                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (last 7d vs prev 7d)
               </span>
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{alertsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
             </div>
