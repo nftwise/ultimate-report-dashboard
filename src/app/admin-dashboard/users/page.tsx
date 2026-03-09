@@ -55,7 +55,9 @@ function buildGrid(activityByDay: Record<string, number>, weeks = 26) {
     for (let d = 0; d < 7; d++) {
       const dt = new Date(start);
       dt.setDate(start.getDate() + w * 7 + d);
-      const dateStr = dt.toISOString().split('T')[0];
+      // Use local date (not toISOString which converts to UTC → off-by-1 for UTC+ timezones)
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateStr = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
       week.push({ date: dateStr, count: activityByDay[dateStr] || 0, future: dt > today });
     }
     grid.push(week);
@@ -229,8 +231,13 @@ export default function UsersPage() {
       const logsData: Array<{ user_id: string; logged_at: string }> = usersData.loginLogs || [];
       const activity: Record<string, Record<string, number>> = {};
       const recent: Record<string, Array<{ logged_at: string }>> = {};
+      const localDateStr = (iso: string) => {
+        const d = new Date(iso);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      };
       for (const log of logsData) {
-        const day = log.logged_at.split('T')[0];
+        const day = localDateStr(log.logged_at);
         if (!activity[log.user_id]) activity[log.user_id] = {};
         activity[log.user_id][day] = (activity[log.user_id][day] || 0) + 1;
         if (!recent[log.user_id]) recent[log.user_id] = [];
