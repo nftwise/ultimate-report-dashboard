@@ -39,6 +39,6 @@ export const config = {
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    '/api/((?!auth|cron).*)',
+    '/api/((?!auth|cron|admin/run-rollup).*)',
   ]
 }
