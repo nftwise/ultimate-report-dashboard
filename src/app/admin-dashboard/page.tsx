@@ -515,7 +515,6 @@ export default function AdminDashboardPage() {
             .client-table .col-client { width: 22%; }
             .client-table .col-svc    { width: 6%; }
             .client-table .col-leads  { width: 9%; }
-            .client-table .col-forms  { width: 8%; }
             .client-table .col-kw10   { width: 8%; }
             .client-table .col-calls  { width: 9%; }
             .client-table .col-conv   { width: 8%; }
@@ -534,14 +533,13 @@ export default function AdminDashboardPage() {
                   <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                     <th rowSpan={2} className="col-client" style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em' }}>Client</th>
                     <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
-                    <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
+                    <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857', borderBottom: '2.5px solid #047857', paddingBottom: '6px' }}>GBP</th>
                     <th colSpan={3} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', borderBottom: '2.5px solid #6b7280', paddingBottom: '6px' }}>Google Ads</th>
                   </tr>
                   <tr style={{ borderBottom: '1.5px solid rgba(44,36,25,0.1)' }}>
                     <th className="col-svc" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Svc</th>
                     <th className="col-leads col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
-                    <th className="col-forms" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
                     <th className="col-kw10 col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>KW10</th>
                     <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
                     <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
@@ -562,7 +560,6 @@ export default function AdminDashboardPage() {
                     const midIdx = pts ? Math.floor(pts.length / 2) : 0;
                     const firstAvg = pts && midIdx > 0 ? pts.slice(0, midIdx).reduce((a, b) => a + b, 0) / midIdx : 0;
                     const lastAvg = pts ? pts.slice(midIdx).reduce((a, b) => a + b, 0) / (pts.length - midIdx) : 0;
-                    const trendPct = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : 0;
                     const lineColor = smoothed ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
 
                     return (
@@ -587,7 +584,6 @@ export default function AdminDashboardPage() {
                             return <div style={{ fontSize: '10px', fontWeight: 700, color: up ? '#059669' : '#dc2626', marginTop: '1px' }}>{up ? '+' : ''}{pct}%</div>;
                           })()}
                         </td>
-                        <td className="col-forms" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
                         <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
                           {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
                         </td>
@@ -607,7 +603,6 @@ export default function AdminDashboardPage() {
                                 <polygon points={`0,24 ${smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
                                 <polyline points={smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: lineColor, minWidth: '36px', textAlign: 'left' }}>{trendPct > 0 ? '+' : ''}{trendPct}%</span>
                             </div>
                           ) : <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>}
                         </td>
