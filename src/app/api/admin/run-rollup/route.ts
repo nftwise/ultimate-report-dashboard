@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAndSendAlerts } from '@/lib/telegram';
 
+// Allow up to 120s — 20 days × 25 clients needs more than the default 60s
+export const maxDuration = 120;
+
 const BATCH_SIZE = 5;
 
 /**
@@ -44,14 +47,14 @@ async function runRollup(date?: string, clientId?: string) {
   const startTime = Date.now();
 
   try {
-    // Build list of dates: specific date if given, otherwise last 14 days
-    // 14 days ensures the alert comparison window (cur7: 6-12 days ago + prev7: 13-19 days ago)
-    // always has fresh data — 10 days was too short, leaving days 11-12 stale
+    // Build list of dates: specific date if given, otherwise last 20 days.
+    // Alert windows need: cur7 (1-7d ago) + prev7 (8-14d ago) + GBP lag (5-7d) = 21d max.
+    // 20 days covers the full comparison window so both periods always use fresh data.
     const datesToProcess: string[] = date ? [date] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       const dates: string[] = [];
-      for (let i = 1; i <= 14; i++) {
+      for (let i = 1; i <= 20; i++) {
         const d = new Date(caToday);
         d.setDate(d.getDate() - i);
         dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);

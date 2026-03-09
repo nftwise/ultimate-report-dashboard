@@ -99,9 +99,21 @@ export default function AdminDashboardPage() {
       const gbpSet = new Set<string>((gbpRows || []).map((r: any) => r.client_id));
       setGbpClientSet(gbpSet);
 
+      // Dynamic cutoff: latest date where GBP calls are confirmed in the DB.
+      // This ensures trend only uses dates with complete API data (GBP lags 5-7d).
+      const { data: latestGbpRow } = await supabase
+        .from('client_metrics_summary')
+        .select('date')
+        .eq('period_type', 'daily')
+        .gt('gbp_calls', 0)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+      const completeCutoff = latestGbpRow?.date || dateToStr;
+
       const [metricsRes, gbpRes, formRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, google_ads_conversions, form_fills, ad_spend, top_keywords, date')
+          .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
         supabase.from('gbp_location_daily_metrics')
           .select('client_id, phone_calls, date')
@@ -121,8 +133,11 @@ export default function AdminDashboardPage() {
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
         metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
-        // Use form_fills + ads conversions for trend (excludes GBP calls which have 5-7d API lag)
-        metricsMap[m.client_id].trendByDate[m.date] = (m.form_fills || 0) + (m.google_ads_conversions || 0);
+        // Trend: ads_conversions + gbp_calls only (no form_fills — unreliable event naming).
+        // Only include dates up to completeCutoff — ensures GBP API data is fully synced.
+        if (m.date <= completeCutoff) {
+          metricsMap[m.client_id].trendByDate[m.date] = (m.google_ads_conversions || 0) + (m.gbp_calls || 0);
+        }
       });
       (gbpRes.data || []).forEach((g: any) => {
         if (!metricsMap[g.client_id]) metricsMap[g.client_id] = init();
@@ -170,22 +185,32 @@ export default function AdminDashboardPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       );
-      // Compare last 7 days vs previous 7 days.
-      // No GBP lag offset needed — alerts use form_fills + google_ads_conversions only (no GBP).
-      // Both windows stay within the 14-day rollup coverage → always fresh data.
+      // Dynamic completeCutoff: latest date where GBP data is confirmed complete.
+      // Both windows are anchored to this date → data integrity guaranteed.
+      // Rollup now covers 20 days so prev7 (8-14d back from cutoff) always has fresh data.
+      const { data: latestGbpAlert } = await supabase
+        .from('client_metrics_summary')
+        .select('date')
+        .eq('period_type', 'daily')
+        .gt('gbp_calls', 0)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
       const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const yesterday = new Date(dateRange.to);
-      const cur7End = fmt(yesterday);
-      const cur7Start = new Date(yesterday); cur7Start.setDate(yesterday.getDate() - 6);
-      const prev7End = new Date(yesterday); prev7End.setDate(yesterday.getDate() - 7);
-      const prev7Start = new Date(yesterday); prev7Start.setDate(yesterday.getDate() - 13);
+      const cutoff = latestGbpAlert?.date
+        ? new Date(latestGbpAlert.date + 'T12:00:00Z')
+        : (() => { const d = new Date(dateRange.to); d.setDate(d.getDate() - 7); return d; })();
+      const cur7End = latestGbpAlert?.date || fmt(cutoff);
+      const cur7Start = new Date(cutoff); cur7Start.setDate(cutoff.getDate() - 6);
+      const prev7End = new Date(cutoff); prev7End.setDate(cutoff.getDate() - 7);
+      const prev7Start = new Date(cutoff); prev7Start.setDate(cutoff.getDate() - 13);
 
       const [curRes, prevRes, clientsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
+          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
           .gte('date', fmt(cur7Start)).lte('date', cur7End),
         supabase.from('client_metrics_summary')
-          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
+          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
           .gte('date', fmt(prev7Start)).lte('date', fmt(prev7End)),
         supabase.from('clients').select('id, name').eq('is_active', true),
       ]);
@@ -194,8 +219,9 @@ export default function AdminDashboardPage() {
         const m: Record<string, { leads: number; sessions: number }> = {};
         for (const r of rows || []) {
           if (!m[r.client_id]) m[r.client_id] = { leads: 0, sessions: 0 };
-          // Exclude GBP calls — they have a 5-day API lag and distort recent comparisons
-          m[r.client_id].leads += (r.form_fills || 0) + (r.google_ads_conversions || 0);
+          // Leads = ads conversions + GBP calls (form_fills excluded — unreliable event naming)
+          // Both sources are complete at completeCutoff by definition
+          m[r.client_id].leads += (r.google_ads_conversions || 0) + (r.gbp_calls || 0);
           m[r.client_id].sessions += r.sessions || 0;
         }
         return m;
