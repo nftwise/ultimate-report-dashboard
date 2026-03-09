@@ -101,7 +101,7 @@ export default function AdminDashboardPage() {
 
       const [metricsRes, gbpRes, formRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, google_ads_conversions, ad_spend, top_keywords, date')
+          .select('client_id, total_leads, google_ads_conversions, form_fills, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
         supabase.from('gbp_location_daily_metrics')
           .select('client_id, phone_calls, date')
@@ -121,7 +121,8 @@ export default function AdminDashboardPage() {
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
         metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
-        metricsMap[m.client_id].trendByDate[m.date] = m.total_leads || 0;
+        // Use form_fills + ads conversions for trend (excludes GBP calls which have 5-7d API lag)
+        metricsMap[m.client_id].trendByDate[m.date] = (m.form_fills || 0) + (m.google_ads_conversions || 0);
       });
       (gbpRes.data || []).forEach((g: any) => {
         if (!metricsMap[g.client_id]) metricsMap[g.client_id] = init();
@@ -213,7 +214,10 @@ export default function AdminDashboardPage() {
         if (p.leads === 0 && p.sessions === 0) continue;
         const lp = p.leads > 0 ? Math.round(((c.leads - p.leads) / p.leads) * 100) : 0;
         const sp = p.sessions > 0 ? Math.round(((c.sessions - p.sessions) / p.sessions) * 100) : 0;
-        if (lp <= -20 || sp <= -30) {
+        // Require meaningful prev baseline to avoid noise (small numbers = high % swings)
+        const leadsAlert = lp <= -20 && p.leads >= 5 && (p.leads - c.leads) >= 3;
+        const sessionsAlert = sp <= -30 && p.sessions >= 50;
+        if (leadsAlert || sessionsAlert) {
           found.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
         }
       }
