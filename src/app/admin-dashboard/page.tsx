@@ -530,19 +530,24 @@ export default function AdminDashboardPage() {
                     <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
                     <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
                     <th className="col-cpl" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>CPL</th>
-                    <th className="col-trend" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Trend 30d</th>
+                    <th className="col-trend" title="Ads conversions + GBP calls per day (7-day rolling avg)" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', cursor: 'help' }}>Leads Trend ↗</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map(client => {
                     const pts = client.trendPoints && client.trendPoints.length > 1 ? client.trendPoints : null;
-                    const maxPt = pts ? Math.max(...pts, 1) : 1;
-                    // Compare first-half avg vs last-half avg (more stable than single-day first vs last)
+                    // 7-day rolling average to smooth out daily spikes
+                    const smoothed = pts ? pts.map((_, i) => {
+                      const w = pts.slice(Math.max(0, i - 3), i + 4);
+                      return w.reduce((a, b) => a + b, 0) / w.length;
+                    }) : null;
+                    const maxPt = smoothed ? Math.max(...smoothed, 0.1) : 1;
+                    // Compare first-half avg vs last-half avg on original (for % accuracy)
                     const midIdx = pts ? Math.floor(pts.length / 2) : 0;
                     const firstAvg = pts && midIdx > 0 ? pts.slice(0, midIdx).reduce((a, b) => a + b, 0) / midIdx : 0;
                     const lastAvg = pts ? pts.slice(midIdx).reduce((a, b) => a + b, 0) / (pts.length - midIdx) : 0;
                     const trendPct = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : 0;
-                    const lineColor = pts ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
+                    const lineColor = smoothed ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
 
                     return (
                       <tr key={client.id} onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
@@ -567,17 +572,17 @@ export default function AdminDashboardPage() {
                         <td className="col-conv" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
                         <td className="col-cpl" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
                         <td className="col-trend" style={{ textAlign: 'center' }}>
-                          {pts ? (
+                          {smoothed ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                               <svg width="80" height="24" style={{ flexShrink: 0 }}>
                                 <defs>
                                   <linearGradient id={`g-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.2} />
-                                    <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
+                                    <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
                                   </linearGradient>
                                 </defs>
-                                <polygon points={`0,24 ${pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
-                                <polyline points={pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                <polygon points={`0,24 ${smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
+                                <polyline points={smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                               <span style={{ fontSize: '11px', fontWeight: 700, color: lineColor, minWidth: '36px', textAlign: 'left' }}>{trendPct > 0 ? '+' : ''}{trendPct}%</span>
                             </div>
