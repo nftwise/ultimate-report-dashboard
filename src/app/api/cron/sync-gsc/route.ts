@@ -112,8 +112,10 @@ export async function GET(request: NextRequest) {
           try {
             const allQueries = await fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, syncDate, client.id), 'queries');
 
-            // LAYER 1: Save daily totals to gsc_daily_summary (pre-aggregate before filtering)
-            if (allQueries.length > 0) {
+            // LAYER 1: Save daily totals to gsc_daily_summary.
+            // Always write (even 0s) so cron-monitor knows the sync ran successfully —
+            // low-traffic sites may legitimately have 0 impressions some days.
+            {
               const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
                 client_id: client.id,
                 site_url: client.siteUrl,

@@ -40,11 +40,12 @@ function daysAgoFromDate(dateStr: string | null, today: string): number | null {
   return Math.floor((new Date(today).getTime() - new Date(dateStr).getTime()) / 86400000)
 }
 
-function toStatus(daysAgo: number | null, enabled: boolean): SyncStatus {
+function toStatus(daysAgo: number | null, enabled: boolean, lagDays = 2): SyncStatus {
   if (!enabled) return 'N/A'
   if (daysAgo === null) return 'ERROR'
-  if (daysAgo <= 2) return 'OK'
-  if (daysAgo <= 5) return 'WARN'
+  // OK = within expected lag, WARN = up to 2× lag, ERROR = beyond
+  if (daysAgo <= lagDays + 1) return 'OK'
+  if (daysAgo <= lagDays * 2 + 2) return 'WARN'
   return 'ERROR'
 }
 
@@ -219,19 +220,19 @@ export default function CronMonitorPage() {
         const hasGSC = !!(cfg.gsc_site_url?.trim())
         const hasAds = !!(cfg.gads_customer_id?.trim())
         const hasGBP = gbpClientIds.has(c.id)
-        const mk = (map: Record<string, string>, enabled: boolean) => {
+        const mk = (map: Record<string, string>, enabled: boolean, lagDays = 1) => {
           const ld = enabled ? (map[c.id] || null) : null
           const da = ld ? daysAgoFromDate(ld, today) : null
-          return { status: toStatus(da, enabled), daysAgo: da, lastDate: ld }
+          return { status: toStatus(da, enabled, lagDays), daysAgo: da, lastDate: ld }
         }
         return {
           id: c.id, name: c.name, slug: c.slug, is_active: c.is_active,
           service_configs: c.service_configs,
-          ga4:    mk(ga4Map,    hasGA4),
-          gsc:    mk(gscMap,    hasGSC),
-          ads:    mk(adsMap,    hasAds),
-          gbp:    mk(gbpMap,    hasGBP),
-          rollup: mk(rollupMap, true),
+          ga4:    mk(ga4Map,    hasGA4, 1),  // 1-2d lag → OK ≤2d
+          gsc:    mk(gscMap,    hasGSC, 4),  // 3-4d lag → OK ≤5d, WARN 6-10d
+          ads:    mk(adsMap,    hasAds, 1),  // 1-2d lag → OK ≤2d
+          gbp:    mk(gbpMap,    hasGBP, 5),  // 3-7d lag → OK ≤6d, WARN 7-12d
+          rollup: mk(rollupMap, true,   1),  // 1d lag → OK ≤2d
         }
       })
 
@@ -436,11 +437,11 @@ export default function CronMonitorPage() {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
             {[
-              { service: 'GA4', lag: '1–2 days', detail: 'Google Analytics processes sessions overnight. Data from yesterday is typically available by 10am.', color: '#10b981', warn: 2 },
-              { service: 'Google Ads', lag: '1–2 days', detail: 'Ad performance data is finalized ~24h after the day ends. 1 day lag is completely normal.', color: '#10b981', warn: 2 },
-              { service: 'GSC', lag: '3–4 days', detail: 'Search Console has a structural 2–3 day delay by design. Data marked "final" takes up to 72h.', color: '#d97706', warn: 4 },
-              { service: 'GBP', lag: '3–7 days', detail: 'Business Profile performance API is the slowest. Call clicks and views can lag 5–7 days before appearing.', color: '#d97706', warn: 7 },
-            ].map(({ service, lag, detail, color, warn }) => (
+              { service: 'GA4', lag: '1–2 days', detail: 'Google Analytics processes sessions overnight. Data from yesterday is typically available by 10am.', color: '#10b981', ok: 2, warn: 4 },
+              { service: 'Google Ads', lag: '1–2 days', detail: 'Ad performance data is finalized ~24h after the day ends. 1 day lag is completely normal.', color: '#10b981', ok: 2, warn: 4 },
+              { service: 'GSC', lag: '3–4 days', detail: 'Search Console has a structural 3–4 day delay by design (dataState=final). 5 days is still normal.', color: '#d97706', ok: 5, warn: 10 },
+              { service: 'GBP', lag: '3–7 days', detail: 'Business Profile performance API is the slowest. Call clicks and views can lag 5–7 days before appearing.', color: '#d97706', ok: 6, warn: 12 },
+            ].map(({ service, lag, detail, color, ok, warn }) => (
               <div key={service} style={{ background: 'rgba(245,241,237,0.5)', borderRadius: '10px', padding: '12px 14px', borderLeft: `3px solid ${color}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: '#2c2419' }}>{service}</span>
@@ -448,7 +449,7 @@ export default function CronMonitorPage() {
                 </div>
                 <p style={{ fontSize: '11px', color: '#5c5850', margin: 0, lineHeight: 1.5 }}>{detail}</p>
                 <p style={{ fontSize: '10px', color: '#9ca3af', margin: '5px 0 0 0' }}>
-                  Status shows <span style={{ color: '#dc2626', fontWeight: 600 }}>ERR</span> only if lag &gt; {warn} days
+                  <span style={{ color: '#059669', fontWeight: 600 }}>OK</span> ≤{ok}d · <span style={{ color: '#d97706', fontWeight: 600 }}>WARN</span> ≤{warn}d · <span style={{ color: '#dc2626', fontWeight: 600 }}>ERR</span> &gt;{warn}d
                 </p>
               </div>
             ))}
@@ -600,9 +601,9 @@ export default function CronMonitorPage() {
             </div>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
               {[
-                { bg: 'rgba(16,185,129,0.12)', color: '#059669', text: 'OK ≤2d'  },
-                { bg: 'rgba(245,158,11,0.12)', color: '#d97706', text: 'WARN 3-5d'},
-                { bg: 'rgba(239,68,68,0.12)',  color: '#dc2626', text: 'ERR ≥6d'  },
+                { bg: 'rgba(16,185,129,0.12)', color: '#059669', text: 'OK = within lag'  },
+                { bg: 'rgba(245,158,11,0.12)', color: '#d97706', text: 'WARN = 2× lag'},
+                { bg: 'rgba(239,68,68,0.12)',  color: '#dc2626', text: 'ERR = stale'  },
               ].map(l => (
                 <span key={l.text} style={{ background: l.bg, color: l.color, padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{l.text}</span>
               ))}
