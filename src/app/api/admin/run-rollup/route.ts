@@ -44,12 +44,14 @@ async function runRollup(date?: string, clientId?: string) {
   const startTime = Date.now();
 
   try {
-    // Build list of dates: specific date if given, otherwise last 10 days
+    // Build list of dates: specific date if given, otherwise last 14 days
+    // 14 days ensures the alert comparison window (cur7: 6-12 days ago + prev7: 13-19 days ago)
+    // always has fresh data — 10 days was too short, leaving days 11-12 stale
     const datesToProcess: string[] = date ? [date] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       const dates: string[] = [];
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 14; i++) {
         const d = new Date(caToday);
         d.setDate(d.getDate() - i);
         dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
