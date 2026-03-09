@@ -30,6 +30,7 @@ interface ClientWithMetrics {
   ads_cpl?: number;
   ad_spend?: number;
   total_leads?: number;
+  prev_total_leads?: number;
   top_keywords?: number;
   trendPoints?: number[];
   service_configs?: ServiceConfig[];
@@ -111,7 +112,14 @@ export default function AdminDashboardPage() {
         .single();
       const completeCutoff = latestGbpRow?.date || dateToStr;
 
-      const [metricsRes, gbpRes, formRes] = await Promise.all([
+      // Calculate previous period (same length, immediately before dateFrom)
+      const periodMs = dateRange.to.getTime() - dateRange.from.getTime() + 86400000;
+      const prevTo   = new Date(dateRange.from.getTime() - 86400000);
+      const prevFrom = new Date(prevTo.getTime() - periodMs + 86400000);
+      const prevFromStr = prevFrom.toISOString().split('T')[0];
+      const prevToStr   = prevTo.toISOString().split('T')[0];
+
+      const [metricsRes, gbpRes, formRes, prevMetricsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
           .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
@@ -122,7 +130,15 @@ export default function AdminDashboardPage() {
           .select('client_id, event_count')
           .gte('date', dateFromStr).lte('date', dateToStr)
           .ilike('event_name', '%success%'),
+        supabase.from('client_metrics_summary')
+          .select('client_id, total_leads')
+          .gte('date', prevFromStr).lte('date', prevToStr).eq('period_type', 'daily'),
       ]);
+
+      const prevMap: Record<string, number> = {};
+      (prevMetricsRes.data || []).forEach((m: any) => {
+        prevMap[m.client_id] = (prevMap[m.client_id] || 0) + (m.total_leads || 0);
+      });
 
       const metricsMap: Record<string, any> = {};
       const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, trendByDate: {} as Record<string, number> });
@@ -157,7 +173,7 @@ export default function AdminDashboardPage() {
         return {
           id: client.id, name: client.name, slug: client.slug, city: client.city,
           contact_email: client.contact_email, is_active: client.is_active, owner: client.owner,
-          total_leads: m.total_leads, seo_form_submits: m.seo_form_submits,
+          total_leads: m.total_leads, prev_total_leads: prevMap[client.id] ?? null, seo_form_submits: m.seo_form_submits,
           top_keywords: m.top_keywords,
           gbp_calls: m.gbp_calls, ads_conversions: m.ads_conversions,
           ads_cpl: cpl, ad_spend: m.ad_spend, trendPoints,
@@ -563,7 +579,14 @@ export default function AdminDashboardPage() {
                             {client.services?.seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>SEO</span>}
                           </div>
                         </td>
-                        <td className="col-leads col-divider" style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</td>
+                        <td className="col-leads col-divider" style={{ textAlign: 'center' }}>
+                          <div style={{ fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</div>
+                          {client.prev_total_leads != null && client.prev_total_leads > 0 && (() => {
+                            const pct = Math.round(((client.total_leads || 0) - client.prev_total_leads) / client.prev_total_leads * 100);
+                            const up = pct >= 0;
+                            return <div style={{ fontSize: '10px', fontWeight: 700, color: up ? '#059669' : '#dc2626', marginTop: '1px' }}>{up ? '+' : ''}{pct}%</div>;
+                          })()}
+                        </td>
                         <td className="col-forms" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
                         <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
                           {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
