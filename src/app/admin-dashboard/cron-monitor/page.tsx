@@ -305,12 +305,6 @@ export default function CronMonitorPage() {
     ]
 
     for (let i = 0; i < dates.length; i++) {
-      if (specificClientId) {
-        setFixProgress({ current: i + 1, total: dates.length })
-      } else {
-        setBackfillProgress({ current: i + 1, total: dates.length })
-      }
-
       // Step 1: Re-fetch from all Google APIs in parallel for this date
       await Promise.all(syncEndpoints.map(endpoint =>
         fetch('/api/admin/trigger-cron', {
@@ -335,6 +329,13 @@ export default function CronMonitorPage() {
         if (res.ok && data.success !== false) successCount++
         else errorCount++
       } catch { errorCount++ }
+
+      // Update progress after each date completes so UI re-renders
+      if (specificClientId) {
+        setFixProgress({ current: i + 1, total: dates.length })
+      } else {
+        setBackfillProgress({ current: i + 1, total: dates.length })
+      }
     }
 
     const resultStr = errorCount === 0
