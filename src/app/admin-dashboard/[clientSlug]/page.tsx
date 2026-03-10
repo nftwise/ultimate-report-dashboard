@@ -82,7 +82,7 @@ export default function ClientDetailPage() {
   const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number; formFills: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0, formFills: 0 });
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
-  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
     const from = new Date(to);
@@ -101,6 +101,7 @@ export default function ClientDetailPage() {
   };
 
   const handleDateRangeChange = (newRange: { from: Date; to: Date }) => {
+    setSelectedDays(null);
     setDateRange(newRange);
   };
 

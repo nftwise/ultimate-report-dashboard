@@ -57,7 +57,7 @@ export default function SEOPage() {
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
     const from = new Date(to);
@@ -180,8 +180,8 @@ export default function SEOPage() {
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
       supabase.from('client_metrics_summary').select('sessions, users, seo_impressions, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
-      supabase.from('ga4_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).ilike('event_name', '%success%'),
-    ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { count: convCount }]) => {
+      supabase.from('ga4_events').select('event_count').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).ilike('event_name', '%success%'),
+    ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { data: convData }]) => {
       const prevAvg = avgPos(prevKW || []);
       const currAvg = avgPos(currKW || []);
       let improved = 0, declined = 0;
@@ -201,7 +201,7 @@ export default function SEOPage() {
       const prevTotalImpressions = (prevMetrics || []).reduce((s, d) => s + ((d as any).seo_impressions || 0), 0);
       const prevCtr = prevTotalImpressions > 0 ? (prevSeoClicks / prevTotalImpressions) * 100 : 0;
       setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks, organicVisits: prevOrganicVisits });
-      setRealConversions(convCount || 0);
+      setRealConversions((convData || []).reduce((s: number, d: any) => s + (d.event_count || 0), 0));
     });
   }, [client, dateRange]);
 
@@ -300,7 +300,7 @@ export default function SEOPage() {
         style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
         {lastDataDate && (
           <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
-            Data through {new Date(lastDataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            Data through {new Date(lastDataDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
         )}
         <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
@@ -312,7 +312,7 @@ export default function SEOPage() {
             </button>
           ))}
         </div>
-        <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} onDateRangeChange={(r) => { setSelectedDays(null); setDateRange(r); }} />
       </div>
 
       <div className="p-8">
@@ -487,7 +487,7 @@ export default function SEOPage() {
                   <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Lower = closer to #1 on Google</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '28px', fontWeight: 700, color: avgGoogleRankValue > 0 && avgGoogleRankValue <= 10 ? '#10b981' : avgGoogleRankValue <= 20 ? '#d9a854' : '#c4704f', margin: 0 }}>
+                  <p style={{ fontSize: '28px', fontWeight: 700, color: avgGoogleRankValue === 0 ? '#9ca3af' : avgGoogleRankValue <= 10 ? '#10b981' : avgGoogleRankValue <= 20 ? '#d9a854' : '#c4704f', margin: 0 }}>
                     {avgGoogleRankValue > 0 ? `#${avgGoogleRankValue.toFixed(1)}` : '—'}
                   </p>
                   {avgGoogleRankValue > 0 && (

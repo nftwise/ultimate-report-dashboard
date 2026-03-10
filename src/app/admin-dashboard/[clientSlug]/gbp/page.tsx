@@ -86,7 +86,8 @@ export default function GBPPage() {
   const [loading, setLoading] = useState(true);
 
   // Date picker state (controls dynamic sections)
-  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
+  const [lastGbpDataDate, setLastGbpDataDate] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = yesterday();
     const from = new Date(to);
@@ -265,6 +266,7 @@ export default function GBPPage() {
       const sumMap = new Map<string, any>(); (sum || []).forEach((r: any) => sumMap.set(r.date, r));
 
       const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)])).sort();
+      if (allDates.length > 0) setLastGbpDataDate(allDates[allDates.length - 1]);
 
       let totViews = 0, totCalls = 0, totClicks = 0, totDir = 0, totNewRev = 0, dataRows = 0;
 
@@ -291,10 +293,12 @@ export default function GBPPage() {
       let pv = 0, pc = 0, pcl = 0, pd = 0;
       for (const date of pAllDates) {
         const d = pDetMap.get(date), s = pSumMap.get(date);
-        pv += pickVal(d?.views, s?.gbp_profile_views);
-        pc += pickVal(d?.phone_calls, s?.gbp_calls);
-        pcl += pickVal(d?.website_clicks, s?.gbp_website_clicks);
-        pd += pickVal(d?.direction_requests, s?.gbp_directions);
+        const pViews = pickVal(d?.views, s?.gbp_profile_views);
+        const pCalls = pickVal(d?.phone_calls, s?.gbp_calls);
+        const pClicks = pickVal(d?.website_clicks, s?.gbp_website_clicks);
+        const pDirs = pickVal(d?.direction_requests, s?.gbp_directions);
+        if (pViews === 0 && pCalls === 0 && pClicks === 0 && pDirs === 0) continue;
+        pv += pViews; pc += pCalls; pcl += pClicks; pd += pDirs;
       }
       setPrevpViews(pv); setPrevpCalls(pc); setPrevpClicks(pcl); setPrevpDir(pd);
       setPeriodLoading(false);
@@ -366,7 +370,7 @@ export default function GBPPage() {
           style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {actionsChart.length > 0 && (
             <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
-              Data through {new Date(dateRange.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Data through {lastGbpDataDate ? new Date(lastGbpDataDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date(dateRange.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
@@ -378,7 +382,7 @@ export default function GBPPage() {
               </button>
             ))}
           </div>
-          <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+          <DateRangePicker dateRange={dateRange} onDateRangeChange={(r) => { setSelectedDays(null); setDateRange(r); }} />
         </div>
 
         {/* ── Page Header ───────────────────────────────────────────────── */}
