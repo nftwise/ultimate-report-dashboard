@@ -493,7 +493,7 @@ async function processClient(
   // =====================================================
   // COMPUTED METRICS
   // =====================================================
-  const totalLeads = googleAdsConversions + formFills + gbpCalls;
+  const totalLeads = googleAdsConversions + gbpCalls; // form_fills excluded — unreliable event naming
   const cpl = totalLeads > 0
     ? Math.round((adSpend / totalLeads) * 100) / 100
     : 0;
