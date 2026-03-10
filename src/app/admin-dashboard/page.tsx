@@ -141,13 +141,10 @@ export default function AdminDashboardPage() {
       const prevFromStr = prevFrom.toISOString().split('T')[0];
       const prevToStr   = prevTo.toISOString().split('T')[0];
 
-      const [metricsRes, gbpRes, formRes, prevMetricsRes] = await Promise.all([
+      const [metricsRes, formRes, prevMetricsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
           .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
-        supabase.from('gbp_location_daily_metrics')
-          .select('client_id, phone_calls, date')
-          .gte('date', dateFromStr).lte('date', dateToStr),
         supabase.from('ga4_events')
           .select('client_id, event_count')
           .gte('date', dateFromStr).lte('date', dateToStr)
@@ -179,8 +176,6 @@ export default function AdminDashboardPage() {
           metricsMap[m.client_id].trendByDate[m.date] = (m.google_ads_conversions || 0) + (m.gbp_calls || 0);
         }
       });
-      // gbpRes no longer used for gbp_calls (now from summary for consistency with total_leads)
-      // Kept for potential future use but not accumulated
       (formRes.data || []).forEach((f: any) => {
         if (!metricsMap[f.client_id]) metricsMap[f.client_id] = init();
         metricsMap[f.client_id].seo_form_submits += f.event_count || 0;
