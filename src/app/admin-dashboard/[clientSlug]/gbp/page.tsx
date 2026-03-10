@@ -39,7 +39,7 @@ const pickVal = (a: any, b: any): number => {
 function buildLast12Months() {
   const today = new Date();
   return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - 1 - (11 - i), 1);
+    const d = new Date(today.getFullYear(), today.getMonth() - (11 - i), 1);
     const y = d.getFullYear(), m = d.getMonth();
     const lastDate = new Date(y, m + 1, 0);
     return {

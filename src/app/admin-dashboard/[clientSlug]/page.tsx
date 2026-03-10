@@ -390,21 +390,9 @@ export default function ClientDetailPage() {
 
           {/* Full-width: Daily Traffic & Leads */}
           <div className="rounded-2xl p-8 mb-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-              <div>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Day by Day</p>
-                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Visitors & Inquiries Over Time</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-6" style={{ textAlign: 'right' }}>
-                <div>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Visitors</p>
-                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg. Daily Inquiries</p>
-                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
-                </div>
-              </div>
+            <div style={{ marginBottom: '24px' }}>
+              <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Day by Day</p>
+              <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Visitors & Inquiries Over Time</h3>
             </div>
             <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px' }}>
               {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
@@ -415,6 +403,16 @@ export default function ClientDetailPage() {
                   <span style={{ fontSize: '13px' }}>No data for this date range</span>
                 </div>
               )}
+            </div>
+            <div className="grid grid-cols-2 gap-6" style={{ marginTop: '20px' }}>
+              <div style={{ padding: '16px', background: 'rgba(157,181,160,0.08)', borderRadius: '12px', borderLeft: '3px solid #9db5a0' }}>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '6px' }}>Avg. Daily Visitors</p>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
+              </div>
+              <div style={{ padding: '16px', background: 'rgba(217,168,84,0.08)', borderRadius: '12px', borderLeft: '3px solid #d9a854' }}>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '6px' }}>Avg. Daily Inquiries</p>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
+              </div>
             </div>
           </div>
 
@@ -454,7 +452,7 @@ export default function ClientDetailPage() {
               {hasSeo && (
                 <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                   <div className="mb-6">
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Free Google Traffic</p>
+                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Google Traffic</p>
                     <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>How Patients Find You on Google</h3>
                   </div>
 
@@ -463,7 +461,7 @@ export default function ClientDetailPage() {
                       { label: 'Shown on Google', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
                       { label: 'Clicked Your Link', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
                       { label: 'Click Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: '#c4704f' },
-                      { label: 'Free Search Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
+                      { label: 'Search Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
                     ].map((m, i) => (
                       <div key={i} style={{ padding: '16px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `3px solid ${m.color}` }}>
                         <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{m.label}</p>
@@ -579,7 +577,7 @@ export default function ClientDetailPage() {
                   ]
                 }] : []),
                 ...(hasSeo ? [{
-                  title: 'Free Google Search',
+                  title: 'Google Search',
                   active: hasSeo,
                   metrics: [
                     { label: 'Clicked Your Link', value: fmtNum(seoClicks) },

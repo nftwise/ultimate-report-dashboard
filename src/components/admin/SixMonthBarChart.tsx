@@ -30,7 +30,9 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
     const monthlyLeads: { [key: string]: number } = {};
 
     data.forEach((item) => {
-      const date = new Date(item.date);
+      // Parse YYYY-MM-DD directly (avoid UTC/local timezone shift)
+      const [y, m] = item.date.slice(0, 7).split('-').map(Number);
+      const date = new Date(y, m - 1, 1);
       const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
       if (!monthlyLeads[monthKey]) {

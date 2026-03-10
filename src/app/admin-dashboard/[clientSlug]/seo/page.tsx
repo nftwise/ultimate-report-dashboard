@@ -9,6 +9,7 @@ import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtPct } from '@/lib/format';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface ClientMetrics {
   id: string;
@@ -574,21 +575,50 @@ export default function SEOPage() {
             {/* Traffic Sources */}
             <div style={card}>
               <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Traffic Sources</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>How Visitors Found You</h3>
-              {trafficSourceData.length > 0 ? trafficSourceData.map((source, idx) => {
-                const pct = totalAllTraffic > 0 ? ((source.value / totalAllTraffic) * 100).toFixed(1) : '0';
-                return (
-                  <div key={idx} style={{ marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#2c2419' }}>{source.name}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: source.color }}>{fmtNum(source.value)} ({pct}%)</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: source.color, borderRadius: '4px', transition: 'width 0.3s ease' }} />
-                    </div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 16px 0' }}>How Visitors Found You</h3>
+              {trafficSourceData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={trafficSourceData.filter(s => s.value > 0)}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {trafficSourceData.filter(s => s.value > 0).map((source, idx) => (
+                          <Cell key={idx} fill={source.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }}
+                        formatter={(value: number, name: string) => [
+                          `${fmtNum(value)} (${totalAllTraffic > 0 ? ((value / totalAllTraffic) * 100).toFixed(1) : '0'}%)`,
+                          name
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                    {trafficSourceData.filter(s => s.value > 0).map((source, idx) => {
+                      const pct = totalAllTraffic > 0 ? ((source.value / totalAllTraffic) * 100).toFixed(1) : '0';
+                      return (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: source.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '12px', color: '#2c2419', fontWeight: 500 }}>{source.name}</span>
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: source.color }}>{fmtNum(source.value)} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({pct}%)</span></span>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              }) : (
+                </>
+              ) : (
                 <p style={{ color: '#9ca3af', fontSize: '13px' }}>No traffic data for this period</p>
               )}
               {totalBlogSessions > 0 && (
