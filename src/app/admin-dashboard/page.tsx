@@ -169,6 +169,8 @@ export default function AdminDashboardPage() {
         if (!metricsMap[m.client_id]) metricsMap[m.client_id] = init();
         metricsMap[m.client_id].total_leads += m.total_leads || 0;
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
+        // Use gbp_calls from summary (same source as total_leads) so both are always consistent
+        metricsMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
         metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
         // Trend: ads_conversions + gbp_calls only (no form_fills — unreliable event naming).
@@ -177,10 +179,8 @@ export default function AdminDashboardPage() {
           metricsMap[m.client_id].trendByDate[m.date] = (m.google_ads_conversions || 0) + (m.gbp_calls || 0);
         }
       });
-      (gbpRes.data || []).forEach((g: any) => {
-        if (!metricsMap[g.client_id]) metricsMap[g.client_id] = init();
-        metricsMap[g.client_id].gbp_calls += g.phone_calls || 0;
-      });
+      // gbpRes no longer used for gbp_calls (now from summary for consistency with total_leads)
+      // Kept for potential future use but not accumulated
       (formRes.data || []).forEach((f: any) => {
         if (!metricsMap[f.client_id]) metricsMap[f.client_id] = init();
         metricsMap[f.client_id].seo_form_submits += f.event_count || 0;
@@ -598,11 +598,6 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="col-leads col-divider" style={{ textAlign: 'center' }}>
                           <div style={{ fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</div>
-                          {client.prev_total_leads != null && client.prev_total_leads > 0 && (() => {
-                            const pct = Math.round(((client.total_leads || 0) - client.prev_total_leads) / client.prev_total_leads * 100);
-                            const up = pct >= 0;
-                            return <div style={{ fontSize: '10px', fontWeight: 700, color: up ? '#059669' : '#dc2626', marginTop: '1px' }}>{up ? '+' : ''}{pct}%</div>;
-                          })()}
                         </td>
                         <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
                           {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
