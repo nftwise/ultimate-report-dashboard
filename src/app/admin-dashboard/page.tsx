@@ -617,9 +617,9 @@ export default function AdminDashboardPage() {
                                 <polygon points={`0,24 ${smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
                                 <polyline points={smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              {firstAvg >= 1 && (
+                              {firstAvg > 0 && (
                                 <span style={{ fontSize: '10px', fontWeight: 700, color: lastAvg >= firstAvg ? '#059669' : '#dc2626' }}>
-                                  {lastAvg >= firstAvg ? '+' : ''}{Math.round((lastAvg - firstAvg) / firstAvg * 100)}%
+                                  {lastAvg >= firstAvg ? '+' : ''}{Math.min(Math.abs(Math.round((lastAvg - firstAvg) / firstAvg * 100)), 999) * (lastAvg >= firstAvg ? 1 : -1)}%
                                 </span>
                               )}
                             </div>
