@@ -22,6 +22,7 @@ interface DailyData {
   form_fills: number;
   gbp_calls: number;
   google_ads_conversions: number;
+  sessions?: number;
 }
 
 interface DailyTrafficLineChartProps {
@@ -30,18 +31,14 @@ interface DailyTrafficLineChartProps {
 
 export default function DailyTrafficLineChart({ data }: DailyTrafficLineChartProps) {
   const chartData = useMemo(() => {
-    const last30Days = data.slice(-30);
-
-    const labels = last30Days.map((item) => {
-      const date = new Date(item.date);
+    const labels = data.map((item) => {
+      const date = new Date(item.date + 'T12:00:00');
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
 
-    const sessions = last30Days.map((item) => {
-      return Math.round((item.total_leads + item.form_fills + item.gbp_calls) * 2.5);
-    });
+    const sessions = data.map((item) => item.sessions || 0);
 
-    const leads = last30Days.map((item) => item.total_leads || 0);
+    const leads = data.map((item) => item.total_leads || 0);
 
     return {
       labels,

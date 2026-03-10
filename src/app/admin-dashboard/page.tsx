@@ -160,7 +160,7 @@ export default function AdminDashboardPage() {
       });
 
       const metricsMap: Record<string, any> = {};
-      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, trendByDate: {} as Record<string, number> });
+      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, latestDate: '', trendByDate: {} as Record<string, number> });
 
       (metricsRes.data || []).forEach((m: any) => {
         if (!metricsMap[m.client_id]) metricsMap[m.client_id] = init();
@@ -169,7 +169,10 @@ export default function AdminDashboardPage() {
         // Use gbp_calls from summary (same source as total_leads) so both are always consistent
         metricsMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
-        metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
+        if (!metricsMap[m.client_id].latestDate || m.date >= metricsMap[m.client_id].latestDate) {
+          metricsMap[m.client_id].top_keywords = m.top_keywords || 0;
+          metricsMap[m.client_id].latestDate = m.date;
+        }
         // Trend: ads_conversions + gbp_calls only (no form_fills — unreliable event naming).
         // Only include dates up to completeCutoff — ensures GBP API data is fully synced.
         if (m.date <= completeCutoff) {
@@ -291,10 +294,10 @@ export default function AdminDashboardPage() {
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
-  const totalLeads = clients.reduce((s, c) => s + (c.total_leads || 0), 0);
-  const totalGbpCalls = clients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
-  const totalAdSpend = clients.reduce((s, c) => s + (c.ad_spend || 0), 0);
-  const totalAdsConversions = clients.reduce((s, c) => s + (c.ads_conversions || 0), 0);
+  const totalLeads = filteredClients.reduce((s, c) => s + (c.total_leads || 0), 0);
+  const totalGbpCalls = filteredClients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
+  const totalAdSpend = filteredClients.reduce((s, c) => s + (c.ad_spend || 0), 0);
+  const totalAdsConversions = filteredClients.reduce((s, c) => s + (c.ads_conversions || 0), 0);
   const avgCpl = totalAdsConversions > 0 ? totalAdSpend / totalAdsConversions : 0;
 
   const getDaysDiff = () => Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);

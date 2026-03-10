@@ -497,7 +497,7 @@ export default function GBPPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', minWidth: '260px' }}>
                       {[
                         { label: 'Share of Actions', val: `${callsPct}%`, color: '#10b981' },
-                        { label: 'Avg / Day', val: periodDataCount > 0 ? (pCalls / periodDataCount).toFixed(1) : '0', color: '#10b981' },
+                        { label: 'Avg / Day', val: periodDays > 0 ? (pCalls / periodDays).toFixed(1) : '0', color: '#10b981' },
                         { label: 'Call Rate', val: `${callConv}%`, color: '#10b981' },
                       ].map(item => (
                         <div key={item.label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
@@ -512,7 +512,7 @@ export default function GBPPage() {
                 {/* ── SECTION 3: Views · Clicks · Directions ──────────────── */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '16px', marginBottom: '24px' }}>
                   {[
-                    { label: 'Profile Views', val: pViews, mom: momViews, color: '#9db5a0', sub: `Avg ${periodDataCount > 0 ? Math.round(pViews / periodDataCount) : 0}/day` },
+                    { label: 'Profile Views', val: pViews, mom: momViews, color: '#9db5a0', sub: `Avg ${periodDays > 0 ? Math.round(pViews / periodDays) : 0}/day` },
                     { label: 'Website Clicks', val: pClicks, mom: momClicks, color: '#d9a854', sub: `${clicksPct}% of actions` },
                     { label: 'Directions', val: pDir, mom: momDir, color: '#c4704f', sub: `${dirPct}% of actions` },
                   ].map(item => (

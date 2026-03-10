@@ -263,7 +263,7 @@ export default function ClientDetailPage() {
 
   const hasAds = client.services?.googleAds !== false;
   const hasSeo = client.services?.seo !== false;
-  const hasGbp = client.services?.googleLocalService !== false;
+  const hasGbp = dailyData.some(d => (d.gbp_calls || 0) > 0 || (d.gbp_profile_views || 0) > 0);
 
   // ── MoM ──────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);

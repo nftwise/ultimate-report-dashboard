@@ -63,7 +63,7 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
 
   const options: ChartOptions<'bar'> = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         display: true,
