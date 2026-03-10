@@ -58,7 +58,7 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<'seo' | 'active' | 'ads'>('active');
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'both' | 'seo_only'>('all');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
@@ -270,9 +270,8 @@ export default function AdminDashboardPage() {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesServiceFilter = true;
-    if (serviceFilter === 'active') matchesServiceFilter = client.is_active;
-    else if (serviceFilter === 'ads') matchesServiceFilter = !!(client.services?.googleAds);
-    else if (serviceFilter === 'seo') matchesServiceFilter = !!(client.services?.seo);
+    if (serviceFilter === 'both') matchesServiceFilter = !!(client.services?.seo && client.services?.googleAds);
+    else if (serviceFilter === 'seo_only') matchesServiceFilter = !!(client.services?.seo && !client.services?.googleAds);
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
@@ -492,9 +491,9 @@ export default function AdminDashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {[
-                { id: 'active', label: 'Active', count: clients.filter(c => c.is_active).length },
-                { id: 'seo',    label: 'SEO',    count: clients.filter(c => c.services?.seo).length },
-                { id: 'ads',    label: 'Ads',    count: clients.filter(c => c.services?.googleAds).length },
+                { id: 'all',      label: 'All Clients', count: clients.filter(c => c.is_active).length },
+                { id: 'both',     label: 'Ads + SEO',   count: clients.filter(c => c.is_active && c.services?.seo && c.services?.googleAds).length },
+                { id: 'seo_only', label: 'SEO Only',    count: clients.filter(c => c.is_active && c.services?.seo && !c.services?.googleAds).length },
               ].map(f => (
                 <button key={f.id} onClick={() => setServiceFilter(f.id as any)}
                   style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1.5px solid rgba(44,36,25,0.15)', background: serviceFilter === f.id ? '#2c2419' : 'transparent', color: serviceFilter === f.id ? '#fff' : '#5c5850', transition: 'all 150ms' }}>
