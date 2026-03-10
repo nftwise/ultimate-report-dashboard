@@ -84,8 +84,8 @@ export default function ClientDetailPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
@@ -94,8 +94,8 @@ export default function ClientDetailPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };

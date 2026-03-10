@@ -59,7 +59,8 @@ export default function SEOPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = new Date(); const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
@@ -72,7 +73,8 @@ export default function SEOPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date(); const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -364,6 +366,27 @@ export default function SEOPage() {
             ))}
           </div>
 
+          {/* ── Key Insights ─────────────────────────────────────────── */}
+          <div style={{ ...card, marginBottom: '32px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 10px 0' }}>SEO Summary</p>
+            <p style={{ fontSize: '13px', color: '#5c5850', margin: 0, lineHeight: '1.8' }}>
+              In the last <strong>{periodDays} days</strong>, your website appeared in Google search results{' '}
+              <strong>{fmtNum(totalImpressions)} times</strong> and received{' '}
+              <strong>{fmtNum(totalClicks)} clicks</strong> (click rate: <strong>{avgCtr}</strong>).{' '}
+              Your site received <strong>{fmtNum(totalOrganicVisits)} visitors from Google Search</strong> out of{' '}
+              <strong>{fmtNum(totalVisits)} total website visits</strong>.
+              {keywordMovement.improved > 0 || keywordMovement.declined > 0 ? (
+                <> Keyword rankings: <strong style={{ color: '#10b981' }}>{keywordMovement.improved} moved up</strong>{', '}
+                <strong style={{ color: '#ef4444' }}>{keywordMovement.declined} moved down</strong> compared to the previous period.</>
+              ) : null}
+              {visitsMoM.pct !== 0 ? (
+                <> Overall visits are{' '}
+                <strong style={{ color: visitsMoM.pct > 0 ? '#10b981' : '#ef4444' }}>
+                  {visitsMoM.pct > 0 ? `up ${visitsMoM.pct.toFixed(1)}%` : `down ${Math.abs(visitsMoM.pct).toFixed(1)}%`}
+                </strong>{' '}compared to {prevLabel}.</>) : null}
+            </p>
+          </div>
+
           {/* ── Trend Chart ──────────────────────────────────────────── */}
           <div style={{ ...card, marginBottom: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '24px' }}>
@@ -631,27 +654,6 @@ export default function SEOPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ── Key Insights ─────────────────────────────────────────── */}
-          <div style={{ ...card, marginBottom: '32px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 10px 0' }}>SEO Summary</p>
-            <p style={{ fontSize: '13px', color: '#5c5850', margin: 0, lineHeight: '1.8' }}>
-              In the last <strong>{periodDays} days</strong>, your website appeared in Google search results{' '}
-              <strong>{fmtNum(totalImpressions)} times</strong> and received{' '}
-              <strong>{fmtNum(totalClicks)} clicks</strong> (click rate: <strong>{avgCtr}</strong>).{' '}
-              Your site received <strong>{fmtNum(totalOrganicVisits)} visitors from Google Search</strong> out of{' '}
-              <strong>{fmtNum(totalVisits)} total website visits</strong>.
-              {keywordMovement.improved > 0 || keywordMovement.declined > 0 ? (
-                <> Keyword rankings: <strong style={{ color: '#10b981' }}>{keywordMovement.improved} moved up</strong>{', '}
-                <strong style={{ color: '#ef4444' }}>{keywordMovement.declined} moved down</strong> compared to the previous period.</>
-              ) : null}
-              {visitsMoM.pct !== 0 ? (
-                <> Overall visits are{' '}
-                <strong style={{ color: visitsMoM.pct > 0 ? '#10b981' : '#ef4444' }}>
-                  {visitsMoM.pct > 0 ? `up ${visitsMoM.pct.toFixed(1)}%` : `down ${Math.abs(visitsMoM.pct).toFixed(1)}%`}
-                </strong>{' '}compared to {prevLabel}.</>) : null}
-            </p>
           </div>
 
         </div>

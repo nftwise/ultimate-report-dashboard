@@ -602,7 +602,7 @@ export default function AdminDashboardPage() {
                         <td className="col-cpl" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
                         <td className="col-trend" style={{ textAlign: 'center' }}>
                           {smoothed ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                               <svg width="80" height="24" style={{ flexShrink: 0 }}>
                                 <defs>
                                   <linearGradient id={`g-${client.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -613,6 +613,9 @@ export default function AdminDashboardPage() {
                                 <polygon points={`0,24 ${smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
                                 <polyline points={smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: lastAvg >= firstAvg ? '#059669' : '#dc2626' }}>
+                                {lastAvg >= firstAvg ? '+' : ''}{firstAvg > 0 ? Math.round((lastAvg - firstAvg) / firstAvg * 100) : 0}%
+                              </span>
                             </div>
                           ) : <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>}
                         </td>

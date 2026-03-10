@@ -193,16 +193,16 @@ export default function GoogleAdsPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -567,6 +567,88 @@ export default function GoogleAdsPage() {
               <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Paid search performance — how your ad budget translates into patient leads</p>
             </div>
 
+            {/* Section 6: Key Insights */}
+            {totalConversions > 0 && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                marginBottom: '32px'
+              }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: '#5c5850',
+                  margin: '0 0 8px 0'
+                }}>
+                  Key Insights
+                </p>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#2c2419',
+                  margin: '0 0 16px 0',
+                  letterSpacing: '-0.02em'
+                }}>
+                  What This Means for Your Practice
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Spend summary */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(196, 112, 79, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #c4704f'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads spent <strong>{fmtCurrency(totalSpend)}</strong> and generated{' '}
+                      <strong>{fmtNum(Math.round(totalConversions))} patient {totalConversions === 1 ? 'lead' : 'leads'}</strong>{' '}
+                      at <strong>{fmtCurrency(parseFloat(cpa))} per lead</strong>.{' '}
+                      {momCpa.type === 'up'
+                        ? `Cost per lead improved vs. ${prevLabel} — your campaigns are becoming more efficient.`
+                        : momCpa.type === 'down'
+                        ? `Cost per lead increased vs. ${prevLabel}. This may indicate more competitive auctions or lower-quality clicks.`
+                        : `Cost per lead is similar to ${prevLabel}.`}
+                    </p>
+                  </div>
+                  {/* CTR/Click insight */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(157, 181, 160, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #9db5a0'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads appeared <strong>{fmtNum(totalImpressions)} times</strong> on Google and received{' '}
+                      <strong>{fmtNum(totalClicks)} clicks</strong> ({ctr}% click rate).{' '}
+                      Of those clicks, <strong>{conversionRate.toFixed(1)}%</strong> turned into leads.
+                    </p>
+                  </div>
+                  {/* Top search terms insight */}
+                  {convertingTerms.length > 0 && (
+                    <div style={{
+                      padding: '16px',
+                      background: 'rgba(217, 168, 84, 0.06)',
+                      borderRadius: '12px',
+                      borderLeft: '3px solid #d9a854'
+                    }}>
+                      <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                        Your top-performing search term was{' '}
+                        <strong>&ldquo;{convertingTerms[0].term}&rdquo;</strong>{' '}
+                        with {convertingTerms[0].conversions} {convertingTerms[0].conversions === 1 ? 'lead' : 'leads'} generated.{' '}
+                        These are the exact words patients typed into Google before finding you.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Section 2: Executive Summary */}
             <ExecutiveSummaryCards
               totalSpend={totalSpend}
@@ -882,86 +964,6 @@ export default function GoogleAdsPage() {
               {showAdGroups && <AdGroupPerformanceTable data={adGroups} />}
             </div>
 
-            {/* Section 6: Key Insights */}
-            {totalConversions > 0 && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: '#5c5850',
-                  margin: '0 0 8px 0'
-                }}>
-                  Key Insights
-                </p>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  color: '#2c2419',
-                  margin: '0 0 16px 0',
-                  letterSpacing: '-0.02em'
-                }}>
-                  What This Means for Your Practice
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {/* Spend summary */}
-                  <div style={{
-                    padding: '16px',
-                    background: 'rgba(196, 112, 79, 0.06)',
-                    borderRadius: '12px',
-                    borderLeft: '3px solid #c4704f'
-                  }}>
-                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
-                      Your ads spent <strong>{fmtCurrency(totalSpend)}</strong> and generated{' '}
-                      <strong>{fmtNum(Math.round(totalConversions))} patient {totalConversions === 1 ? 'lead' : 'leads'}</strong>{' '}
-                      at <strong>{fmtCurrency(parseFloat(cpa))} per lead</strong>.{' '}
-                      {momCpa.type === 'up'
-                        ? `Cost per lead improved vs. ${prevLabel} — your campaigns are becoming more efficient.`
-                        : momCpa.type === 'down'
-                        ? `Cost per lead increased vs. ${prevLabel}. This may indicate more competitive auctions or lower-quality clicks.`
-                        : `Cost per lead is similar to ${prevLabel}.`}
-                    </p>
-                  </div>
-                  {/* CTR/Click insight */}
-                  <div style={{
-                    padding: '16px',
-                    background: 'rgba(157, 181, 160, 0.06)',
-                    borderRadius: '12px',
-                    borderLeft: '3px solid #9db5a0'
-                  }}>
-                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
-                      Your ads appeared <strong>{fmtNum(totalImpressions)} times</strong> on Google and received{' '}
-                      <strong>{fmtNum(totalClicks)} clicks</strong> ({ctr}% click rate).{' '}
-                      Of those clicks, <strong>{conversionRate.toFixed(1)}%</strong> turned into leads.
-                    </p>
-                  </div>
-                  {/* Top search terms insight */}
-                  {convertingTerms.length > 0 && (
-                    <div style={{
-                      padding: '16px',
-                      background: 'rgba(217, 168, 84, 0.06)',
-                      borderRadius: '12px',
-                      borderLeft: '3px solid #d9a854'
-                    }}>
-                      <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
-                        Your top-performing search term was{' '}
-                        <strong>&ldquo;{convertingTerms[0].term}&rdquo;</strong>{' '}
-                        with {convertingTerms[0].conversions} {convertingTerms[0].conversions === 1 ? 'lead' : 'leads'} generated.{' '}
-                        These are the exact words patients typed into Google before finding you.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
         </div>
       </div>
     </AdminLayout>

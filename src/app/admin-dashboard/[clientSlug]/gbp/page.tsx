@@ -462,6 +462,20 @@ export default function GBPPage() {
           <>
             {periodLoading ? spinner(200) : (
               <>
+                {/* ── SECTION 5: Key Insights ──────────────────────────────── */}
+                <div style={{ ...bigCard, marginBottom: '32px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 10px 0' }}>
+                    GBP Key Insights
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#5c5850', margin: 0, lineHeight: '1.7' }}>
+                    In the last <strong>{periodDays} days</strong>, your Google Business Profile received <strong>{fmtNum(pViews)} profile views</strong> and generated{' '}
+                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call rate</strong> (calls per profile view).
+                    Customers also visited your website <strong>{fmtNum(pClicks)} times</strong> and requested directions <strong>{fmtNum(pDir)} times</strong>.
+                    Overall engagement rate: <strong>{engRate}%</strong>.
+                    {latestRating > 0 && <> Business maintains a <strong>{latestRating.toFixed(1)}-star</strong> rating across <strong>{fmtNum(latestReviews)} reviews</strong>{pNewReviews > 0 ? `, with ${fmtNum(pNewReviews)} new this period` : ''}.</>}
+                  </p>
+                </div>
+
                 {/* ── SECTION 2: Phone Calls — featured ──────────────────── */}
                 <div style={{ ...bigCard, marginBottom: '20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(157,181,160,0.04))', border: '1.5px solid rgba(16,185,129,0.18)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
@@ -582,19 +596,6 @@ export default function GBPPage() {
                   ) : null}
                 </div>
 
-                {/* ── SECTION 5: Key Insights ──────────────────────────────── */}
-                <div style={{ ...bigCard, marginBottom: '32px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 10px 0' }}>
-                    GBP Key Insights
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#5c5850', margin: 0, lineHeight: '1.7' }}>
-                    In the last <strong>{periodDays} days</strong>, your Google Business Profile received <strong>{fmtNum(pViews)} profile views</strong> and generated{' '}
-                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call rate</strong> (calls per profile view).
-                    Customers also visited your website <strong>{fmtNum(pClicks)} times</strong> and requested directions <strong>{fmtNum(pDir)} times</strong>.
-                    Overall engagement rate: <strong>{engRate}%</strong>.
-                    {latestRating > 0 && <> Business maintains a <strong>{latestRating.toFixed(1)}-star</strong> rating across <strong>{fmtNum(latestReviews)} reviews</strong>{pNewReviews > 0 ? `, with ${fmtNum(pNewReviews)} new this period` : ''}.</>}
-                  </p>
-                </div>
               </>
             )}
           </>
