@@ -80,7 +80,7 @@ export default function DailyTrafficLineChart({ data }: DailyTrafficLineChartPro
 
   const options: ChartOptions<'line'> = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     interaction: {
       mode: 'index',
       intersect: false,

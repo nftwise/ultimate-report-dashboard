@@ -41,8 +41,9 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
       monthlyLeads[monthKey] += item.total_leads || 0;
     });
 
-    const labels = Object.keys(monthlyLeads);
-    const values = Object.values(monthlyLeads);
+    // Only show months that have actual data (filter out zero-lead phantom months)
+    const labels = Object.keys(monthlyLeads).filter(k => monthlyLeads[k] > 0);
+    const values = labels.map(k => monthlyLeads[k]);
 
     return {
       labels,
