@@ -58,7 +58,7 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<'all' | 'both' | 'seo_only'>('all');
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'both'>('all');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
@@ -69,6 +69,28 @@ export default function AdminDashboardPage() {
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
+
+  // On mount: use last available data date (not today) as the "to" anchor
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    );
+    supabase.from('client_metrics_summary')
+      .select('date')
+      .eq('period_type', 'daily')
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          const from = new Date(to);
+          from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
+  }, []);
 
   useEffect(() => {
     if (dateRange.from && dateRange.to) {
@@ -271,7 +293,6 @@ export default function AdminDashboardPage() {
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesServiceFilter = true;
     if (serviceFilter === 'both') matchesServiceFilter = !!(client.services?.seo && client.services?.googleAds);
-    else if (serviceFilter === 'seo_only') matchesServiceFilter = !!(client.services?.seo && !client.services?.googleAds);
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
@@ -283,7 +304,8 @@ export default function AdminDashboardPage() {
 
   const getDaysDiff = () => Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
   const setPreset = (days: number) => {
-    const to = new Date(); to.setDate(to.getDate() - 1);
+    // Anchor to last available data date (already set in dateRange.to), not today
+    const to = new Date(dateRange.to);
     const from = new Date(to); from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -491,9 +513,8 @@ export default function AdminDashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {[
-                { id: 'all',      label: 'All Clients', count: clients.filter(c => c.is_active).length },
-                { id: 'both',     label: 'Ads + SEO',   count: clients.filter(c => c.is_active && c.services?.seo && c.services?.googleAds).length },
-                { id: 'seo_only', label: 'SEO Only',    count: clients.filter(c => c.is_active && c.services?.seo && !c.services?.googleAds).length },
+                { id: 'all',  label: 'All Clients', count: clients.filter(c => c.is_active).length },
+                { id: 'both', label: 'Ads + SEO',   count: clients.filter(c => c.is_active && c.services?.seo && c.services?.googleAds).length },
               ].map(f => (
                 <button key={f.id} onClick={() => setServiceFilter(f.id as any)}
                   style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1.5px solid rgba(44,36,25,0.15)', background: serviceFilter === f.id ? '#2c2419' : 'transparent', color: serviceFilter === f.id ? '#fff' : '#5c5850', transition: 'all 150ms' }}>
