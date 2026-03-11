@@ -64,6 +64,7 @@ export default function SEOPage() {
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
+  const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
 
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
   const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
@@ -73,7 +74,7 @@ export default function SEOPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date(); to.setDate(to.getDate() - 1);
+    const to = lastAvailableDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
@@ -93,6 +94,22 @@ export default function SEOPage() {
       })
       .catch(() => setLoading(false));
   }, [clientSlug]);
+
+  // Anchor date range to last available data date
+  useEffect(() => {
+    if (!client) return;
+    supabase.from('client_metrics_summary')
+      .select('date').eq('client_id', client.id).eq('period_type', 'daily')
+      .order('date', { ascending: false }).limit(1).single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
+  }, [client]);
 
   // Fetch daily metrics
   useEffect(() => {

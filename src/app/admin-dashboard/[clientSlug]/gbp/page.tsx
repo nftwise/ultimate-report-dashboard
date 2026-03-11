@@ -88,6 +88,7 @@ export default function GBPPage() {
   // Date picker state (controls dynamic sections)
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
   const [lastGbpDataDate, setLastGbpDataDate] = useState<string | null>(null);
+  const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = yesterday();
     const from = new Date(to);
@@ -97,7 +98,7 @@ export default function GBPPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = yesterday();
+    const to = lastAvailableDate ?? yesterday();
     const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
@@ -139,11 +140,29 @@ export default function GBPPage() {
       });
   }, [clientSlug]);
 
-  // ── fetch location name ───────────────────────────────────────────────────
+  // ── fetch location name + anchor date range to last data date ────────────
   useEffect(() => {
     if (!client) return;
     supabase.from('gbp_locations').select('location_name').eq('client_id', client.id).single()
       .then(({ data }) => { if (data) setLocationName(data.location_name); });
+
+    // Anchor date range to last available data date (same as admin page)
+    supabase.from('client_metrics_summary')
+      .select('date')
+      .eq('client_id', client.id)
+      .eq('period_type', 'daily')
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to);
+          from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
   }, [client]);
 
   // ── fetch latest reviews/rating (once per client, independent of date range) ──

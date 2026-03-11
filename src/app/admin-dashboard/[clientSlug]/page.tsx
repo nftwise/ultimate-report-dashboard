@@ -89,12 +89,13 @@ export default function ClientDetailPage() {
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
+  const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   // FIX #10: fetch latest GBP rating independently of date range
   const [latestGbpRating, setLatestGbpRating] = useState(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date(); to.setDate(to.getDate() - 1);
+    const to = lastAvailableDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
@@ -123,6 +124,22 @@ export default function ClientDetailPage() {
     };
     if (clientSlug) fetchClient();
   }, [clientSlug]);
+
+  // Anchor date range to last available data date (same as admin page)
+  useEffect(() => {
+    if (!client) return;
+    supabase.from('client_metrics_summary')
+      .select('date').eq('client_id', client.id).eq('period_type', 'daily')
+      .order('date', { ascending: false }).limit(1).single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
+  }, [client]);
 
   // FIX #10: fetch latest GBP rating once per client, independent of date range
   useEffect(() => {
