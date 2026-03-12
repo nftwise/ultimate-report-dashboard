@@ -93,6 +93,12 @@ export async function GET(request: NextRequest) {
         try {
           const metrics = await fetchWithRetry(() => fetchLocationMetrics(accessToken, location.gbp_location_id, targetDate), 'metrics');
 
+          // Validation: Check if we got data from all expected metrics
+          const metricsWithValue = Object.entries(metrics).filter(([_, v]: [string, any]) => v > 0).length;
+          if (metricsWithValue === 0) {
+            console.log(`[sync-gbp] ⚠️  WARNING: No metrics returned for ${location.location_name} on ${targetDate} - possible API failure`);
+          }
+
           const row = {
             location_id: location.id,
             client_id: location.client_id,
@@ -198,14 +204,19 @@ async function fetchLocationMetrics(
         });
         clearTimeout(timeoutId);
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          console.log(`[sync-gbp] API error for ${metric} on ${date}: HTTP ${response.status}`);
+          return;
+        }
 
         const data = await response.json();
         const value = (data.timeSeries?.datedValues || [])
           .reduce((sum: number, d: any) => sum + (parseInt(d.value || '0') || 0), 0);
 
         results[metric] = value;
-      } catch {
+      } catch (err: any) {
+        const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
+        console.log(`[sync-gbp] Fetch error for ${metric} on ${date}: ${errorMsg}`);
         results[metric] = 0;
       }
     })
