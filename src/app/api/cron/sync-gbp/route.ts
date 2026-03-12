@@ -4,8 +4,8 @@ import { GBPTokenManager } from '@/lib/gbp-token-manager';
 
 export const maxDuration = 300;
 
-const BATCH_SIZE = 3;
-const TIMEOUT_MS = 20000;
+const BATCH_SIZE = 1; // Reduced from 3 to avoid rate limiting
+const TIMEOUT_MS = 30000; // Increased from 20000 for slower connections
 
 // GBP Performance API metric names (GET method only)
 // Note: ACTIONS_PHONE is NOT available via this API (returns 400/404)
@@ -180,47 +180,47 @@ async function fetchLocationMetrics(
   // Initialize all metrics to 0
   for (const metric of METRICS) results[metric] = 0;
 
-  await Promise.all(
-    METRICS.map(async (metric) => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  // Fetch metrics sequentially to avoid rate limiting
+  for (const metric of METRICS) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        // GBP Performance API uses GET with query params
-        const url = new URL(
-          `https://businessprofileperformance.googleapis.com/v1/${locationId}:getDailyMetricsTimeSeries`
-        );
-        url.searchParams.set('dailyMetric', metric);
-        url.searchParams.set('dailyRange.start_date.year', String(year));
-        url.searchParams.set('dailyRange.start_date.month', String(month));
-        url.searchParams.set('dailyRange.start_date.day', String(day));
-        url.searchParams.set('dailyRange.end_date.year', String(year));
-        url.searchParams.set('dailyRange.end_date.month', String(month));
-        url.searchParams.set('dailyRange.end_date.day', String(day));
+      // GBP Performance API uses GET with query params
+      const url = new URL(
+        `https://businessprofileperformance.googleapis.com/v1/${locationId}:getDailyMetricsTimeSeries`
+      );
+      url.searchParams.set('dailyMetric', metric);
+      url.searchParams.set('dailyRange.start_date.year', String(year));
+      url.searchParams.set('dailyRange.start_date.month', String(month));
+      url.searchParams.set('dailyRange.start_date.day', String(day));
+      url.searchParams.set('dailyRange.end_date.year', String(year));
+      url.searchParams.set('dailyRange.end_date.month', String(month));
+      url.searchParams.set('dailyRange.end_date.day', String(day));
 
-        const response = await fetch(url.toString(), {
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+      const response = await fetch(url.toString(), {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-        if (!response.ok) {
-          console.log(`[sync-gbp] API error for ${metric} on ${date}: HTTP ${response.status}`);
-          return;
-        }
-
-        const data = await response.json();
-        const value = (data.timeSeries?.datedValues || [])
-          .reduce((sum: number, d: any) => sum + (parseInt(d.value || '0') || 0), 0);
-
-        results[metric] = value;
-      } catch (err: any) {
-        const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
-        console.log(`[sync-gbp] Fetch error for ${metric} on ${date}: ${errorMsg}`);
+      if (!response.ok) {
+        console.log(`[sync-gbp] API error for ${metric} on ${date}: HTTP ${response.status}`);
         results[metric] = 0;
+        continue;
       }
-    })
-  );
+
+      const data = await response.json();
+      const value = (data.timeSeries?.datedValues || [])
+        .reduce((sum: number, d: any) => sum + (parseInt(d.value || '0') || 0), 0);
+
+      results[metric] = value;
+    } catch (err: any) {
+      const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
+      console.log(`[sync-gbp] Fetch error for ${metric} on ${date}: ${errorMsg}`);
+      results[metric] = 0;
+    }
+  }
 
   return results;
 }
