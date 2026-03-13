@@ -24,9 +24,11 @@ export async function POST(request: NextRequest) {
   const senderId: string = String(message.from?.id || '');
   const text: string = message.text || '';
 
-  // 2. Check if bot is mentioned in group chat
+  // 2. In group chats: require @mention. In DMs: always process.
+  const chatType = message.chat?.type; // 'private' | 'group' | 'supergroup'
+  const isGroup = chatType === 'group' || chatType === 'supergroup';
   const botUsername = process.env.TELEGRAM_BOT_USERNAME || '';
-  if (botUsername && !text.toLowerCase().includes(`@${botUsername.toLowerCase()}`)) {
+  if (isGroup && botUsername && !text.toLowerCase().includes(`@${botUsername.toLowerCase()}`)) {
     return new Response('OK');
   }
 
