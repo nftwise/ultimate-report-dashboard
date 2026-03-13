@@ -39,6 +39,6 @@ export const config = {
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    '/api/((?!auth|cron|admin/run-rollup).*)',
+    '/api/((?!auth|cron|admin/run-rollup|telegram/webhook).*)',
   ]
 }
