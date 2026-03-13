@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { parseIntent, executeIntent, replyToChat, sendDM } from '@/lib/telegram-bot';
+import { processMessage, replyToChat, sendDM } from '@/lib/telegram-bot';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const text: string = message.text || '';
 
   // 2. In group chats: require @mention. In DMs: always process.
-  const chatType = message.chat?.type; // 'private' | 'group' | 'supergroup'
+  const chatType = message.chat?.type;
   const isGroup = chatType === 'group' || chatType === 'supergroup';
   const botUsername = process.env.TELEGRAM_BOT_USERNAME || '';
   if (isGroup && botUsername && !text.toLowerCase().includes(`@${botUsername.toLowerCase()}`)) {
@@ -39,27 +39,24 @@ export async function POST(request: NextRequest) {
     return new Response('OK');
   }
 
-  // 4. Strip bot @mention
+  // 4. Strip bot @mention from text
   const cleanText = text.replace(/@\w+/g, '').trim();
   if (!cleanText) return new Response('OK');
 
+  // 5. Process message
   try {
-    const intent = await parseIntent(cleanText);
+    const { reply, isDM } = await processMessage(cleanText, senderId);
 
-    // Password intent → send link via DM, acknowledge in group
-    if (intent.intent === 'get_password') {
-      const response = await executeIntent(intent, senderId);
-      // Acknowledge in group (no sensitive info)
-      await replyToChat(chatId, `🔒 Sending credentials link to your DM...`);
-      // Send actual link via DM
-      await sendDM(senderId, response);
+    if (isDM) {
+      // Password → acknowledge in group, send link via DM
+      await replyToChat(chatId, '🔒 Sending credentials link to your DM...');
+      await sendDM(senderId, reply);
     } else {
-      const response = await executeIntent(intent, senderId);
-      await replyToChat(chatId, response);
+      await replyToChat(chatId, reply);
     }
   } catch (err) {
     console.error('[TelegramBot] Error:', err);
-    await replyToChat(chatId, '⚠️ Something went wrong. Check server logs.');
+    await replyToChat(chatId, '⚠️ Something went wrong. Try again.');
   }
 
   return new Response('OK');
