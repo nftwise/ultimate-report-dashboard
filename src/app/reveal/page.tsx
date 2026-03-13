@@ -61,7 +61,7 @@ export default async function RevealPage({ searchParams }: Props) {
 
   const { data: creds } = await supabaseAdmin
     .from('bot_credentials')
-    .select('label, username, password, note')
+    .select('label, username, password_encrypted, url, notes')
     .eq('client_id', tokenRow.client_id);
 
   if (!creds?.length) {
@@ -73,10 +73,11 @@ export default async function RevealPage({ searchParams }: Props) {
     label: c.label || 'Login',
     username: c.username || '—',
     password: (() => {
-      try { return decryptPassword(c.password); }
+      try { return decryptPassword(c.password_encrypted); }
       catch { return '(decryption failed)'; }
     })(),
-    note: c.note,
+    url: c.url,
+    note: c.notes,
   }));
 
   return (
@@ -120,6 +121,7 @@ export default async function RevealPage({ searchParams }: Props) {
               <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#c4704f', marginBottom: '10px' }}>
                 {cred.label}
               </div>
+              {cred.url && <Field label="Login URL" value={cred.url} />}
               <Field label="Username / Email" value={cred.username} />
               <Field label="Password" value={cred.password} isPassword />
               {cred.note && (
