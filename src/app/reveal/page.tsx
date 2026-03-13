@@ -5,11 +5,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { decryptPassword } from '@/lib/telegram-bot';
 
 interface Props {
-  searchParams: { token?: string };
+  searchParams: Promise<{ token?: string }>;
 }
 
 export default async function RevealPage({ searchParams }: Props) {
-  const { token } = searchParams;
+  const { token } = await searchParams;
 
   // 1. Must be logged in
   const session = await getServerSession(authOptions);
