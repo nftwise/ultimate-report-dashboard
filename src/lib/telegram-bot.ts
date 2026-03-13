@@ -201,7 +201,7 @@ async function answerWithAI(question: string, context: string): Promise<string> 
       },
       body: JSON.stringify({
         model,
-        max_tokens: 800,
+        max_tokens: 3000,
         system: systemPrompt,
         messages: [{ role: 'user', content: question }],
       }),
@@ -299,6 +299,25 @@ export async function processMessage(
   const context = await fetchClientContext();
   const reply = await answerWithAI(text, context);
   return { reply, isDM: false };
+}
+
+// ─── Split long messages (Telegram limit: 4096 chars) ─────────────────────────
+
+export function splitMessage(text: string, maxLen = 4000): string[] {
+  if (text.length <= maxLen) return [text];
+  const parts: string[] = [];
+  const lines = text.split('\n');
+  let current = '';
+  for (const line of lines) {
+    if ((current + '\n' + line).length > maxLen) {
+      if (current) parts.push(current.trim());
+      current = line;
+    } else {
+      current = current ? current + '\n' + line : line;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
 }
 
 // ─── Reply helpers ────────────────────────────────────────────────────────────

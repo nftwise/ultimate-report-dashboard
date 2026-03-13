@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { processMessage, replyToChat, sendDM } from '@/lib/telegram-bot';
+import { processMessage, replyToChat, sendDM, splitMessage } from '@/lib/telegram-bot';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,7 +53,11 @@ export async function POST(request: NextRequest) {
       await replyToChat(chatId, '🔒 Sending credentials link to your DM...', threadId);
       await sendDM(senderId, reply);
     } else {
-      await replyToChat(chatId, reply, threadId);
+      // Split long replies into multiple messages (Telegram 4096 char limit)
+      const parts = splitMessage(reply);
+      for (const part of parts) {
+        await replyToChat(chatId, part, threadId);
+      }
     }
   } catch (err) {
     console.error('[TelegramBot] Error:', err);
