@@ -83,10 +83,10 @@ async function fetchClientContext(): Promise<string> {
     .from('clients')
     .select(`
       name, slug, city, full_address, website,
-      contact_email, contact_phone, owner,
+      contact_name, contact_email, contact_phone, doctor_name, owner,
       has_seo, has_ads, is_active,
-      monthly_fee, contract_start, contract_end,
-      payment_status, internal_notes
+      monthly_fee, ads_budget_month, contract_start, contract_end,
+      payment_status, notes, internal_notes
     `)
     .eq('is_active', true)
     .order('name', { ascending: true });
@@ -133,6 +133,8 @@ async function fetchClientContext(): Promise<string> {
       : null;
 
     lines.push(`\nClient: ${c.name}`);
+    if (c.doctor_name) lines.push(`  Doctor: ${c.doctor_name}`);
+    if (c.contact_name) lines.push(`  Contact: ${c.contact_name}`);
     if (c.city || c.full_address) lines.push(`  Location: ${c.full_address || c.city}`);
     if (c.website) lines.push(`  Website: ${c.website}`);
     if (c.contact_email) lines.push(`  Email: ${c.contact_email}`);
@@ -140,11 +142,13 @@ async function fetchClientContext(): Promise<string> {
     if (c.owner) lines.push(`  Account manager: ${c.owner}`);
     lines.push(`  Services: ${services}`);
     if (c.monthly_fee) lines.push(`  Monthly fee: $${c.monthly_fee}`);
+    if (c.ads_budget_month) lines.push(`  Ads budget: $${c.ads_budget_month}/mo`);
     if (c.contract_start) lines.push(`  Contract start: ${c.contract_start}`);
     if (c.contract_end) lines.push(`  Contract end: ${c.contract_end}`);
     lines.push(`  Payment status: ${c.payment_status || 'active'}`);
     lines.push(`  Last data sync: ${lastSync}${daysAgo !== null ? ` (${daysAgo}d ago)` : ''}`);
-    if (c.internal_notes) lines.push(`  Notes: ${c.internal_notes}`);
+    if (c.notes) lines.push(`  Notes: ${c.notes}`);
+    if (c.internal_notes) lines.push(`  Internal notes: ${c.internal_notes}`);
   }
 
   return lines.join('\n');
