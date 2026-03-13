@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   if (!message?.text) return new Response('OK');
 
   const chatId: number = message.chat?.id;
+  const threadId: number | undefined = message.message_thread_id; // forum topic support
   const senderId: string = String(message.from?.id || '');
   const text: string = message.text || '';
 
@@ -49,10 +50,10 @@ export async function POST(request: NextRequest) {
 
     if (isDM) {
       // Password → acknowledge in group, send link via DM
-      await replyToChat(chatId, '🔒 Sending credentials link to your DM...');
+      await replyToChat(chatId, '🔒 Sending credentials link to your DM...', threadId);
       await sendDM(senderId, reply);
     } else {
-      await replyToChat(chatId, reply);
+      await replyToChat(chatId, reply, threadId);
     }
   } catch (err) {
     console.error('[TelegramBot] Error:', err);
