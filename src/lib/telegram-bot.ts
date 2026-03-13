@@ -16,8 +16,8 @@ const TELEGRAM_API = 'https://api.telegram.org';
 // ─── AES-256-GCM helpers ──────────────────────────────────────────────────────
 
 function getEncryptionKey(): Buffer {
-  const hex = process.env.CREDENTIAL_ENCRYPTION_KEY || '';
-  if (hex.length !== 64) throw new Error('CREDENTIAL_ENCRYPTION_KEY must be 64 hex chars (32 bytes)');
+  const hex = (process.env.CREDENTIAL_ENCRYPTION_KEY || '').trim();
+  if (hex.length !== 64) throw new Error(`CREDENTIAL_ENCRYPTION_KEY must be 64 hex chars, got ${hex.length}`);
   return Buffer.from(hex, 'hex');
 }
 
