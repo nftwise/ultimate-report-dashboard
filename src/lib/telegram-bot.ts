@@ -93,14 +93,24 @@ Examples:
 "who is overdue?" → {"intent":"list_overdue","client_name":null}`;
 
 export async function parseIntent(text: string): Promise<BotIntent> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Supports MiniMax (Anthropic-compatible) or Anthropic directly
+  // Set MINIMAX_API_KEY to use MiniMax, otherwise falls back to ANTHROPIC_API_KEY
+  const minimaxKey = process.env.MINIMAX_API_KEY;
+  const apiKey = minimaxKey || process.env.ANTHROPIC_API_KEY;
+  const baseUrl = minimaxKey
+    ? 'https://api.minimax.io/anthropic/v1/messages'
+    : 'https://api.anthropic.com/v1/messages';
+  const model = minimaxKey
+    ? (process.env.MINIMAX_MODEL || 'MiniMax-M2.1')
+    : 'claude-haiku-4-5-20251001';
+
   if (!apiKey) {
-    console.error('[TelegramBot] ANTHROPIC_API_KEY not set');
+    console.error('[TelegramBot] No API key set (MINIMAX_API_KEY or ANTHROPIC_API_KEY)');
     return { intent: 'unknown', client_name: null };
   }
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,7 +118,7 @@ export async function parseIntent(text: string): Promise<BotIntent> {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model,
         max_tokens: 150,
         temperature: 0,
         system: SYSTEM_PROMPT,
