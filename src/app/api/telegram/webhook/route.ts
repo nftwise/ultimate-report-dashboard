@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   // 5. Process message
   try {
-    const { reply, isDM } = await processMessage(cleanText, senderId, String(chatId));
+    const { reply, isDM } = await processMessage(cleanText, senderId);
 
     if (isDM) {
       // Password → acknowledge in group, send link via DM
