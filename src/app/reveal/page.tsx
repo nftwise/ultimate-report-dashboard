@@ -74,7 +74,7 @@ export default async function RevealPage({ searchParams }: Props) {
     username: c.username || '—',
     password: (() => {
       try { return decryptPassword(c.password_encrypted); }
-      catch { return '(decryption failed)'; }
+      catch (e: any) { return `(error: ${e?.message || e})`; }
     })(),
     url: c.url,
     note: c.notes,
