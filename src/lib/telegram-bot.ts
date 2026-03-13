@@ -41,13 +41,46 @@ export function decryptPassword(data: string): string {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 }
 
-// ─── Password detection (keyword-based, no AI needed) ─────────────────────────
+// ─── Intent detection (keyword-based, no AI needed) ───────────────────────────
 
 const PASSWORD_KEYWORDS = ['pass', 'password', 'login', 'credential', 'pw', 'mật khẩu', 'mk'];
+const LIST_KEYWORDS = ['list', 'danh sách', 'all clients', 'tất cả', 'liệt kê', 'show all', 'list all'];
 
 export function isPasswordRequest(text: string): boolean {
   const lower = text.toLowerCase();
   return PASSWORD_KEYWORDS.some((k) => lower.includes(k));
+}
+
+export function isListRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  return LIST_KEYWORDS.some((k) => lower.includes(k));
+}
+
+// ─── Direct list handler (no AI) ──────────────────────────────────────────────
+
+export async function handleListClients(): Promise<string> {
+  const { data: clients } = await supabaseAdmin
+    .from('clients')
+    .select('name, city, has_seo, has_ads, doctor_name, contact_phone, ads_budget_month, payment_status')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (!clients?.length) return '❌ No active clients found.';
+
+  const lines: string[] = [`<b>Active Clients (${clients.length})</b>\n`];
+
+  clients.forEach((c, i) => {
+    const services = [c.has_seo && 'SEO', c.has_ads && 'Ads'].filter(Boolean).join('+') || '—';
+    const budget = c.ads_budget_month ? ` $${c.ads_budget_month}/mo` : '';
+    lines.push(`${i + 1}. <b>${c.name}</b>`);
+    if (c.doctor_name) lines.push(`   👨‍⚕️ ${c.doctor_name}`);
+    if (c.city) lines.push(`   📍 ${c.city}`);
+    if (c.contact_phone) lines.push(`   📞 <code>${c.contact_phone}</code>`);
+    lines.push(`   🔧 ${services}${budget}`);
+    lines.push('');
+  });
+
+  return lines.join('\n');
 }
 
 // ─── Fuzzy client finder (match client name in question text) ─────────────────
@@ -293,6 +326,12 @@ export async function processMessage(
   if (isPasswordRequest(text)) {
     const reply = await handlePasswordRequest(text, telegramUserId);
     return { reply, isDM: true };
+  }
+
+  // List clients → bypass AI, query DB directly
+  if (isListRequest(text)) {
+    const reply = await handleListClients();
+    return { reply, isDM: false };
   }
 
   // Everything else → fetch safe context → AI answers
