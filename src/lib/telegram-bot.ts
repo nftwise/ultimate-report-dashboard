@@ -201,7 +201,9 @@ async function answerWithAI(question: string, context: string): Promise<string> 
     });
 
     const data = await res.json();
-    return data?.content?.[0]?.text?.trim() || '⚠️ No response from AI.';
+    // MiniMax M2.1 returns thinking + text blocks — find the text block
+    const textBlock = data?.content?.find((b: any) => b.type === 'text');
+    return textBlock?.text?.trim() || '⚠️ No response from AI.';
   } catch (err) {
     console.error('[TelegramBot] AI error:', err);
     return '⚠️ AI service error. Try again.';
