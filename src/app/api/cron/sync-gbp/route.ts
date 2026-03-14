@@ -102,15 +102,17 @@ export async function GET(request: NextRequest) {
 
           const row = transformGBPMetrics(metrics, location.id, location.client_id, targetDate);
 
-          const { error } = await supabaseAdmin
+          const { error: upsertError } = await supabaseAdmin
             .from('gbp_location_daily_metrics')
             .upsert(row, { onConflict: 'location_id,date' });
 
-          if (error) {
-            console.log(`[sync-gbp] Upsert error ${location.location_name}:`, error.message);
+          if (upsertError) {
+            const msg = `Failed to save: ${upsertError.message}`;
+            console.error(`[sync-gbp] ${location.location_name} upsert error:`, msg);
+            throw new Error(`${location.location_name} upsert failed: ${upsertError.message}`);
           }
 
-          console.log(`[sync-gbp] ${location.location_name}: views=${row.views}, calls=${row.phone_calls}, clicks=${row.website_clicks}, directions=${row.direction_requests}`);
+          console.log(`[sync-gbp] ✅ ${location.location_name}: views=${row.views}, calls=${row.phone_calls}, clicks=${row.website_clicks}, directions=${row.direction_requests}`);
           return 1;
         } catch (err: any) {
           errors.push(`${location.location_name}: ${err.message}`);
