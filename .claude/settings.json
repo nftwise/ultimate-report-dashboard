@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"NEXT_PUBLIC_SUPABASE_ANON_KEY\\\\|anon.*key\" /Users/trieu/Desktop/ultimate-report-dashboard-2/retired_artifacts --include=*.md)",
+      "Bash(curl -s https://ultimate-report-dashboard.vercel.app/_next/static/chunks/main-*.js)",
+      "Bash(curl -s -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGVkbmlubmp0YWFybWR3cHBneSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjk0NzcyODAwLCJleHAiOjE5MTAwMzQ4MDB9.JLx_mCHypzH8Kz7d1l1U6P0QUhSvNKBg_8YiKdKxN9g\" \"https://tupedninjtaarmdwppgy.supabase.co/rest/v1/clients?select=id,name,slug\")",
+      "Bash(export NEXT_PUBLIC_SUPABASE_URL=\"https://tupedninjtaarmdwppgy.supabase.co\")",
+      "Bash(export SUPABASE_SERVICE_ROLE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGVkbmluanRhYXJtZHdwcGd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNjMwNTQsImV4cCI6MjA3NjczOTA1NH0.tGme0vdFQRBfQU5CPIHLrBsw3r_mi_PfkrFGar3wXT4\")",
+      "Bash(node /Users/trieu/Desktop/ultimate-report-dashboard-2/verify-gbp-api.js)",
+      "Bash(node /Users/trieu/Desktop/ultimate-report-dashboard-2/check-gbp-february.js)",
+      "Bash(node /Users/trieu/Desktop/ultimate-report-dashboard-2/check-gbp-february-summary.js)",
+      "Bash(node fetch_all_gbp_metrics.mjs)",
+      "Bash(node refetch_clean.mjs)",
+      "Bash(node refetch_with_refresh.mjs)",
+      "Bash(node test_coreposture_feb.mjs)",
+      "Bash(curl -s \"https://ultimate-report-dashboard.vercel.app/api/cron/sync-gbp?date=2026-02-15\")",
+      "Bash(node refetch_range.mjs)",
+      "Bash(timeout 120 node /Users/trieu/Desktop/ultimate-report-dashboard-2/fetch_all_gbp_metrics.mjs)",
+      "Bash(node debug_fetch.mjs)",
+      "Bash(sqlite3 /Users/trieu/Desktop/ultimate-report-dashboard-2/data.db \"SELECT id, location_name FROM gbp_locations WHERE location_name ILIKE ''%coreposture%'';\")",
+      "Bash(node -e \":*)",
+      "Bash(curl -s \"https://ultimate-report-dashboard.vercel.app/api/cron/sync-gbp?date=2026-02-24\")",
+      "Bash(node fetch_all_locations_feb.mjs)",
+      "Bash(node save_clean_feb.mjs)",
+      "Bash(node save_with_logging.mjs)",
+      "Bash(git revert:*)",
+      "Bash(node save_correct.mjs)",
+      "Bash(node /tmp/check-all-after-fix.js)",
+      "Bash(node check_all_clients_gbp.mjs)",
+      "Bash(node refetch_all_clients.mjs)",
+      "Bash(node check_jan_vs_provided.mjs)",
+      "Bash(ls -la /Users/trieu/Desktop/ultimate-report-dashboard-2/*.mjs)",
+      "Read(//Users/trieu/Desktop/ultimate-report-dashboard-2/**)",
+      "Bash(ls -1 /Users/trieu/Desktop/ultimate-report-dashboard-2/*.mjs)",
+      "Bash(xargs basename:*)",
+      "Bash(node check_nov_dec_2025.mjs)",
+      "Bash(node check_all_months_coverage.mjs)",
+      "Bash(node check_db_complete_timeline.mjs)",
+      "Bash(node fetch-gbp-feb-2026.mjs)"
+    ],
+    "additionalDirectories": [
+      "/Users/trieu/Desktop/ultimate-report-dashboard-2"
+    ]
+  }
+}

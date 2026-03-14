@@ -54,9 +54,16 @@ export async function fetchGBPRange(
   startDate: string,
   endDate: string
 ): Promise<GBPMetrics> {
-  const accessToken = await GBPTokenManager.getAccessToken();
+  let accessToken: string | null = null;
+  try {
+    accessToken = await GBPTokenManager.getAccessToken();
+  } catch (err: any) {
+    console.error(`[GBP] Failed to get access token: ${err.message}`);
+    throw new Error(`GBP auth failed: ${err.message}`);
+  }
+
   if (!accessToken) {
-    throw new Error('No GBP OAuth token available');
+    throw new Error('No GBP OAuth token available - check system_settings.gbp_agency_master');
   }
 
   // Normalize location ID
@@ -112,7 +119,7 @@ export async function fetchGBPRange(
         results[metric] = value;
       } catch (err: any) {
         const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
-        console.warn(`[GBP] ${metric} error: ${errorMsg}`);
+        console.warn(`[GBP] ${metric} (${startDate}/${endDate}) error: ${errorMsg}`);
         results[metric] = 0;
       }
     })

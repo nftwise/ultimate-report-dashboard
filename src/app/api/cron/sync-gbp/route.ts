@@ -34,13 +34,22 @@ export async function GET(request: NextRequest) {
     console.log(`[sync-gbp] Starting for ${targetDate}`);
 
     // Step 1: Verify GBP token exists (fetchGBPDay will handle token refresh)
-    const { data: tokenData } = await supabaseAdmin
+    const { data: tokenData, error: tokenError } = await supabaseAdmin
       .from('system_settings')
       .select('value')
       .eq('key', 'gbp_agency_master')
       .single();
 
-    if (!tokenData) {
+    if (tokenError) {
+      console.error('[sync-gbp] Token lookup error:', tokenError.message);
+      return NextResponse.json({
+        success: false,
+        error: `Token lookup failed: ${tokenError.message}`,
+      }, { status: 500 });
+    }
+
+    if (!tokenData?.value) {
+      console.error('[sync-gbp] No GBP token in system_settings');
       return NextResponse.json({
         success: false,
         error: 'No GBP OAuth token found. Run manual OAuth setup at /admin/google-business-setup first.',
@@ -87,7 +96,8 @@ export async function GET(request: NextRequest) {
           // Validation: Check if we got data from all expected metrics
           const metricsWithValue = Object.entries(metrics).filter(([_, v]: [string, any]) => v > 0).length;
           if (metricsWithValue === 0) {
-            console.log(`[sync-gbp] ⚠️  WARNING: No metrics returned for ${location.location_name} on ${targetDate} - possible API failure`);
+            console.warn(`[sync-gbp] ⚠️  WARNING: No metrics returned for ${location.location_name} on ${targetDate}`);
+            console.warn(`[sync-gbp] Metrics received: ${JSON.stringify(metrics)}`);
           }
 
           const row = transformGBPMetrics(metrics, location.id, location.client_id, targetDate);

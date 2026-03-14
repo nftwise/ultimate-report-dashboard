@@ -22,36 +22,65 @@ interface StoredToken {
 }
 
 export class GBPTokenManager {
-  private static oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_OAUTH_CLIENT_ID,
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET
-  );
+  private static oauth2Client: any = null;
+
+  /**
+   * Initialize OAuth2Client lazily (ensures env vars are loaded)
+   */
+  private static getOAuth2Client() {
+    if (!this.oauth2Client) {
+      const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        console.error('[GBP] OAuth credentials missing:', { clientId: !!clientId, clientSecret: !!clientSecret });
+        throw new Error('GOOGLE_OAUTH_CLIENT_ID or GOOGLE_OAUTH_CLIENT_SECRET not set');
+      }
+
+      this.oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    }
+    return this.oauth2Client;
+  }
 
   /**
    * Get valid access token (auto-refreshes if expired)
    */
   static async getAccessToken(): Promise<string | null> {
     const stored = await this.getStoredToken();
-    if (!stored) return null;
+    if (!stored) {
+      console.error('[GBP] No stored token found');
+      return null;
+    }
 
     // Check if token is expired (with 5 min buffer)
     const isExpired = stored.expiry_date < Date.now() + 5 * 60 * 1000;
 
     if (isExpired && stored.refresh_token) {
-      // Refresh the token
-      this.oauth2Client.setCredentials({ refresh_token: stored.refresh_token });
       try {
-        const { credentials } = await this.oauth2Client.refreshAccessToken();
-        await this.saveToken({
-          access_token: credentials.access_token!,
+        console.log('[GBP] Token expired, attempting refresh...');
+        const oauth2Client = this.getOAuth2Client();
+        oauth2Client.setCredentials({ refresh_token: stored.refresh_token });
+        const { credentials } = await oauth2Client.refreshAccessToken();
+
+        if (!credentials.access_token || !credentials.expiry_date) {
+          throw new Error('Refresh returned invalid credentials');
+        }
+
+        const refreshed = {
+          access_token: credentials.access_token,
           refresh_token: stored.refresh_token, // Keep original refresh token
-          expiry_date: credentials.expiry_date!,
+          expiry_date: credentials.expiry_date,
           email: stored.email,
-        });
-        return credentials.access_token!;
-      } catch (error) {
-        console.error('[GBP] Token refresh failed:', error);
-        return null;
+        };
+
+        await this.saveToken(refreshed);
+        console.log('[GBP] Token refresh successful');
+        return credentials.access_token;
+      } catch (error: any) {
+        console.error('[GBP] Token refresh failed:', error.message);
+        // Fallback: return stale token and let it fail at API level with clear error
+        console.log('[GBP] Using stale token (will likely fail at API)');
+        return stored.access_token;
       }
     }
 
