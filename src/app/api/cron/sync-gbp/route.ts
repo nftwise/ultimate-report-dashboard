@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { GBPTokenManager } from '@/lib/gbp-token-manager';
+import { fetchGBPDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
 
 export const maxDuration = 300;
 
 const BATCH_SIZE = 3;
-const TIMEOUT_MS = 20000;
-
-// GBP Performance API metric names (GET method only)
-// Note: ACTIONS_PHONE is NOT available via this API (returns 400/404)
-// CALL_CLICKS = clicks on "Call" button on GBP listing (best available metric)
-const METRICS = [
-  'WEBSITE_CLICKS',
-  'BUSINESS_DIRECTION_REQUESTS',
-  'CALL_CLICKS',
-  'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
-  'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
-  'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
-  'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
-];
 
 /**
  * GET /api/cron/sync-gbp
@@ -47,9 +33,14 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-gbp] Starting for ${targetDate}`);
 
-    // Step 1: Get access token (auto-refreshes if expired, reads from Supabase)
-    const accessToken = await GBPTokenManager.getAccessToken();
-    if (!accessToken) {
+    // Step 1: Verify GBP token exists (fetchGBPDay will handle token refresh)
+    const { data: tokenData } = await supabaseAdmin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'gbp_agency_master')
+      .single();
+
+    if (!tokenData) {
       return NextResponse.json({
         success: false,
         error: 'No GBP OAuth token found. Run manual OAuth setup at /admin/google-business-setup first.',
@@ -91,7 +82,7 @@ export async function GET(request: NextRequest) {
         };
 
         try {
-          const metrics = await fetchWithRetry(() => fetchLocationMetrics(accessToken, location.gbp_location_id, targetDate), 'metrics');
+          const metrics = await fetchWithRetry(() => fetchGBPDay(location.gbp_location_id, targetDate), 'metrics');
 
           // Validation: Check if we got data from all expected metrics
           const metricsWithValue = Object.entries(metrics).filter(([_, v]: [string, any]) => v > 0).length;
@@ -99,21 +90,7 @@ export async function GET(request: NextRequest) {
             console.log(`[sync-gbp] ⚠️  WARNING: No metrics returned for ${location.location_name} on ${targetDate} - possible API failure`);
           }
 
-          const row = {
-            location_id: location.id,
-            client_id: location.client_id,
-            date: targetDate,
-            // Profile views = all impressions combined
-            views: metrics.BUSINESS_IMPRESSIONS_DESKTOP_MAPS
-              + metrics.BUSINESS_IMPRESSIONS_MOBILE_MAPS
-              + metrics.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH
-              + metrics.BUSINESS_IMPRESSIONS_MOBILE_SEARCH,
-            // Actions total
-            actions: metrics.WEBSITE_CLICKS + metrics.BUSINESS_DIRECTION_REQUESTS + metrics.CALL_CLICKS,
-            direction_requests: metrics.BUSINESS_DIRECTION_REQUESTS,
-            phone_calls: metrics.CALL_CLICKS,
-            website_clicks: metrics.WEBSITE_CLICKS,
-          };
+          const row = transformGBPMetrics(metrics, location.id, location.client_id, targetDate);
 
           const { error } = await supabaseAdmin
             .from('gbp_location_daily_metrics')
@@ -150,77 +127,4 @@ export async function GET(request: NextRequest) {
     console.error('[sync-gbp] Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-}
-
-// =====================================================
-// GBP PERFORMANCE API HELPERS
-// =====================================================
-
-/**
- * Fetch all metrics for a single location on a given date.
- * Uses GET with query params (GBP Performance API v1 requirement).
- * Location ID is normalized to "locations/XXX" format.
- */
-async function fetchLocationMetrics(
-  accessToken: string,
-  rawLocationId: string,
-  date: string
-): Promise<Record<string, number>> {
-  // Normalize to "locations/XXX" format
-  let locationId = rawLocationId;
-  if (locationId.includes('/locations/')) {
-    locationId = `locations/${locationId.split('/locations/')[1]}`;
-  } else if (!locationId.startsWith('locations/')) {
-    locationId = `locations/${locationId}`;
-  }
-
-  const [year, month, day] = date.split('-').map(Number);
-  const results: Record<string, number> = {};
-
-  // Initialize all metrics to 0
-  for (const metric of METRICS) results[metric] = 0;
-
-  await Promise.all(
-    METRICS.map(async (metric) => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-        // GBP Performance API uses GET with query params
-        const url = new URL(
-          `https://businessprofileperformance.googleapis.com/v1/${locationId}:getDailyMetricsTimeSeries`
-        );
-        url.searchParams.set('dailyMetric', metric);
-        url.searchParams.set('dailyRange.start_date.year', String(year));
-        url.searchParams.set('dailyRange.start_date.month', String(month));
-        url.searchParams.set('dailyRange.start_date.day', String(day));
-        url.searchParams.set('dailyRange.end_date.year', String(year));
-        url.searchParams.set('dailyRange.end_date.month', String(month));
-        url.searchParams.set('dailyRange.end_date.day', String(day));
-
-        const response = await fetch(url.toString(), {
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          console.log(`[sync-gbp] API error for ${metric} on ${date}: HTTP ${response.status}`);
-          return;
-        }
-
-        const data = await response.json();
-        const value = (data.timeSeries?.datedValues || [])
-          .reduce((sum: number, d: any) => sum + (parseInt(d.value || '0') || 0), 0);
-
-        results[metric] = value;
-      } catch (err: any) {
-        const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
-        console.log(`[sync-gbp] Fetch error for ${metric} on ${date}: ${errorMsg}`);
-        results[metric] = 0;
-      }
-    })
-  );
-
-  return results;
 }

@@ -82,6 +82,41 @@ const { data: summaryData } = await supabase.from('client_metrics_summary')...
 // Merge with preference for detailed data, fallback to summary
 ```
 
+### GBP API: Date Range Fetching (CRITICAL!)
+
+⚠️ **IMPORTANT**: Always fetch **date ranges**, never individual days!
+
+**Why:** Google's API consolidates data differently:
+- Single day (start = end): Incomplete data, 1-6 hour lag
+- Date range (start ≠ end): Complete aggregated data, stable
+
+```typescript
+import { fetchGBPRange, fetchGBPDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
+
+// For backfill/bulk operations: fetch entire month
+const metrics = await fetchGBPRange('locationId', '2026-02-01', '2026-02-28');
+console.log(metrics.CALL_CLICKS); // 33 (complete data)
+
+// For daily cron: fetch single day (uses range internally)
+const metrics = await fetchGBPDay('locationId', '2026-02-01');
+
+// Transform to database schema
+const row = transformGBPMetrics(metrics, locationId, clientId, date);
+await supabase.from('gbp_location_daily_metrics').upsert(row);
+```
+
+**Production Scripts** (in root directory):
+- `diagnose_gbp.mjs` - Check token status & connectivity
+- `import-gbp-token.mjs` - Initial OAuth setup
+- `check_all_clients_gbp.mjs` - Verify data coverage
+- `check_jan_vs_provided.mjs` - Validate API data
+- `refetch_all_clients.mjs` - Bulk re-sync for all clients
+
+**Cron Job**: `/src/app/api/cron/sync-gbp/route.ts` (runs daily 10:12 UTC)
+- Auto-fetches yesterday's data
+- Uses new `gbp-fetch-utils` internally
+- No manual intervention needed
+
 ## Tech Stack
 
 - Next.js 14+ (App Router)
