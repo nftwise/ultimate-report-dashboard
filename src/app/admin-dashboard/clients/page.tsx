@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2 } from 'lucide-react';
+import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 
@@ -66,6 +66,10 @@ export default function ClientsManagementPage() {
 
   // Last sync dates per client
   const [lastSync, setLastSync] = useState<Record<string, string>>({});
+
+  // Expanded rows (Notes + Form Fills accordion)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpandedRows(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   // Notes inline editing
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
@@ -385,7 +389,16 @@ export default function ClientsManagementPage() {
           <Users size={16} style={{ color: '#c4704f' }} />
           <span style={{ fontSize: '15px', fontWeight: 700, color: '#2c2419' }}>Client Management</span>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Month range for form fills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#9ca3af' }}>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '10px' }}>Fills:</span>
+            <input type="month" value={fillsFromYM} onChange={e => setFillsFromYM(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+            <span style={{ fontSize: '10px', color: '#d1d5db' }}>→</span>
+            <input type="month" value={fillsToYM} onChange={e => setFillsToYM(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+          </div>
           {isAdmin && (
             <button onClick={() => router.push('/admin-dashboard/clients/new')}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
@@ -473,12 +486,12 @@ export default function ClientsManagementPage() {
             .clients-table tbody tr:last-child td { border-bottom: none; }
             .clients-table tbody tr { cursor: pointer; transition: background 140ms; }
             .clients-table tbody tr:hover td { background: rgba(196,112,79,0.04); }
-            .clients-table .col-name  { width: 28%; }
-            .clients-table .col-city  { width: 14%; }
-            .clients-table .col-svc   { width: 13%; }
-            .clients-table .col-status{ width: 14%; }
-            .clients-table .col-email { width: 20%; }
-            .clients-table .col-acts  { width: 11%; }
+            .clients-table .col-name  { width: 25%; }
+            .clients-table .col-city  { width: 13%; }
+            .clients-table .col-svc   { width: 11%; }
+            .clients-table .col-status{ width: 12%; }
+            .clients-table .col-email { width: 18%; }
+            .clients-table .col-acts  { width: 21%; }
             .sep { border-right: 1px solid rgba(44,36,25,0.07); }
           `}</style>
 
@@ -494,7 +507,7 @@ export default function ClientsManagementPage() {
                     <th className="col-svc sep" style={{ textAlign: 'center' }}>Services</th>
                     <th className="col-status sep" style={{ textAlign: 'center' }}>Status</th>
                     <th className="col-email sep" style={{ textAlign: 'left' }}>Contact</th>
-                    {isAdmin && <th className="col-acts" style={{ textAlign: 'center' }}>Actions</th>}
+                    <th className="col-acts" style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -548,9 +561,16 @@ export default function ClientsManagementPage() {
                           <td className="col-email sep" style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {client.contact_email || <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
-                          {isAdmin && (
-                            <td className="col-acts" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <td className="col-acts" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                              {/* Expand notes/fills */}
+                              <button onClick={() => toggleExpand(client.id)}
+                                title={expandedRows.has(client.id) ? 'Collapse' : 'Notes & Fills'}
+                                style={{ padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer', color: expandedRows.has(client.id) ? '#c4704f' : client.notes ? '#2c2419' : '#9ca3af', background: expandedRows.has(client.id) ? 'rgba(196,112,79,0.1)' : 'rgba(44,36,25,0.05)', transition: 'all 150ms', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 600 }}>
+                                {client.notes && !expandedRows.has(client.id) && <span style={{ fontSize: '9px', lineHeight: 1 }}>📝</span>}
+                                <ChevronDown size={12} style={{ transform: expandedRows.has(client.id) ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
+                              </button>
+                              {isAdmin && (<>
                                 <button onClick={() => openEditModal(client)}
                                   style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.15)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
@@ -572,10 +592,60 @@ export default function ClientsManagementPage() {
                                   title={client.is_active ? 'Cancel contract' : 'Reactivate'}>
                                   {client.is_active ? <XCircle size={13} /> : <CheckCircle size={13} />}
                                 </button>
+                              </>)}
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Accordion: Notes + Form Fills */}
+                        {expandedRows.has(client.id) && (
+                          <tr key={`expand-${client.id}`} style={{ background: 'rgba(196,112,79,0.02)' }}>
+                            <td colSpan={6} style={{ padding: '12px 16px 16px 16px', borderBottom: '2px solid rgba(196,112,79,0.15)' }} onClick={e => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                {/* Notes */}
+                                <div style={{ flex: '1 1 220px' }}>
+                                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '6px' }}>Notes</div>
+                                  {editingNotesId === client.id ? (
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                                      <textarea autoFocus rows={3} value={notesDraft}
+                                        onChange={e => setNotesDraft(e.target.value)}
+                                        onBlur={() => saveNotes(client.id, notesDraft)}
+                                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(client.id, notesDraft); } if (e.key === 'Escape') setEditingNotesId(null); }}
+                                        style={{ flex: 1, padding: '8px 10px', border: '1.5px solid #c4704f', borderRadius: '8px', fontSize: '12px', color: '#2c2419', background: '#fff', resize: 'vertical', outline: 'none', fontFamily: 'inherit', minWidth: '180px' }} />
+                                      {notesSavingId === client.id && <span style={{ fontSize: '11px', color: '#9ca3af', alignSelf: 'center' }}>…</span>}
+                                    </div>
+                                  ) : (
+                                    <div
+                                      onClick={() => { setEditingNotesId(client.id); setNotesDraft(client.notes || ''); }}
+                                      style={{ fontSize: '12px', color: client.notes ? '#2c2419' : '#c4c0ba', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', minHeight: '36px', background: '#faf8f6', border: '1px dashed rgba(44,36,25,0.15)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#c4704f'; (e.currentTarget as HTMLElement).style.background = '#fff'; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(44,36,25,0.15)'; (e.currentTarget as HTMLElement).style.background = '#faf8f6'; }}>
+                                      {client.notes || 'Click to add notes…'}
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Form Fills */}
+                                <div style={{ flex: '0 0 auto' }}>
+                                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '6px' }}>Form Fills by Month</div>
+                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {monthsInRange.map(m => (
+                                      <div key={m.ym} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap' }}>{m.label}</span>
+                                        <input type="number" min={0}
+                                          value={fillsMap[client.id]?.[m.ym] ?? ''}
+                                          onChange={e => setFillsMap(prev => ({ ...prev, [client.id]: { ...prev[client.id], [m.ym]: e.target.value } }))}
+                                          onKeyDown={e => e.key === 'Enter' && saveFill(client.id, m.ym)}
+                                          placeholder="—"
+                                          style={{ width: '52px', padding: '5px 6px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
+                                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; e.currentTarget.style.background = '#fff'; }}
+                                          onBlur={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.15)'; e.currentTarget.style.background = '#faf8f6'; saveFill(client.id, m.ym); }} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                          )}
-                        </tr>
+                          </tr>
+                        )}
                       </>
                     );
                   })}
@@ -595,82 +665,6 @@ export default function ClientsManagementPage() {
           )}
         </div>
 
-        {/* Notes & Form Fills */}
-        <div style={{ marginTop: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>📝 Notes &amp; Form Fills</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af' }}>From</span>
-              <input type="month" value={fillsFromYM} onChange={e => setFillsFromYM(e.target.value)}
-                style={{ padding: '5px 10px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '8px', fontSize: '13px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af' }}>To</span>
-              <input type="month" value={fillsToYM} onChange={e => setFillsToYM(e.target.value)}
-                style={{ padding: '5px 10px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '8px', fontSize: '13px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{monthsInRange.length} months</span>
-            </div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '160px', position: 'sticky', left: 0, background: 'rgba(255,255,255,0.98)', zIndex: 1 }}>Client</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '240px' }}>Notes</th>
-                  {monthsInRange.map(m => (
-                    <th key={m.ym} style={{ textAlign: 'center', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '80px', whiteSpace: 'nowrap' }}>{m.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activeClients.sort((a, b) => a.name.localeCompare(b.name)).map(client => (
-                  <tr key={client.id} style={{ borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
-                    <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#2c2419', verticalAlign: 'middle', position: 'sticky', left: 0, background: 'rgba(255,255,255,0.98)', zIndex: 1 }}>
-                      {client.name}
-                    </td>
-                    <td style={{ padding: '8px 12px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
-                      {editingNotesId === client.id ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                          <textarea
-                            autoFocus rows={2} value={notesDraft}
-                            onChange={e => setNotesDraft(e.target.value)}
-                            onBlur={() => saveNotes(client.id, notesDraft)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(client.id, notesDraft); } if (e.key === 'Escape') setEditingNotesId(null); }}
-                            style={{ flex: 1, padding: '6px 8px', border: '1px solid #c4704f', borderRadius: '6px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', resize: 'none', outline: 'none', fontFamily: 'inherit' }}
-                          />
-                          {notesSavingId === client.id && <span style={{ fontSize: '11px', color: '#9ca3af', alignSelf: 'center' }}>…</span>}
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => { setEditingNotesId(client.id); setNotesDraft(client.notes || ''); }}
-                          style={{ fontSize: '12px', color: client.notes ? '#2c2419' : '#d1d5db', cursor: 'pointer', padding: '6px 8px', borderRadius: '6px', minHeight: '30px', background: 'rgba(44,36,25,0.02)', border: '1px solid transparent', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(196,112,79,0.3)'; (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.04)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.02)'; }}
-                        >
-                          {client.notes || 'Click to add…'}
-                        </div>
-                      )}
-                    </td>
-                    {monthsInRange.map(m => (
-                      <td key={m.ym} style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
-                        <input
-                          type="number" min={0}
-                          value={fillsMap[client.id]?.[m.ym] ?? ''}
-                          onChange={e => setFillsMap(prev => ({ ...prev, [client.id]: { ...prev[client.id], [m.ym]: e.target.value } }))}
-                          onBlur={() => saveFill(client.id, m.ym)}
-                          onKeyDown={e => e.key === 'Enter' && saveFill(client.id, m.ym)}
-                          placeholder="—"
-                          style={{ width: '54px', padding: '5px 6px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
-                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; e.currentTarget.style.background = '#fff'; }}
-                          onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.15)'; e.currentTarget.style.background = '#faf8f6'; }}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Click note to edit · Enter/Tab to save form fills · Adjust date range to view any months</p>
-        </div>
       </div>
 
       {/* Cancel Confirmation */}
