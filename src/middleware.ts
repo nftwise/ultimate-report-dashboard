@@ -20,10 +20,10 @@ export default withAuth(
 )
 
 export const config = {
-  // Protect dashboard pages + ALL API routes except auth/* and cron/*
+  // Protect dashboard pages + ALL API routes except auth/*, cron/*, and run-rollup
   // withAuth returns 401 JSON for /api/* routes, redirects to /login for pages
   matcher: [
     '/admin-dashboard/:path*',
-    '/api/((?!auth|cron).*)',
+    '/api/((?!auth|cron|admin/run-rollup).*)',
   ]
 }

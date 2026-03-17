@@ -56,10 +56,9 @@ jobs:
       - name: Rollup — Group C
         run: |
           echo "→ Rollup Group C"
-          curl -f -s -X POST \
-            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup" \
-            -H "Content-Type: application/json" \
-            -d "{\"secret\":\"${{ secrets.CRON_SECRET }}\",\"group\":\"C\"${{ inputs.date != '' && format(',\"date\":\"{0}\"', inputs.date) || '' }}}" | jq '{success,processed}'
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup?group=C${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,processed}'
 
       - name: Health Check (runs after all groups)
         run: |

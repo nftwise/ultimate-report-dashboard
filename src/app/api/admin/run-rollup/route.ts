@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  return runRollup();
+  const groupParam = request.nextUrl.searchParams.get('group') || undefined;
+  const dateParam  = request.nextUrl.searchParams.get('date')  || undefined;
+  return runRollup(dateParam, undefined, groupParam);
 }
 
 /**

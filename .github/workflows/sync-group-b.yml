@@ -56,7 +56,6 @@ jobs:
       - name: Rollup — Group B
         run: |
           echo "→ Rollup Group B"
-          curl -f -s -X POST \
-            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup" \
-            -H "Content-Type: application/json" \
-            -d "{\"secret\":\"${{ secrets.CRON_SECRET }}\",\"group\":\"B\"${{ inputs.date != '' && format(',\"date\":\"{0}\"', inputs.date) || '' }}}" | jq '{success,processed}'
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup?group=B${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,processed}'
