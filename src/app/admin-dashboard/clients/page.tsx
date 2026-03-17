@@ -578,13 +578,6 @@ export default function ClientsManagementPage() {
                                   title="Edit">
                                   <Edit2 size={13} />
                                 </button>
-                                <button onClick={() => openBackfillModal(client)}
-                                  style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
-                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,168,84,0.2)'; (e.currentTarget as HTMLElement).style.color = '#d9a854'; }}
-                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
-                                  title="Backfill data">
-                                  <Database size={13} />
-                                </button>
                                 <button onClick={() => handleToggleActive(client)}
                                   style={{ padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer', color: client.is_active ? '#dc2626' : '#059669', background: client.is_active ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75'; }}
