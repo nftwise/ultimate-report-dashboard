@@ -142,15 +142,29 @@ export default function AdminDashboardPage() {
       const prevFromStr = prevFrom.toISOString().split('T')[0];
       const prevToStr   = prevTo.toISOString().split('T')[0];
 
-      // Months overlapping the selected date range (for manual_form_fills lookup)
+      // Include a month only if its LAST DAY falls within the date range.
+      // This prevents double-counting when a 30D range straddles two months —
+      // e.g. Feb 14→Mar 15: Feb's last day (Feb 28) is within range → include Feb;
+      //   Mar's last day (Mar 31) is NOT within range → exclude Mar.
+      // Fallback: if no complete month qualifies, use the midpoint month.
       const rangeMonths: string[] = [];
+      const fromDate = new Date(dateFromStr + 'T00:00:00');
+      const toDate   = new Date(dateToStr   + 'T00:00:00');
       const [fy, fm] = dateFromStr.split('-').map(Number);
       const [ty, tm] = dateToStr.split('-').map(Number);
       let ry = fy, rm = fm;
       while (ry < ty || (ry === ty && rm <= tm)) {
-        rangeMonths.push(`${ry}-${String(rm).padStart(2, '0')}`);
+        const lastDayOfMonth = new Date(ry, rm, 0); // day-0 of next month = last day
+        if (lastDayOfMonth >= fromDate && lastDayOfMonth <= toDate) {
+          rangeMonths.push(`${ry}-${String(rm).padStart(2, '0')}`);
+        }
         rm++; if (rm > 12) { rm = 1; ry++; }
         if (rangeMonths.length > 24) break;
+      }
+      // Fallback: range too short to contain any complete month → use midpoint month
+      if (rangeMonths.length === 0) {
+        const mid = new Date((fromDate.getTime() + toDate.getTime()) / 2);
+        rangeMonths.push(`${mid.getFullYear()}-${String(mid.getMonth() + 1).padStart(2, '0')}`);
       }
 
       const [metricsRes, formRes, prevMetricsRes, fillsRes] = await Promise.all([
