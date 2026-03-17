@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
+import { sendCronFailureAlert } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -31,8 +32,10 @@ export async function GET(request: NextRequest) {
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
     const gaqlDate = targetDate.replace(/-/g, '');
+    const groupParam = request.nextUrl.searchParams.get('group');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
-    console.log(`[sync-ads] Starting for ${targetDate}`);
+    console.log(`[sync-ads] Starting for ${targetDate}${groupParam ? ` group=${groupParam}` : ''}${clientIdParam ? ` clientId=${clientIdParam}` : ''}`);
 
     // Get auth
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
@@ -60,13 +63,22 @@ export async function GET(request: NextRequest) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-    const clientsWithAds = (clients || [])
+    let clientsWithAds = (clients || [])
       .map((c: any) => ({
         id: c.id,
         name: c.name,
         customerId: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.gads_customer_id?.replace(/-|\s/g, ''),
       }))
       .filter((c: any) => c.customerId);
+
+    if (clientIdParam) {
+      clientsWithAds = clientsWithAds.filter((c: any) => c.id === clientIdParam);
+    } else if (groupParam) {
+      const { data: groupClients } = await supabaseAdmin
+        .from('clients').select('id').eq('sync_group', groupParam).eq('is_active', true);
+      const groupIds = new Set((groupClients || []).map((c: any) => c.id));
+      clientsWithAds = clientsWithAds.filter((c: any) => groupIds.has(c.id));
+    }
 
     console.log(`[sync-ads] Processing ${clientsWithAds.length} clients`);
 
@@ -115,23 +127,22 @@ export async function GET(request: NextRequest) {
           // Upsert each table
           if (campaigns.length > 0) {
             const { error } = await supabaseAdmin.from('ads_campaign_metrics').upsert(campaigns, { onConflict: 'client_id,campaign_id,date' });
-            if (error) console.log(`[sync-ads] Campaign upsert error ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ads] Campaign upsert error ${client.name}:`, error.message); errors.push(`${client.name} campaigns: ${error.message}`); }
           }
           if (adGroups.length > 0) {
             const { error } = await supabaseAdmin.from('ads_ad_group_metrics').upsert(adGroups, { onConflict: 'client_id,campaign_id,ad_group_id,date' });
-            if (error) console.log(`[sync-ads] AdGroup upsert error ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ads] AdGroup upsert error ${client.name}:`, error.message); errors.push(`${client.name} ad_groups: ${error.message}`); }
           }
           if (conversions.length > 0) {
             const { error } = await supabaseAdmin.from('campaign_conversion_actions').upsert(conversions, { onConflict: 'client_id,campaign_id,date,conversion_action_name' });
-            if (error) console.log(`[sync-ads] Conversion upsert error ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ads] Conversion upsert error ${client.name}:`, error.message); errors.push(`${client.name} conversions: ${error.message}`); }
           }
           if (searchTerms.length > 0) {
-            // Batch upsert search terms (can be large — 500 rows per batch)
             const UPSERT_BATCH = 500;
             for (let j = 0; j < searchTerms.length; j += UPSERT_BATCH) {
               const chunk = searchTerms.slice(j, j + UPSERT_BATCH);
               const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(chunk, { onConflict: 'client_id,campaign_id,date,search_term' });
-              if (error) { console.log(`[sync-ads] SearchTerm upsert error ${client.name} batch ${j}:`, error.message); break; }
+              if (error) { console.error(`[sync-ads] SearchTerm upsert error ${client.name}:`, error.message); errors.push(`${client.name} search_terms: ${error.message}`); break; }
             }
           }
 
@@ -152,6 +163,10 @@ export async function GET(request: NextRequest) {
 
     const duration = Date.now() - startTime;
     console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
+
+    if (errors.length > 0) {
+      sendCronFailureAlert('sync-ads', targetDate, errors).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

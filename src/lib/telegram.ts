@@ -1,6 +1,7 @@
 /**
  * Telegram Alert System
- * Sends alerts to a Telegram bot when client metrics drop significantly.
+ * Sends alerts to a Telegram bot when client metrics drop significantly
+ * or when cron jobs fail / data is missing.
  */
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -32,6 +33,25 @@ export async function sendTelegramMessage(message: string): Promise<void> {
   } catch (err) {
     console.error('[Telegram] Error:', err);
   }
+}
+
+// ─────────────────────────────────────────
+// Cron failure alert
+// ─────────────────────────────────────────
+
+export async function sendCronFailureAlert(
+  cronName: string,
+  date: string,
+  errors: string[]
+): Promise<void> {
+  if (errors.length === 0) return;
+  const lines = errors.slice(0, 10).map(e => `  • ${e}`).join('\n');
+  const more = errors.length > 10 ? `\n  ... and ${errors.length - 10} more` : '';
+  const message =
+    `⚠️ <b>${cronName} — ${date}</b>\n` +
+    `${errors.length} client(s) failed:\n\n` +
+    lines + more;
+  await sendTelegramMessage(message);
 }
 
 // ─────────────────────────────────────────

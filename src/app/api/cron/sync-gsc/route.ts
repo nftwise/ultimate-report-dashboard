@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
+import { sendCronFailureAlert } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
 
-    console.log(`[sync-gsc] Starting for ${targetDate}`);
+    const groupParam = request.nextUrl.searchParams.get('group');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
+    console.log(`[sync-gsc] Starting for ${targetDate}${groupParam ? ` group=${groupParam}` : ''}${clientIdParam ? ` clientId=${clientIdParam}` : ''}`);
 
     // Get auth
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -57,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-    const clientsWithGSC = (clients || [])
+    let clientsWithGSC = (clients || [])
       .map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -65,6 +68,15 @@ export async function GET(request: NextRequest) {
         siteUrl: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.gsc_site_url,
       }))
       .filter((c: any) => c.siteUrl);
+
+    if (clientIdParam) {
+      clientsWithGSC = clientsWithGSC.filter((c: any) => c.id === clientIdParam);
+    } else if (groupParam) {
+      const { data: groupClients } = await supabaseAdmin
+        .from('clients').select('id').eq('sync_group', groupParam).eq('is_active', true);
+      const groupIds = new Set((groupClients || []).map((c: any) => c.id));
+      clientsWithGSC = clientsWithGSC.filter((c: any) => groupIds.has(c.id));
+    }
 
     console.log(`[sync-gsc] Processing ${clientsWithGSC.length} clients`);
 
@@ -104,7 +116,7 @@ export async function GET(request: NextRequest) {
               total_clicks: allQueries.reduce((s: number, q: any) => s + (q.clicks || 0), 0),
               top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
             }, { onConflict: 'client_id,site_url,date' });
-            if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);
+            if (summaryError) { console.error(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message); errors.push(`${client.name} gsc_summary: ${summaryError.message}`); }
           }
 
           // LAYER 2: Filter queries — top 50 by impressions + city-related queries for google_rank
@@ -120,7 +132,7 @@ export async function GET(request: NextRequest) {
             for (let j = 0; j < filteredQueries.length; j += 500) {
               const chunk = filteredQueries.slice(j, j + 500);
               const { error } = await supabaseAdmin.from('gsc_queries').upsert(chunk, { onConflict: 'client_id,site_url,date,query' });
-              if (error) console.log(`[sync-gsc] Queries upsert error ${client.name}:`, error.message);
+              if (error) { console.error(`[sync-gsc] Queries upsert error ${client.name}:`, error.message); errors.push(`${client.name} gsc_queries: ${error.message}`); }
             }
           }
 
@@ -138,6 +150,10 @@ export async function GET(request: NextRequest) {
 
     const duration = Date.now() - startTime;
     console.log(`[sync-gsc] Done in ${duration}ms: ${totalQueries} queries`);
+
+    if (errors.length > 0) {
+      sendCronFailureAlert('sync-gsc', targetDate, errors).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

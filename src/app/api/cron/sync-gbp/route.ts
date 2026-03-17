@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { fetchGBPDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
+import { sendCronFailureAlert } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -24,14 +25,15 @@ export async function GET(request: NextRequest) {
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
     const targetDate = dateParam || (() => {
-      // Use California timezone for "yesterday" calculation
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       caToday.setDate(caToday.getDate() - 1);
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
+    const groupParam = request.nextUrl.searchParams.get('group');   // 'A' | 'B' | 'C'
+    const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
-    console.log(`[sync-gbp] Starting for ${targetDate}`);
+    console.log(`[sync-gbp] Starting for ${targetDate}${groupParam ? ` group=${groupParam}` : ''}${clientIdParam ? ` clientId=${clientIdParam}` : ''}`);
 
     // Step 1: Verify GBP token exists (fetchGBPDay will handle token refresh)
     const { data: tokenData, error: tokenError } = await supabaseAdmin
@@ -56,15 +58,29 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Step 2: Get all active GBP locations with their client IDs
-    const { data: locations, error: locError } = await supabaseAdmin
+    // Step 2: Get active GBP locations, filtered by group or clientId
+    let clientIdsInGroup: string[] | null = null;
+    if (clientIdParam) {
+      clientIdsInGroup = [clientIdParam];
+    } else if (groupParam) {
+      const { data: groupClients } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('sync_group', groupParam)
+        .eq('is_active', true);
+      clientIdsInGroup = (groupClients || []).map((c: any) => c.id);
+    }
+
+    let locQuery = supabaseAdmin
       .from('gbp_locations')
       .select('id, client_id, gbp_location_id, location_name')
       .eq('is_active', true);
+    if (clientIdsInGroup) locQuery = locQuery.in('client_id', clientIdsInGroup);
 
+    const { data: locations, error: locError } = await locQuery;
     if (locError) throw new Error(`Failed to fetch GBP locations: ${locError.message}`);
 
-    const validLocations = (locations || []).filter(l => l.gbp_location_id);
+    const validLocations = (locations || []).filter((l: any) => l.gbp_location_id);
     console.log(`[sync-gbp] Processing ${validLocations.length} locations`);
 
     let synced = 0;
@@ -93,29 +109,41 @@ export async function GET(request: NextRequest) {
         try {
           const metrics = await fetchWithRetry(() => fetchGBPDay(location.gbp_location_id, targetDate), 'metrics');
 
-          // Validation: Check if we got data from all expected metrics
           const metricsWithValue = Object.entries(metrics).filter(([_, v]: [string, any]) => v > 0).length;
           if (metricsWithValue === 0) {
-            console.warn(`[sync-gbp] ⚠️  WARNING: No metrics returned for ${location.location_name} on ${targetDate}`);
-            console.warn(`[sync-gbp] Metrics received: ${JSON.stringify(metrics)}`);
+            console.warn(`[sync-gbp] ⚠️  WARNING: No metrics for ${location.location_name} on ${targetDate}`);
           }
 
-          const row = transformGBPMetrics(metrics, location.id, location.client_id, targetDate);
+          const row = {
+            ...transformGBPMetrics(metrics, location.id, location.client_id, targetDate),
+            fetch_status: 'success',
+            fetch_error: null,
+          };
 
           const { error: upsertError } = await supabaseAdmin
             .from('gbp_location_daily_metrics')
             .upsert(row, { onConflict: 'location_id,date' });
 
           if (upsertError) {
-            const msg = `Failed to save: ${upsertError.message}`;
-            console.error(`[sync-gbp] ${location.location_name} upsert error:`, msg);
-            throw new Error(`${location.location_name} upsert failed: ${upsertError.message}`);
+            throw new Error(`upsert failed: ${upsertError.message}`);
           }
 
           console.log(`[sync-gbp] ✅ ${location.location_name}: views=${row.views}, calls=${row.phone_calls}, clicks=${row.website_clicks}, directions=${row.direction_requests}`);
           return 1;
         } catch (err: any) {
-          errors.push(`${location.location_name}: ${err.message}`);
+          const errMsg = `${location.location_name}: ${err.message}`;
+          errors.push(errMsg);
+          console.error(`[sync-gbp] ❌ ${errMsg}`);
+          // Upsert error row so health-check can detect it
+          // Upsert error row so health-check can detect it (fire-and-forget)
+          void supabaseAdmin.from('gbp_location_daily_metrics').upsert({
+            location_id: location.id,
+            client_id: location.client_id,
+            date: targetDate,
+            fetch_status: 'error',
+            fetch_error: err.message,
+            phone_calls: 0, website_clicks: 0, direction_requests: 0, views: 0, actions: 0,
+          }, { onConflict: 'location_id,date' });
           return 0;
         }
       }));
@@ -125,6 +153,10 @@ export async function GET(request: NextRequest) {
 
     const duration = Date.now() - startTime;
     console.log(`[sync-gbp] Done in ${duration}ms: ${synced}/${validLocations.length} locations synced`);
+
+    if (errors.length > 0) {
+      sendCronFailureAlert('sync-gbp', targetDate, errors).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

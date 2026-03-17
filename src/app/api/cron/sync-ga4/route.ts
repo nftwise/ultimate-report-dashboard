@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
+import { sendCronFailureAlert } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       caToday.setDate(caToday.getDate() - 1);
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
+    const groupParam = request.nextUrl.searchParams.get('group');
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
     const timeoutMs = clientIdParam ? SINGLE_CLIENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 
@@ -49,7 +51,8 @@ export async function GET(request: NextRequest) {
       scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
     });
     const tokenResponse = await auth.getAccessToken();
-    const token = tokenResponse.token || '';
+    const token = tokenResponse.token;
+    if (!token) throw new Error('Failed to obtain GA4 access token');
 
     // Fetch clients with GA4 config
     const { data: clients, error: clientsError } = await supabaseAdmin
@@ -67,12 +70,17 @@ export async function GET(request: NextRequest) {
       }))
       .filter((c: any) => c.propertyId);
 
-    // Filter to specific client if requested
+    // Filter by clientId or group
     if (clientIdParam) {
       clientsWithGA = clientsWithGA.filter((c: any) => c.id === clientIdParam);
       if (clientsWithGA.length === 0) {
         return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no GA4 config` }, { status: 404 });
       }
+    } else if (groupParam) {
+      const { data: groupClients } = await supabaseAdmin
+        .from('clients').select('id').eq('sync_group', groupParam).eq('is_active', true);
+      const groupIds = new Set((groupClients || []).map((c: any) => c.id));
+      clientsWithGA = clientsWithGA.filter((c: any) => groupIds.has(c.id));
     }
 
     console.log(`[sync-ga4] Processing ${clientsWithGA.length} clients`);
@@ -138,19 +146,19 @@ export async function GET(request: NextRequest) {
 
           if (eventRows.length > 0) {
             const { error } = await supabaseAdmin.from('ga4_events').upsert(eventRows, { onConflict: 'client_id,date,event_name,source_medium,device' });
-            if (error) console.log(`[sync-ga4] Events upsert error for ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ga4] Events upsert error ${client.name}:`, error.message); errors.push(`${client.name} events: ${error.message}`); }
           }
           if (sessionRows.length > 0) {
             const { error } = await supabaseAdmin.from('ga4_sessions').upsert(sessionRows, { onConflict: 'client_id,date,source_medium,device,country' });
-            if (error) console.log(`[sync-ga4] Sessions upsert error for ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ga4] Sessions upsert error ${client.name}:`, error.message); errors.push(`${client.name} sessions: ${error.message}`); }
           }
           if (conversionRows.length > 0) {
             const { error } = await supabaseAdmin.from('ga4_conversions').upsert(conversionRows, { onConflict: 'client_id,date,conversion_event,source_medium,device' });
-            if (error) console.log(`[sync-ga4] Conversions upsert error for ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ga4] Conversions upsert error ${client.name}:`, error.message); errors.push(`${client.name} conversions: ${error.message}`); }
           }
           if (landingPageRows.length > 0) {
             const { error } = await supabaseAdmin.from('ga4_landing_pages').upsert(landingPageRows, { onConflict: 'client_id,date,landing_page,source_medium' });
-            if (error) console.log(`[sync-ga4] Landing pages upsert error for ${client.name}:`, error.message);
+            if (error) { console.error(`[sync-ga4] Landing pages upsert error ${client.name}:`, error.message); errors.push(`${client.name} landing_pages: ${error.message}`); }
           }
 
           return {
@@ -176,6 +184,10 @@ export async function GET(request: NextRequest) {
 
     const duration = Date.now() - startTime;
     console.log(`[sync-ga4] Done in ${duration}ms: ${totalEvents} events, ${totalSessions} sessions, ${totalConversions} conversions, ${totalLandingPages} landing pages`);
+
+    if (errors.length > 0) {
+      sendCronFailureAlert('sync-ga4', targetDate, errors).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

@@ -26,19 +26,19 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const { date, clientId, secret } = body;
+  const { date, clientId, group, secret } = body;
 
   if (secret && secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ success: false, error: 'Invalid secret' }, { status: 401 });
   }
 
-  return runRollup(date, clientId);
+  return runRollup(date, clientId, group);
 }
 
 /**
  * Main rollup logic - reads from Supabase raw tables and aggregates into client_metrics_summary
  */
-async function runRollup(date?: string, clientId?: string) {
+async function runRollup(date?: string, clientId?: string, group?: string) {
   const startTime = Date.now();
 
   try {
@@ -61,6 +61,8 @@ async function runRollup(date?: string, clientId?: string) {
 
     if (clientId) {
       clientQuery = clientQuery.eq('id', clientId);
+    } else if (group) {
+      clientQuery = clientQuery.eq('sync_group', group);
     }
 
     const { data: clients, error: clientsError } = await clientQuery;
@@ -200,6 +202,7 @@ async function processClient(
       .select('phone_calls, website_clicks, direction_requests, views, total_reviews, new_reviews_today, average_rating, business_photo_views, posts_count, posts_views, posts_actions')
       .eq('client_id', clientId)
       .eq('date', targetDate)
+      .or('fetch_status.is.null,fetch_status.neq.error')  // Skip rows where fetch failed
       .then(r => r.data || []),
   ]);
 

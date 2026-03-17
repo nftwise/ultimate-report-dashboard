@@ -1,0 +1,69 @@
+name: Sync Group C (East Coast + Europe)
+
+on:
+  schedule:
+    - cron: '0 11 * * *'  # 4:00 AM PDT = 11:00 UTC
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to sync (YYYY-MM-DD). Leave empty for yesterday.'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Build date param
+        id: dp
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            echo "param=&date=${{ inputs.date }}" >> $GITHUB_OUTPUT
+          else
+            echo "param=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sync GA4 — Group C
+        run: |
+          echo "→ GA4 Group C"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-ga4?group=C${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+
+      - name: Sync Ads — Group C
+        run: |
+          echo "→ Ads Group C"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-ads?group=C${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+
+      - name: Sync GSC — Group C
+        run: |
+          echo "→ GSC Group C"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-gsc?group=C${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+
+      - name: Sync GBP — Group C
+        run: |
+          echo "→ GBP Group C"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-gbp?group=C${{ steps.dp.outputs.param }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,locations,synced,errors}'
+
+      - name: Rollup — Group C
+        run: |
+          echo "→ Rollup Group C"
+          curl -f -s -X POST \
+            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup" \
+            -H "Content-Type: application/json" \
+            -d "{\"secret\":\"${{ secrets.CRON_SECRET }}\",\"group\":\"C\"${{ inputs.date != '' && format(',\"date\":\"{0}\"', inputs.date) || '' }}}" | jq '{success,processed}'
+
+      - name: Health Check (runs after all groups)
+        run: |
+          echo "→ Health Check"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/health-check" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,ok,issues}'
