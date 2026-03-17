@@ -142,29 +142,25 @@ export default function AdminDashboardPage() {
       const prevFromStr = prevFrom.toISOString().split('T')[0];
       const prevToStr   = prevTo.toISOString().split('T')[0];
 
-      // Include a month only if its LAST DAY falls within the date range.
-      // This prevents double-counting when a 30D range straddles two months —
-      // e.g. Feb 14→Mar 15: Feb's last day (Feb 28) is within range → include Feb;
-      //   Mar's last day (Mar 31) is NOT within range → exclude Mar.
-      // Fallback: if no complete month qualifies, use the midpoint month.
+      // Form fills: pick N last COMPLETE months relative to toDate.
+      // "Complete" = month whose last day has already passed (≤ toDate).
+      // 7D / 30D  → numMonths = 1 (e.g. toDate=Mar 15 → Feb)
+      // 90D       → numMonths = 3 (e.g. toDate=Mar 15 → Dec, Jan, Feb)
+      const toDate = new Date(dateToStr + 'T00:00:00');
+      const periodDays = Math.round((toDate.getTime() - new Date(dateFromStr + 'T00:00:00').getTime()) / 86400000);
+      const numFillMonths = periodDays > 35 ? 3 : 1;
       const rangeMonths: string[] = [];
-      const fromDate = new Date(dateFromStr + 'T00:00:00');
-      const toDate   = new Date(dateToStr   + 'T00:00:00');
-      const [fy, fm] = dateFromStr.split('-').map(Number);
-      const [ty, tm] = dateToStr.split('-').map(Number);
-      let ry = fy, rm = fm;
-      while (ry < ty || (ry === ty && rm <= tm)) {
-        const lastDayOfMonth = new Date(ry, rm, 0); // day-0 of next month = last day
-        if (lastDayOfMonth >= fromDate && lastDayOfMonth <= toDate) {
-          rangeMonths.push(`${ry}-${String(rm).padStart(2, '0')}`);
-        }
-        rm++; if (rm > 12) { rm = 1; ry++; }
-        if (rangeMonths.length > 24) break;
+      let cY = toDate.getFullYear(), cM = toDate.getMonth() + 1; // 1-based
+      let iter = 0;
+      while (rangeMonths.length < numFillMonths && iter < 24) {
+        const lastDay = new Date(cY, cM, 0); // day-0 of next month = last day of cM
+        if (lastDay <= toDate) rangeMonths.unshift(`${cY}-${String(cM).padStart(2, '0')}`);
+        cM--; if (cM < 1) { cM = 12; cY--; }
+        iter++;
       }
-      // Fallback: range too short to contain any complete month → use midpoint month
+      // Fallback: current month is in progress and nothing complete yet
       if (rangeMonths.length === 0) {
-        const mid = new Date((fromDate.getTime() + toDate.getTime()) / 2);
-        rangeMonths.push(`${mid.getFullYear()}-${String(mid.getMonth() + 1).padStart(2, '0')}`);
+        rangeMonths.push(`${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}`);
       }
 
       const [metricsRes, formRes, prevMetricsRes, fillsRes] = await Promise.all([
