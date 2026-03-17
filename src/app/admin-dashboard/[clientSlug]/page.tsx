@@ -34,6 +34,7 @@ interface ClientMetrics {
   name: string;
   slug: string;
   city: string;
+  notes?: string | null;
   total_leads?: number;
   form_fills?: number;
   gbp_calls?: number;
@@ -43,6 +44,11 @@ interface ClientMetrics {
     seo: boolean;
     googleLocalService: boolean;
   };
+}
+
+interface ManualFormFill {
+  year_month: string;
+  form_fills: number;
 }
 
 interface DailyMetrics {
@@ -76,6 +82,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const { data: session } = useSession();
   const clientSlug = params?.clientSlug as string;
+  const role = (session?.user as any)?.role;
 
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
@@ -92,6 +99,17 @@ export default function ClientDetailPage() {
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   // FIX #10: fetch latest GBP rating independently of date range
   const [latestGbpRating, setLatestGbpRating] = useState(0);
+
+  // Notes
+  const [notes, setNotes] = useState<string>('');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+
+  // Manual Form Fills
+  const [manualFills, setManualFills] = useState<ManualFormFill[]>([]);
+  const [fillsDraft, setFillsDraft] = useState<Record<string, string>>({});
+  const [fillsSaving, setFillsSaving] = useState(false);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -114,7 +132,10 @@ export default function ClientDetailPage() {
         const data = await response.json();
         if (data.success && data.clients) {
           const foundClient = data.clients.find((c: any) => c.slug === clientSlug);
-          if (foundClient) setClient(foundClient);
+          if (foundClient) {
+            setClient(foundClient);
+            setNotes(foundClient.notes || '');
+          }
         }
       } catch (error) {
         console.error('Error fetching client:', error);
@@ -124,6 +145,22 @@ export default function ClientDetailPage() {
     };
     if (clientSlug) fetchClient();
   }, [clientSlug]);
+
+  // Fetch manual form fills
+  useEffect(() => {
+    if (!client) return;
+    fetch(`/api/admin/form-fills?clientId=${client.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.data) {
+          setManualFills(data.data);
+          const draft: Record<string, string> = {};
+          data.data.forEach((f: ManualFormFill) => { draft[f.year_month] = String(f.form_fills); });
+          setFillsDraft(draft);
+        }
+      })
+      .catch(() => {});
+  }, [client]);
 
   // Anchor date range to last available data date (same as admin page)
   useEffect(() => {
@@ -299,6 +336,64 @@ export default function ClientDetailPage() {
   const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
+  // Notes save
+  const saveNotes = async () => {
+    if (!client) return;
+    setNotesSaving(true);
+    try {
+      await fetch(`/api/admin/clients/${client.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notesDraft }),
+      });
+      setNotes(notesDraft);
+      setEditingNotes(false);
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  // Manual form fills save (single month)
+  const saveFill = async (ym: string) => {
+    if (!client) return;
+    const val = parseInt(fillsDraft[ym] || '0', 10);
+    if (isNaN(val) || val < 0) return;
+    setFillsSaving(true);
+    try {
+      const res = await fetch('/api/admin/form-fills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, year_month: ym, form_fills: val }),
+      });
+      if (res.ok) {
+        setManualFills(prev => {
+          const exists = prev.find(f => f.year_month === ym);
+          if (exists) return prev.map(f => f.year_month === ym ? { ...f, form_fills: val } : f);
+          return [...prev, { year_month: ym, form_fills: val }];
+        });
+      }
+    } finally {
+      setFillsSaving(false);
+    }
+  };
+
+  // Build last 3 months list
+  const last3Months = (() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      months.push({ ym, label });
+    }
+    return months;
+  })();
+
+  // Current month manual fills for KPI card
+  const currentYM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const currentManualFills = manualFills.find(f => f.year_month === currentYM)?.form_fills ?? 0;
+
   const prevCpl = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
   const leadTrendData = calcMoM(totalLeads, prevData.leads);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
@@ -353,6 +448,79 @@ export default function ClientDetailPage() {
             <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
           </div>
 
+          {/* Notes Card */}
+          {(notes || role === 'admin' || role === 'team') && (
+            <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
+                  <span style={{ fontSize: '16px', marginTop: '2px' }}>📝</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', marginBottom: '6px' }}>Notes</p>
+                    {editingNotes ? (
+                      <div>
+                        <textarea
+                          value={notesDraft}
+                          onChange={e => setNotesDraft(e.target.value)}
+                          rows={3}
+                          autoFocus
+                          style={{ width: '100%', padding: '10px 12px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '8px', fontSize: '14px', color: '#2c2419', background: '#faf8f6', resize: 'vertical', outline: 'none', fontFamily: 'inherit' }}
+                          placeholder="Add internal notes about this client..."
+                        />
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                          <button onClick={saveNotes} disabled={notesSaving}
+                            style={{ padding: '6px 16px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            {notesSaving ? 'Saving…' : 'Save'}
+                          </button>
+                          <button onClick={() => setEditingNotes(false)}
+                            style={{ padding: '6px 16px', background: 'rgba(44,36,25,0.06)', color: '#5c5850', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '14px', color: notes ? '#2c2419' : '#9ca3af', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                        {notes || 'No notes yet. Click Edit to add one.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {!editingNotes && (role === 'admin' || role === 'team') && (
+                  <button onClick={() => { setNotesDraft(notes); setEditingNotes(true); }}
+                    style={{ padding: '6px 14px', background: 'rgba(44,36,25,0.06)', color: '#5c5850', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Manual Form Fills — admin/team only */}
+          {(role === 'admin' || role === 'team') && (
+            <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', marginBottom: '12px' }}>📋 Form Fills (Manual Entry)</p>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {last3Months.map(({ ym, label }) => (
+                  <div key={ym} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(44,36,25,0.03)', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                    <span style={{ fontSize: '13px', color: '#5c5850', fontWeight: 600, minWidth: '110px' }}>{label}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={fillsDraft[ym] ?? ''}
+                      onChange={e => setFillsDraft(prev => ({ ...prev, [ym]: e.target.value }))}
+                      onBlur={() => saveFill(ym)}
+                      onKeyDown={e => e.key === 'Enter' && saveFill(ym)}
+                      style={{ width: '70px', padding: '6px 10px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '6px', fontSize: '14px', fontWeight: 700, color: '#2c2419', background: '#faf8f6', textAlign: 'center', outline: 'none' }}
+                      placeholder="0"
+                    />
+                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>fills</span>
+                  </div>
+                ))}
+                {fillsSaving && <span style={{ fontSize: '12px', color: '#9ca3af', alignSelf: 'center' }}>Saving…</span>}
+              </div>
+              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Tab or Enter to save each month. Visible to client on their portal.</p>
+            </div>
+          )}
+
           {/* FIX #9: KPI Cards — hide Ad Spend + CPL if no Ads service */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
             {/* Total Leads — always shown */}
@@ -383,8 +551,8 @@ export default function ClientDetailPage() {
               <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Contact Forms</p>
                 <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms submitted on your website</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalFormFills)}</div>
-                {trendBadge(formFillsTrendData)}
+                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(currentManualFills)}</div>
+                <p style={{ fontSize: '10px', color: '#9ca3af' }}>This month (manual)</p>
               </div>
             )}
 

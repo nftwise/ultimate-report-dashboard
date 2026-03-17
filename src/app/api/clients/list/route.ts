@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           slug,
           city,
           contact_email,
+          notes,
           is_active,
           service_configs (
             ga_property_id,
@@ -168,6 +169,7 @@ export async function GET(request: NextRequest) {
         slug: client.slug,
         city: client.city,
         contact_email: client.contact_email,
+        notes: client.notes || null,
         is_active: client.is_active,
         total_leads: clientMetrics.total_leads,
         seo_form_submits: clientMetrics.seo_form_submits,
