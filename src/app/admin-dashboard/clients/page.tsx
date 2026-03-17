@@ -76,18 +76,25 @@ export default function ClientsManagementPage() {
   const [fillsMap, setFillsMap] = useState<Record<string, Record<string, string>>>({});
   const [fillsSavingKey, setFillsSavingKey] = useState<string | null>(null);
 
-  // Last 3 months
-  const last3Months = (() => {
-    const months = [];
-    const now = new Date();
-    for (let i = 0; i < 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({
-        ym: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      });
+  // Month range picker for form fills table
+  const defaultFromYM = (() => { const d = new Date(); d.setMonth(d.getMonth() - 5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const defaultToYM = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const [fillsFromYM, setFillsFromYM] = useState(defaultFromYM);
+  const [fillsToYM, setFillsToYM] = useState(defaultToYM);
+
+  // Build month list from range (oldest → newest)
+  const monthsInRange = (() => {
+    const months: { ym: string; label: string }[] = [];
+    const [fy, fm] = fillsFromYM.split('-').map(Number);
+    const [ty, tm] = fillsToYM.split('-').map(Number);
+    let y = fy, m = fm;
+    while (y < ty || (y === ty && m <= tm)) {
+      const d = new Date(y, m - 1, 1);
+      months.push({ ym: `${y}-${String(m).padStart(2, '0')}`, label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) });
+      m++; if (m > 12) { m = 1; y++; }
+      if (months.length > 36) break; // safety cap
     }
-    return months;
+    return months.reverse(); // newest first
   })();
 
   // Backfill modal
@@ -228,15 +235,10 @@ export default function ClientsManagementPage() {
         setLastSync(map);
       }
 
-      // Fetch manual form fills for last 3 months
-      const fromYM = (() => {
-        const d = new Date(); d.setMonth(d.getMonth() - 2);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      })();
+      // Fetch all manual form fills
       const { data: fillsData } = await supabase
         .from('manual_form_fills')
-        .select('client_id, year_month, form_fills')
-        .gte('year_month', fromYM);
+        .select('client_id, year_month, form_fills');
       if (fillsData) {
         const fm: Record<string, Record<string, string>> = {};
         for (const row of fillsData) {
@@ -595,31 +597,40 @@ export default function ClientsManagementPage() {
 
         {/* Notes & Form Fills */}
         <div style={{ marginTop: '24px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', marginBottom: '12px' }}>📝 Notes &amp; Form Fills</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>📝 Notes &amp; Form Fills</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af' }}>From</span>
+              <input type="month" value={fillsFromYM} onChange={e => setFillsFromYM(e.target.value)}
+                style={{ padding: '5px 10px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '8px', fontSize: '13px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af' }}>To</span>
+              <input type="month" value={fillsToYM} onChange={e => setFillsToYM(e.target.value)}
+                style={{ padding: '5px 10px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '8px', fontSize: '13px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{monthsInRange.length} months</span>
+            </div>
+          </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '160px' }}>Client</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '260px' }}>Notes</th>
-                  {last3Months.map(m => (
-                    <th key={m.ym} style={{ textAlign: 'center', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '90px' }}>{m.label}</th>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '160px', position: 'sticky', left: 0, background: 'rgba(255,255,255,0.98)', zIndex: 1 }}>Client</th>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '240px' }}>Notes</th>
+                  {monthsInRange.map(m => (
+                    <th key={m.ym} style={{ textAlign: 'center', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '80px', whiteSpace: 'nowrap' }}>{m.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {activeClients.sort((a, b) => a.name.localeCompare(b.name)).map(client => (
                   <tr key={client.id} style={{ borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
-                    <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#2c2419', verticalAlign: 'middle' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#2c2419', verticalAlign: 'middle', position: 'sticky', left: 0, background: 'rgba(255,255,255,0.98)', zIndex: 1 }}>
                       {client.name}
                     </td>
                     <td style={{ padding: '8px 12px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
                       {editingNotesId === client.id ? (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                           <textarea
-                            autoFocus
-                            rows={2}
-                            value={notesDraft}
+                            autoFocus rows={2} value={notesDraft}
                             onChange={e => setNotesDraft(e.target.value)}
                             onBlur={() => saveNotes(client.id, notesDraft)}
                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(client.id, notesDraft); } if (e.key === 'Escape') setEditingNotesId(null); }}
@@ -634,22 +645,22 @@ export default function ClientsManagementPage() {
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(196,112,79,0.3)'; (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.04)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.02)'; }}
                         >
-                          {client.notes || 'Click to add note…'}
+                          {client.notes || 'Click to add…'}
                         </div>
                       )}
                     </td>
-                    {last3Months.map(m => (
-                      <td key={m.ym} style={{ padding: '8px 12px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                    {monthsInRange.map(m => (
+                      <td key={m.ym} style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
                         <input
-                          type="number"
-                          min={0}
+                          type="number" min={0}
                           value={fillsMap[client.id]?.[m.ym] ?? ''}
                           onChange={e => setFillsMap(prev => ({ ...prev, [client.id]: { ...prev[client.id], [m.ym]: e.target.value } }))}
                           onBlur={() => saveFill(client.id, m.ym)}
                           onKeyDown={e => e.key === 'Enter' && saveFill(client.id, m.ym)}
-                          placeholder="0"
-                          style={{ width: '60px', padding: '5px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
-                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; }}
+                          placeholder="—"
+                          style={{ width: '54px', padding: '5px 6px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
+                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; e.currentTarget.style.background = '#fff'; }}
+                          onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.15)'; e.currentTarget.style.background = '#faf8f6'; }}
                         />
                       </td>
                     ))}
@@ -658,7 +669,7 @@ export default function ClientsManagementPage() {
               </tbody>
             </table>
           </div>
-          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Click a note to edit (Enter to save, Esc to cancel). Tab/Enter on form fills to save.</p>
+          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Click note to edit · Enter/Tab to save form fills · Adjust date range to view any months</p>
         </div>
       </div>
 
