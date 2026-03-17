@@ -11,7 +11,7 @@ import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerm
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum, fmtCurrency } from '@/lib/format';
+import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -242,8 +242,8 @@ export default function GoogleAdsPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // Fetch campaign metrics data (includes conversions — source of truth)
         const { data: campaignMetricsData } = await supabase
@@ -305,8 +305,8 @@ export default function GoogleAdsPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         const { data } = await supabase
           .from('campaign_search_terms')
@@ -334,8 +334,8 @@ export default function GoogleAdsPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // ads_campaign_metrics has campaign_name; ads_ad_group_metrics does not
         const [{ data: campData }, { data: adGroupData }] = await Promise.all([
@@ -378,8 +378,8 @@ export default function GoogleAdsPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // Total conversions from campaign-level metrics (matches Google Ads UI)
         const { data: metricsConvData } = await supabase
@@ -419,8 +419,8 @@ export default function GoogleAdsPage() {
       const prevFrom = new Date(prevTo);
       prevFrom.setDate(prevFrom.getDate() - periodDays);
 
-      const prevFromISO = prevFrom.toISOString().split('T')[0];
-      const prevToISO = prevTo.toISOString().split('T')[0];
+      const prevFromISO = toLocalDateStr(prevFrom);
+      const prevToISO = toLocalDateStr(prevTo);
 
       try {
         const { data: campaignResData } = await supabase

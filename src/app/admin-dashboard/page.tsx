@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { fmtNum, fmtCurrency } from '@/lib/format';
+import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 
 interface ServiceConfig {
   ga_property_id?: string;
@@ -81,8 +81,8 @@ export default function AdminDashboardPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       );
-      const dateFromStr = dateRange.from?.toISOString().split('T')[0] || '';
-      const dateToStr = dateRange.to?.toISOString().split('T')[0] || '';
+      const dateFromStr = dateRange.from ? toLocalDateStr(dateRange.from) : '';
+      const dateToStr = dateRange.to ? toLocalDateStr(dateRange.to) : '';
 
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
@@ -167,7 +167,7 @@ export default function AdminDashboardPage() {
       // which are unreliable in the recent window due to the API lag.
       const anchor = new Date(dateRange.to);
       anchor.setDate(anchor.getDate() - 5); // lag offset
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      const fmt = (d: Date) => toLocalDateStr(d);
       const cur7End = fmt(anchor);
       const cur7Start = new Date(anchor); cur7Start.setDate(anchor.getDate() - 6);
       const prev7End = new Date(anchor); prev7End.setDate(anchor.getDate() - 7);

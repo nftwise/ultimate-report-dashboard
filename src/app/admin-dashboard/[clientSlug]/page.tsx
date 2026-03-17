@@ -8,7 +8,7 @@ import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum, fmtCurrency } from '@/lib/format';
+import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false });
@@ -125,8 +125,8 @@ export default function ClientDetailPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // Fetch main metrics from client_metrics_summary
         const { data: metricsData, error: metricsError } = await supabase
@@ -209,8 +209,8 @@ export default function ClientDetailPage() {
         prevTo.setDate(prevTo.getDate() - 1);
         const prevFrom = new Date(prevTo);
         prevFrom.setDate(prevFrom.getDate() - periodDays);
-        const prevFromISO = prevFrom.toISOString().split('T')[0];
-        const prevToISO = prevTo.toISOString().split('T')[0];
+        const prevFromISO = toLocalDateStr(prevFrom);
+        const prevToISO = toLocalDateStr(prevTo);
 
         const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
           supabase.from('client_metrics_summary')

@@ -30,3 +30,8 @@ export function fmtPct(n: number | null | undefined, decimals = 1): string {
     maximumFractionDigits: d,
   }) + '%';
 }
+
+/** Convert Date to YYYY-MM-DD using LOCAL timezone (avoids UTC shift bug) */
+export const toLocalDateStr = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+

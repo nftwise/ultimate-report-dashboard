@@ -9,7 +9,7 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum } from '@/lib/format';
+import { fmtNum, toLocalDateStr } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -123,8 +123,8 @@ export default function SEOPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // ONLY SELECT SEO METRICS - NO ADS, NO GBP
         // Using GA4 sessions + organic traffic (not GSC data)
@@ -151,8 +151,8 @@ export default function SEOPage() {
     const fetchFunnelData = async () => {
       if (!client) return;
       try {
-        const dateFromISO = new Date(dateRange.from).toISOString().split('T')[0];
-        const dateToISO = new Date(dateRange.to).toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // Get aggregated funnel data from client_metrics_summary
         const { data: summaryData } = await supabase
@@ -270,10 +270,10 @@ export default function SEOPage() {
         prevTo.setDate(prevTo.getDate() - 1);
         const prevFrom = new Date(prevTo);
         prevFrom.setDate(prevFrom.getDate() - periodDays);
-        const prevFromISO = prevFrom.toISOString().split('T')[0];
-        const prevToISO = prevTo.toISOString().split('T')[0];
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
-        const dateToISO = dateRange.to.toISOString().split('T')[0];
+        const prevFromISO = toLocalDateStr(prevFrom);
+        const prevToISO = toLocalDateStr(prevTo);
+        const dateFromISO = toLocalDateStr(dateRange.from);
+        const dateToISO = toLocalDateStr(dateRange.to);
 
         // Previous period keywords for movement comparison
         const { data: prevKeywords } = await supabase

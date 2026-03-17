@@ -8,7 +8,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum } from '@/lib/format';
+import { fmtNum, toLocalDateStr } from '@/lib/format';
 
 interface ClientMetrics {
   id: string;
@@ -137,10 +137,10 @@ export default function GBPPage() {
       if (!client) return;
 
       try {
-        const dateFromISO = dateRange.from.toISOString().split('T')[0];
+        const dateFromISO = toLocalDateStr(dateRange.from);
         // Cap to yesterday — GBP cron syncs up to yesterday. Zero-row filter handles missing days.
         const effectiveTo = dateRange.to > gbpDataCutoff() ? gbpDataCutoff() : dateRange.to;
-        const dateToISO = effectiveTo.toISOString().split('T')[0];
+        const dateToISO = toLocalDateStr(effectiveTo);
 
         // Fetch from gbp_location_daily_metrics (detailed GBP data)
         const { data: gbpDetailedData } = await supabase
@@ -257,8 +257,8 @@ export default function GBPPage() {
         prevTo.setDate(prevTo.getDate() - 1);
         const prevFrom = new Date(prevTo);
         prevFrom.setDate(prevFrom.getDate() - periodDays);
-        const prevFromISO = prevFrom.toISOString().split('T')[0];
-        const prevToISO = prevTo.toISOString().split('T')[0];
+        const prevFromISO = toLocalDateStr(prevFrom);
+        const prevToISO = toLocalDateStr(prevTo);
 
         const [{ data: prevGbpData }, { data: prevSummaryData }] = await Promise.all([
           supabase
