@@ -31,6 +31,7 @@ interface ClientWithMetrics {
   ad_spend?: number;
   total_leads?: number;
   prev_total_leads?: number;
+  manual_form_fills?: number;
   top_keywords?: number;
   trendPoints?: number[];
   service_configs?: ServiceConfig[];
@@ -141,7 +142,18 @@ export default function AdminDashboardPage() {
       const prevFromStr = prevFrom.toISOString().split('T')[0];
       const prevToStr   = prevTo.toISOString().split('T')[0];
 
-      const [metricsRes, formRes, prevMetricsRes] = await Promise.all([
+      // Months overlapping the selected date range (for manual_form_fills lookup)
+      const rangeMonths: string[] = [];
+      const [fy, fm] = dateFromStr.split('-').map(Number);
+      const [ty, tm] = dateToStr.split('-').map(Number);
+      let ry = fy, rm = fm;
+      while (ry < ty || (ry === ty && rm <= tm)) {
+        rangeMonths.push(`${ry}-${String(rm).padStart(2, '0')}`);
+        rm++; if (rm > 12) { rm = 1; ry++; }
+        if (rangeMonths.length > 24) break;
+      }
+
+      const [metricsRes, formRes, prevMetricsRes, fillsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
           .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
@@ -152,11 +164,20 @@ export default function AdminDashboardPage() {
         supabase.from('client_metrics_summary')
           .select('client_id, total_leads')
           .gte('date', prevFromStr).lte('date', prevToStr).eq('period_type', 'daily'),
+        supabase.from('manual_form_fills')
+          .select('client_id, year_month, form_fills')
+          .in('year_month', rangeMonths),
       ]);
 
       const prevMap: Record<string, number> = {};
       (prevMetricsRes.data || []).forEach((m: any) => {
         prevMap[m.client_id] = (prevMap[m.client_id] || 0) + (m.total_leads || 0);
+      });
+
+      // Build manual_form_fills map: clientId → total for selected months
+      const fillsMap: Record<string, number> = {};
+      (fillsRes.data || []).forEach((f: any) => {
+        fillsMap[f.client_id] = (fillsMap[f.client_id] || 0) + (f.form_fills || 0);
       });
 
       const metricsMap: Record<string, any> = {};
@@ -195,6 +216,7 @@ export default function AdminDashboardPage() {
           id: client.id, name: client.name, slug: client.slug, city: client.city,
           contact_email: client.contact_email, is_active: client.is_active, owner: client.owner,
           total_leads: m.total_leads, prev_total_leads: prevMap[client.id] ?? null, seo_form_submits: m.seo_form_submits,
+          manual_form_fills: fillsMap[client.id] || 0,
           top_keywords: m.top_keywords,
           gbp_calls: m.gbp_calls, ads_conversions: m.ads_conversions,
           ads_cpl: cpl, ad_spend: m.ad_spend, trendPoints,
@@ -299,6 +321,7 @@ export default function AdminDashboardPage() {
   const totalGbpCalls = filteredClients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
   const totalAdSpend = filteredClients.reduce((s, c) => s + (c.ad_spend || 0), 0);
   const totalAdsConversions = filteredClients.reduce((s, c) => s + (c.ads_conversions || 0), 0);
+  const totalFormFills = filteredClients.reduce((s, c) => s + (c.manual_form_fills || 0), 0);
   const avgCpl = totalAdsConversions > 0 ? totalAdSpend / totalAdsConversions : 0;
 
   const getDaysDiff = () => Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
@@ -367,6 +390,7 @@ export default function AdminDashboardPage() {
           {[
             { label: 'Active Clients', value: fmtNum(clients.filter(c => c.is_active).length) },
             { label: 'Total Leads', value: fmtNum(totalLeads) },
+            { label: 'Form Fills', value: fmtNum(totalFormFills) },
             { label: 'Avg CPL', value: avgCpl > 0 ? fmtCurrency(avgCpl, 0) : 'N/A' },
             { label: 'GBP Calls', value: fmtNum(totalGbpCalls) },
           ].map((s, i) => (
@@ -531,14 +555,15 @@ export default function AdminDashboardPage() {
             .client-table tbody tr:hover { background: rgba(196,112,79,0.04); }
             .client-table tbody tr:last-child { border-bottom: none; }
             .col-divider { border-right: 1px solid rgba(44,36,25,0.08) !important; }
-            .client-table .col-client { width: 22%; }
+            .client-table .col-client { width: 20%; }
             .client-table .col-svc    { width: 6%; }
-            .client-table .col-leads  { width: 9%; }
-            .client-table .col-kw10   { width: 8%; }
-            .client-table .col-calls  { width: 9%; }
-            .client-table .col-conv   { width: 8%; }
-            .client-table .col-cpl    { width: 8%; }
-            .client-table .col-trend  { width: 22%; }
+            .client-table .col-leads  { width: 8%; }
+            .client-table .col-forms  { width: 7%; }
+            .client-table .col-kw10   { width: 7%; }
+            .client-table .col-calls  { width: 8%; }
+            .client-table .col-conv   { width: 7%; }
+            .client-table .col-cpl    { width: 7%; }
+            .client-table .col-trend  { width: 20%; }
           `}</style>
 
           {loading ? (
@@ -551,14 +576,15 @@ export default function AdminDashboardPage() {
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                     <th rowSpan={2} className="col-client" style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em' }}>Client</th>
-                    <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
+                    <th colSpan={3} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857', borderBottom: '2.5px solid #047857', paddingBottom: '6px' }}>GBP</th>
                     <th colSpan={3} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', borderBottom: '2.5px solid #6b7280', paddingBottom: '6px' }}>Google Ads</th>
                   </tr>
                   <tr style={{ borderBottom: '1.5px solid rgba(44,36,25,0.1)' }}>
                     <th className="col-svc" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Svc</th>
-                    <th className="col-leads col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
+                    <th className="col-leads" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
+                    <th className="col-forms col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Forms</th>
                     <th className="col-kw10 col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>KW10</th>
                     <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
                     <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
@@ -595,8 +621,11 @@ export default function AdminDashboardPage() {
                             {client.services?.seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>SEO</span>}
                           </div>
                         </td>
-                        <td className="col-leads col-divider" style={{ textAlign: 'center' }}>
+                        <td className="col-leads" style={{ textAlign: 'center' }}>
                           <div style={{ fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</div>
+                        </td>
+                        <td className="col-forms col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#7c3aed' }}>
+                          {client.manual_form_fills ? fmtNum(client.manual_form_fills) : <span style={{ color: '#d1d5db' }}>—</span>}
                         </td>
                         <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
                           {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
