@@ -67,6 +67,29 @@ export default function ClientsManagementPage() {
   // Last sync dates per client
   const [lastSync, setLastSync] = useState<Record<string, string>>({});
 
+  // Notes inline editing
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSavingId, setNotesSavingId] = useState<string | null>(null);
+
+  // Manual form fills (clientId → year_month → value)
+  const [fillsMap, setFillsMap] = useState<Record<string, Record<string, string>>>({});
+  const [fillsSavingKey, setFillsSavingKey] = useState<string | null>(null);
+
+  // Last 3 months
+  const last3Months = (() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        ym: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      });
+    }
+    return months;
+  })();
+
   // Backfill modal
   const [backfillClient, setBackfillClient] = useState<Client | null>(null);
   const [backfillDays, setBackfillDays] = useState(90);
@@ -204,6 +227,24 @@ export default function ClientsManagementPage() {
         }
         setLastSync(map);
       }
+
+      // Fetch manual form fills for last 3 months
+      const fromYM = (() => {
+        const d = new Date(); d.setMonth(d.getMonth() - 2);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      })();
+      const { data: fillsData } = await supabase
+        .from('manual_form_fills')
+        .select('client_id, year_month, form_fills')
+        .gte('year_month', fromYM);
+      if (fillsData) {
+        const fm: Record<string, Record<string, string>> = {};
+        for (const row of fillsData) {
+          if (!fm[row.client_id]) fm[row.client_id] = {};
+          fm[row.client_id][row.year_month] = String(row.form_fills);
+        }
+        setFillsMap(fm);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
@@ -263,6 +304,35 @@ export default function ClientsManagementPage() {
       const res = await fetch(`/api/admin/clients/${targetId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: false, status: 'Cancelled' }) });
       if (!res.ok) { const result = await res.json(); setClients(prev => prev.map(c => c.id === targetId ? { ...c, is_active: true, status: 'Working' } : c)); throw new Error(result.error || 'Failed to cancel contract'); }
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to cancel contract'); }
+  };
+
+  const saveNotes = async (clientId: string, value: string) => {
+    setNotesSavingId(clientId);
+    try {
+      await fetch(`/api/admin/clients/${clientId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: value || null }),
+      });
+      setClients(prev => prev.map(c => c.id === clientId ? { ...c, notes: value || null } : c));
+    } finally {
+      setNotesSavingId(null);
+      setEditingNotesId(null);
+    }
+  };
+
+  const saveFill = async (clientId: string, ym: string) => {
+    const val = parseInt(fillsMap[clientId]?.[ym] || '0', 10);
+    if (isNaN(val) || val < 0) return;
+    const key = `${clientId}:${ym}`;
+    setFillsSavingKey(key);
+    try {
+      await fetch('/api/admin/form-fills', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, year_month: ym, form_fills: val }),
+      });
+    } finally {
+      setFillsSavingKey(null);
+    }
   };
 
   // Derived stats
@@ -521,6 +591,74 @@ export default function ClientsManagementPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Notes & Form Fills */}
+        <div style={{ marginTop: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', marginBottom: '12px' }}>📝 Notes &amp; Form Fills</h2>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '160px' }}>Client</th>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '260px' }}>Notes</th>
+                  {last3Months.map(m => (
+                    <th key={m.ym} style={{ textAlign: 'center', padding: '8px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', borderBottom: '1.5px solid rgba(44,36,25,0.1)', minWidth: '90px' }}>{m.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activeClients.sort((a, b) => a.name.localeCompare(b.name)).map(client => (
+                  <tr key={client.id} style={{ borderBottom: '1px solid rgba(44,36,25,0.05)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#2c2419', verticalAlign: 'middle' }}>
+                      {client.name}
+                    </td>
+                    <td style={{ padding: '8px 12px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                      {editingNotesId === client.id ? (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <textarea
+                            autoFocus
+                            rows={2}
+                            value={notesDraft}
+                            onChange={e => setNotesDraft(e.target.value)}
+                            onBlur={() => saveNotes(client.id, notesDraft)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(client.id, notesDraft); } if (e.key === 'Escape') setEditingNotesId(null); }}
+                            style={{ flex: 1, padding: '6px 8px', border: '1px solid #c4704f', borderRadius: '6px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', resize: 'none', outline: 'none', fontFamily: 'inherit' }}
+                          />
+                          {notesSavingId === client.id && <span style={{ fontSize: '11px', color: '#9ca3af', alignSelf: 'center' }}>…</span>}
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => { setEditingNotesId(client.id); setNotesDraft(client.notes || ''); }}
+                          style={{ fontSize: '12px', color: client.notes ? '#2c2419' : '#d1d5db', cursor: 'pointer', padding: '6px 8px', borderRadius: '6px', minHeight: '30px', background: 'rgba(44,36,25,0.02)', border: '1px solid transparent', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(196,112,79,0.3)'; (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.04)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.02)'; }}
+                        >
+                          {client.notes || 'Click to add note…'}
+                        </div>
+                      )}
+                    </td>
+                    {last3Months.map(m => (
+                      <td key={m.ym} style={{ padding: '8px 12px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={fillsMap[client.id]?.[m.ym] ?? ''}
+                          onChange={e => setFillsMap(prev => ({ ...prev, [client.id]: { ...prev[client.id], [m.ym]: e.target.value } }))}
+                          onBlur={() => saveFill(client.id, m.ym)}
+                          onKeyDown={e => e.key === 'Enter' && saveFill(client.id, m.ym)}
+                          placeholder="0"
+                          style={{ width: '60px', padding: '5px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
+                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Click a note to edit (Enter to save, Esc to cancel). Tab/Enter on form fills to save.</p>
         </div>
       </div>
 
