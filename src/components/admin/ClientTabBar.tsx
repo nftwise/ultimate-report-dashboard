@@ -8,24 +8,22 @@ interface ClientTabBarProps {
   clientSlug: string;
   clientName?: string;
   clientCity?: string;
-  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo';
+  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo' | 'facebook';
 }
 
 const TABS = [
   { id: 'overview',    label: 'Overview',    icon: LayoutDashboard, href: '',          badge: null },
   { id: 'seo',         label: 'SEO',         icon: Search,          href: '/seo',       badge: null },
   { id: 'google-ads',  label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads',badge: null },
-  { id: 'gbp',         label: 'GBP',         icon: MapPin,          href: '/gbp',       badge: null },
-  { id: 'geo',         label: 'GEO / AI',    icon: Bot,             href: '/geo',       badge: 'NEW' },
+  { id: 'gbp',         label: 'Google Business', icon: MapPin,      href: '/gbp',       badge: null },
+  { id: 'geo',         label: 'News & AI',   icon: Bot,             href: '/geo',       badge: null },
 ] as const;
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const isClient = (session?.user as any)?.role === 'client';
-
-  // Client role: navigation is in the left sidebar (AdminLayout), no top tab bar needed
-  if (isClient) return null;
+  const baseUrl = isClient ? `/portal/${clientSlug}` : `/admin-dashboard/${clientSlug}`;
 
   return (
     <div style={{
@@ -66,7 +64,7 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
           return (
             <button
               key={id}
-              onClick={() => router.push(`/admin-dashboard/${clientSlug}${href}`)}
+              onClick={() => router.push(`${baseUrl}${href}`)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '10px 18px',

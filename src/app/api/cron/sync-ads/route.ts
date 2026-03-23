@@ -32,10 +32,9 @@ export async function GET(request: NextRequest) {
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();
     const gaqlDate = targetDate.replace(/-/g, '');
-    const groupParam = request.nextUrl.searchParams.get('group');
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
-    console.log(`[sync-ads] Starting for ${targetDate}${groupParam ? ` group=${groupParam}` : ''}${clientIdParam ? ` clientId=${clientIdParam}` : ''}`);
+    console.log(`[sync-ads] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
@@ -73,11 +72,9 @@ export async function GET(request: NextRequest) {
 
     if (clientIdParam) {
       clientsWithAds = clientsWithAds.filter((c: any) => c.id === clientIdParam);
-    } else if (groupParam) {
-      const { data: groupClients } = await supabaseAdmin
-        .from('clients').select('id').eq('sync_group', groupParam).eq('is_active', true);
-      const groupIds = new Set((groupClients || []).map((c: any) => c.id));
-      clientsWithAds = clientsWithAds.filter((c: any) => groupIds.has(c.id));
+      if (clientsWithAds.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no Ads config` }, { status: 404 });
+      }
     }
 
     console.log(`[sync-ads] Processing ${clientsWithAds.length} clients`);

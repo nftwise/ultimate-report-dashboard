@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { fmtNum, fmtCurrency, fmtPct } from '@/lib/format';
 
 interface MoMData {
   pct: string;
@@ -35,15 +36,15 @@ export default function ExecutiveSummaryCards({
   momCtr,
   periodLabel
 }: ExecutiveSummaryCardsProps) {
-  // Determine CPL color: green if good, yellow if borderline, red if high
-  const getCPLColor = (cpl: number) => {
-    if (cpl === 0) return { text: '#5c5850', bg: 'rgba(92, 88, 80, 0.08)' };
-    if (cpl <= 50) return { text: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' }; // Green - good
-    if (cpl <= 100) return { text: '#d9a854', bg: 'rgba(217, 168, 84, 0.08)' }; // Yellow - borderline
-    return { text: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)' }; // Red - high
+  // CPL color based on MoM direction (improved = green, worsened = red, neutral = gold)
+  const getCPLColor = () => {
+    if (costPerLead === 0) return { text: '#5c5850', bg: 'rgba(92, 88, 80, 0.08)' };
+    if (momCpa?.type === 'up') return { text: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' }; // Improved (lower CPL = up MoM)
+    if (momCpa?.type === 'down') return { text: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)' }; // Worsened
+    return { text: '#d9a854', bg: 'rgba(217, 168, 84, 0.08)' }; // Neutral
   };
 
-  const cplColor = getCPLColor(costPerLead);
+  const cplColor = getCPLColor();
 
   const renderMoMBadge = (mom?: MoMData) => {
     if (!mom || !periodLabel) return null;
@@ -72,14 +73,14 @@ export default function ExecutiveSummaryCards({
           color: '#5c5850',
           margin: 0
         }}>
-          💰 Executive Summary
+          Campaign Results
         </p>
       </div>
 
       {/* 4-Grid Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
         gap: '16px'
       }}>
         {/* Card 1: Total Ad Spend */}
@@ -118,7 +119,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            ${totalSpend.toFixed(2)}
+            {fmtCurrency(totalSpend)}
           </div>
           <p style={{
             fontSize: '11px',
@@ -166,7 +167,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            {totalConversions}
+            {fmtNum(Math.round(totalConversions))}
           </div>
           <p style={{
             fontSize: '11px',
@@ -214,7 +215,7 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            ${costPerLead.toFixed(2)}
+            {fmtCurrency(costPerLead)}
           </div>
           <p style={{
             fontSize: '11px',
@@ -262,14 +263,14 @@ export default function ExecutiveSummaryCards({
             marginBottom: '8px',
             fontVariantNumeric: 'tabular-nums'
           }}>
-            {conversionRate.toFixed(2)}%
+            {fmtPct(conversionRate, 2)}
           </div>
           <p style={{
             fontSize: '11px',
             color: '#9ca3af',
             margin: 0
           }}>
-            Clicks that converted
+            Of ad clicks that became leads
           </p>
           {renderMoMBadge(momCtr)}
         </div>

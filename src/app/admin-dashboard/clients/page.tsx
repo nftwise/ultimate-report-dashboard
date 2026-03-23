@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown } from 'lucide-react';
+import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 
@@ -25,7 +25,7 @@ interface Client {
   owner: string | null;
 }
 
-type ModalMode = 'add' | 'edit' | null;
+type ModalMode = 'edit' | null;
 
 interface FormData {
   name: string;
@@ -47,9 +47,6 @@ const emptyForm: FormData = {
   ads_budget_month: '', status: 'Working',
 };
 
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 40);
-}
 
 export default function ClientsManagementPage() {
   const router = useRouter();
@@ -67,6 +64,147 @@ export default function ClientsManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
 
+  // Last sync dates per client
+  const [lastSync, setLastSync] = useState<Record<string, string>>({});
+
+  // Expanded rows (Notes + Form Fills accordion)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpandedRows(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  // Notes inline editing
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSavingId, setNotesSavingId] = useState<string | null>(null);
+
+  // Manual form fills (clientId → year_month → value)
+  const [fillsMap, setFillsMap] = useState<Record<string, Record<string, string>>>({});
+  const [fillsSavingKey, setFillsSavingKey] = useState<string | null>(null);
+
+  // Month range picker for form fills table
+  const defaultFromYM = (() => { const d = new Date(); d.setMonth(d.getMonth() - 5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const defaultToYM = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const [fillsFromYM, setFillsFromYM] = useState(defaultFromYM);
+  const [fillsToYM, setFillsToYM] = useState(defaultToYM);
+
+  // Build month list from range (oldest → newest)
+  const monthsInRange = (() => {
+    const months: { ym: string; label: string }[] = [];
+    const [fy, fm] = fillsFromYM.split('-').map(Number);
+    const [ty, tm] = fillsToYM.split('-').map(Number);
+    let y = fy, m = fm;
+    while (y < ty || (y === ty && m <= tm)) {
+      const d = new Date(y, m - 1, 1);
+      months.push({ ym: `${y}-${String(m).padStart(2, '0')}`, label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) });
+      m++; if (m > 12) { m = 1; y++; }
+      if (months.length > 36) break; // safety cap
+    }
+    return months.reverse(); // newest first
+  })();
+
+  // Backfill modal
+  const [backfillClient, setBackfillClient] = useState<Client | null>(null);
+  const [backfillDays, setBackfillDays] = useState(90);
+  type ModalStep = 'idle' | 'testing' | 'ready' | 'running' | 'done';
+  const [modalStep, setModalStep] = useState<ModalStep>('idle');
+  const [testResults, setTestResults] = useState<{ label: string; ok: boolean; message: string }[]>([]);
+  const [backfill, setBackfill] = useState<{
+    currentDay: number; totalDays: number; currentService: string; errors: string[];
+  }>({ currentDay: 0, totalDays: 0, currentService: '', errors: [] });
+
+  function openBackfillModal(client: Client) {
+    setBackfillClient(client);
+    setBackfillDays(90);
+    setModalStep('idle');
+    setTestResults([]);
+    setBackfill({ currentDay: 0, totalDays: 0, currentService: '', errors: [] });
+  }
+
+  function getYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  async function testConnections() {
+    if (!backfillClient) return;
+    setModalStep('testing');
+    const yesterday = getYesterday();
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4 (Analytics)', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC (Search Console)', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
+    ];
+    const results = [];
+    for (const svc of services) {
+      if (!svc.enabled) {
+        results.push({ label: svc.label, ok: false, message: 'Not enabled' });
+        continue;
+      }
+      try {
+        const res = await fetch('/api/admin/trigger-cron', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: svc.endpoint, params: { date: yesterday, clientId: backfillClient.id } }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+          results.push({ label: svc.label, ok: true, message: `${data.total ?? data.synced ?? '✓'} records` });
+        } else {
+          results.push({ label: svc.label, ok: false, message: data.error || 'No data returned' });
+        }
+      } catch (e: any) {
+        results.push({ label: svc.label, ok: false, message: e.message || 'Network error' });
+      }
+    }
+    setTestResults(results);
+    setModalStep('ready');
+  }
+
+  async function runBackfill() {
+    if (!backfillClient) return;
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: backfillClient.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
+    ].filter(s => s.enabled);
+
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= backfillDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+
+    setModalStep('running');
+    setBackfill({ currentDay: 0, totalDays: dates.length, currentService: '', errors: [] });
+    const errors: string[] = [];
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
+      for (const service of services) {
+        setBackfill(prev => ({ ...prev, currentDay: i + 1, currentService: service.label }));
+        try {
+          await fetch('/api/admin/trigger-cron', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: service.endpoint, params: { date, clientId: backfillClient.id } }),
+          });
+        } catch { errors.push(`${date} ${service.label}`); }
+      }
+      setBackfill(prev => ({ ...prev, currentService: 'Rollup' }));
+      try {
+        await fetch('/api/admin/trigger-cron', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: '/api/admin/run-rollup', method: 'POST', params: { date, clientId: backfillClient.id } }),
+        });
+      } catch { errors.push(`${date} rollup`); }
+    }
+
+    setBackfill(prev => ({ ...prev, errors }));
+    setModalStep('done');
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -83,6 +221,36 @@ export default function ClientsManagementPage() {
         .order('name', { ascending: true });
       if (fetchError) throw new Error(fetchError.message);
       setClients(data || []);
+
+      // Fetch last sync date per client (last 60 days)
+      const since = new Date(); since.setDate(since.getDate() - 60);
+      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,'0')}-${String(since.getDate()).padStart(2,'0')}`;
+      const { data: syncData } = await supabase
+        .from('client_metrics_summary')
+        .select('client_id, date')
+        .eq('period_type', 'daily')
+        .gte('date', sinceStr)
+        .order('date', { ascending: false });
+      if (syncData) {
+        const map: Record<string, string> = {};
+        for (const row of syncData) {
+          if (!map[row.client_id]) map[row.client_id] = row.date;
+        }
+        setLastSync(map);
+      }
+
+      // Fetch all manual form fills
+      const { data: fillsData } = await supabase
+        .from('manual_form_fills')
+        .select('client_id, year_month, form_fills');
+      if (fillsData) {
+        const fm: Record<string, Record<string, string>> = {};
+        for (const row of fillsData) {
+          if (!fm[row.client_id]) fm[row.client_id] = {};
+          fm[row.client_id][row.year_month] = String(row.form_fills);
+        }
+        setFillsMap(fm);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
@@ -90,7 +258,6 @@ export default function ClientsManagementPage() {
     }
   };
 
-  const openAddModal = () => { setFormData(emptyForm); setEditingClient(null); setModalMode('add'); setError(null); };
   const openEditModal = (client: Client) => {
     setEditingClient(client);
     setFormData({
@@ -105,21 +272,13 @@ export default function ClientsManagementPage() {
   };
   const closeModal = () => { setModalMode(null); setEditingClient(null); setFormData(emptyForm); setError(null); };
   const handleNameChange = (value: string) => {
-    setFormData(prev => ({ ...prev, name: value, ...(modalMode === 'add' ? { slug: slugify(value) } : {}) }));
+    setFormData(prev => ({ ...prev, name: value }));
   };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      if (modalMode === 'add') {
-        if (!formData.name || !formData.slug || !formData.city) { setError('Name, slug, and city are required'); setSaving(false); return; }
-        const res = await fetch('/api/admin/create-client', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: formData.name, slug: formData.slug, city: formData.city, contact_name: formData.contact_name || null, contact_email: formData.contact_email || null, has_seo: formData.has_seo, has_ads: formData.has_ads }),
-        });
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'Failed to create client');
-      } else if (modalMode === 'edit' && editingClient) {
+      if (modalMode === 'edit' && editingClient) {
         const res = await fetch(`/api/admin/clients/${editingClient.id}`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formData.name, city: formData.city, contact_name: formData.contact_name || null, contact_email: formData.contact_email || null, website_url: formData.website_url || null, has_seo: formData.has_seo, has_ads: formData.has_ads, notes: formData.notes || null, ads_budget_month: formData.ads_budget_month ? Number(formData.ads_budget_month) : null, status: formData.status || null }),
@@ -153,10 +312,41 @@ export default function ClientsManagementPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to cancel contract'); }
   };
 
+  const saveNotes = async (clientId: string, value: string) => {
+    setNotesSavingId(clientId);
+    try {
+      await fetch(`/api/admin/clients/${clientId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: value || null }),
+      });
+      setClients(prev => prev.map(c => c.id === clientId ? { ...c, notes: value || null } : c));
+    } finally {
+      setNotesSavingId(null);
+      setEditingNotesId(null);
+    }
+  };
+
+  const saveFill = async (clientId: string, ym: string) => {
+    const val = parseInt(fillsMap[clientId]?.[ym] || '0', 10);
+    if (isNaN(val) || val < 0) return;
+    const key = `${clientId}:${ym}`;
+    setFillsSavingKey(key);
+    try {
+      await fetch('/api/admin/form-fills', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, year_month: ym, form_fills: val }),
+      });
+    } finally {
+      setFillsSavingKey(null);
+    }
+  };
+
   // Derived stats
   const activeClients = clients.filter(c => c.is_active);
   const cancelledClients = clients.filter(c => !c.is_active);
-  const churnRate = clients.length > 0 ? ((cancelledClients.length / clients.length) * 100).toFixed(1) : '0.0';
+  const churnRate = clients.length > 0
+    ? Math.round((cancelledClients.length / clients.length) * 100)
+    : 0;
   const adsClients = clients.filter(c => c.has_ads && c.is_active).length;
   const seoClients = clients.filter(c => c.has_seo && c.is_active).length;
 
@@ -173,6 +363,13 @@ export default function ClientsManagementPage() {
     return showCancelled ? [...active, ...cancelled] : active;
   })();
 
+  function syncAge(clientId: string): { days: number; stale: boolean } | null {
+    const d = lastSync[clientId];
+    if (!d) return null;
+    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+    return { days: diff, stale: diff > 2 };
+  }
+
   const statusColor = (s: string | null) => {
     if (s === 'Cancelled') return { bg: '#fef2f2', color: '#dc2626' };
     if (s === 'Paused') return { bg: '#fefce8', color: '#b45309' };
@@ -183,7 +380,7 @@ export default function ClientsManagementPage() {
   return (
     <AdminLayout>
       {/* Sticky header */}
-      <div className="sticky top-0 z-40 px-6 py-3" style={{
+      <div className="sticky top-14 md:top-0 z-30 px-6 py-3" style={{
         background: 'rgba(245,241,237,0.98)', backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44,36,25,0.08)',
         display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
@@ -192,9 +389,18 @@ export default function ClientsManagementPage() {
           <Users size={16} style={{ color: '#c4704f' }} />
           <span style={{ fontSize: '15px', fontWeight: 700, color: '#2c2419' }}>Client Management</span>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Month range for form fills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#9ca3af' }}>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '10px' }}>Fills:</span>
+            <input type="month" value={fillsFromYM} onChange={e => setFillsFromYM(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+            <span style={{ fontSize: '10px', color: '#d1d5db' }}>→</span>
+            <input type="month" value={fillsToYM} onChange={e => setFillsToYM(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '12px', color: '#2c2419', background: '#faf8f6', outline: 'none', cursor: 'pointer' }} />
+          </div>
           {isAdmin && (
-            <button onClick={openAddModal}
+            <button onClick={() => router.push('/admin-dashboard/clients/new')}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               <Plus size={14} /> Add Client
             </button>
@@ -280,12 +486,12 @@ export default function ClientsManagementPage() {
             .clients-table tbody tr:last-child td { border-bottom: none; }
             .clients-table tbody tr { cursor: pointer; transition: background 140ms; }
             .clients-table tbody tr:hover td { background: rgba(196,112,79,0.04); }
-            .clients-table .col-name  { width: 28%; }
-            .clients-table .col-city  { width: 14%; }
-            .clients-table .col-svc   { width: 13%; }
-            .clients-table .col-status{ width: 14%; }
-            .clients-table .col-email { width: 20%; }
-            .clients-table .col-acts  { width: 11%; }
+            .clients-table .col-name  { width: 25%; }
+            .clients-table .col-city  { width: 13%; }
+            .clients-table .col-svc   { width: 11%; }
+            .clients-table .col-status{ width: 12%; }
+            .clients-table .col-email { width: 18%; }
+            .clients-table .col-acts  { width: 21%; }
             .sep { border-right: 1px solid rgba(44,36,25,0.07); }
           `}</style>
 
@@ -301,7 +507,7 @@ export default function ClientsManagementPage() {
                     <th className="col-svc sep" style={{ textAlign: 'center' }}>Services</th>
                     <th className="col-status sep" style={{ textAlign: 'center' }}>Status</th>
                     <th className="col-email sep" style={{ textAlign: 'left' }}>Contact</th>
-                    {isAdmin && <th className="col-acts" style={{ textAlign: 'center' }}>Actions</th>}
+                    <th className="col-acts" style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -327,7 +533,15 @@ export default function ClientsManagementPage() {
                         >
                           <td className="col-name">
                             <div style={{ fontWeight: 600, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</div>
-                            {client.owner && <div style={{ fontSize: '11px', color: '#8a7f74', marginTop: '1px' }}>{client.owner}</div>}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              {client.owner && <span style={{ fontSize: '11px', color: '#8a7f74' }}>{client.owner}</span>}
+                              {(() => {
+                                const sync = syncAge(client.id);
+                                if (!sync) return client.is_active ? <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 600 }}>No data</span> : null;
+                                if (sync.stale) return <span style={{ fontSize: '10px', color: '#d97706', fontWeight: 600 }}>{sync.days}d ago ⚠</span>;
+                                return <span style={{ fontSize: '10px', color: '#9ca3af' }}>{sync.days}d ago</span>;
+                              })()}
+                            </div>
                           </td>
                           <td className="col-city sep" style={{ color: '#5c5850' }}>{client.city || '—'}</td>
                           <td className="col-svc sep" style={{ textAlign: 'center' }}>
@@ -347,9 +561,16 @@ export default function ClientsManagementPage() {
                           <td className="col-email sep" style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {client.contact_email || <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
-                          {isAdmin && (
-                            <td className="col-acts" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <td className="col-acts" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                              {/* Expand notes/fills */}
+                              <button onClick={() => toggleExpand(client.id)}
+                                title={expandedRows.has(client.id) ? 'Collapse' : 'Notes & Fills'}
+                                style={{ padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer', color: expandedRows.has(client.id) ? '#c4704f' : client.notes ? '#2c2419' : '#9ca3af', background: expandedRows.has(client.id) ? 'rgba(196,112,79,0.1)' : 'rgba(44,36,25,0.05)', transition: 'all 150ms', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 600 }}>
+                                {client.notes && !expandedRows.has(client.id) && <span style={{ fontSize: '9px', lineHeight: 1 }}>📝</span>}
+                                <ChevronDown size={12} style={{ transform: expandedRows.has(client.id) ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
+                              </button>
+                              {isAdmin && (<>
                                 <button onClick={() => openEditModal(client)}
                                   style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.15)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
@@ -364,10 +585,60 @@ export default function ClientsManagementPage() {
                                   title={client.is_active ? 'Cancel contract' : 'Reactivate'}>
                                   {client.is_active ? <XCircle size={13} /> : <CheckCircle size={13} />}
                                 </button>
+                              </>)}
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Accordion: Notes + Form Fills */}
+                        {expandedRows.has(client.id) && (
+                          <tr key={`expand-${client.id}`} style={{ background: 'rgba(196,112,79,0.02)' }}>
+                            <td colSpan={6} style={{ padding: '12px 16px 16px 16px', borderBottom: '2px solid rgba(196,112,79,0.15)' }} onClick={e => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                {/* Notes */}
+                                <div style={{ flex: '1 1 220px' }}>
+                                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '6px' }}>Notes</div>
+                                  {editingNotesId === client.id ? (
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                                      <textarea autoFocus rows={3} value={notesDraft}
+                                        onChange={e => setNotesDraft(e.target.value)}
+                                        onBlur={() => saveNotes(client.id, notesDraft)}
+                                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(client.id, notesDraft); } if (e.key === 'Escape') setEditingNotesId(null); }}
+                                        style={{ flex: 1, padding: '8px 10px', border: '1.5px solid #c4704f', borderRadius: '8px', fontSize: '12px', color: '#2c2419', background: '#fff', resize: 'vertical', outline: 'none', fontFamily: 'inherit', minWidth: '180px' }} />
+                                      {notesSavingId === client.id && <span style={{ fontSize: '11px', color: '#9ca3af', alignSelf: 'center' }}>…</span>}
+                                    </div>
+                                  ) : (
+                                    <div
+                                      onClick={() => { setEditingNotesId(client.id); setNotesDraft(client.notes || ''); }}
+                                      style={{ fontSize: '12px', color: client.notes ? '#2c2419' : '#c4c0ba', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', minHeight: '36px', background: '#faf8f6', border: '1px dashed rgba(44,36,25,0.15)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#c4704f'; (e.currentTarget as HTMLElement).style.background = '#fff'; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(44,36,25,0.15)'; (e.currentTarget as HTMLElement).style.background = '#faf8f6'; }}>
+                                      {client.notes || 'Click to add notes…'}
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Form Fills */}
+                                <div style={{ flex: '0 0 auto' }}>
+                                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '6px' }}>Form Fills by Month</div>
+                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {monthsInRange.map(m => (
+                                      <div key={m.ym} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap' }}>{m.label}</span>
+                                        <input type="number" min={0}
+                                          value={fillsMap[client.id]?.[m.ym] ?? ''}
+                                          onChange={e => setFillsMap(prev => ({ ...prev, [client.id]: { ...prev[client.id], [m.ym]: e.target.value } }))}
+                                          onKeyDown={e => e.key === 'Enter' && saveFill(client.id, m.ym)}
+                                          placeholder="—"
+                                          style={{ width: '52px', padding: '5px 6px', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '13px', fontWeight: 600, color: '#2c2419', textAlign: 'center', background: '#faf8f6', outline: 'none', opacity: fillsSavingKey === `${client.id}:${m.ym}` ? 0.5 : 1 }}
+                                          onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; e.currentTarget.style.background = '#fff'; }}
+                                          onBlur={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.15)'; e.currentTarget.style.background = '#faf8f6'; saveFill(client.id, m.ym); }} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                          )}
-                        </tr>
+                          </tr>
+                        )}
                       </>
                     );
                   })}
@@ -376,11 +647,17 @@ export default function ClientsManagementPage() {
               {sortedAndFiltered.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '48px', color: '#9ca3af', fontSize: '13px' }}>
                   {searchQuery ? 'No clients match your search' : 'No clients found'}
+                  {!searchQuery && !showCancelled && cancelledClients.length > 0 && (
+                    <p style={{ fontSize: 13, marginTop: 8, opacity: 0.7 }}>
+                      {cancelledClients.length} cancelled client{cancelledClients.length !== 1 ? 's' : ''} hidden — toggle "Show Cancelled" to view
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
+
       </div>
 
       {/* Cancel Confirmation */}
@@ -396,7 +673,7 @@ export default function ClientsManagementPage() {
               <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>Cancel Contract</h3>
             </div>
             <p className="text-sm mb-6" style={{ color: '#5c5850' }}>
-              Client sẽ bị đánh dấu Cancelled và không hiển thị trong dashboard. Có thể reactivate bất cứ lúc nào.
+              Client will be marked as Cancelled. All active services will be noted as discontinued. You can reactivate at any time.
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmCancel(null)} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>Keep Active</button>
@@ -418,10 +695,10 @@ export default function ClientsManagementPage() {
             <div className="flex items-center justify-between p-6 pb-4" style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full" style={{ background: 'rgba(196,112,79,0.1)' }}>
-                  {modalMode === 'add' ? <Plus size={18} style={{ color: '#c4704f' }} /> : <Edit2 size={18} style={{ color: '#c4704f' }} />}
+                  <Edit2 size={18} style={{ color: '#c4704f' }} />
                 </div>
                 <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>
-                  {modalMode === 'add' ? 'Add New Client' : `Edit ${editingClient?.name}`}
+                  Edit {editingClient?.name}
                 </h3>
               </div>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={18} /></button>
@@ -432,7 +709,6 @@ export default function ClientsManagementPage() {
 
               {[
                 { key: 'name', label: 'Name', required: true, placeholder: 'Client business name', onChange: (v: string) => handleNameChange(v) },
-                ...(modalMode === 'add' ? [{ key: 'slug', label: 'Slug', required: true, placeholder: 'auto-generated-slug', onChange: (v: string) => setFormData(p => ({ ...p, slug: v })) }] : []),
                 { key: 'city', label: 'City', required: true, placeholder: 'City, State', onChange: (v: string) => setFormData(p => ({ ...p, city: v })) },
               ].map(f => (
                 <div key={f.key}>
@@ -534,8 +810,173 @@ export default function ClientsManagementPage() {
               <button onClick={closeModal} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving}
                 style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: saving ? '#d4a68a' : '#c4704f', color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.8 : 1 }}>
-                {saving ? 'Saving...' : modalMode === 'add' ? 'Create Client' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Backfill Modal */}
+      {backfillClient && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(44,36,25,0.5)', backdropFilter: 'blur(4px)' }}
+          onClick={() => modalStep !== 'running' && modalStep !== 'testing' && setBackfillClient(null)}>
+          <div className="rounded-2xl w-full max-w-md mx-4"
+            style={{ background: '#fff', boxShadow: '0 20px 60px rgba(44,36,25,0.3)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 pb-4" style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full" style={{ background: 'rgba(217,168,84,0.12)' }}>
+                  <Database size={18} style={{ color: '#d9a854' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold" style={{ color: '#2c2419', margin: 0 }}>Backfill Data</h3>
+                  <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{backfillClient.name}</p>
+                </div>
+              </div>
+              {modalStep !== 'running' && modalStep !== 'testing' && (
+                <button onClick={() => setBackfillClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={18} /></button>
+              )}
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* STEP: idle — pick days */}
+              {modalStep === 'idle' && (
+                <>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {backfillClient.has_seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>SEO</span>}
+                    {backfillClient.has_ads && <span style={{ background: '#fff7ed', color: '#c2410c', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>Google Ads</span>}
+                    <span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '3px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>GBP (if configured)</span>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#5c5850', marginBottom: '8px', fontWeight: 600 }}>Date range to backfill</p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[30, 60, 90].map(d => (
+                        <button key={d} type="button" onClick={() => setBackfillDays(d)}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, border: '1.5px solid', cursor: 'pointer',
+                            borderColor: backfillDays === d ? '#d9a854' : 'rgba(44,36,25,0.12)',
+                            background: backfillDays === d ? 'rgba(217,168,84,0.1)' : 'transparent',
+                            color: backfillDays === d ? '#b45309' : '#5c5850' }}>
+                          {d} days
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>First, we'll test each connection before running the full backfill.</p>
+                </>
+              )}
+
+              {/* STEP: testing */}
+              {modalStep === 'testing' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850' }}>
+                    <Loader2 size={14} className="animate-spin" style={{ color: '#d9a854' }} />
+                    Testing connections for yesterday's data...
+                  </div>
+                </div>
+              )}
+
+              {/* STEP: ready — show test results */}
+              {modalStep === 'ready' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#5c5850', margin: 0 }}>Connection Test Results</p>
+                  {testResults.map(r => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px',
+                      background: r.ok ? 'rgba(16,185,129,0.05)' : r.message === 'Not enabled' ? 'rgba(44,36,25,0.03)' : 'rgba(239,68,68,0.05)',
+                      border: `1px solid ${r.ok ? 'rgba(16,185,129,0.15)' : r.message === 'Not enabled' ? 'rgba(44,36,25,0.08)' : 'rgba(239,68,68,0.15)'}` }}>
+                      <span style={{ fontSize: '13px', color: '#2c2419', fontWeight: 500 }}>{r.label}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: r.ok ? '#059669' : r.message === 'Not enabled' ? '#9ca3af' : '#dc2626' }}>
+                        {r.ok ? `✓ ${r.message}` : r.message === 'Not enabled' ? '— disabled' : `✗ ${r.message}`}
+                      </span>
+                    </div>
+                  ))}
+                  {testResults.every(r => !r.ok || r.message === 'Not enabled') && (
+                    <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#dc2626' }}>
+                      All connections failed. Check service IDs in Edit Client before backfilling.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP: running */}
+              {modalStep === 'running' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#5c5850', marginBottom: '6px' }}>
+                    <span>Day {backfill.currentDay} / {backfill.totalDays} — {backfill.currentService}</span>
+                    <span style={{ fontWeight: 700 }}>{backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%</span>
+                  </div>
+                  <div style={{ height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%`,
+                      background: 'linear-gradient(90deg, #d9a854, #c4704f)', borderRadius: '99px', transition: 'width 0.4s ease' }} />
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px' }}>Keep this tab open while running...</p>
+                </div>
+              )}
+
+              {/* STEP: done */}
+              {modalStep === 'done' && (
+                <div style={{ background: backfill.errors.length > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)',
+                  border: `1px solid ${backfill.errors.length > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)'}`,
+                  borderRadius: '10px', padding: '14px 16px', fontSize: '13px',
+                  color: backfill.errors.length > 0 ? '#b45309' : '#059669' }}>
+                  {backfill.errors.length > 0
+                    ? `Done with ${backfill.errors.length} error${backfill.errors.length > 1 ? 's' : ''} — data may be partially synced`
+                    : `Backfill complete · all ${backfill.totalDays * 4} sync jobs succeeded`}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 justify-end p-6 pt-2" style={{ borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+              {modalStep === 'idle' && (
+                <>
+                  <button onClick={() => setBackfillClient(null)}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button onClick={testConnections}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#d9a854', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                    Test Connection →
+                  </button>
+                </>
+              )}
+              {modalStep === 'testing' && (
+                <div style={{ fontSize: '13px', color: '#9ca3af', padding: '9px 0' }}>Testing...</div>
+              )}
+              {modalStep === 'ready' && (
+                <>
+                  <button onClick={() => setModalStep('idle')}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    Back
+                  </button>
+                  <button onClick={runBackfill}
+                    disabled={testResults.every(r => !r.ok || r.message === 'Not enabled')}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                      background: testResults.every(r => !r.ok || r.message === 'Not enabled') ? '#d1d5db' : '#c4704f', color: '#fff' }}>
+                    Start Backfill ({backfillDays}d)
+                  </button>
+                </>
+              )}
+              {modalStep === 'running' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5c5850', padding: '9px 0' }}>
+                  <Loader2 size={14} className="animate-spin" />Running...
+                </div>
+              )}
+              {modalStep === 'done' && (
+                <>
+                  <button onClick={() => setBackfillClient(null)}
+                    style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>
+                    Close
+                  </button>
+                  <button onClick={() => { setModalStep('idle'); setTestResults([]); }}
+                    style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#d9a854', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                    Re-run
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

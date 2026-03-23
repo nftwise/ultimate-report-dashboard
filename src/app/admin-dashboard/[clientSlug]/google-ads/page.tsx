@@ -190,18 +190,19 @@ export default function GoogleAdsPage() {
   const [prevPeriodData, setPrevPeriodData] = useState<{ spend: number; conversions: number; clicks: number; impressions: number }>({ spend: 0, conversions: 0, clicks: 0, impressions: 0 });
   const [showAdGroups, setShowAdGroups] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date();
-    const from = new Date();
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -241,24 +242,45 @@ export default function GoogleAdsPage() {
     const fetchMetrics = async () => {
       if (!client) return;
 
+      setChartLoading(true);
       try {
         const dateFromISO = toLocalDateStr(dateRange.from);
         const dateToISO = toLocalDateStr(dateRange.to);
 
         // Fetch campaign metrics data (includes conversions — source of truth)
-        const { data: campaignMetricsData } = await supabase
-          .from('ads_campaign_metrics')
-          .select('date, impressions, clicks, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
+        const [{ data: campaignMetricsData }, { data: summaryData }] = await Promise.all([
+          supabase
+            .from('ads_campaign_metrics')
+            .select('date, impressions, clicks, cost, conversions')
+            .eq('client_id', client.id)
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO)
+            .order('date', { ascending: true }),
+          // Fetch device split from client_metrics_summary (GA4 data)
+          supabase
+            .from('client_metrics_summary')
+            .select('date, sessions_mobile, sessions_desktop')
+            .eq('client_id', client.id)
+            .eq('period_type', 'daily')
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO),
+        ]);
+
+        // Build device lookup by date
+        const deviceByDate = new Map<string, { sessions_mobile: number; sessions_desktop: number }>();
+        (summaryData || []).forEach((row: any) => {
+          deviceByDate.set(row.date, {
+            sessions_mobile: row.sessions_mobile || 0,
+            sessions_desktop: row.sessions_desktop || 0,
+          });
+        });
 
         // Aggregate by date
         const dateMap = new Map();
         (campaignMetricsData || []).forEach(row => {
           const date = row.date;
           if (!dateMap.has(date)) {
+            const device = deviceByDate.get(date) || { sessions_mobile: 0, sessions_desktop: 0 };
             dateMap.set(date, {
               date,
               ads_impressions: 0,
@@ -270,8 +292,8 @@ export default function GoogleAdsPage() {
               total_leads: 0,
               ads_phone_calls: 0,
               form_fills: 0,
-              sessions_mobile: 0,
-              sessions_desktop: 0
+              sessions_mobile: device.sessions_mobile,
+              sessions_desktop: device.sessions_desktop,
             });
           }
           const entry = dateMap.get(date);
@@ -293,6 +315,8 @@ export default function GoogleAdsPage() {
         setDailyData(aggregated as DailyMetrics[]);
       } catch (error) {
         console.error('Error fetching metrics:', error);
+      } finally {
+        setChartLoading(false);
       }
     };
 
@@ -388,7 +412,7 @@ export default function GoogleAdsPage() {
           .eq('client_id', client.id)
           .gte('date', dateFromISO)
           .lte('date', dateToISO);
-        const totalConversions = (metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0);
+        const totalConversions = Math.round((metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0));
         setFormConversions(totalConversions);
 
         // Keep campaign_conversion_actions only for breakdown chart (action type breakdown)
@@ -446,8 +470,12 @@ export default function GoogleAdsPage() {
 
   if (loading || !client) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <p style={{ color: '#2c2419' }}>Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading...</p>
+        </div>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -513,13 +541,25 @@ export default function GoogleAdsPage() {
   const momCpa = calcMoM(currentCpa, prevCpa, true); // invert: lower CPA is better
   const momCtr = calcMoM(currentCtr, prevCtr);
 
+  // Actual date labels for MoM badges
+  const prevPeriodEnd = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+  const prevPeriodStart = new Date(prevPeriodEnd); prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays);
+  const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
+  const lastDataDate = dailyData.length > 0 ? dailyData[dailyData.length - 1].date : null;
+
   return (
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Date Controls */}
-        <div className="flex items-center justify-end gap-3 mb-6">
+        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+          {lastDataDate && (
+            <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
+              Data through {new Date(lastDataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
           <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
             {[7, 30, 90].map((days) => (
               <button
@@ -544,8 +584,90 @@ export default function GoogleAdsPage() {
             <div className="mb-12">
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>GOOGLE ADS ANALYTICS</span>
               <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Performance Report</h1>
-              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Real-time campaign metrics and optimization insights</p>
+              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Paid search performance — how your ad budget translates into patient leads</p>
             </div>
+
+            {/* Section 6: Key Insights */}
+            {totalConversions > 0 && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(44, 36, 25, 0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
+                marginBottom: '32px'
+              }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: '#5c5850',
+                  margin: '0 0 8px 0'
+                }}>
+                  Key Insights
+                </p>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#2c2419',
+                  margin: '0 0 16px 0',
+                  letterSpacing: '-0.02em'
+                }}>
+                  What This Means for Your Practice
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Spend summary */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(196, 112, 79, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #c4704f'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads spent <strong>{fmtCurrency(totalSpend)}</strong> and generated{' '}
+                      <strong>{fmtNum(Math.round(totalConversions))} patient {totalConversions === 1 ? 'lead' : 'leads'}</strong>{' '}
+                      at <strong>{fmtCurrency(parseFloat(cpa))} per lead</strong>.{' '}
+                      {momCpa.type === 'up'
+                        ? `Cost per lead improved vs. ${prevLabel} — your campaigns are becoming more efficient.`
+                        : momCpa.type === 'down'
+                        ? `Cost per lead increased vs. ${prevLabel}. This may indicate more competitive auctions or lower-quality clicks.`
+                        : `Cost per lead is similar to ${prevLabel}.`}
+                    </p>
+                  </div>
+                  {/* CTR/Click insight */}
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(157, 181, 160, 0.06)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #9db5a0'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                      Your ads appeared <strong>{fmtNum(totalImpressions)} times</strong> on Google and received{' '}
+                      <strong>{fmtNum(totalClicks)} clicks</strong> ({ctr}% click rate).{' '}
+                      Of those clicks, <strong>{conversionRate.toFixed(1)}%</strong> turned into leads.
+                    </p>
+                  </div>
+                  {/* Top search terms insight */}
+                  {convertingTerms.length > 0 && (
+                    <div style={{
+                      padding: '16px',
+                      background: 'rgba(217, 168, 84, 0.06)',
+                      borderRadius: '12px',
+                      borderLeft: '3px solid #d9a854'
+                    }}>
+                      <p style={{ fontSize: '13px', color: '#2c2419', margin: 0, lineHeight: '1.6' }}>
+                        Your top-performing search term was{' '}
+                        <strong>&ldquo;{convertingTerms[0].term}&rdquo;</strong>{' '}
+                        with {convertingTerms[0].conversions} {convertingTerms[0].conversions === 1 ? 'lead' : 'leads'} generated.{' '}
+                        These are the exact words patients typed into Google before finding you.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Section 2: Executive Summary */}
             <ExecutiveSummaryCards
@@ -557,13 +679,26 @@ export default function GoogleAdsPage() {
               momConversions={momConversions}
               momCpa={momCpa}
               momCtr={momCtr}
-              periodLabel={`vs prev ${periodDays}d`}
+              periodLabel={`vs ${prevLabel}`}
             />
 
             {/* Section 3: Visual Trend Analysis */}
             <div className="mb-12">
-              <SpendVsLeadsComboChart data={dailyData} height={350} />
+              {chartLoading ? (
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 32, height: 32, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : dailyData.length > 0 ? (
+                <SpendVsLeadsComboChart data={dailyData} height={350} />
+              ) : null}
             </div>
+
+            {/* Empty state for no data */}
+            {dailyData.length === 0 && !loading && (
+              <div style={{ textAlign: 'center', padding: '48px', color: '#2c2419', opacity: 0.5 }}>
+                <p style={{ fontSize: 16 }}>No Google Ads data for this date range</p>
+              </div>
+            )}
 
             {/* Section 3.5: Device Split */}
             {(totalMobileSessions > 0 || totalDesktopSessions > 0) && (
@@ -616,10 +751,12 @@ export default function GoogleAdsPage() {
             {/* Section 4: Technical Deep-Dive (60/40 Layout) */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '60% 40%',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
               gap: '24px',
               marginBottom: '32px'
-            }}>
+            }}
+            className="xl:grid-cols-[60%_40%]"
+            >
               {/* Left Column: Top Converting Search Terms */}
               <TopConvertingSearchTerms data={convertingTerms} limit={20} />
 
@@ -642,7 +779,7 @@ export default function GoogleAdsPage() {
                     color: '#5c5850',
                     margin: '0 0 8px 0'
                   }}>
-                    📊 Performance Details
+                    Performance Details
                   </p>
                   <h3 style={{
                     fontSize: '18px',
@@ -653,13 +790,6 @@ export default function GoogleAdsPage() {
                   }}>
                     Conversion Breakdown
                   </h3>
-                  <p style={{
-                    fontSize: '10px',
-                    color: '#9ca3af',
-                    margin: '0 0 16px 0'
-                  }}>
-                    From Google Ads API
-                  </p>
 
                   {/* Summary Stats */}
                   <div style={{
@@ -681,7 +811,7 @@ export default function GoogleAdsPage() {
                         margin: '0 0 4px 0',
                         fontWeight: '600'
                       }}>
-                        Cost Per Acquisition
+                        Cost Per Lead
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -853,6 +983,7 @@ export default function GoogleAdsPage() {
               </button>
               {showAdGroups && <AdGroupPerformanceTable data={adGroups} />}
             </div>
+
         </div>
       </div>
     </AdminLayout>

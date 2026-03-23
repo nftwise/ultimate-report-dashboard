@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { fmtCurrency, fmtNum } from '@/lib/format';
 import {
   ComposedChart,
   Bar,
@@ -116,7 +117,7 @@ export default function SpendVsLeadsComboChart({
           margin: '0 0 16px 0',
           letterSpacing: '-0.02em'
         }}>
-          Cost Per Lead Correlation
+          Spend &amp; Leads Trend
         </h3>
 
         {/* Stats Row */}
@@ -146,7 +147,7 @@ export default function SpendVsLeadsComboChart({
               color: '#c4704f',
               margin: 0
             }}>
-              ${totalSpend.toFixed(2)}
+              {fmtCurrency(totalSpend)}
             </p>
           </div>
 
@@ -194,7 +195,7 @@ export default function SpendVsLeadsComboChart({
               color: '#d9a854',
               margin: 0
             }}>
-              ${avgSpendPerLead}
+              {fmtCurrency(parseFloat(avgSpendPerLead))}
             </p>
           </div>
         </div>

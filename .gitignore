@@ -49,4 +49,3 @@ next-env.d.ts
 # Research/analysis files (not for deployment)
 gemini/
 cron-deploy/
-scripts/

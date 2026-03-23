@@ -30,7 +30,9 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
     const monthlyLeads: { [key: string]: number } = {};
 
     data.forEach((item) => {
-      const date = new Date(item.date);
+      // Parse YYYY-MM-DD directly (avoid UTC/local timezone shift)
+      const [y, m] = item.date.slice(0, 7).split('-').map(Number);
+      const date = new Date(y, m - 1, 1);
       const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
       if (!monthlyLeads[monthKey]) {
@@ -39,8 +41,9 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
       monthlyLeads[monthKey] += item.total_leads || 0;
     });
 
-    const labels = Object.keys(monthlyLeads);
-    const values = Object.values(monthlyLeads);
+    // Only show months that have actual data (filter out zero-lead phantom months)
+    const labels = Object.keys(monthlyLeads).filter(k => monthlyLeads[k] > 0);
+    const values = labels.map(k => monthlyLeads[k]);
 
     return {
       labels,
@@ -60,7 +63,7 @@ export default function SixMonthBarChart({ data }: SixMonthBarChartProps) {
 
   const options: ChartOptions<'bar'> = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         display: true,

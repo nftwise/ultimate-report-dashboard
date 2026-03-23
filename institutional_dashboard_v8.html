@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Institutional Trading Portal</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           DESIGN SYSTEM TOKENS (For Dev Handoff)
+           ========================================= */
+        :root {
+            /* Colors */
+            --bg-page: #F8FAFC;
+            --bg-surface: #FFFFFF;
+            --border: #E2E8F0;
+
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+
+            --brand-primary: #0F172A;
+            --success: #10B981;
+            --success-bg: #ECFDF5;
+            --danger: #EF4444;
+            --danger-bg: #FEF2F2;
+
+            /* Sizing & Borders */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+
+            /* Shadows for 3D depth on flat surfaces */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+            --font-sans: 'Inter', system-ui, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* Nav */
+        nav {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .nav-brand {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            height: 100%;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--brand-primary);
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+
+        /* Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        /* Metrics */
+        .metric-group {
+            display: flex;
+            gap: 48px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 24px;
+        }
+
+        .metric {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .metric-val {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -1px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.up {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .badge.down {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+        }
+
+        td {
+            font-size: 14px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .td-up {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .td-down {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        /* Chart constraints */
+        .chart-container {
+            height: 260px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-brand">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            QUANTUM CAPITAL &middot; PORTAL
+        </div>
+        <div class="nav-links">
+            <a href="#" class="nav-link active">Dashboard</a>
+            <a href="#" class="nav-link">Strategies</a>
+            <a href="#" class="nav-link">Performance</a>
+            <a href="#" class="nav-link">Settings</a>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary); display:flex; gap:12px; align-items:center;">
+            <div
+                style="width:24px; height:24px; background:#E2E8F0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:600; color:#0F172A;">
+                J</div>
+            <span>J. Anderson</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Account Overview</h1>
+        <div class="subtitle">Institutional Dashboard for MACD V8 Algorithmic Core. Data verified: 2026-03-20.</div>
+
+        <div class="dashboard-grid">
+            <!-- Left Col -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="metric-group">
+                        <div class="metric">
+                            <span class="metric-label">Total Account Value (USD)</span>
+                            <span class="metric-val">$1,245,678.45 <span class="badge up"
+                                    style="font-size: 14px; margin-left: 8px;">+0.82%</span></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Strategy P&L (YTD)</span>
+                            <span class="metric-val" style="color: var(--success);">+$98,450.22</span>
+                        </div>
+                    </div>
+
+                    <div class="card-header" style="margin-bottom: 8px;">
+                        <span class="card-title">Performance Trajectory (30D)</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Active Strategy Deployment</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Strategy Name</th>
+                                <th>Status</th>
+                                <th>Currency Pair</th>
+                                <th>P&L (24h)</th>
+                                <th>Capital Exposure</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight: 500;">Alpha-Trend 1 (MACD)</td>
+                                <td><span class="badge up">Automated</span></td>
+                                <td>BTC/USD</td>
+                                <td class="td-up">+$15,310.20</td>
+                                <td>$250,000</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 500;">Alpha-Trend 2 (MACD)</td>
+                                <td><span class="badge up">Automated</span></td>
+                                <td>ETH/USD</td>
+                                <td class="td-up">+$8,140.50</td>
+                                <td>$150,000</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 500;">Alpha-Trend 3 (Revert)</td>
+                                <td><span class="badge" style="background:#f1f5f9; color:#64748b;">Standby / Idle</span>
+                                </td>
+                                <td>SOL/USD</td>
+                                <td class="td-down">-$1,200.00</td>
+                                <td>$75,000</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Right Col -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Risk & Quantitative Metrics</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <div class="metric">
+                            <span class="metric-label">Sharpe Ratio</span>
+                            <span class="metric-val" style="font-size: 24px;">1.82</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Maximum Drawdown</span>
+                            <span class="metric-val" style="font-size: 24px; color: var(--danger);">-3.15%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Average Win Rate</span>
+                            <span class="metric-val" style="font-size: 24px;">78.4%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="flex: 1;">
+                    <div class="card-header">
+                        <span class="card-title">Execution Ledger</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time (UTC)</th>
+                                <th>Ticker</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 13px;">
+                            <tr>
+                                <td style="color: var(--text-secondary)">14:02:11</td>
+                                <td>BTC/USD</td>
+                                <td class="td-up">BUY</td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-secondary)">13:45:00</td>
+                                <td>ETH/USD</td>
+                                <td class="td-up">BUY</td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-secondary)">11:20:14</td>
+                                <td>SOL/USD</td>
+                                <td class="td-down">SELL</td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-secondary)">09:15:33</td>
+                                <td>BTC/USD</td>
+                                <td class="td-down">SELL</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#64748B';
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Oct 01', 'Oct 05', 'Oct 10', 'Oct 15', 'Oct 20', 'Oct 25', 'Oct 30'],
+                datasets: [{
+                    label: 'Account Value ($M)',
+                    data: [1.15, 1.16, 1.18, 1.17, 1.20, 1.22, 1.24],
+                    borderColor: '#10B981',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#FFFFFF',
+                    pointBorderColor: '#10B981',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        grid: { color: '#F1F5F9' },
+                        border: { display: false },
+                        ticks: { callback: function (value) { return '$' + value + 'M'; } }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAndSendAlerts } from '@/lib/telegram';
 
+// Allow up to 120s — 20 days × 25 clients needs more than the default 60s
+export const maxDuration = 120;
+
 const BATCH_SIZE = 5;
 
 /**
@@ -38,22 +41,32 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Main rollup logic - reads from Supabase raw tables and aggregates into client_metrics_summary
+ * Main rollup logic - reads from Supabase raw tables and aggregates into client_metrics_summary.
+ * When no date is specified, processes the last 10 days so lagged API data (GSC 2-3d, GBP 3-7d)
+ * is automatically picked up on subsequent cron runs without needing a separate patch job.
  */
 async function runRollup(date?: string, clientId?: string, group?: string) {
   const startTime = Date.now();
 
   try {
-    let targetDate = date;
-    if (!targetDate) {
-      // Use California timezone for "yesterday" calculation
+    // Build list of dates: specific date if given, otherwise last 20 days.
+    // Alert windows need: cur7 (1-7d ago) + prev7 (8-14d ago) + GBP lag (5-7d) = 21d max.
+    // 20 days covers the full comparison window so both periods always use fresh data.
+    const datesToProcess: string[] = date ? [date] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-      caToday.setDate(caToday.getDate() - 1);
-      targetDate = `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
-    }
+      const dates: string[] = [];
+      for (let i = 1; i <= 20; i++) {
+        const d = new Date(caToday);
+        d.setDate(d.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      return dates;
+    })();
 
-    console.log(`[Rollup] Starting rollup for ${targetDate}`);
+    const latestDate = datesToProcess[0]; // most recent (yesterday)
+    const oldestDate = datesToProcess[datesToProcess.length - 1];
+    console.log(`[Rollup] Starting rollup for ${datesToProcess.length} dates: ${oldestDate} → ${latestDate}`);
 
     // Fetch clients
     let clientQuery = supabaseAdmin
@@ -71,58 +84,61 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
     if (!clients || clients.length === 0) {
-      return NextResponse.json({ success: true, date: targetDate, processed: 0, message: 'No active clients found' });
+      return NextResponse.json({ success: true, dates: { from: oldestDate, to: latestDate }, processed: 0, message: 'No active clients found' });
     }
 
-    console.log(`[Rollup] Processing ${clients.length} clients`);
+    console.log(`[Rollup] Processing ${clients.length} clients × ${datesToProcess.length} dates`);
 
-    // Get previous day data for comparison (use noon UTC to avoid timezone boundary issues)
-    const previousDate = new Date(targetDate + 'T12:00:00Z');
-    previousDate.setDate(previousDate.getDate() - 1);
-    const prevDateStr = previousDate.toISOString().split('T')[0];
+    const allMetricsToSave: any[] = [];
 
-    const { data: previousData } = await supabaseAdmin
-      .from('client_metrics_summary')
-      .select('client_id, top_keywords, total_leads')
-      .eq('date', prevDateStr)
-      .eq('period_type', 'daily');
+    // Process each date sequentially (batched clients within each date)
+    for (const targetDate of datesToProcess) {
+      // Previous day for keyword comparison
+      const previousDate = new Date(targetDate + 'T12:00:00Z');
+      previousDate.setDate(previousDate.getDate() - 1);
+      const prevDateStr = previousDate.toISOString().split('T')[0];
 
-    const previousDataMap = new Map(
-      (previousData || []).map((d: any) => [d.client_id, d])
-    );
+      const { data: previousData } = await supabaseAdmin
+        .from('client_metrics_summary')
+        .select('client_id, top_keywords, total_leads')
+        .eq('date', prevDateStr)
+        .eq('period_type', 'daily');
 
-    // Process clients in batches
-    const metricsToSave: any[] = [];
-
-    for (let i = 0; i < clients.length; i += BATCH_SIZE) {
-      const batch = clients.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map((client: any) => processClient(client, targetDate!, prevDateStr, previousDataMap))
+      const previousDataMap = new Map(
+        (previousData || []).map((d: any) => [d.client_id, d])
       );
-      metricsToSave.push(...batchResults);
+
+      for (let i = 0; i < clients.length; i += BATCH_SIZE) {
+        const batch = clients.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map((client: any) => processClient(client, targetDate, prevDateStr, previousDataMap))
+        );
+        allMetricsToSave.push(...batchResults);
+      }
     }
 
-    // Upsert to database
+    // Upsert all rows at once
     const { error: upsertError } = await supabaseAdmin
       .from('client_metrics_summary')
-      .upsert(metricsToSave, { onConflict: 'client_id,date,period_type' });
+      .upsert(allMetricsToSave, { onConflict: 'client_id,date,period_type' });
 
     if (upsertError) {
       throw new Error(`Failed to save: ${upsertError.message}`);
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[Rollup] Completed rollup for ${metricsToSave.length} clients in ${duration}ms`);
+    console.log(`[Rollup] Completed ${allMetricsToSave.length} rows in ${duration}ms`);
 
-    // Send Telegram alerts if any metrics dropped significantly (non-blocking)
-    checkAndSendAlerts(supabaseAdmin, targetDate).catch(err =>
+    // Telegram alerts based on the most recent date only (non-blocking)
+    checkAndSendAlerts(supabaseAdmin, latestDate).catch(err =>
       console.error('[Rollup] Alert check failed:', err)
     );
 
     return NextResponse.json({
       success: true,
-      date: targetDate,
-      processed: metricsToSave.length,
+      dates: { from: oldestDate, to: latestDate },
+      datesProcessed: datesToProcess.length,
+      processed: allMetricsToSave.length,
       duration,
     });
 
@@ -482,7 +498,7 @@ async function processClient(
   // =====================================================
   // COMPUTED METRICS
   // =====================================================
-  const totalLeads = googleAdsConversions + formFills + gbpCalls;
+  const totalLeads = googleAdsConversions + gbpCalls; // form_fills excluded — unreliable event naming
   const cpl = totalLeads > 0
     ? Math.round((adSpend / totalLeads) * 100) / 100
     : 0;

@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, AlertTriangle, TrendingDown } from 'lucide-react';
+import { Search, AlertTriangle, TrendingDown, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -11,7 +12,6 @@ import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 interface ServiceConfig {
   ga_property_id?: string;
   gads_customer_id?: string;
-  gbp_location_id?: string;
   gsc_site_url?: string;
   callrail_account_id?: string;
 }
@@ -30,6 +30,8 @@ interface ClientWithMetrics {
   ads_cpl?: number;
   ad_spend?: number;
   total_leads?: number;
+  prev_total_leads?: number;
+  manual_form_fills?: number;
   top_keywords?: number;
   trendPoints?: number[];
   service_configs?: ServiceConfig[];
@@ -49,12 +51,15 @@ interface AlertItem {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'admin';
   const [clients, setClients] = useState<ClientWithMetrics[]>([]);
+  const [gbpClientSet, setGbpClientSet] = useState<Set<string>>(new Set());
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<'seo' | 'active' | 'ads'>('active');
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'both'>('all');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
@@ -65,6 +70,28 @@ export default function AdminDashboardPage() {
     from.setDate(from.getDate() - 30);
     return { from, to };
   });
+
+  // On mount: use last available data date (not today) as the "to" anchor
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    );
+    supabase.from('client_metrics_summary')
+      .select('date')
+      .eq('period_type', 'daily')
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          const from = new Date(to);
+          from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
+  }, []);
 
   useEffect(() => {
     if (dateRange.from && dateRange.to) {
@@ -87,38 +114,102 @@ export default function AdminDashboardPage() {
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select(`id, name, slug, city, contact_email, is_active, owner, has_ads, has_seo,
-          service_configs (ga_property_id, gads_customer_id, gbp_location_id, gsc_site_url, callrail_account_id)`)
+          service_configs (ga_property_id, gads_customer_id, gsc_site_url, callrail_account_id)`)
         .order('name', { ascending: true });
 
       if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
-      const [metricsRes, gbpRes, formRes] = await Promise.all([
+      const { data: gbpRows } = await supabase.from('gbp_locations').select('client_id').eq('is_active', true);
+      const gbpSet = new Set<string>((gbpRows || []).map((r: any) => r.client_id));
+      setGbpClientSet(gbpSet);
+
+      // Dynamic cutoff: latest date where GBP calls are confirmed in the DB.
+      // This ensures trend only uses dates with complete API data (GBP lags 5-7d).
+      const { data: latestGbpRow } = await supabase
+        .from('client_metrics_summary')
+        .select('date')
+        .eq('period_type', 'daily')
+        .gt('gbp_calls', 0)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+      const completeCutoff = latestGbpRow?.date || dateToStr;
+
+      // Calculate previous period (same length, immediately before dateFrom)
+      const periodMs = dateRange.to.getTime() - dateRange.from.getTime() + 86400000;
+      const prevTo   = new Date(dateRange.from.getTime() - 86400000);
+      const prevFrom = new Date(prevTo.getTime() - periodMs + 86400000);
+      const prevFromStr = prevFrom.toISOString().split('T')[0];
+      const prevToStr   = prevTo.toISOString().split('T')[0];
+
+      // Form fills: pick N last COMPLETE months relative to toDate.
+      // "Complete" = month whose last day has already passed (≤ toDate).
+      // 7D / 30D  → numMonths = 1 (e.g. toDate=Mar 15 → Feb)
+      // 90D       → numMonths = 3 (e.g. toDate=Mar 15 → Dec, Jan, Feb)
+      const toDate = new Date(dateToStr + 'T00:00:00');
+      const periodDays = Math.round((toDate.getTime() - new Date(dateFromStr + 'T00:00:00').getTime()) / 86400000);
+      const numFillMonths = periodDays > 35 ? 3 : 1;
+      const rangeMonths: string[] = [];
+      let cY = toDate.getFullYear(), cM = toDate.getMonth() + 1; // 1-based
+      let iter = 0;
+      while (rangeMonths.length < numFillMonths && iter < 24) {
+        const lastDay = new Date(cY, cM, 0); // day-0 of next month = last day of cM
+        if (lastDay <= toDate) rangeMonths.unshift(`${cY}-${String(cM).padStart(2, '0')}`);
+        cM--; if (cM < 1) { cM = 12; cY--; }
+        iter++;
+      }
+      // Fallback: current month is in progress and nothing complete yet
+      if (rangeMonths.length === 0) {
+        rangeMonths.push(`${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}`);
+      }
+
+      const [metricsRes, formRes, prevMetricsRes, fillsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, google_ads_conversions, ad_spend, top_keywords, date')
+          .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
           .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
-        supabase.from('gbp_location_daily_metrics')
-          .select('client_id, phone_calls, date')
-          .gte('date', dateFromStr).lte('date', dateToStr),
         supabase.from('ga4_events')
           .select('client_id, event_count')
           .gte('date', dateFromStr).lte('date', dateToStr)
           .ilike('event_name', '%success%'),
+        supabase.from('client_metrics_summary')
+          .select('client_id, total_leads')
+          .gte('date', prevFromStr).lte('date', prevToStr).eq('period_type', 'daily'),
+        supabase.from('manual_form_fills')
+          .select('client_id, year_month, form_fills')
+          .in('year_month', rangeMonths),
       ]);
 
+      const prevMap: Record<string, number> = {};
+      (prevMetricsRes.data || []).forEach((m: any) => {
+        prevMap[m.client_id] = (prevMap[m.client_id] || 0) + (m.total_leads || 0);
+      });
+
+      // Build manual_form_fills map: clientId → total for selected months
+      const fillsMap: Record<string, number> = {};
+      (fillsRes.data || []).forEach((f: any) => {
+        fillsMap[f.client_id] = (fillsMap[f.client_id] || 0) + (f.form_fills || 0);
+      });
+
       const metricsMap: Record<string, any> = {};
-      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, trendByDate: {} as Record<string, number> });
+      const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, latestKwDate: '', trendByDate: {} as Record<string, number> });
 
       (metricsRes.data || []).forEach((m: any) => {
         if (!metricsMap[m.client_id]) metricsMap[m.client_id] = init();
         metricsMap[m.client_id].total_leads += m.total_leads || 0;
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
+        // Use gbp_calls from summary (same source as total_leads) so both are always consistent
+        metricsMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
-        metricsMap[m.client_id].top_keywords = Math.max(metricsMap[m.client_id].top_keywords, m.top_keywords || 0);
-        metricsMap[m.client_id].trendByDate[m.date] = m.total_leads || 0;
-      });
-      (gbpRes.data || []).forEach((g: any) => {
-        if (!metricsMap[g.client_id]) metricsMap[g.client_id] = init();
-        metricsMap[g.client_id].gbp_calls += g.phone_calls || 0;
+        // top_keywords: take from latest date that has a non-zero value (GSC lags 2-3 days)
+        if ((m.top_keywords || 0) > 0 && (!metricsMap[m.client_id].latestKwDate || m.date >= metricsMap[m.client_id].latestKwDate)) {
+          metricsMap[m.client_id].top_keywords = m.top_keywords;
+          metricsMap[m.client_id].latestKwDate = m.date;
+        }
+        // Trend: ads_conversions + gbp_calls only (no form_fills — unreliable event naming).
+        // Only include dates up to completeCutoff — ensures GBP API data is fully synced.
+        if (m.date <= completeCutoff) {
+          metricsMap[m.client_id].trendByDate[m.date] = (m.google_ads_conversions || 0) + (m.gbp_calls || 0);
+        }
       });
       (formRes.data || []).forEach((f: any) => {
         if (!metricsMap[f.client_id]) metricsMap[f.client_id] = init();
@@ -134,7 +225,8 @@ export default function AdminDashboardPage() {
         return {
           id: client.id, name: client.name, slug: client.slug, city: client.city,
           contact_email: client.contact_email, is_active: client.is_active, owner: client.owner,
-          total_leads: m.total_leads, seo_form_submits: m.seo_form_submits,
+          total_leads: m.total_leads, prev_total_leads: prevMap[client.id] ?? null, seo_form_submits: m.seo_form_submits,
+          manual_form_fills: fillsMap[client.id] || 0,
           top_keywords: m.top_keywords,
           gbp_calls: m.gbp_calls, ads_conversions: m.ads_conversions,
           ads_cpl: cpl, ad_spend: m.ad_spend, trendPoints,
@@ -162,23 +254,32 @@ export default function AdminDashboardPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       );
-      // Shift both windows back 5 days to avoid GBP API data lag (~5-day delay).
-      // Use form_fills + google_ads_conversions (not total_leads) to exclude GBP calls
-      // which are unreliable in the recent window due to the API lag.
-      const anchor = new Date(dateRange.to);
-      anchor.setDate(anchor.getDate() - 5); // lag offset
-      const fmt = (d: Date) => toLocalDateStr(d);
-      const cur7End = fmt(anchor);
-      const cur7Start = new Date(anchor); cur7Start.setDate(anchor.getDate() - 6);
-      const prev7End = new Date(anchor); prev7End.setDate(anchor.getDate() - 7);
-      const prev7Start = new Date(anchor); prev7Start.setDate(anchor.getDate() - 13);
+      // Dynamic completeCutoff: latest date where GBP data is confirmed complete.
+      // Both windows are anchored to this date → data integrity guaranteed.
+      // Rollup now covers 20 days so prev7 (8-14d back from cutoff) always has fresh data.
+      const { data: latestGbpAlert } = await supabase
+        .from('client_metrics_summary')
+        .select('date')
+        .eq('period_type', 'daily')
+        .gt('gbp_calls', 0)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      const cutoff = latestGbpAlert?.date
+        ? new Date(latestGbpAlert.date + 'T12:00:00Z')
+        : (() => { const d = new Date(dateRange.to); d.setDate(d.getDate() - 7); return d; })();
+      const cur7End = latestGbpAlert?.date || fmt(cutoff);
+      const cur7Start = new Date(cutoff); cur7Start.setDate(cutoff.getDate() - 6);
+      const prev7End = new Date(cutoff); prev7End.setDate(cutoff.getDate() - 7);
+      const prev7Start = new Date(cutoff); prev7Start.setDate(cutoff.getDate() - 13);
 
       const [curRes, prevRes, clientsRes] = await Promise.all([
         supabase.from('client_metrics_summary')
-          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
+          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
           .gte('date', fmt(cur7Start)).lte('date', cur7End),
         supabase.from('client_metrics_summary')
-          .select('client_id, form_fills, google_ads_conversions, sessions').eq('period_type', 'daily')
+          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
           .gte('date', fmt(prev7Start)).lte('date', fmt(prev7End)),
         supabase.from('clients').select('id, name').eq('is_active', true),
       ]);
@@ -187,8 +288,9 @@ export default function AdminDashboardPage() {
         const m: Record<string, { leads: number; sessions: number }> = {};
         for (const r of rows || []) {
           if (!m[r.client_id]) m[r.client_id] = { leads: 0, sessions: 0 };
-          // Exclude GBP calls — they have a 5-day API lag and distort recent comparisons
-          m[r.client_id].leads += (r.form_fills || 0) + (r.google_ads_conversions || 0);
+          // Leads = ads conversions + GBP calls (form_fills excluded — unreliable event naming)
+          // Both sources are complete at completeCutoff by definition
+          m[r.client_id].leads += (r.google_ads_conversions || 0) + (r.gbp_calls || 0);
           m[r.client_id].sessions += r.sessions || 0;
         }
         return m;
@@ -206,7 +308,10 @@ export default function AdminDashboardPage() {
         if (p.leads === 0 && p.sessions === 0) continue;
         const lp = p.leads > 0 ? Math.round(((c.leads - p.leads) / p.leads) * 100) : 0;
         const sp = p.sessions > 0 ? Math.round(((c.sessions - p.sessions) / p.sessions) * 100) : 0;
-        if (lp <= -20 || sp <= -30) {
+        // Require meaningful prev baseline to avoid noise (small numbers = high % swings)
+        const leadsAlert = lp <= -20 && p.leads >= 5 && (p.leads - c.leads) >= 3;
+        const sessionsAlert = sp <= -30 && p.sessions >= 50;
+        if (leadsAlert || sessionsAlert) {
           found.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
         }
       }
@@ -218,20 +323,21 @@ export default function AdminDashboardPage() {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.slug.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesServiceFilter = true;
-    if (serviceFilter === 'active') matchesServiceFilter = client.is_active;
-    else if (serviceFilter === 'ads') matchesServiceFilter = !!(client.services?.googleAds);
-    else if (serviceFilter === 'seo') matchesServiceFilter = !!(client.services?.seo);
+    if (serviceFilter === 'both') matchesServiceFilter = !!(client.services?.seo && client.services?.googleAds);
     return matchesSearch && matchesServiceFilter && (showArchived || client.is_active !== false);
   });
 
-  const totalLeads = clients.reduce((s, c) => s + (c.total_leads || 0), 0);
-  const totalGbpCalls = clients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
-  const cplClients = clients.filter(c => c.ads_cpl && c.ads_cpl > 0);
-  const avgCpl = cplClients.length > 0 ? cplClients.reduce((s, c) => s + (c.ads_cpl || 0), 0) / cplClients.length : 0;
+  const totalLeads = filteredClients.reduce((s, c) => s + (c.total_leads || 0), 0);
+  const totalGbpCalls = filteredClients.reduce((s, c) => s + (c.gbp_calls || 0), 0);
+  const totalAdSpend = filteredClients.reduce((s, c) => s + (c.ad_spend || 0), 0);
+  const totalAdsConversions = filteredClients.reduce((s, c) => s + (c.ads_conversions || 0), 0);
+  const totalFormFills = filteredClients.reduce((s, c) => s + (c.manual_form_fills || 0), 0);
+  const avgCpl = totalAdsConversions > 0 ? totalAdSpend / totalAdsConversions : 0;
 
   const getDaysDiff = () => Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
   const setPreset = (days: number) => {
-    const to = new Date(); to.setDate(to.getDate() - 1);
+    // Anchor to last available data date (already set in dateRange.to), not today
+    const to = new Date(dateRange.to);
     const from = new Date(to); from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
@@ -239,7 +345,7 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-40 px-6 py-3" style={{
+      <div className="sticky top-14 md:top-0 z-30 px-6 py-3" style={{
         background: 'rgba(245,241,237,0.98)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44,36,25,0.08)',
@@ -263,6 +369,20 @@ export default function AdminDashboardPage() {
             })}
           </div>
           <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+          {isAdmin && (
+            <button
+              onClick={() => router.push('/admin-dashboard/clients/new')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', background: '#c4704f', color: '#fff',
+                border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              <PlusCircle size={14} />
+              Add Client
+            </button>
+          )}
         </div>
       </div>
 
@@ -280,6 +400,7 @@ export default function AdminDashboardPage() {
           {[
             { label: 'Active Clients', value: fmtNum(clients.filter(c => c.is_active).length) },
             { label: 'Total Leads', value: fmtNum(totalLeads) },
+            { label: 'Form Fills', value: fmtNum(totalFormFills) },
             { label: 'Avg CPL', value: avgCpl > 0 ? fmtCurrency(avgCpl, 0) : 'N/A' },
             { label: 'GBP Calls', value: fmtNum(totalGbpCalls) },
           ].map((s, i) => (
@@ -299,7 +420,7 @@ export default function AdminDashboardPage() {
             >
               <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
-                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (7-day, excl. last 5d GBP lag)
+                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (last 7d vs prev 7d)
               </span>
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{alertsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
             </div>
@@ -382,18 +503,15 @@ export default function AdminDashboardPage() {
             <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 16px 0' }}>Configuration</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
-                { label: 'GA Configured', color: '#10b981', key: 'ga_property_id' },
-                { label: 'GSC Configured', color: '#3b82f6', key: 'gsc_site_url' },
-                { label: 'ADS Configured', color: '#d9a854', key: 'gads_customer_id' },
-                { label: 'GBP Configured', color: '#f59e0b', key: 'gbp_location_id' },
-              ].map(({ label, color, key }) => (
+                { label: 'GA Configured',  color: '#10b981', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.ga_property_id; }).length },
+                { label: 'GSC Configured', color: '#3b82f6', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.gsc_site_url; }).length },
+                { label: 'ADS Configured', color: '#d9a854', count: clients.filter(c => { const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined; return cfg?.gads_customer_id; }).length },
+                { label: 'GBP Configured', color: '#f59e0b', count: clients.filter(c => gbpClientSet.has(c.id)).length },
+              ].map(({ label, color, count }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#5c5850', fontSize: '13px' }}>{label}</span>
                   <span style={{ fontSize: '16px', fontWeight: 700, color }}>
-                    {clients.filter(c => {
-                      const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : undefined;
-                      return cfg?.[key as keyof ServiceConfig];
-                    }).length} ✓
+                    {count} ✓
                   </span>
                 </div>
               ))}
@@ -428,9 +546,8 @@ export default function AdminDashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {[
-                { id: 'active', label: 'Active', count: clients.filter(c => c.is_active).length },
-                { id: 'seo',    label: 'SEO',    count: clients.filter(c => c.services?.seo).length },
-                { id: 'ads',    label: 'Ads',    count: clients.filter(c => c.services?.googleAds).length },
+                { id: 'all',  label: 'All Clients', count: clients.filter(c => c.is_active).length },
+                { id: 'both', label: 'Ads + SEO',   count: clients.filter(c => c.is_active && c.services?.seo && c.services?.googleAds).length },
               ].map(f => (
                 <button key={f.id} onClick={() => setServiceFilter(f.id as any)}
                   style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1.5px solid rgba(44,36,25,0.15)', background: serviceFilter === f.id ? '#2c2419' : 'transparent', color: serviceFilter === f.id ? '#fff' : '#5c5850', transition: 'all 150ms' }}>
@@ -448,15 +565,15 @@ export default function AdminDashboardPage() {
             .client-table tbody tr:hover { background: rgba(196,112,79,0.04); }
             .client-table tbody tr:last-child { border-bottom: none; }
             .col-divider { border-right: 1px solid rgba(44,36,25,0.08) !important; }
-            .client-table .col-client { width: 22%; }
+            .client-table .col-client { width: 20%; }
             .client-table .col-svc    { width: 6%; }
-            .client-table .col-leads  { width: 9%; }
-            .client-table .col-forms  { width: 8%; }
-            .client-table .col-kw10   { width: 8%; }
-            .client-table .col-calls  { width: 9%; }
-            .client-table .col-conv   { width: 8%; }
-            .client-table .col-cpl    { width: 8%; }
-            .client-table .col-trend  { width: 22%; }
+            .client-table .col-leads  { width: 8%; }
+            .client-table .col-forms  { width: 7%; }
+            .client-table .col-kw10   { width: 7%; }
+            .client-table .col-calls  { width: 8%; }
+            .client-table .col-conv   { width: 7%; }
+            .client-table .col-cpl    { width: 7%; }
+            .client-table .col-trend  { width: 20%; }
           `}</style>
 
           {loading ? (
@@ -469,32 +586,36 @@ export default function AdminDashboardPage() {
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
                     <th rowSpan={2} className="col-client" style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.05em' }}>Client</th>
-                    <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
-                    <th colSpan={2} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
+                    <th colSpan={3} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419', borderBottom: '2.5px solid #2c2419', paddingBottom: '6px' }}>Overview</th>
+                    <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309', borderBottom: '2.5px solid #b45309', paddingBottom: '6px' }}>SEO</th>
                     <th colSpan={1} className="col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857', borderBottom: '2.5px solid #047857', paddingBottom: '6px' }}>GBP</th>
                     <th colSpan={3} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', borderBottom: '2.5px solid #6b7280', paddingBottom: '6px' }}>Google Ads</th>
                   </tr>
                   <tr style={{ borderBottom: '1.5px solid rgba(44,36,25,0.1)' }}>
                     <th className="col-svc" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850' }}>Svc</th>
-                    <th className="col-leads col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
-                    <th className="col-forms" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>Forms</th>
+                    <th className="col-leads" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Leads</th>
+                    <th className="col-forms col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#2c2419' }}>Forms</th>
                     <th className="col-kw10 col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>KW10</th>
                     <th className="col-calls col-divider" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#047857' }}>Calls</th>
                     <th className="col-conv" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Conv</th>
                     <th className="col-cpl" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>CPL</th>
-                    <th className="col-trend" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280' }}>Trend 30d</th>
+                    <th className="col-trend" title="Ads conversions + GBP calls per day (7-day rolling avg)" style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', cursor: 'help' }}>Leads Trend ↗</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map(client => {
                     const pts = client.trendPoints && client.trendPoints.length > 1 ? client.trendPoints : null;
-                    const maxPt = pts ? Math.max(...pts, 1) : 1;
-                    // Compare first-half avg vs last-half avg (more stable than single-day first vs last)
+                    // 7-day rolling average to smooth out daily spikes
+                    const smoothed = pts ? pts.map((_, i) => {
+                      const w = pts.slice(Math.max(0, i - 3), i + 4);
+                      return w.reduce((a, b) => a + b, 0) / w.length;
+                    }) : null;
+                    const maxPt = smoothed ? Math.max(...smoothed, 0.1) : 1;
+                    // Compare first-half avg vs last-half avg on original (for % accuracy)
                     const midIdx = pts ? Math.floor(pts.length / 2) : 0;
                     const firstAvg = pts && midIdx > 0 ? pts.slice(0, midIdx).reduce((a, b) => a + b, 0) / midIdx : 0;
                     const lastAvg = pts ? pts.slice(midIdx).reduce((a, b) => a + b, 0) / (pts.length - midIdx) : 0;
-                    const trendPct = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : 0;
-                    const lineColor = pts ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
+                    const lineColor = smoothed ? (lastAvg >= firstAvg ? '#10b981' : '#ef4444') : '#9ca3af';
 
                     return (
                       <tr key={client.id} onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
@@ -510,8 +631,12 @@ export default function AdminDashboardPage() {
                             {client.services?.seo && <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>SEO</span>}
                           </div>
                         </td>
-                        <td className="col-leads col-divider" style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</td>
-                        <td className="col-forms" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>{fmtNum(client.seo_form_submits)}</td>
+                        <td className="col-leads" style={{ textAlign: 'center' }}>
+                          <div style={{ fontWeight: 700, fontSize: '15px', color: '#c4704f' }}>{fmtNum(client.total_leads)}</div>
+                        </td>
+                        <td className="col-forms col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#7c3aed' }}>
+                          {client.manual_form_fills ? fmtNum(client.manual_form_fills) : <span style={{ color: '#d1d5db' }}>—</span>}
+                        </td>
                         <td className="col-kw10 col-divider" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#b45309' }}>
                           {client.services?.seo && client.top_keywords ? fmtNum(client.top_keywords) : <span style={{ color: '#d1d5db' }}>—</span>}
                         </td>
@@ -519,19 +644,23 @@ export default function AdminDashboardPage() {
                         <td className="col-conv" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{fmtNum(client.ads_conversions)}</td>
                         <td className="col-cpl" style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>{client.ads_cpl && client.ads_cpl > 0 ? fmtCurrency(client.ads_cpl, 0) : '—'}</td>
                         <td className="col-trend" style={{ textAlign: 'center' }}>
-                          {pts ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          {smoothed ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                               <svg width="80" height="24" style={{ flexShrink: 0 }}>
                                 <defs>
                                   <linearGradient id={`g-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.2} />
-                                    <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
+                                    <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
                                   </linearGradient>
                                 </defs>
-                                <polygon points={`0,24 ${pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
-                                <polyline points={pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                <polygon points={`0,24 ${smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} 80,24`} fill={`url(#g-${client.id})`} />
+                                <polyline points={smoothed.map((v, i) => `${(i / (smoothed.length - 1)) * 80},${24 - (v / maxPt) * 22}`).join(' ')} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: lineColor, minWidth: '36px', textAlign: 'left' }}>{trendPct > 0 ? '+' : ''}{trendPct}%</span>
+                              {firstAvg > 0 && (
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: lastAvg >= firstAvg ? '#059669' : '#dc2626' }}>
+                                  {lastAvg >= firstAvg ? '+' : ''}{Math.min(Math.abs(Math.round((lastAvg - firstAvg) / firstAvg * 100)), 999) * (lastAvg >= firstAvg ? 1 : -1)}%
+                                </span>
+                              )}
                             </div>
                           ) : <span style={{ color: '#d1d5db', fontSize: '11px' }}>—</span>}
                         </td>

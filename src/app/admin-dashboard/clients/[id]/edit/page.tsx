@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Database, KeyRound, Trash2, Plus } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const inputStyle = {
@@ -55,6 +55,21 @@ export default function EditClientPage({ params }: EditClientParams) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [hasGbp, setHasGbp] = useState(false);
+
+  // Credentials
+  interface Credential { id: string; label: string; username: string; url: string | null; notes: string | null; created_at: string; }
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [credForm, setCredForm] = useState({ label: '', username: '', password: '', url: '', notes: '' });
+  const [credAdding, setCredAdding] = useState(false);
+  const [credSaving, setCredSaving] = useState(false);
+  const [credError, setCredError] = useState<string | null>(null);
+
+  const [backfillDays, setBackfillDays] = useState(90);
+  const [backfill, setBackfill] = useState<{
+    running: boolean; currentDay: number; totalDays: number;
+    currentService: string; done: boolean; errors: string[];
+  }>({ running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [] });
 
   const [form, setForm] = useState({
     name: '',
@@ -88,7 +103,7 @@ export default function EditClientPage({ params }: EditClientParams) {
 
       const { data: client, error: fetchError } = await supabase
         .from('clients')
-        .select('*, service_configs(ga_property_id, gads_customer_id, gbp_location_id, gsc_site_url)')
+        .select('*, service_configs(ga_property_id, gads_customer_id, gsc_site_url)')
         .eq('id', id)
         .single();
 
@@ -99,6 +114,20 @@ export default function EditClientPage({ params }: EditClientParams) {
       }
 
       const config = Array.isArray(client.service_configs) ? client.service_configs[0] : client.service_configs || {};
+
+      // Check GBP
+      const { data: gbpRow } = await supabase
+        .from('gbp_locations')
+        .select('id')
+        .eq('client_id', id)
+        .eq('is_active', true)
+        .maybeSingle();
+      setHasGbp(!!gbpRow);
+
+      // Load credentials
+      fetch(`/api/admin/credentials?clientId=${id}`)
+        .then(r => r.json())
+        .then(d => { if (d.credentials) setCredentials(d.credentials); });
 
       setForm({
         name: client.name || '',
@@ -120,6 +149,52 @@ export default function EditClientPage({ params }: EditClientParams) {
       setError('Failed to load client');
       setLoading(false);
     }
+  }
+
+  async function runBackfill() {
+    if (!clientId) return;
+    const services = [
+      { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: form.has_seo },
+      { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: form.has_seo },
+      { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: form.has_ads },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: hasGbp },
+    ].filter(s => s.enabled);
+    if (services.length === 0) return;
+
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= backfillDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+
+    setBackfill({ running: true, currentDay: 0, totalDays: dates.length, currentService: '', done: false, errors: [] });
+    const errors: string[] = [];
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
+      for (const service of services) {
+        setBackfill(prev => ({ ...prev, currentDay: i + 1, currentService: service.label }));
+        try {
+          await fetch('/api/admin/trigger-cron', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: service.endpoint, params: { date, clientId } }),
+          });
+        } catch { errors.push(`${date} ${service.label}`); }
+      }
+      setBackfill(prev => ({ ...prev, currentService: 'Rollup' }));
+      try {
+        await fetch('/api/admin/trigger-cron', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: '/api/admin/run-rollup', method: 'POST', params: { date, clientId } }),
+        });
+      } catch { errors.push(`${date} rollup`); }
+    }
+
+    setBackfill(prev => ({ ...prev, running: false, done: true, errors }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -176,7 +251,7 @@ export default function EditClientPage({ params }: EditClientParams) {
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
       {/* Header */}
-      <nav className="sticky top-0 z-50 flex items-center gap-4 px-8 py-4" style={{
+      <nav className="sticky top-14 md:top-0 z-30 flex items-center gap-4 px-8 py-4" style={{
         background: 'rgba(245, 241, 237, 0.95)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
@@ -396,6 +471,134 @@ export default function EditClientPage({ params }: EditClientParams) {
               </div>
             </div>
           )}
+
+          {/* Section 5: GBP note */}
+          <div style={sectionStyle}>
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '8px' }}>
+              Google Business Profile
+            </p>
+            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
+              GBP locations are managed via the Cron Monitor.
+            </p>
+          </div>
+
+          {/* Section: Credentials */}
+          <div style={sectionStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <KeyRound style={{ width: 14, height: 14, color: '#c4704f' }} />
+                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', margin: 0 }}>
+                  Credentials
+                </p>
+              </div>
+              {!credAdding && (
+                <button
+                  type="button"
+                  onClick={() => { setCredAdding(true); setCredError(null); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600', color: '#c4704f', background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.25)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer' }}
+                >
+                  <Plus style={{ width: 12, height: 12 }} />
+                  Add
+                </button>
+              )}
+            </div>
+
+            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: credentials.length > 0 || credAdding ? '16px' : '0' }}>
+              Stored encrypted. Bot sends a one-time link to reveal.
+            </p>
+
+            {/* Existing credentials list */}
+            {credentials.map(cred => (
+              <div key={cred.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(44,36,25,0.04)', borderRadius: '8px', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#2c2419' }}>{cred.label}</div>
+                  <div style={{ fontSize: '12px', color: '#8a7f74' }}>{cred.username}{cred.url ? ` — ${cred.url}` : ''}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`Delete "${cred.label}"?`)) return;
+                    await fetch(`/api/admin/credentials?id=${cred.id}`, { method: 'DELETE' });
+                    setCredentials(prev => prev.filter(c => c.id !== cred.id));
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px', opacity: 0.6 }}
+                  title="Delete"
+                >
+                  <Trash2 style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            ))}
+
+            {/* Add form */}
+            {credAdding && (
+              <div style={{ background: 'rgba(196,112,79,0.04)', border: '1px solid rgba(196,112,79,0.15)', borderRadius: '10px', padding: '16px', marginTop: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Label *</label>
+                    <input type="text" placeholder="e.g. Google Ads Login" value={credForm.label} onChange={e => setCredForm(f => ({ ...f, label: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Username / Email *</label>
+                    <input type="text" value={credForm.username} onChange={e => setCredForm(f => ({ ...f, username: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Password *</label>
+                    <input type="password" value={credForm.password} onChange={e => setCredForm(f => ({ ...f, password: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Login URL</label>
+                    <input type="text" placeholder="https://..." value={credForm.url} onChange={e => setCredForm(f => ({ ...f, url: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Notes</label>
+                    <input type="text" placeholder="2FA on phone, etc." value={credForm.notes} onChange={e => setCredForm(f => ({ ...f, notes: e.target.value }))} style={inputStyle} />
+                  </div>
+                </div>
+                {credError && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{credError}</p>}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    disabled={credSaving}
+                    onClick={async () => {
+                      if (!credForm.label || !credForm.username || !credForm.password) {
+                        setCredError('Label, username and password are required.');
+                        return;
+                      }
+                      setCredSaving(true);
+                      setCredError(null);
+                      try {
+                        const res = await fetch('/api/admin/credentials', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ client_id: clientId, ...credForm }),
+                        });
+                        const d = await res.json();
+                        if (!res.ok) throw new Error(d.error);
+                        setCredentials(prev => [...prev, d.credential]);
+                        setCredForm({ label: '', username: '', password: '', url: '', notes: '' });
+                        setCredAdding(false);
+                      } catch (err: any) {
+                        setCredError(err.message || 'Failed to save');
+                      } finally {
+                        setCredSaving(false);
+                      }
+                    }}
+                    style={{ padding: '8px 16px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: credSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {credSaving && <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />}
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCredAdding(false); setCredError(null); setCredForm({ label: '', username: '', password: '', url: '', notes: '' }); }}
+                    style={{ padding: '8px 16px', background: 'transparent', color: '#8a7f74', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Error */}
           {error && (

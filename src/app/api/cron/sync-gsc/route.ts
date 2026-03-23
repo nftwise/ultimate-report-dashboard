@@ -23,19 +23,25 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // GSC data has a 2-3 day delay, so fetch 3 days ago for reliable data
+    // GSC data has a 2-3 day delay. On a specific date request, use that date.
+    // On a default run, sync the last 10 days (starting 3 days ago) so any day
+    // whose rollup ran before GSC data was ready automatically gets backfilled.
     const dateParam = request.nextUrl.searchParams.get('date');
-    const targetDate = dateParam || (() => {
-      // Use California timezone for date calculation
+    const datesToSync: string[] = dateParam ? [dateParam] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-      caToday.setDate(caToday.getDate() - 3);
-      return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
+      const dates: string[] = [];
+      for (let i = 3; i <= 12; i++) {
+        const d = new Date(caToday);
+        d.setDate(d.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      return dates;
     })();
 
-    const groupParam = request.nextUrl.searchParams.get('group');
+    const targetDate = datesToSync[0];
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
-    console.log(`[sync-gsc] Starting for ${targetDate}${groupParam ? ` group=${groupParam}` : ''}${clientIdParam ? ` clientId=${clientIdParam}` : ''}`);
+    console.log(`[sync-gsc] Starting for ${datesToSync.length > 1 ? `${datesToSync[datesToSync.length - 1]} to ${datesToSync[0]} (${datesToSync.length} days)` : targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -71,11 +77,9 @@ export async function GET(request: NextRequest) {
 
     if (clientIdParam) {
       clientsWithGSC = clientsWithGSC.filter((c: any) => c.id === clientIdParam);
-    } else if (groupParam) {
-      const { data: groupClients } = await supabaseAdmin
-        .from('clients').select('id').eq('sync_group', groupParam).eq('is_active', true);
-      const groupIds = new Set((groupClients || []).map((c: any) => c.id));
-      clientsWithGSC = clientsWithGSC.filter((c: any) => groupIds.has(c.id));
+      if (clientsWithGSC.length === 0) {
+        return NextResponse.json({ success: false, error: `Client ${clientIdParam} not found or has no GSC config` }, { status: 404 });
+      }
     }
 
     console.log(`[sync-gsc] Processing ${clientsWithGSC.length} clients`);
@@ -83,69 +87,75 @@ export async function GET(request: NextRequest) {
     let totalQueries = 0;
     const errors: string[] = [];
 
-    // Process clients in batches
-    for (let i = 0; i < clientsWithGSC.length; i += BATCH_SIZE) {
-      const batch = clientsWithGSC.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(batch.map(async (client: any) => {
-        const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
-          try {
-            return await fn();
-          } catch (err: any) {
-            console.log(`[sync-gsc] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+    // Process each date, then each client batch
+    for (const syncDate of datesToSync) {
+      console.log(`[sync-gsc] Processing date ${syncDate}`);
+
+      for (let i = 0; i < clientsWithGSC.length; i += BATCH_SIZE) {
+        const batch = clientsWithGSC.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(async (client: any) => {
+          const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
             try {
-              await new Promise(r => setTimeout(r, 2000));
               return await fn();
-            } catch (err2: any) {
-              console.log(`[sync-gsc] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
-              errors.push(`${client.name} ${label}: ${err2.message}`);
-              return [];
+            } catch (err: any) {
+              console.log(`[sync-gsc] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+              try {
+                await new Promise(r => setTimeout(r, 2000));
+                return await fn();
+              } catch (err2: any) {
+                console.log(`[sync-gsc] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
+                errors.push(`${syncDate} ${client.name} ${label}: ${err2.message}`);
+                return [];
+              }
             }
-          }
-        };
+          };
 
-        try {
-          const allQueries = await fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, targetDate, client.id), 'queries');
+          try {
+            const allQueries = await fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, syncDate, client.id), 'queries');
 
-          // LAYER 1: Save daily totals to gsc_daily_summary (pre-aggregate before filtering)
-          if (allQueries.length > 0) {
-            const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
-              client_id: client.id,
-              site_url: client.siteUrl,
-              date: targetDate,
-              total_impressions: allQueries.reduce((s: number, q: any) => s + (q.impressions || 0), 0),
-              total_clicks: allQueries.reduce((s: number, q: any) => s + (q.clicks || 0), 0),
-              top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
-            }, { onConflict: 'client_id,site_url,date' });
-            if (summaryError) { console.error(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message); errors.push(`${client.name} gsc_summary: ${summaryError.message}`); }
-          }
-
-          // LAYER 2: Filter queries — top 50 by impressions + city-related queries for google_rank
-          const cityKeyword = client.city ? client.city.split(',')[0].toLowerCase().trim() : '';
-          const top50 = [...allQueries].sort((a: any, b: any) => (b.impressions || 0) - (a.impressions || 0)).slice(0, 50);
-          const seen = new Set(top50.map((q: any) => q.query));
-          const cityQueries = cityKeyword
-            ? allQueries.filter((q: any) => !seen.has(q.query) && q.query.toLowerCase().includes(cityKeyword))
-            : [];
-          const filteredQueries = [...top50, ...cityQueries];
-
-          if (filteredQueries.length > 0) {
-            for (let j = 0; j < filteredQueries.length; j += 500) {
-              const chunk = filteredQueries.slice(j, j + 500);
-              const { error } = await supabaseAdmin.from('gsc_queries').upsert(chunk, { onConflict: 'client_id,site_url,date,query' });
-              if (error) { console.error(`[sync-gsc] Queries upsert error ${client.name}:`, error.message); errors.push(`${client.name} gsc_queries: ${error.message}`); }
+            // LAYER 1: Save daily totals to gsc_daily_summary.
+            // Always write (even 0s) so cron-monitor knows the sync ran successfully —
+            // low-traffic sites may legitimately have 0 impressions some days.
+            {
+              const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
+                client_id: client.id,
+                site_url: client.siteUrl,
+                date: syncDate,
+                total_impressions: allQueries.reduce((s: number, q: any) => s + (q.impressions || 0), 0),
+                total_clicks: allQueries.reduce((s: number, q: any) => s + (q.clicks || 0), 0),
+                top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
+              }, { onConflict: 'client_id,site_url,date' });
+              if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);
             }
+
+            // LAYER 2: Filter queries — top 50 by impressions + city-related queries for google_rank
+            const cityKeyword = client.city ? client.city.split(',')[0].toLowerCase().trim() : '';
+            const top50 = [...allQueries].sort((a: any, b: any) => (b.impressions || 0) - (a.impressions || 0)).slice(0, 50);
+            const seen = new Set(top50.map((q: any) => q.query));
+            const cityQueries = cityKeyword
+              ? allQueries.filter((q: any) => !seen.has(q.query) && q.query.toLowerCase().includes(cityKeyword))
+              : [];
+            const filteredQueries = [...top50, ...cityQueries];
+
+            if (filteredQueries.length > 0) {
+              for (let j = 0; j < filteredQueries.length; j += 500) {
+                const chunk = filteredQueries.slice(j, j + 500);
+                const { error } = await supabaseAdmin.from('gsc_queries').upsert(chunk, { onConflict: 'client_id,site_url,date,query' });
+                if (error) console.log(`[sync-gsc] Queries upsert error ${client.name}:`, error.message);
+              }
+            }
+
+            return { queries: filteredQueries.length };
+          } catch (err: any) {
+            errors.push(`${syncDate} ${client.name}: ${err.message}`);
+            return { queries: 0 };
           }
+        }));
 
-          return { queries: filteredQueries.length };
-        } catch (err: any) {
-          errors.push(`${client.name}: ${err.message}`);
-          return { queries: 0 };
-        }
-      }));
-
-      results.forEach((r) => {
-        totalQueries += r.queries;
-      });
+        results.forEach((r) => {
+          totalQueries += r.queries;
+        });
+      }
     }
 
     const duration = Date.now() - startTime;

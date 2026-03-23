@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { fmtCurrency } from '@/lib/format';
 
 interface ConvertingSearchTerm {
   term: string;
@@ -51,7 +52,7 @@ export default function TopConvertingSearchTerms({
           color: '#5c5850',
           margin: '0 0 8px 0'
         }}>
-          🔍 Top Converting Search Terms
+          Top Converting Search Terms
         </p>
         <h3 style={{
           fontSize: '18px',
@@ -138,7 +139,7 @@ export default function TopConvertingSearchTerms({
               color: '#9db5a0',
               margin: 0
             }}>
-              ${totalCost.toFixed(2)}
+              {fmtCurrency(totalCost)}
             </p>
           </div>
         </div>
@@ -214,7 +215,7 @@ export default function TopConvertingSearchTerms({
                   letterSpacing: '0.1em',
                   whiteSpace: 'nowrap'
                 }}>
-                  CTR
+                  Click Rate
                 </th>
                 <th style={{
                   padding: '12px',
@@ -238,7 +239,7 @@ export default function TopConvertingSearchTerms({
                   letterSpacing: '0.1em',
                   whiteSpace: 'nowrap'
                 }}>
-                  Conv Rate
+                  Lead Rate
                 </th>
                 <th style={{
                   padding: '12px',
@@ -352,7 +353,7 @@ export default function TopConvertingSearchTerms({
                     color: '#2c2419',
                     whiteSpace: 'nowrap'
                   }}>
-                    ${term.cost.toFixed(2)}
+                    {fmtCurrency(term.cost)}
                   </td>
                 </tr>
               ))}
@@ -369,23 +370,16 @@ export default function TopConvertingSearchTerms({
         </div>
       )}
 
-      {/* Footer Note */}
-      <div style={{
-        marginTop: '16px',
-        padding: '12px',
-        background: 'rgba(44, 36, 25, 0.03)',
-        borderRadius: '8px',
-        borderLeft: '3px solid #2c2419'
-      }}>
+      {topTerms.length > 0 && (
         <p style={{
+          marginTop: '16px',
           fontSize: '11px',
-          color: '#5c5850',
-          margin: 0,
-          lineHeight: '1.5'
+          color: '#9ca3af',
+          margin: '16px 0 0 0'
         }}>
-          💡 <strong>Insight:</strong> Focus your budget on high-converting search terms. Consider increasing bids on these keywords to capture more market share.
+          Showing top {topTerms.length} search terms that generated leads during this period.
         </p>
-      </div>
+      )}
     </div>
   );
 }

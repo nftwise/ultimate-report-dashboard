@@ -2,46 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import DateRangePicker from '@/components/admin/DateRangePicker';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
+import DateRangePicker from '@/components/admin/DateRangePicker';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, toLocalDateStr } from '@/lib/format';
 
-interface ClientMetrics {
+interface ClientInfo {
   id: string;
   name: string;
   slug: string;
   city: string;
-}
-
-interface GBPDailyMetrics {
-  date: string;
-  views?: number;
-  actions?: number;
-  direction_requests?: number;
-  phone_calls?: number;
-  website_clicks?: number;
-  total_reviews?: number;
-  new_reviews_today?: number;
-  average_rating?: number;
-  business_photo_views?: number;
-  customer_photo_count?: number;
-  customer_photo_views?: number;
-  posts_count?: number;
-  posts_views?: number;
-  posts_actions?: number;
-}
-
-interface GBPLocation {
-  id: string;
-  location_name: string;
-  address?: string;
-  phone?: string;
-  website?: string;
-  business_type?: string;
+  services?: { googleLocalService?: boolean };
 }
 
 const supabase = createClient(
@@ -49,22 +26,71 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d; };
+
+const pickVal = (a: any, b: any): number => {
+  if (a != null && a > 0) return a;
+  if (b != null && b > 0) return b;
+  return a ?? b ?? 0;
+};
+
+function buildLast12Months() {
+  const today = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() - (11 - i), 1);
+    const y = d.getFullYear(), m = d.getMonth();
+    const lastDate = new Date(y, m + 1, 0);
+    return {
+      key: `${y}-${String(m + 1).padStart(2, '0')}`,
+      label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      from: `${y}-${String(m + 1).padStart(2, '0')}-01`,
+      to: `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`,
+    };
+  });
+}
+
+function buildPrior12Months(current: ReturnType<typeof buildLast12Months>) {
+  return current.map(m => {
+    const [y, mo] = m.key.split('-').map(Number);
+    const d = new Date(y, mo - 1 - 12, 1);
+    const yr = d.getFullYear(), month = d.getMonth();
+    const lastDate = new Date(yr, month + 1, 0);
+    return {
+      key: `${yr}-${String(month + 1).padStart(2, '0')}`,
+      label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      from: `${yr}-${String(month + 1).padStart(2, '0')}-01`,
+      to: `${yr}-${String(month + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`,
+    };
+  });
+}
+
+const calcChange = (curr: number, prev: number) => {
+  if (prev === 0) return { pct: '—', type: 'neutral' as const };
+  const v = (curr - prev) / prev * 100;
+  return {
+    pct: v > 0 ? `+${v.toFixed(1)}%` : `${v.toFixed(1)}%`,
+    type: (v > 0 ? 'up' : v < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+  };
+};
+
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function GBPPage() {
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
 
-  const [client, setClient] = useState<ClientMetrics | null>(null);
-  const [dailyData, setDailyData] = useState<GBPDailyMetrics[]>([]);
-  const [prevDailyData, setPrevDailyData] = useState<GBPDailyMetrics[]>([]);
-  const [location, setLocation] = useState<GBPLocation | null>(null);
+  const [client, setClient] = useState<ClientInfo | null>(null);
+  const [locationName, setLocationName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
-  // Cap at yesterday — GBP cron syncs yesterday's data. Zero-row filter handles any
-  // days where the API didn't deliver (those rows won't exist in gbp_location_daily_metrics).
-  const gbpDataCutoff = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d; };
 
+  // Date picker state (controls dynamic sections)
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
+  const [lastGbpDataDate, setLastGbpDataDate] = useState<string | null>(null);
+  const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const to = gbpDataCutoff();
+    const to = yesterday();
     const from = new Date(to);
     from.setDate(from.getDate() - 30);
     return { from, to };
@@ -72,803 +98,531 @@ export default function GBPPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = gbpDataCutoff();
+    const to = lastAvailableDate ?? yesterday();
     const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
 
-  const handleDateRangeChange = (newRange: { from: Date; to: Date }) => {
-    setDateRange(newRange);
-  };
+  // ── 12-month monthly data (STATIC — not affected by date picker) ──────────
+  const [viewsChart, setViewsChart] = useState<{ month: string; views: number; clicks: number; directions: number }[]>([]);
+  const [actionsChart, setActionsChart] = useState<{ month: string; calls: number }[]>([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
-  // Fetch client
+  // ── period data (DYNAMIC — from date picker) ──────────────────────────────
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const [pViews, setPViews] = useState(0);
+  const [pCalls, setPCalls] = useState(0);
+  const [pClicks, setPClicks] = useState(0);
+  const [pDir, setPDir] = useState(0);
+  const [pActions, setPActions] = useState(0);
+  const [pNewReviews, setPNewReviews] = useState(0);
+  const [prevpViews, setPrevpViews] = useState(0);
+  const [prevpCalls, setPrevpCalls] = useState(0);
+  const [prevpClicks, setPrevpClicks] = useState(0);
+  const [prevpDir, setPrevpDir] = useState(0);
+  const [latestReviews, setLatestReviews] = useState(0);
+  const [latestRating, setLatestRating] = useState(0);
+  const [periodDays, setPeriodDays] = useState(30);
+  const [periodDataCount, setPeriodDataCount] = useState(0);
+
+  // ── fetch client ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchClient = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/clients/list');
-        const data = await response.json();
-
-        if (data.success && data.clients) {
-          const foundClient = data.clients.find((c: any) => c.slug === clientSlug);
-          if (foundClient) {
-            setClient(foundClient);
-          }
+    if (!clientSlug) return;
+    fetch('/api/clients/list')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          const found = data.clients.find((c: any) => c.slug === clientSlug);
+          if (found) setClient(found);
         }
-      } catch (error) {
-        console.error('Error fetching client:', error);
-      } finally {
         setLoading(false);
-      }
-    };
-
-    if (clientSlug) {
-      fetchClient();
-    }
+      });
   }, [clientSlug]);
 
-  // Fetch GBP location info
+  // ── fetch location name + anchor date range to last data date ────────────
   useEffect(() => {
-    const fetchLocation = async () => {
-      if (!client) return;
+    if (!client) return;
+    supabase.from('gbp_locations').select('location_name').eq('client_id', client.id).single()
+      .then(({ data }) => { if (data) setLocationName(data.location_name); });
 
-      try {
-        const { data: locData } = await supabase
-          .from('gbp_locations')
-          .select('id, location_name, address, phone, website, business_type')
-          .eq('client_id', client.id)
-          .single();
-
-        if (locData) {
-          setLocation(locData);
+    // Anchor date range to last available data date (same as admin page)
+    supabase.from('client_metrics_summary')
+      .select('date')
+      .eq('client_id', client.id)
+      .eq('period_type', 'daily')
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to);
+          from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
         }
-      } catch (error) {
-        console.error('Error fetching GBP location:', error);
-      }
-    };
-
-    fetchLocation();
+      });
   }, [client]);
 
-  // Fetch GBP daily metrics from BOTH tables and merge
+  // ── fetch latest reviews/rating (once per client, independent of date range) ──
   useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        // Cap to yesterday — GBP cron syncs up to yesterday. Zero-row filter handles missing days.
-        const effectiveTo = dateRange.to > gbpDataCutoff() ? gbpDataCutoff() : dateRange.to;
-        const dateToISO = toLocalDateStr(effectiveTo);
-
-        // Fetch from gbp_location_daily_metrics (detailed GBP data)
-        const { data: gbpDetailedData } = await supabase
-          .from('gbp_location_daily_metrics')
-          .select(`
-            date,
-            views,
-            actions,
-            direction_requests,
-            phone_calls,
-            website_clicks,
-            total_reviews,
-            new_reviews_today,
-            average_rating,
-            business_photo_views,
-            customer_photo_count,
-            customer_photo_views,
-            posts_count,
-            posts_views,
-            posts_actions
-          `)
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
-
-        // Fetch from client_metrics_summary (aggregated GBP data - different column names)
-        const { data: summaryData } = await supabase
-          .from('client_metrics_summary')
-          .select(`
-            date,
-            gbp_calls,
-            gbp_website_clicks,
-            gbp_directions,
-            gbp_profile_views,
-            gbp_reviews_count,
-            gbp_reviews_new,
-            gbp_rating_avg,
-            gbp_photos_count,
-            gbp_posts_count,
-            gbp_posts_views,
-            gbp_posts_clicks
-          `)
-          .eq('client_id', client.id)
-          .eq('period_type', 'daily')
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
-
-        // Create maps for both data sources by date
-        const detailedMap = new Map();
-        (gbpDetailedData || []).forEach((row: any) => {
-          detailedMap.set(row.date, row);
-        });
-
-        const summaryMap = new Map();
-        (summaryData || []).forEach((row: any) => {
-          summaryMap.set(row.date, row);
-        });
-
-        // Get all unique dates from both sources
-        const allDates = new Set([
-          ...(gbpDetailedData || []).map((r: any) => r.date),
-          ...(summaryData || []).map((r: any) => r.date)
-        ]);
-
-        // Helper function: prefer non-zero value from either source
-        const pickValue = (detailedVal: number | null | undefined, summaryVal: number | null | undefined): number => {
-          // If detailed has a non-zero value, use it
-          if (detailedVal !== null && detailedVal !== undefined && detailedVal > 0) return detailedVal;
-          // Otherwise use summary value if it exists
-          if (summaryVal !== null && summaryVal !== undefined && summaryVal > 0) return summaryVal;
-          // Fall back to detailed value (even if 0) or 0
-          return detailedVal ?? summaryVal ?? 0;
-        };
-
-        // Merge data from both sources for each date
-        const mergedData: GBPDailyMetrics[] = Array.from(allDates).map(date => {
-          const detailed = detailedMap.get(date);
-          const summary = summaryMap.get(date);
-
-          return {
-            date,
-            views: pickValue(detailed?.views, summary?.gbp_profile_views),
-            actions: pickValue(detailed?.actions, null) ||
-              ((summary?.gbp_calls || 0) + (summary?.gbp_website_clicks || 0) + (summary?.gbp_directions || 0)),
-            direction_requests: pickValue(detailed?.direction_requests, summary?.gbp_directions),
-            phone_calls: pickValue(detailed?.phone_calls, summary?.gbp_calls),
-            website_clicks: pickValue(detailed?.website_clicks, summary?.gbp_website_clicks),
-            total_reviews: pickValue(detailed?.total_reviews, summary?.gbp_reviews_count),
-            new_reviews_today: pickValue(detailed?.new_reviews_today, summary?.gbp_reviews_new),
-            average_rating: detailed?.average_rating ?? summary?.gbp_rating_avg ?? 0,
-            business_photo_views: detailed?.business_photo_views || 0,
-            customer_photo_count: pickValue(detailed?.customer_photo_count, summary?.gbp_photos_count),
-            customer_photo_views: detailed?.customer_photo_views || 0,
-            posts_count: pickValue(detailed?.posts_count, summary?.gbp_posts_count),
-            posts_views: pickValue(detailed?.posts_views, summary?.gbp_posts_views),
-            posts_actions: pickValue(detailed?.posts_actions, summary?.gbp_posts_clicks),
-          };
-        });
-
-        // Sort by date and remove days with no real GBP data (all-zero from rollup)
-        mergedData.sort((a, b) => a.date.localeCompare(b.date));
-        const validData = mergedData.filter(row =>
-          (row.views || 0) > 0 || (row.phone_calls || 0) > 0 ||
-          (row.website_clicks || 0) > 0 || (row.direction_requests || 0) > 0
-        );
-
-        setDailyData(validData);
-
-        // MoM: use effectiveTo so period length matches what's actually shown
-        const periodDays = Math.round((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
-        const prevTo = new Date(dateRange.from);
-        prevTo.setDate(prevTo.getDate() - 1);
-        const prevFrom = new Date(prevTo);
-        prevFrom.setDate(prevFrom.getDate() - periodDays);
-        const prevFromISO = toLocalDateStr(prevFrom);
-        const prevToISO = toLocalDateStr(prevTo);
-
-        const [{ data: prevGbpData }, { data: prevSummaryData }] = await Promise.all([
-          supabase
-            .from('gbp_location_daily_metrics')
-            .select('date, views, direction_requests, phone_calls, website_clicks')
-            .eq('client_id', client.id)
-            .gte('date', prevFromISO)
-            .lte('date', prevToISO)
-            .order('date', { ascending: true }),
-          supabase
-            .from('client_metrics_summary')
-            .select('date, gbp_calls, gbp_website_clicks, gbp_directions, gbp_profile_views')
+    if (!client) return;
+    // Try gbp_location_daily_metrics first (most accurate)
+    supabase.from('gbp_location_daily_metrics')
+      .select('total_reviews, average_rating')
+      .eq('client_id', client.id)
+      .gt('total_reviews', 0)
+      .order('date', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data: det }) => {
+        if (det && (det as any).total_reviews > 0) {
+          setLatestReviews((det as any).total_reviews);
+          setLatestRating((det as any).average_rating ?? 0);
+        } else {
+          // Fallback to client_metrics_summary
+          supabase.from('client_metrics_summary')
+            .select('gbp_reviews_count, gbp_rating_avg')
             .eq('client_id', client.id)
             .eq('period_type', 'daily')
-            .gte('date', prevFromISO)
-            .lte('date', prevToISO)
-            .order('date', { ascending: true })
-        ]);
+            .gt('gbp_reviews_count', 0)
+            .order('date', { ascending: false })
+            .limit(1)
+            .single()
+            .then(({ data: sum }) => {
+              if (sum && (sum as any).gbp_reviews_count > 0) {
+                setLatestReviews((sum as any).gbp_reviews_count);
+                setLatestRating((sum as any).gbp_rating_avg ?? 0);
+              }
+            });
+        }
+      });
+  }, [client]);
 
-        const prevDetailedMap = new Map();
-        (prevGbpData || []).forEach((row: any) => prevDetailedMap.set(row.date, row));
-        const prevSummaryMap = new Map();
-        (prevSummaryData || []).forEach((row: any) => prevSummaryMap.set(row.date, row));
+  // ── fetch 12-month data (once per client) ─────────────────────────────────
+  useEffect(() => {
+    if (!client) return;
+    setMonthlyLoading(true);
+    const current12 = buildLast12Months();
+    const prior12 = buildPrior12Months(current12);
+    const overallFrom = prior12[0].from;
+    const overallTo = current12[11].to;
 
-        const prevAllDates = new Set([
-          ...(prevGbpData || []).map((r: any) => r.date),
-          ...(prevSummaryData || []).map((r: any) => r.date)
-        ]);
+    Promise.all([
+      supabase.from('gbp_location_daily_metrics')
+        .select('date, views, phone_calls, website_clicks, direction_requests')
+        .eq('client_id', client.id).gte('date', overallFrom).lte('date', overallTo),
+      supabase.from('client_metrics_summary')
+        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
+        .eq('client_id', client.id).eq('period_type', 'daily')
+        .gte('date', overallFrom).lte('date', overallTo),
+    ]).then(([{ data: det }, { data: sum }]) => {
+      const detMap = new Map<string, any>(); (det || []).forEach((r: any) => detMap.set(r.date, r));
+      const sumMap = new Map<string, any>(); (sum || []).forEach((r: any) => sumMap.set(r.date, r));
+      const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)]));
 
-        const prevMerged: GBPDailyMetrics[] = Array.from(prevAllDates).map(date => {
-          const detailed = prevDetailedMap.get(date);
-          const summary = prevSummaryMap.get(date);
-          return {
-            date,
-            views: pickValue(detailed?.views, summary?.gbp_profile_views),
-            direction_requests: pickValue(detailed?.direction_requests, summary?.gbp_directions),
-            phone_calls: pickValue(detailed?.phone_calls, summary?.gbp_calls),
-            website_clicks: pickValue(detailed?.website_clicks, summary?.gbp_website_clicks),
-          };
-        });
+      const buckets = new Map<string, { views: number; calls: number; clicks: number; directions: number }>();
+      current12.forEach(m => buckets.set(m.key, { views: 0, calls: 0, clicks: 0, directions: 0 }));
 
-        prevMerged.sort((a, b) => a.date.localeCompare(b.date));
-        setPrevDailyData(prevMerged);
-      } catch (error) {
-        console.error('Error fetching GBP metrics:', error);
+      for (const date of allDates) {
+        const mk = date.slice(0, 7);
+        if (!buckets.has(mk)) continue;
+        const d = detMap.get(date), s = sumMap.get(date);
+        const v = pickVal(d?.views, s?.gbp_profile_views);
+        const c = pickVal(d?.phone_calls, s?.gbp_calls);
+        const cl = pickVal(d?.website_clicks, s?.gbp_website_clicks);
+        const dir = pickVal(d?.direction_requests, s?.gbp_directions);
+        if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
+        const b = buckets.get(mk)!;
+        b.views += v; b.calls += c; b.clicks += cl; b.directions += dir;
       }
-    };
 
-    fetchMetrics();
+      setViewsChart(current12.map(m => {
+        const b = buckets.get(m.key)!;
+        return { month: m.label, views: b.views, clicks: b.clicks, directions: b.directions };
+      }));
+      setActionsChart(current12.map(m => {
+        const b = buckets.get(m.key)!;
+        return { month: m.label, calls: b.calls };
+      }));
+      setMonthlyLoading(false);
+    });
+  }, [client]);
+
+  // ── fetch period data (re-runs on date change) ────────────────────────────
+  useEffect(() => {
+    if (!client) return;
+    setPeriodLoading(true);
+    const effectiveTo = dateRange.to > yesterday() ? yesterday() : dateRange.to;
+    const fromISO = dateRange.from.toISOString().split('T')[0];
+    const toISO = effectiveTo.toISOString().split('T')[0];
+    const days = Math.round((effectiveTo.getTime() - dateRange.from.getTime()) / 86400000);
+    setPeriodDays(days);
+
+    const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days);
+    const prevFromISO = prevFrom.toISOString().split('T')[0];
+    const prevToISO = prevTo.toISOString().split('T')[0];
+
+    Promise.all([
+      // current period
+      supabase.from('gbp_location_daily_metrics')
+        .select('date, views, phone_calls, website_clicks, direction_requests, new_reviews_today, total_reviews, average_rating')
+        .eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
+      supabase.from('client_metrics_summary')
+        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions, gbp_reviews_new, gbp_reviews_count, gbp_rating_avg')
+        .eq('client_id', client.id).eq('period_type', 'daily').gte('date', fromISO).lte('date', toISO),
+      // previous period
+      supabase.from('gbp_location_daily_metrics')
+        .select('date, views, phone_calls, website_clicks, direction_requests')
+        .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
+      supabase.from('client_metrics_summary')
+        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
+        .eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
+    ]).then(([{ data: det }, { data: sum }, { data: pDet }, { data: pSum }]) => {
+      const detMap = new Map<string, any>(); (det || []).forEach((r: any) => detMap.set(r.date, r));
+      const sumMap = new Map<string, any>(); (sum || []).forEach((r: any) => sumMap.set(r.date, r));
+
+      const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)])).sort();
+      if (allDates.length > 0) setLastGbpDataDate(allDates[allDates.length - 1]);
+
+      let totViews = 0, totCalls = 0, totClicks = 0, totDir = 0, totNewRev = 0, dataRows = 0;
+
+      for (const date of allDates) {
+        const d = detMap.get(date), s = sumMap.get(date);
+        const v = pickVal(d?.views, s?.gbp_profile_views);
+        const c = pickVal(d?.phone_calls, s?.gbp_calls);
+        const cl = pickVal(d?.website_clicks, s?.gbp_website_clicks);
+        const dir = pickVal(d?.direction_requests, s?.gbp_directions);
+        if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
+        totViews += v; totCalls += c; totClicks += cl; totDir += dir;
+        totNewRev += pickVal(d?.new_reviews_today, s?.gbp_reviews_new);
+        dataRows++;
+      }
+
+      setPViews(totViews); setPCalls(totCalls); setPClicks(totClicks); setPDir(totDir);
+      setPActions(totCalls + totClicks + totDir); setPNewReviews(totNewRev);
+      setPeriodDataCount(dataRows);
+
+      // previous period
+      const pDetMap = new Map<string, any>(); (pDet || []).forEach((r: any) => pDetMap.set(r.date, r));
+      const pSumMap = new Map<string, any>(); (pSum || []).forEach((r: any) => pSumMap.set(r.date, r));
+      const pAllDates = Array.from(new Set([...(pDet || []).map((r: any) => r.date), ...(pSum || []).map((r: any) => r.date)]));
+      let pv = 0, pc = 0, pcl = 0, pd = 0;
+      for (const date of pAllDates) {
+        const d = pDetMap.get(date), s = pSumMap.get(date);
+        const pViews = pickVal(d?.views, s?.gbp_profile_views);
+        const pCalls = pickVal(d?.phone_calls, s?.gbp_calls);
+        const pClicks = pickVal(d?.website_clicks, s?.gbp_website_clicks);
+        const pDirs = pickVal(d?.direction_requests, s?.gbp_directions);
+        if (pViews === 0 && pCalls === 0 && pClicks === 0 && pDirs === 0) continue;
+        pv += pViews; pc += pCalls; pcl += pClicks; pd += pDirs;
+      }
+      setPrevpViews(pv); setPrevpCalls(pc); setPrevpClicks(pcl); setPrevpDir(pd);
+      setPeriodLoading(false);
+    });
   }, [client, dateRange]);
 
+  // ── guards ────────────────────────────────────────────────────────────────
   if (loading || !client) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <p style={{ color: '#2c2419' }}>Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading…</p>
+        </div>
+        <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
 
-  if (client && (client as any).services?.googleLocalService === false) {
+  if (client?.services?.googleLocalService === false) {
     return (
       <AdminLayout>
-        <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="gbp" />
-        <ServiceNotActive
-          serviceName="Google Business Profile"
-          description="Your account does not have Google Business Profile configured. Contact our team to set up GBP tracking and monitor your local search presence."
-        />
+        <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="gbp" />
+        <ServiceNotActive serviceName="Google Business Profile" description="Contact our team to set up GBP tracking." />
       </AdminLayout>
     );
   }
 
-  // Calculate KPIs
-  const totalViews = dailyData.reduce((sum, d) => sum + (d.views || 0), 0);
-  const totalActions = dailyData.reduce((sum, d) => sum + (d.actions || 0), 0);
-  const totalPhoneCalls = dailyData.reduce((sum, d) => sum + (d.phone_calls || 0), 0);
-  const totalWebsiteClicks = dailyData.reduce((sum, d) => sum + (d.website_clicks || 0), 0);
-  const totalDirections = dailyData.reduce((sum, d) => sum + (d.direction_requests || 0), 0);
-  const totalNewReviews = dailyData.reduce((sum, d) => sum + (d.new_reviews_today || 0), 0);
-  const totalPostsViews = dailyData.reduce((sum, d) => sum + (d.posts_views || 0), 0);
-  const totalPostsActions = dailyData.reduce((sum, d) => sum + (d.posts_actions || 0), 0);
-  const totalBusinessPhotoViews = dailyData.reduce((sum, d) => sum + (d.business_photo_views || 0), 0);
-  const totalCustomerPhotoViews = dailyData.reduce((sum, d) => sum + (d.customer_photo_views || 0), 0);
+  // ── derived ───────────────────────────────────────────────────────────────
+  const momViews = calcChange(pViews, prevpViews);
+  const momCalls = calcChange(pCalls, prevpCalls);
+  const momClicks = calcChange(pClicks, prevpClicks);
+  const momDir = calcChange(pDir, prevpDir);
 
-  // Previous period totals
-  const prevViews = prevDailyData.reduce((sum, d) => sum + (d.views || 0), 0);
-  const prevPhoneCalls = prevDailyData.reduce((sum, d) => sum + (d.phone_calls || 0), 0);
-  const prevWebsiteClicks = prevDailyData.reduce((sum, d) => sum + (d.website_clicks || 0), 0);
-  const prevDirections = prevDailyData.reduce((sum, d) => sum + (d.direction_requests || 0), 0);
+  const engRate = pViews > 0 ? ((pActions / pViews) * 100).toFixed(2) : '0.00';
+  const callConv = pViews > 0 ? ((pCalls / pViews) * 100).toFixed(2) : '0.00';
+  const callsPct = pActions > 0 ? ((pCalls / pActions) * 100).toFixed(1) : '0';
+  const clicksPct = pActions > 0 ? ((pClicks / pActions) * 100).toFixed(1) : '0';
+  const dirPct = pActions > 0 ? ((pDir / pActions) * 100).toFixed(1) : '0';
 
-  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+  const noPeriodData = !periodLoading && pViews === 0 && pCalls === 0 && pClicks === 0 && pDir === 0;
 
-  const calcMoM = (current: number, prev: number, invert = false) => {
-    if (prev === 0) return { pct: '—', type: 'neutral' as const };
-    const val = ((current - prev) / prev * 100);
-    const pct = val.toFixed(1);
-    const isUp = val > 0;
-    const isGood = invert ? !isUp : isUp;
-    return { pct: isUp ? `+${pct}%` : `${pct}%`, type: (isGood ? 'up' : val === 0 ? 'neutral' : 'down') as 'up' | 'down' | 'neutral' };
-  };
+  const momBadge = (mom: ReturnType<typeof calcChange>, suffix: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      <span style={{ fontSize: '12px', fontWeight: 600, color: mom.type === 'up' ? '#10b981' : mom.type === 'down' ? '#ef4444' : '#9ca3af' }}>
+        {mom.type === 'up' ? '▲' : mom.type === 'down' ? '▼' : ''} {mom.pct}
+      </span>
+      <span style={{ fontSize: '10px', color: '#9ca3af' }}>{suffix}</span>
+    </div>
+  );
 
-  const momViews = calcMoM(totalViews, prevViews);
-  const momCalls = calcMoM(totalPhoneCalls, prevPhoneCalls);
-  const momClicks = calcMoM(totalWebsiteClicks, prevWebsiteClicks);
-  const momDirections = calcMoM(totalDirections, prevDirections);
-
-  // Latest values for reviews/rating
-  const latestReviews = dailyData.length > 0 ? dailyData[dailyData.length - 1].total_reviews || 0 : 0;
-  const latestRating = dailyData.length > 0 ? dailyData[dailyData.length - 1].average_rating || 0 : 0;
-  const latestPostsCount = dailyData.length > 0 ? dailyData[dailyData.length - 1].posts_count || 0 : 0;
-
-  // Days since last review
-  const lastReviewEntry = [...dailyData].reverse().find(d => (d.new_reviews_today || 0) > 0);
-  const daysSinceReview = lastReviewEntry
-    ? Math.floor((new Date().getTime() - new Date(lastReviewEntry.date).getTime()) / (1000 * 60 * 60 * 24))
-    : null;
-
-  // Engagement rate (actions / views)
-  const engagementRate = totalViews > 0 ? ((totalActions / totalViews) * 100).toFixed(2) : '0.00';
-
-  // Call conversion rate (calls / views)
-  const callConversionRate = totalViews > 0 ? ((totalPhoneCalls / totalViews) * 100).toFixed(2) : '0.00';
-
-  // Direction vs Web clicks ratio
-  const directionsPercent = totalActions > 0 ? ((totalDirections / totalActions) * 100).toFixed(1) : '0';
-  const webClicksPercent = totalActions > 0 ? ((totalWebsiteClicks / totalActions) * 100).toFixed(1) : '0';
-  const phoneCallsPercent = totalActions > 0 ? ((totalPhoneCalls / totalActions) * 100).toFixed(1) : '0';
-
-  // Prepare chart data
-  const chartData = dailyData.map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    views: d.views || 0,
-    actions: d.actions || 0,
-    calls: d.phone_calls || 0,
-    directions: d.direction_requests || 0,
-    webClicks: d.website_clicks || 0
-  }));
+  const card = { background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '16px', padding: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' };
+  const bigCard = { ...card, borderRadius: '24px', padding: '24px' };
+  const spinner = (h = 240) => (
+    <div style={{ height: h, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 28, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+    </div>
+  );
 
   return (
     <AdminLayout>
-      <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="gbp" />
+      <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="gbp" />
+      <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-        {/* GBP data note */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
-          <span style={{ fontWeight: 700 }}>ℹ️ GBP data:</span>
-          Phone calls reflect button taps (includes unanswered). Data synced daily — days with no API response are automatically excluded from charts.
-        </div>
 
-        {/* Date Controls */}
-        <div className="flex items-center justify-end gap-3 mb-6">
-          <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44, 36, 25, 0.05)' }}>
-            {[7, 30, 90].map((days) => (
-              <button
-                key={days}
-                onClick={() => handlePresetDays(days as 7 | 30 | 90)}
+        {/* ── Date Controls (sticky, same as other tabs) ────────────────── */}
+        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3"
+          style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+          {actionsChart.length > 0 && (
+            <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
+              Data through {lastGbpDataDate ? new Date(lastGbpDataDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date(dateRange.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
+          <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
+            {([7, 30, 90] as const).map(d => (
+              <button key={d} onClick={() => handlePresetDays(d)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                style={{
-                  background: days === selectedDays ? '#fff' : 'transparent',
-                  color: days === selectedDays ? '#2c2419' : '#5c5850',
-                  cursor: 'pointer'
-                }}
-              >
-                {days}d
+                style={{ background: d === selectedDays ? '#fff' : 'transparent', color: d === selectedDays ? '#2c2419' : '#5c5850', cursor: 'pointer' }}>
+                {d}d
               </button>
             ))}
           </div>
-          <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
+          <DateRangePicker dateRange={dateRange} onDateRangeChange={(r) => { setSelectedDays(null); setDateRange(r); }} />
         </div>
 
-        <div>
-            {/* Section 1: Page Header */}
-            <div className="mb-12">
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>LOCAL SEO</span>
-              <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Google Business Profile Analytics</h1>
-              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>
-                {location ? location.location_name : 'Local visibility and customer engagement metrics'}
-              </p>
-            </div>
+        {/* ── Page Header ───────────────────────────────────────────────── */}
+        <div className="mb-12">
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>LOCAL SEO</span>
+          <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Google Business Profile</h1>
+          <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>{locationName || 'Local visibility and customer engagement metrics'}</p>
+        </div>
 
-            {/* TIER 1: KPI Cards (4 cards) */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '16px',
-              marginBottom: '32px'
-            }}>
-              {/* Profile Views */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '16px',
-                padding: '20px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Profile Views</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#2c2419', margin: '0 0 4px 0' }}>{fmtNum(totalViews)}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: momViews.type === 'up' ? '#10b981' : momViews.type === 'down' ? '#ef4444' : '#9ca3af' }}>
-                    {momViews.type === 'up' ? '\u25B2' : momViews.type === 'down' ? '\u25BC' : ''} {momViews.pct}
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
-                </div>
-              </div>
+        {/* GBP data note */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
+          <span style={{ fontWeight: 700 }}>ℹ️ Note:</span>
+          Calls reflect customers who tapped your Call button on Google Maps or Search. Data updated daily.
+        </div>
 
-              {/* Phone Calls */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '16px',
-                padding: '20px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                  <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: 0, textTransform: 'uppercase' }}>Phone Calls</p>
-                  <span title="Số lần khách nhấn nút gọi trên Google Maps / Search. Bao gồm cả cuộc gọi chưa kết nối (giới hạn của Google API)." style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help', lineHeight: 1 }}>ⓘ</span>
-                </div>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{fmtNum(totalPhoneCalls)}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: momCalls.type === 'up' ? '#10b981' : momCalls.type === 'down' ? '#ef4444' : '#9ca3af' }}>
-                    {momCalls.type === 'up' ? '\u25B2' : momCalls.type === 'down' ? '\u25BC' : ''} {momCalls.pct}
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
-                </div>
-              </div>
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 1 — MONTHLY TREND (FIXED 12 MONTHS, not date-range)
+            ═══════════════════════════════════════════════════════════════ */}
+        <div style={{ marginBottom: '40px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Monthly Performance</h2>
+            <span style={{ fontSize: '11px', color: '#9ca3af', background: 'rgba(44,36,25,0.06)', padding: '2px 10px', borderRadius: '100px', fontWeight: 500 }}>
+              {viewsChart.length > 0 ? `${viewsChart[0].month} – ${viewsChart[viewsChart.length - 1].month}` : 'Last 12 months'}
+            </span>
+          </div>
 
-              {/* Website Clicks */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '16px',
-                padding: '20px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Website Clicks</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>{fmtNum(totalWebsiteClicks)}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: momClicks.type === 'up' ? '#10b981' : momClicks.type === 'down' ? '#ef4444' : '#9ca3af' }}>
-                    {momClicks.type === 'up' ? '\u25B2' : momClicks.type === 'down' ? '\u25BC' : ''} {momClicks.pct}
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
-                </div>
-              </div>
-
-              {/* Direction Requests */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '16px',
-                padding: '20px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: '600', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Directions</p>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>{fmtNum(totalDirections)}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: momDirections.type === 'up' ? '#10b981' : momDirections.type === 'down' ? '#ef4444' : '#9ca3af' }}>
-                    {momDirections.type === 'up' ? '\u25B2' : momDirections.type === 'down' ? '\u25BC' : ''} {momDirections.pct}
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>vs prev {periodDays}d</span>
-                </div>
-              </div>
-            </div>
-
-            {/* TIER 2: Trend Chart + Action Summary */}
-            <div className="mb-12" style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              borderRadius: '24px',
-              padding: '24px',
-              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '24px' }}>
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                    Daily Performance Trend
-                  </p>
-                  <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0', letterSpacing: '-0.02em' }}>
-                    Views & Engagement Over Time
-                  </h3>
-                </div>
-              </div>
-
-              {/* Line Chart */}
-              <div style={{ height: '350px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44, 36, 25, 0.1)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#5c5850' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid rgba(44, 36, 25, 0.1)',
-                        borderRadius: '8px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2} dot={false} name="Views" />
-                    <Line type="monotone" dataKey="calls" stroke="#10b981" strokeWidth={2} dot={false} name="Calls" />
-                    <Line type="monotone" dataKey="webClicks" stroke="#d9a854" strokeWidth={2} dot={false} name="Web Clicks" />
-                    <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={false} name="Directions" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Summary Stats Below Chart */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginTop: '24px' }}>
-                <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #9db5a0', textAlign: 'center' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Total Actions</p>
-                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>{fmtNum(totalActions)}</p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '0' }}>All interactions</p>
-                </div>
-
-                <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #10b981', textAlign: 'center' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Engagement Rate</p>
-                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: '0 0 4px 0' }}>{engagementRate}%</p>
-                  <p style={{ fontSize: '9px', margin: '0', fontWeight: '600', color: parseFloat(engagementRate) >= 8 ? '#d9a854' : parseFloat(engagementRate) >= 3 ? '#10b981' : '#ef4444' }}>
-                    {parseFloat(engagementRate) >= 8 ? 'Excellent' : parseFloat(engagementRate) >= 3 ? 'Good' : 'Below avg'}
-                  </p>
-                </div>
-
-                <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #d9a854', textAlign: 'center' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Call Conversion</p>
-                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: '0 0 4px 0' }}>{callConversionRate}%</p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '0' }}>Calls / Views</p>
-                </div>
-
-                <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '8px', padding: '16px', borderLeft: '3px solid #c4704f', textAlign: 'center' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 8px 0', fontWeight: '600' }}>Avg Daily Views</p>
-                  <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: '0 0 4px 0' }}>
-                    {dailyData.length > 0 ? Math.round(totalViews / dailyData.length) : 0}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '0' }}>Per day average</p>
-                </div>
-              </div>
-            </div>
-
-            {/* TIER 3: Analysis Columns (2-column @ 50/50) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-              {/* Column 1: Customer Actions Breakdown */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Customer Actions
-                </p>
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
-                  How Customers Interact
-                </h3>
-
-                {/* Action Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Phone Calls</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(totalPhoneCalls)}</p>
-                  </div>
-                  <div style={{ background: 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #d9a854' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Web Clicks</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{fmtNum(totalWebsiteClicks)}</p>
-                  </div>
-                  <div style={{ background: 'rgba(196, 112, 79, 0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', borderTop: '3px solid #c4704f' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Directions</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#c4704f', margin: 0 }}>{fmtNum(totalDirections)}</p>
-                  </div>
-                </div>
-
-                {/* Progress Bars: Action Distribution */}
-                <div style={{ marginTop: '20px' }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Action Distribution</p>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Phone Calls</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981' }}>{phoneCallsPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${phoneCallsPercent}%`, height: '100%', background: '#10b981', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Website Clicks</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#d9a854' }}>{webClicksPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${webClicksPercent}%`, height: '100%', background: '#d9a854', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Direction Requests</span>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#c4704f' }}>{directionsPercent}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(44, 36, 25, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${directionsPercent}%`, height: '100%', background: '#c4704f', transition: 'width 0.3s ease' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Column 2: Reviews & Reputation */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Reviews & Reputation
-                </p>
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#2c2419', margin: '0 0 20px 0', letterSpacing: '-0.02em' }}>
-                  Customer Feedback
-                </h3>
-
-                {/* Rating Display */}
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(217, 168, 84, 0.15), rgba(196, 112, 79, 0.15))',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  textAlign: 'center',
-                  marginBottom: '20px'
-                }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Average Rating</p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '48px', fontWeight: '700', color: '#d9a854' }}>{latestRating.toFixed(1)}</span>
-                    <span style={{ fontSize: '24px', color: '#d9a854' }}>/ 5</span>
-                  </div>
-                  <div style={{ marginTop: '8px' }}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span key={star} style={{ fontSize: '20px', color: star <= Math.round(latestRating) ? '#d9a854' : '#e5e5e5' }}>
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Review Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #10b981' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Total Reviews</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(latestReviews)}</p>
-                  </div>
-                  <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>New Reviews</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{fmtNum(totalNewReviews)}</p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>This period</p>
-                  </div>
-                  <div style={{ background: daysSinceReview !== null && daysSinceReview > 30 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(217, 168, 84, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: `3px solid ${daysSinceReview !== null && daysSinceReview > 30 ? '#ef4444' : '#d9a854'}` }}>
-                    <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Days Since Review</p>
-                    <p style={{ fontSize: '24px', fontWeight: '700', color: daysSinceReview !== null && daysSinceReview > 30 ? '#ef4444' : '#d9a854', margin: 0 }}>
-                      {daysSinceReview !== null ? daysSinceReview : '—'}
-                    </p>
-                    <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>
-                      {daysSinceReview !== null && daysSinceReview > 30 ? 'Needs attention' : 'Last review'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* TIER 4: Granular Data (2x2 grid) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
-              {/* Column 1: Photo Performance */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Photo Performance
-                </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Visual Content Engagement
-                </h3>
-
-                <div style={{ background: 'rgba(157, 181, 160, 0.08)', borderRadius: '12px', padding: '16px', borderLeft: '3px solid #9db5a0' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: '600' }}>Photo Views</p>
-                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>
-                    {fmtNum(totalBusinessPhotoViews + (totalCustomerPhotoViews || 0))}
-                  </p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: '4px 0 0 0' }}>Total photo views</p>
-                </div>
-              </div>
-
-              {/* Column 2: Posts Performance */}
-              {(latestPostsCount > 0 || totalPostsViews > 0) && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Posts Performance
-                </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  GBP Posts Engagement
-                </h3>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                  <div style={{ background: 'rgba(217, 168, 84, 0.1)', borderRadius: '12px', padding: '12px', textAlign: 'center', borderTop: '3px solid #d9a854' }}>
-                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Active Posts</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#d9a854', margin: 0 }}>{latestPostsCount}</p>
-                  </div>
-                  <div style={{ background: 'rgba(157, 181, 160, 0.1)', borderRadius: '12px', padding: '12px', textAlign: 'center', borderTop: '3px solid #9db5a0' }}>
-                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Post Views</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#9db5a0', margin: 0 }}>{fmtNum(totalPostsViews)}</p>
-                  </div>
-                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', padding: '12px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
-                    <p style={{ fontSize: '9px', fontWeight: '600', color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Post Actions</p>
-                    <p style={{ fontSize: '22px', fontWeight: '700', color: '#10b981', margin: 0 }}>{fmtNum(totalPostsActions)}</p>
-                  </div>
-                </div>
-
-                {/* Posts Engagement Rate */}
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(157, 181, 160, 0.15), rgba(16, 185, 129, 0.15))',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  borderLeft: '4px solid #9db5a0',
-                  marginTop: '16px'
-                }}>
-                  <p style={{ fontSize: '10px', fontWeight: '600', color: '#5c5850', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                    Posts Engagement Rate
-                  </p>
-                  <p style={{ fontSize: '28px', fontWeight: '700', color: '#9db5a0', margin: '0 0 4px 0' }}>
-                    {totalPostsViews > 0 ? ((totalPostsActions / totalPostsViews) * 100).toFixed(2) : '0.00'}%
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: 0 }}>Actions / Views</p>
-                </div>
-              </div>
-              )}
-
-              {/* Column 3: Daily Calls Trend */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(44, 36, 25, 0.1)',
-                borderRadius: '24px',
-                padding: '24px',
-                boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)'
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 8px 0' }}>
-                  Call Trend
-                </p>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#2c2419', margin: '0 0 16px 0', letterSpacing: '-0.02em' }}>
-                  Daily Phone Calls
-                </h3>
-
-                <div style={{ height: '200px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            {/* Profile Views — line */}
+            <div style={bigCard}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Trend</p>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Views · Clicks · Directions</h3>
+              {monthlyLoading ? spinner(220) : (
+                <div style={{ height: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44, 36, 25, 0.1)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#5c5850' }} />
-                      <YAxis tick={{ fontSize: 9, fill: '#5c5850' }} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid rgba(44, 36, 25, 0.1)',
-                          borderRadius: '8px',
-                          fontSize: '10px'
-                        }}
-                      />
-                      <Bar dataKey="calls" fill="#10b981" radius={[4, 4, 0, 0]} name="Calls" />
+                    <LineChart data={viewsChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.08)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
+                      <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
+                      <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2.5} dot={{ r: 3, fill: '#9db5a0' }} name="Views" />
+                      <Line type="monotone" dataKey="clicks" stroke="#d9a854" strokeWidth={2} dot={{ r: 2, fill: '#d9a854' }} name="Web Clicks" />
+                      <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={{ r: 2, fill: '#c4704f' }} name="Directions" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* Calls · Clicks · Directions — stacked bar */}
+            <div style={bigCard}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Actions</p>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Phone Calls</h3>
+              {monthlyLoading ? spinner(220) : (
+                <div style={{ height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={actionsChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.08)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
+                      <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
+                      <Bar dataKey="calls" name="Calls" fill="#10b981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
-
+              )}
             </div>
-
-            {/* Section 5: Key Insights Summary */}
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(44, 36, 25, 0.1)',
-              borderRadius: '24px',
-              padding: '24px',
-              boxShadow: '0 4px 20px rgba(44, 36, 25, 0.08)',
-              marginBottom: '32px'
-            }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 12px 0' }}>
-                GBP Key Insights
-              </p>
-              <p style={{ fontSize: '11px', color: '#5c5850', margin: 0, lineHeight: '1.5' }}>
-                Your Google Business Profile received <strong>{fmtNum(totalViews)} views</strong> with an engagement rate of <strong>{engagementRate}%</strong>.
-                Customers took <strong>{fmtNum(totalActions)} actions</strong> including <strong>{fmtNum(totalPhoneCalls)} phone calls</strong>, <strong>{fmtNum(totalWebsiteClicks)} website clicks</strong>, and <strong>{fmtNum(totalDirections)} direction requests</strong>.
-                {latestRating > 0 && ` Your business maintains a <strong>${latestRating.toFixed(1)}-star rating</strong> with <strong>${fmtNum(latestReviews)} total reviews</strong>.`}
-                {totalNewReviews > 0 && ` You received <strong>${fmtNum(totalNewReviews)} new reviews</strong> during this period.`}
-              </p>
-            </div>
+          </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTIONS 2–5 — DYNAMIC (from date picker)
+            ═══════════════════════════════════════════════════════════════ */}
+
+        {noPeriodData ? (
+          <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(255,255,255,0.9)', borderRadius: 16, color: '#9ca3af' }}>
+            <p style={{ fontSize: 15, marginBottom: 6 }}>No GBP data for this period</p>
+            <p style={{ fontSize: 12 }}>Try selecting an earlier range — GBP data typically has a 3–7 day lag.</p>
+          </div>
+        ) : (
+          <>
+            {periodLoading ? spinner(200) : (
+              <>
+                {/* ── SECTION 5: Key Insights ──────────────────────────────── */}
+                <div style={{ ...bigCard, marginBottom: '32px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 10px 0' }}>
+                    GBP Key Insights
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#5c5850', margin: 0, lineHeight: '1.7' }}>
+                    In the last <strong>{periodDays} days</strong>, your Google Business Profile received <strong>{fmtNum(pViews)} profile views</strong> and generated{' '}
+                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call rate</strong> (calls per profile view).
+                    Customers also visited your website <strong>{fmtNum(pClicks)} times</strong> and requested directions <strong>{fmtNum(pDir)} times</strong>.
+                    Overall engagement rate: <strong>{engRate}%</strong>.
+                    {latestRating > 0 && <> Business maintains a <strong>{latestRating.toFixed(1)}-star</strong> rating across <strong>{fmtNum(latestReviews)} reviews</strong>{pNewReviews > 0 ? `, with ${fmtNum(pNewReviews)} new this period` : ''}.</>}
+                  </p>
+                </div>
+
+                {/* ── SECTION 2: Phone Calls — featured ──────────────────── */}
+                <div style={{ ...bigCard, marginBottom: '20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(157,181,160,0.04))', border: '1.5px solid rgba(16,185,129,0.18)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#5c5850', margin: 0 }}>Phone Calls</p>
+                        <span title="Times customers tapped the call button — includes unanswered calls" style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help' }}>ⓘ</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+                        <span style={{ fontSize: '56px', fontWeight: 900, color: '#10b981', lineHeight: 1, letterSpacing: '-0.02em' }}>{fmtNum(pCalls)}</span>
+                        <div>
+                          {momBadge(momCalls, `vs prev ${periodDays}d`)}
+                          <p style={{ fontSize: '11px', color: '#5c5850', margin: '6px 0 0' }}>
+                            Call rate: <strong>{callConv}%</strong> of people who viewed your profile called
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', minWidth: '260px' }}>
+                      {[
+                        { label: 'Share of Actions', val: `${callsPct}%`, color: '#10b981' },
+                        { label: 'Avg / Day', val: periodDays > 0 ? (pCalls / periodDays).toFixed(1) : '0', color: '#10b981' },
+                        { label: 'Call Rate', val: `${callConv}%`, color: '#10b981' },
+                      ].map(item => (
+                        <div key={item.label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                          <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>{item.label}</p>
+                          <p style={{ fontSize: '20px', fontWeight: 700, color: item.color, margin: 0 }}>{item.val}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── SECTION 3: Views · Clicks · Directions ──────────────── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '16px', marginBottom: '24px' }}>
+                  {[
+                    { label: 'Profile Views', val: pViews, mom: momViews, color: '#9db5a0', sub: `Avg ${periodDays > 0 ? Math.round(pViews / periodDays) : 0}/day` },
+                    { label: 'Website Clicks', val: pClicks, mom: momClicks, color: '#d9a854', sub: `${clicksPct}% of actions` },
+                    { label: 'Directions', val: pDir, mom: momDir, color: '#c4704f', sub: `${dirPct}% of actions` },
+                  ].map(item => (
+                    <div key={item.label} style={card}>
+                      <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: 600, margin: '0 0 8px 0', textTransform: 'uppercase' }}>{item.label}</p>
+                      <p style={{ fontSize: '32px', fontWeight: 700, color: item.color, margin: '0 0 6px 0' }}>{fmtNum(item.val)}</p>
+                      {momBadge(item.mom, `vs prev ${periodDays}d`)}
+                      <p style={{ fontSize: '10px', color: '#9ca3af', margin: '6px 0 0 0' }}>{item.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── SECTION 4: Action Breakdown + Reviews ───────────────── */}
+                <div style={{ display: 'grid', gridTemplateColumns: latestReviews > 0 || latestRating > 0 ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '24px' }}>
+                  {/* Action breakdown */}
+                  <div style={bigCard}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Customer Actions</p>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Total: {fmtNum(pActions)}</h3>
+                    {[
+                      { label: 'Phone Calls', val: pCalls, pct: callsPct, color: '#10b981' },
+                      { label: 'Website Clicks', val: pClicks, pct: clicksPct, color: '#d9a854' },
+                      { label: 'Direction Requests', val: pDir, pct: dirPct, color: '#c4704f' },
+                    ].map(item => (
+                      <div key={item.label} style={{ marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '12px', color: '#5c5850' }}>{item.label}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: item.color }}>
+                            {fmtNum(item.val)} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({item.pct}%)</span>
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ width: `${item.pct}%`, height: '100%', background: item.color, borderRadius: '4px' }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                      <div style={{ background: 'rgba(16,185,129,0.06)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Engagement Rate</p>
+                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', margin: '0 0 2px 0' }}>{engRate}%</p>
+                        <p style={{ fontSize: '9px', fontWeight: 600, margin: 0, color: parseFloat(engRate) >= 8 ? '#d9a854' : parseFloat(engRate) >= 3 ? '#10b981' : '#ef4444' }}>
+                          {parseFloat(engRate) >= 8 ? 'Excellent' : parseFloat(engRate) >= 3 ? 'Good' : 'Below avg'}
+                        </p>
+                      </div>
+                      <div style={{ background: 'rgba(217,168,84,0.06)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Call Rate</p>
+                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#d9a854', margin: 0 }}>{callConv}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reviews — only render if we have real data */}
+                  {latestReviews > 0 || latestRating > 0 ? (
+                    <div style={bigCard}>
+                      <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Reviews & Reputation</p>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Customer Feedback</h3>
+                      <div style={{ background: 'linear-gradient(135deg,rgba(217,168,84,0.15),rgba(196,112,79,0.12))', borderRadius: '14px', padding: '20px', textAlign: 'center', marginBottom: '16px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 600, color: '#5c5850', margin: '0 0 6px 0', textTransform: 'uppercase' }}>Average Rating</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '44px', fontWeight: 800, color: '#d9a854', lineHeight: 1 }}>{latestRating.toFixed(1)}</span>
+                          <span style={{ fontSize: '20px', color: '#d9a854' }}>/ 5</span>
+                        </div>
+                        <div style={{ marginTop: '6px' }}>
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <span key={s} style={{ fontSize: '18px', color: s <= Math.round(latestRating) ? '#d9a854' : '#e5e5e5' }}>★</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #10b981' }}>
+                          <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>Total Reviews</p>
+                          <p style={{ fontSize: '26px', fontWeight: 700, color: '#10b981', margin: 0 }}>{fmtNum(latestReviews)}</p>
+                        </div>
+                        {pNewReviews > 0 && (
+                          <div style={{ background: 'rgba(157,181,160,0.08)', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #9db5a0' }}>
+                            <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>New (this period)</p>
+                            <p style={{ fontSize: '26px', fontWeight: 700, color: '#9db5a0', margin: 0 }}>{fmtNum(pNewReviews)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+              </>
+            )}
+          </>
+        )}
       </div>
     </AdminLayout>
   );
