@@ -35,13 +35,13 @@ export default withAuth(
 )
 
 export const config = {
+  // Match all routes EXCEPT public APIs (facebook, auth, cron, telegram)
   matcher: [
+    // Protected pages
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    // Protected API paths - explicitly list what needs auth, exclude public APIs
-    '/api/admin/:path*',
-    '/api/clients/:path*',
-    '/api/metrics/:path*',
+    // Protected API paths (exclude facebook, auth, cron, telegram)
+    '/api/(?!(facebook|auth|cron|telegram)/)',
   ]
 }
