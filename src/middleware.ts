@@ -1,30 +1,10 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
-// Explicit public API paths that don't require auth
-const publicApiPaths = [
-  '/api/auth',
-  '/api/cron',
-  '/api/admin/run-rollup',
-  '/api/telegram',
-  '/api/facebook',
-]
-
-// Check if path is public
-function isPublicPath(pathname: string): boolean {
-  return publicApiPaths.some(p => pathname.startsWith(p))
-}
-
 export default withAuth(
   function middleware(req) {
-    const pathname = req.nextUrl.pathname
-
-    // Skip auth checks for public API paths
-    if (isPublicPath(pathname)) {
-      return NextResponse.next()
-    }
-
     const token = req.nextauth.token
+    const pathname = req.nextUrl.pathname
 
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
     if (token?.role === 'client' && token?.clientSlug) {
@@ -59,7 +39,7 @@ export const config = {
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    // All API routes except those explicitly public
-    '/api/:path*',
+    // API routes that need auth: everything except auth, cron, admin/run-rollup, telegram, facebook
+    '/api/((?!auth|cron|admin/run-rollup|telegram|facebook).*)',
   ]
 }
