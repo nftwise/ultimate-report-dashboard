@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM OVERLORD V3.1</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Share Tech Mono Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #010405;
+            --panel: rgba(4, 15, 20, 0.85);
+            --cyan: #00f3ff;
+            --cyan-dim: rgba(0, 243, 255, 0.15);
+            --amber: #ffb800;
+            --amber-dim: rgba(255, 184, 0, 0.15);
+            --border: rgba(0, 243, 255, 0.3);
+            --text-main: #c7f2f4;
+            --font-mono: 'Share Tech Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--cyan-dim);
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image:
+                linear-gradient(var(--cyan-dim) 1px, transparent 1px),
+                linear-gradient(90deg, var(--cyan-dim) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center;
+        }
+
+        /* Vignette overlay to darken screen edges */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, var(--bg) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* HEADER */
+        .header {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 32px;
+            border-bottom: 2px solid var(--cyan);
+            background: linear-gradient(90deg, var(--panel), transparent);
+            box-shadow: 0 4px 20px var(--cyan-dim);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: var(--cyan);
+            text-shadow: 0 0 16px var(--cyan);
+            letter-spacing: 4px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 48px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .stat-val {
+            font-size: 24px;
+            color: var(--cyan);
+            text-shadow: 0 0 12px var(--cyan);
+            font-weight: bold;
+        }
+
+        .stat-val.amber {
+            color: var(--amber);
+            text-shadow: 0 0 12px var(--amber);
+        }
+
+        /* MAIN DASHBOARD LAYOUT */
+        .dashboard {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            display: grid;
+            gap: 16px;
+            padding: 16px;
+            grid-template-columns: 350px 200px 1fr 300px;
+            /* 4 columns */
+            height: calc(100vh - 72px);
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-shadow: inset 0 0 24px var(--cyan-dim);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(4px);
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--cyan);
+            box-shadow: 0 0 15px var(--cyan);
+        }
+
+        .panel-header {
+            padding: 8px 16px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: var(--cyan);
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 243, 255, 0.05);
+            text-shadow: 0 0 8px var(--cyan);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .panel-body {
+            padding: 16px;
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* COLUMN 1: LIVE MARKET STREAM (FLOW BAY BAY) */
+        .stream-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .stream-item {
+            font-size: 12px;
+            border-left: 2px solid var(--cyan);
+            padding-left: 12px;
+            animation: slideDown 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+            background: linear-gradient(90deg, rgba(0, 243, 255, 0.1), transparent);
+            transform-origin: top;
+        }
+
+        @keyframes slideDown {
+            0% {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .stream-item.amber {
+            border-color: var(--amber);
+            background: linear-gradient(90deg, rgba(255, 184, 0, 0.1), transparent);
+        }
+
+        .stream-time {
+            color: #fff;
+            margin-bottom: 4px;
+            display: block;
+            opacity: 0.8;
+        }
+
+        .stream-json {
+            color: var(--cyan);
+            white-space: pre-wrap;
+            word-break: break-all;
+            text-shadow: 0 0 4px var(--cyan);
+        }
+
+        .stream-item.amber .stream-json {
+            color: var(--amber);
+            text-shadow: 0 0 4px var(--amber);
+        }
+
+        /* COLUMN 2: RADIALS */
+        .radial-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+            height: 100%;
+        }
+
+        .radial-wrap {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            filter: drop-shadow(0 0 12px var(--cyan));
+        }
+
+        .radial-wrap.amber {
+            filter: drop-shadow(0 0 12px var(--amber));
+        }
+
+        .radial-svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .radial-bg {
+            fill: none;
+            stroke: var(--cyan-dim);
+            stroke-width: 6;
+        }
+
+        .radial-fg {
+            fill: none;
+            stroke: var(--cyan);
+            stroke-width: 6;
+            stroke-linecap: butt;
+            transition: stroke-dashoffset 0.5s ease-out;
+        }
+
+        .radial-wrap.amber .radial-bg {
+            stroke: var(--amber-dim);
+        }
+
+        .radial-wrap.amber .radial-fg {
+            stroke: var(--amber);
+        }
+
+        .radial-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .radial-val {
+            font-size: 24px;
+            color: var(--text-main);
+            text-shadow: 0 0 8px var(--cyan);
+        }
+
+        .radial-wrap.amber .radial-val {
+            text-shadow: 0 0 8px var(--amber);
+        }
+
+        .radial-label {
+            font-size: 10px;
+            opacity: 0.7;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            margin-top: 4px;
+        }
+
+        /* COLUMN 3: CHARTS */
+        .chart-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chart-wrap {
+            flex: 1;
+            position: relative;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            filter: drop-shadow(0 0 8px var(--cyan));
+        }
+
+        .canvas-amber {
+            filter: drop-shadow(0 0 8px var(--amber));
+        }
+
+        /* COLUMN 4: SYSTEM STATUS */
+        .stat-bar-group {
+            margin-bottom: 24px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--cyan);
+            text-shadow: 0 0 5px var(--cyan);
+        }
+
+        .stat-label .stat-val-text {
+            color: #fff;
+            text-shadow: none;
+        }
+
+        .stat-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .stat-bar-fg {
+            height: 100%;
+            background: var(--cyan);
+            box-shadow: 0 0 15px var(--cyan);
+            transition: width 0.3s;
+        }
+
+        .stat-bar-fg.amber {
+            background: var(--amber);
+            box-shadow: 0 0 15px var(--amber);
+        }
+
+        .stat-bar-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0, 0, 0, 0.5) 4px, rgba(0, 0, 0, 0.5) 6px);
+        }
+
+        /* Node Log */
+        .node-log {
+            margin-top: auto;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px dashed var(--border);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.8;
+        }
+
+        .node-log span {
+            color: var(--cyan);
+        }
+
+        .node-log span.warn {
+            color: var(--amber);
+        }
+
+        .pulse {
+            animation: pulsing 1.5s infinite alternate;
+        }
+
+        @keyframes pulsing {
+            from {
+                opacity: 0.4;
+            }
+
+            to {
+                opacity: 1;
+                box-shadow: 0 0 20px var(--cyan);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="grid-overlay"></div>
+
+    <div class="header">
+        <h1 class="pulse" style="border: 1px solid var(--cyan); padding: 4px 16px;">[ QUANTUM_OVERLORD_v3.1 ]</h1>
+        <div class="header-stats">
+            <div class="stat-item">
+                <span class="stat-val pulse" id="btcDisplay">73,456.90</span>
+                <span style="font-size:12px; color:var(--text-main); letter-spacing: 2px;">BTC/USD INDEX</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val amber">+1,845,210</span>
+                <span style="font-size:12px; color:var(--text-main); letter-spacing: 2px;">NET ALG VOLUME</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="timeDisplay">--:--:--</span>
+                <span style="font-size:12px; color:var(--text-main); letter-spacing: 2px;">SYS.TIME</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- Col 1: Live Stream (Flow Bay Bay) -->
+        <div class="panel">
+            <div class="panel-header"><span>>>> SECURE DATA HOSE</span><span class="pulse">REC</span></div>
+            <div class="panel-body">
+                <div class="stream-container" id="streamBox">
+                    <!-- Stream injected by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 2: Radials -->
+        <div class="panel">
+            <div class="panel-header"><span>>>> KERNEL</span></div>
+            <div class="panel-body radial-group">
+                <div class="radial-wrap">
+                    <svg class="radial-svg" viewBox="0 0 100 100">
+                        <circle class="radial-bg" cx="50" cy="50" r="42"></circle>
+                        <circle class="radial-fg" id="rad1" cx="50" cy="50" r="42" stroke-dasharray="264"
+                            stroke-dashoffset="56"></circle>
+                    </svg>
+                    <div class="radial-text">
+                        <div class="radial-val">78.4%</div>
+                        <div class="radial-label">ALPHA GEN</div>
+                    </div>
+                </div>
+
+                <div class="radial-wrap amber">
+                    <svg class="radial-svg" viewBox="0 0 100 100">
+                        <circle class="radial-bg" cx="50" cy="50" r="42"></circle>
+                        <circle class="radial-fg" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="180"
+                            stroke="var(--amber)"></circle>
+                    </svg>
+                    <div class="radial-text">
+                        <div class="radial-val" style="color:#fff">21.6%</div>
+                        <div class="radial-label" style="color:var(--amber)">RISK EXP</div>
+                    </div>
+                </div>
+
+                <div class="radial-wrap">
+                    <svg class="radial-svg" viewBox="0 0 100 100">
+                        <circle class="radial-bg" cx="50" cy="50" r="42"></circle>
+                        <circle class="radial-fg" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="20">
+                        </circle>
+                    </svg>
+                    <div class="radial-text">
+                        <div class="radial-val">+1.8M</div>
+                        <div class="radial-label">NET PnL</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 3: Charts -->
+        <div class="chart-stack">
+            <div class="panel chart-wrap">
+                <div class="panel-header">>>> MACHINE LEARNING // BTC CORE</div>
+                <div class="panel-body" style="padding: 10px;">
+                    <canvas id="chart1"></canvas>
+                </div>
+            </div>
+            <div class="panel chart-wrap">
+                <div class="panel-header"
+                    style="color: var(--amber); border-color: var(--amber-dim); text-shadow: 0 0 8px var(--amber);">>>>
+                    MACHINE LEARNING // ETH CORE</div>
+                <div class="panel-body" style="padding: 10px;">
+                    <canvas id="chart2" class="canvas-amber"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 4: Systems -->
+        <div class="panel">
+            <div class="panel-header">>>> SYS_STATUS</div>
+            <div class="panel-body" style="display:flex; flex-direction: column;">
+                <div class="stat-bar-group">
+                    <div class="stat-label"><span>CPU THREADS</span> <span class="stat-val-text" id="cpuVal">82%</span>
+                    </div>
+                    <div class="stat-bar-bg">
+                        <div class="stat-bar-fg" id="cpuBar" style="width: 82%"></div>
+                    </div>
+                </div>
+                <div class="stat-bar-group">
+                    <div class="stat-label" style="color: var(--amber); text-shadow: 0 0 5px var(--amber);"><span>MEM
+                            MATRIX</span> <span class="stat-val-text">64 GB</span></div>
+                    <div class="stat-bar-bg" style="border-color: rgba(255,184,0,0.3)">
+                        <div class="stat-bar-fg amber" style="width: 95%"></div>
+                    </div>
+                </div>
+                <div class="stat-bar-group">
+                    <div class="stat-label"><span>NET LATENCY</span> <span class="stat-val-text" id="pingVal">12
+                            ms</span></div>
+                    <div class="stat-bar-bg">
+                        <div class="stat-bar-fg" id="pingBar" style="width: 15%"></div>
+                    </div>
+                </div>
+
+                <div class="node-log" id="nodeLog">
+                    <span>></span> INITIATING CLUSTER...<br>
+                    <span>></span> NODES [12/12] ACTIVE.<br>
+                    <span>></span> ALLOCATING TENSORS.<br>
+                    <span class="warn">></span> AWAITING SIGNAL...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Time Update
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('timeDisplay').innerText = now.toTimeString().split(' ')[0] + '.' + Math.floor(now.getMilliseconds() / 100).toString();
+        }, 100);
+
+        // 2. Data Waterfall Stream (Flow Bay Bay)
+        const streamBox = document.getElementById('streamBox');
+        const symbols = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'ADA/USD'];
+        const actions = ['BUY EXEC', 'SELL EXEC', 'STOP LOSS', 'TAKE PROFIT', 'ARBITRAGE HFT'];
+
+        function addStreamItem() {
+            const sym = symbols[Math.floor(Math.random() * symbols.length)];
+            const act = actions[Math.floor(Math.random() * actions.length)];
+            const price = (Math.random() * 50000 + 10).toFixed(2);
+            const isAlert = act === 'STOP LOSS' || act === 'TAKE PROFIT';
+            const hash = Math.random().toString(36).substr(2, 6).toUpperCase();
+
+            const item = document.createElement('div');
+            item.className = 'stream-item' + (isAlert ? ' amber' : '');
+
+            const time = new Date().toTimeString().split(' ')[0] + '.' + Math.floor(Math.random() * 999).toString().padStart(3, '0');
+
+            // Format looks like hacking terminal JSON stream
+            item.innerHTML = `
+<span class="stream-time">[${time}] sys.port.open</span>
+<span class="stream-json">{
+  "id": "0x${hash}",
+  "sym": "${sym}",
+  "px": ${price},
+  "act": "[${act}]"
+}</span>`;
+
+            // PREPEND pushes everything down seamlessly
+            streamBox.prepend(item);
+
+            // Keep exactly 15 items on screen max to strictly avoid DOM lag, overflow hidden handles the rest
+            if (streamBox.children.length > 8) {
+                streamBox.removeChild(streamBox.lastChild);
+            }
+        }
+
+        // Fire insanely fast (every 250ms) to create the "flow bay bay" (flying stream) effect
+        setInterval(addStreamItem, 250);
+
+        // 3. Fake System Fluctuations
+        setInterval(() => {
+            // CPU
+            const cpu = Math.floor(Math.random() * 40) + 50;
+            document.getElementById('cpuVal').innerText = cpu + '%';
+            document.getElementById('cpuBar').style.width = cpu + '%';
+
+            // Ping
+            const ping = Math.floor(Math.random() * 20) + 5;
+            document.getElementById('pingVal').innerText = ping + ' ms';
+            document.getElementById('pingBar').style.width = ping + '%';
+
+            // Random log
+            const hashes = ['SYNC', 'EVAL', 'CALC', 'DROP', 'POST'];
+            const logBox = document.getElementById('nodeLog');
+            const newLog = \`<span>></span> \${hashes[Math.floor(Math.random()*hashes.length)]} \${Math.random().toString().substr(2,5)}...\`;
+            const logs = logBox.innerHTML.split('<br>');
+            if(logs.length > 5) logs.shift();
+            logs.push(newLog);
+            logBox.innerHTML = logs.join('<br>');
+
+        }, 800);
+
+        // 4. Live Charts Setup
+        Chart.defaults.color = '#c7f2f4';
+        Chart.defaults.font.family = "'Share Tech Mono', monospace";
+        
+        function getConfig(color) {
+            return {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 60}, (_, i) => i),
+                    datasets: [{
+                        data: Array.from({length: 60}, () => Math.random() * 100 + 100),
+                        borderColor: color,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1,  // straight technical lines
+                        fill: true,
+                        backgroundColor: color === '#00f3ff' ? 'rgba(0,243,255,0.05)' : 'rgba(255,184,0,0.05)',
+                        stepped: true // makes it look like an algorithm
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: { duration: 0 }, // no smoothing, instant tick
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { 
+                            position: 'right',
+                            grid: { color: 'rgba(0, 243, 255, 0.1)' },
+                            border: { display: false }
+                        }
+                    }
+                }
+            }
+        }
+
+        const c1 = new Chart(document.getElementById('chart1').getContext('2d'), getConfig('#00f3ff'));
+        const c2 = new Chart(document.getElementById('chart2').getContext('2d'), getConfig('#ffb800'));
+
+        // Push new data continuously
+        let btcPrice = 73456.90;
+        setInterval(() => {
+            // chart 1
+            const d1 = c1.data.datasets[0].data;
+            d1.push(d1[d1.length-1] + (Math.random()-0.5)*20);
+            d1.shift();
+            c1.update();
+            
+            // chart 2
+            const d2 = c2.data.datasets[0].data;
+            d2.push(d2[d2.length-1] + (Math.random()-0.5)*20);
+            d2.shift();
+            c2.update();
+
+            // update header price
+            btcPrice = btcPrice + (Math.random()-0.5)*50;
+            document.getElementById('btcDisplay').innerText = btcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        }, 500); // 2 ticks per second
+
+    </script>
+</body>
+
+</html>

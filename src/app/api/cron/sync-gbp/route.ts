@@ -155,6 +155,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Reviews snapshot (once per location, update most-recent date row) ───
+    const gbpAccountId = process.env.GBP_ACCOUNT_ID;
+    const mostRecentDate = datesToSync[0]; // first in list = most recent
+    if (gbpAccountId) {
+      console.log(`[sync-gbp] Syncing reviews for ${validLocations.length} locations...`);
+      let reviewsSynced = 0;
+      for (const location of validLocations) {
+        try {
+          const reviewData = await fetchLocationReviews(accessToken, gbpAccountId, location.gbp_location_id);
+          if (reviewData) {
+            await supabaseAdmin
+              .from('gbp_location_daily_metrics')
+              .update({
+                total_reviews: reviewData.totalReviewCount,
+                average_rating: reviewData.averageRating,
+              })
+              .eq('location_id', location.id)
+              .eq('date', mostRecentDate);
+            reviewsSynced++;
+          }
+        } catch (err: any) {
+          console.log(`[sync-gbp] Reviews fetch failed for ${location.location_name}:`, err.message);
+        }
+      }
+      console.log(`[sync-gbp] Reviews synced for ${reviewsSynced}/${validLocations.length} locations`);
+    }
+
     const duration = Date.now() - startTime;
     console.log(`[sync-gbp] Done in ${duration}ms: ${synced}/${validLocations.length * datesToSync.length} location-days synced across ${datesToSync.length} dates`);
 
@@ -170,6 +197,38 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('[sync-gbp] Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+// =====================================================
+// GBP REVIEWS API HELPER
+// =====================================================
+
+/**
+ * Fetch current review count and average rating for a location.
+ * Uses mybusiness.googleapis.com v4 API (requires GBP_ACCOUNT_ID env var).
+ * Returns null on failure (non-blocking — reviews are a bonus metric).
+ */
+async function fetchLocationReviews(
+  accessToken: string,
+  accountId: string,
+  locationId: string,
+): Promise<{ totalReviewCount: number; averageRating: number } | null> {
+  try {
+    const url = `https://mybusiness.googleapis.com/v4/${accountId}/${locationId}/reviews?pageSize=1`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (typeof data.totalReviewCount !== 'number' && !data.totalReviewCount) return null;
+    return {
+      totalReviewCount: Number(data.totalReviewCount) || 0,
+      averageRating: Number(data.averageRating) || 0,
+    };
+  } catch {
+    return null;
   }
 }
 

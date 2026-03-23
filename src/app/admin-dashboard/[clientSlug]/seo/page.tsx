@@ -277,7 +277,7 @@ export default function SEOPage() {
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
   const calcMoM = (curr: number, prev: number) => {
-    if (prev === 0) return { pct: curr > 0 ? 100 : 0, label: prevLabel };
+    if (prev === 0) return { pct: null, label: prevLabel };
     return { pct: ((curr - prev) / prev) * 100, label: prevLabel };
   };
   const visitsMoM = calcMoM(totalVisits, prevPeriodMetrics.sessions);
@@ -285,10 +285,10 @@ export default function SEOPage() {
   const ctrMoM = calcMoM(avgCtrNum, prevPeriodMetrics.ctr);
   const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits);
 
-  const momBadge = (mom: { pct: number; label: string }) => (
+  const momBadge = (mom: { pct: number | null; label: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-      <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
-        {mom.pct >= 0 ? '+' : ''}{mom.pct.toFixed(1)}%
+      <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct === null ? '#9ca3af' : mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
+        {mom.pct === null ? '—' : `${mom.pct >= 0 ? '+' : ''}${mom.pct.toFixed(1)}%`}
       </span>
       <span style={{ fontSize: '9px', color: '#9ca3af' }}>vs {mom.label}</span>
     </div>
@@ -396,7 +396,7 @@ export default function SEOPage() {
                 <> Keyword rankings: <strong style={{ color: '#10b981' }}>{keywordMovement.improved} moved up</strong>{', '}
                 <strong style={{ color: '#ef4444' }}>{keywordMovement.declined} moved down</strong> compared to the previous period.</>
               ) : null}
-              {visitsMoM.pct !== 0 ? (
+              {visitsMoM.pct !== null && visitsMoM.pct !== 0 ? (
                 <> Overall visits are{' '}
                 <strong style={{ color: visitsMoM.pct > 0 ? '#10b981' : '#ef4444' }}>
                   {visitsMoM.pct > 0 ? `up ${visitsMoM.pct.toFixed(1)}%` : `down ${Math.abs(visitsMoM.pct).toFixed(1)}%`}

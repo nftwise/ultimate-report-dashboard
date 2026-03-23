@@ -248,19 +248,39 @@ export default function GoogleAdsPage() {
         const dateToISO = dateRange.to.toISOString().split('T')[0];
 
         // Fetch campaign metrics data (includes conversions — source of truth)
-        const { data: campaignMetricsData } = await supabase
-          .from('ads_campaign_metrics')
-          .select('date, impressions, clicks, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
+        const [{ data: campaignMetricsData }, { data: summaryData }] = await Promise.all([
+          supabase
+            .from('ads_campaign_metrics')
+            .select('date, impressions, clicks, cost, conversions')
+            .eq('client_id', client.id)
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO)
+            .order('date', { ascending: true }),
+          // Fetch device split from client_metrics_summary (GA4 data)
+          supabase
+            .from('client_metrics_summary')
+            .select('date, sessions_mobile, sessions_desktop')
+            .eq('client_id', client.id)
+            .eq('period_type', 'daily')
+            .gte('date', dateFromISO)
+            .lte('date', dateToISO),
+        ]);
+
+        // Build device lookup by date
+        const deviceByDate = new Map<string, { sessions_mobile: number; sessions_desktop: number }>();
+        (summaryData || []).forEach((row: any) => {
+          deviceByDate.set(row.date, {
+            sessions_mobile: row.sessions_mobile || 0,
+            sessions_desktop: row.sessions_desktop || 0,
+          });
+        });
 
         // Aggregate by date
         const dateMap = new Map();
         (campaignMetricsData || []).forEach(row => {
           const date = row.date;
           if (!dateMap.has(date)) {
+            const device = deviceByDate.get(date) || { sessions_mobile: 0, sessions_desktop: 0 };
             dateMap.set(date, {
               date,
               ads_impressions: 0,
@@ -272,8 +292,8 @@ export default function GoogleAdsPage() {
               total_leads: 0,
               ads_phone_calls: 0,
               form_fills: 0,
-              sessions_mobile: 0,
-              sessions_desktop: 0
+              sessions_mobile: device.sessions_mobile,
+              sessions_desktop: device.sessions_desktop,
             });
           }
           const entry = dateMap.get(date);
