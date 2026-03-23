@@ -1,7 +1,8 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
-// Check if path is public (doesn't need auth)
+// Check if path is public (doesn't need auth).
+// NOTE: Facebook and cron routes should be public by default
 function isPublicPath(pathname: string): boolean {
   const publicPaths = [
     /^\/api\/facebook\//,
