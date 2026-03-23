@@ -6,6 +6,8 @@ export default withAuth(
     const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
 
+    console.log('[middleware] pathname:', pathname, 'hasToken:', !!token)
+
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
     if (token?.role === 'client' && token?.clientSlug) {
       const allowedPortal = `/portal/${token.clientSlug}`
@@ -35,13 +37,12 @@ export default withAuth(
 )
 
 export const config = {
-  // Match all routes EXCEPT public APIs (facebook, auth, cron, telegram)
   matcher: [
-    // Protected pages
-    '/admin-dashboard',
+    // Only protect these specific routes
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    // Protected API paths (exclude facebook, auth, cron, telegram)
-    '/api/(?!(facebook|auth|cron|telegram)/)',
-  ]
+    '/api/admin/:path*',
+    '/api/clients/:path*',
+    '/api/metrics/:path*',
+  ],
 }
