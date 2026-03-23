@@ -38,14 +38,14 @@ export async function GET(request: NextRequest) {
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
 
-    // If a specific date is requested, use it. Otherwise sync the last 30 days.
-    // 30 days (up from 20) ensures even long GBP API lags (observed up to 16d) are captured:
+    // If a specific date is requested, use it. Otherwise sync the last 45 days.
+    // 45 days ensures even worst-case GBP API lags (~20-30d) are captured:
     // dates that showed 0 when first synced get corrected when Google finalizes the data.
     const datesToSync: string[] = dateParam ? [dateParam] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       const dates: string[] = [];
-      for (let i = 1; i <= 30; i++) {
+      for (let i = 1; i <= 45; i++) {
         const d = new Date(caToday);
         d.setDate(d.getDate() - i);
         dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
