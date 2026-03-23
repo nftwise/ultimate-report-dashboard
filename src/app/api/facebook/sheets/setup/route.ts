@@ -11,6 +11,17 @@ export const maxDuration = 60;
  */
 export async function POST(request: NextRequest) {
   try {
+    // Auth check via header
+    const authHeader = request.headers.get('authorization') || '';
+    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+
+    if (authHeader !== expectedAuth) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { clientId } = body;
 
