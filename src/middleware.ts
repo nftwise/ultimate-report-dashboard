@@ -3,8 +3,14 @@ import { NextResponse } from 'next/server'
 
 export default withAuth(
   function middleware(req) {
-    const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
+
+    // Skip auth checks for public API paths
+    if (isPublicPath(pathname)) {
+      return NextResponse.next()
+    }
+
+    const token = req.nextauth.token
 
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
     if (token?.role === 'client' && token?.clientSlug) {
@@ -34,13 +40,26 @@ export default withAuth(
   { pages: { signIn: '/login' } }
 )
 
+// Explicit public API paths that don't require auth
+const publicApiPaths = [
+  '/api/auth',
+  '/api/cron',
+  '/api/admin/run-rollup',
+  '/api/telegram',
+  '/api/facebook',
+]
+
 export const config = {
   matcher: [
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    '/api/admin/:path*',
-    '/api/clients/:path*',
-    '/api/metrics/:path*',
+    // All API routes except those explicitly public
+    '/api/:path*',
   ]
+}
+
+// Check if path is public
+export function isPublicPath(pathname: string): boolean {
+  return publicApiPaths.some(p => pathname.startsWith(p))
 }
