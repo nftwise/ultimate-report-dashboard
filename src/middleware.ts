@@ -39,7 +39,9 @@ export const config = {
     '/admin-dashboard',
     '/admin-dashboard/:path*',
     '/portal/:path*',
-    // API routes that need auth: everything except auth, cron, admin/run-rollup, telegram, facebook
-    '/api/((?!auth|cron|admin/run-rollup|telegram|facebook).*)',
+    // Protected API paths - explicitly list what needs auth, exclude public APIs
+    '/api/admin/:path*',
+    '/api/clients/:path*',
+    '/api/metrics/:path*',
   ]
 }
