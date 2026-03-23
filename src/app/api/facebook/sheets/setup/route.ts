@@ -11,7 +11,21 @@ export const maxDuration = 60;
  */
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add auth check - for now testing without
+    // Check Bearer token auth (for cron/automated calls)
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const expectedToken = process.env.CRON_SECRET;
+      if (!expectedToken || token !== expectedToken) {
+        return NextResponse.json(
+          { error: 'Invalid authorization token' },
+          { status: 401 }
+        );
+      }
+      // Token is valid, continue
+    }
+    // If no Bearer token, NextAuth should handle auth for UI calls
+
     const body = await request.json();
     const { clientId } = body;
 
