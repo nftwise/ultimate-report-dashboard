@@ -8,7 +8,7 @@ interface ClientTabBarProps {
   clientSlug: string;
   clientName?: string;
   clientCity?: string;
-  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo';
+  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo' | 'facebook';
 }
 
 const TABS = [
