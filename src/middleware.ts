@@ -1,6 +1,20 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
+// Explicit public API paths that don't require auth
+const publicApiPaths = [
+  '/api/auth',
+  '/api/cron',
+  '/api/admin/run-rollup',
+  '/api/telegram',
+  '/api/facebook',
+]
+
+// Check if path is public
+function isPublicPath(pathname: string): boolean {
+  return publicApiPaths.some(p => pathname.startsWith(p))
+}
+
 export default withAuth(
   function middleware(req) {
     const pathname = req.nextUrl.pathname
@@ -40,15 +54,6 @@ export default withAuth(
   { pages: { signIn: '/login' } }
 )
 
-// Explicit public API paths that don't require auth
-const publicApiPaths = [
-  '/api/auth',
-  '/api/cron',
-  '/api/admin/run-rollup',
-  '/api/telegram',
-  '/api/facebook',
-]
-
 export const config = {
   matcher: [
     '/admin-dashboard',
@@ -57,9 +62,4 @@ export const config = {
     // All API routes except those explicitly public
     '/api/:path*',
   ]
-}
-
-// Check if path is public
-export function isPublicPath(pathname: string): boolean {
-  return publicApiPaths.some(p => pathname.startsWith(p))
 }
