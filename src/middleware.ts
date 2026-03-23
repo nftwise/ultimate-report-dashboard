@@ -1,37 +1,28 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
-import { getToken } from 'next-auth/jwt'
 
-// Custom middleware that runs on all routes
-export async function middleware(req: any) {
-  const pathname = req.nextUrl.pathname
-
-  // Public routes that should never require auth
+// Check if path is public (doesn't need auth)
+function isPublicPath(pathname: string): boolean {
   const publicPaths = [
     /^\/api\/facebook\//,
     /^\/api\/auth\//,
     /^\/api\/cron\//,
     /^\/api\/telegram\//,
-    /^\/login$/,
+    /^\/login/,
   ]
+  return publicPaths.some(pattern => pattern.test(pathname))
+}
 
-  const isPublic = publicPaths.some(pattern => pattern.test(pathname))
-  if (isPublic) {
-    return NextResponse.next()
-  }
+export default withAuth(
+  function middleware(req) {
+    const token = req.nextauth.token
+    const pathname = req.nextUrl.pathname
 
-  // For protected routes, check auth
-  const token = await getToken({ req })
-
-  // If no token and trying to access protected routes, redirect to login
-  if (!token) {
-    if (pathname.startsWith('/admin-dashboard') || pathname.startsWith('/portal')) {
-      return NextResponse.redirect(new URL('/login', req.url))
+    // Don't process if already authenticated or on public path
+    if (isPublicPath(pathname)) {
+      return NextResponse.next()
     }
-  }
 
-  // Apply role-based logic if authenticated
-  if (token) {
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
     if (token?.role === 'client' && token?.clientSlug) {
       const allowedPortal = `/portal/${token.clientSlug}`
@@ -54,14 +45,15 @@ export async function middleware(req: any) {
       const rest = pathname.replace(`/portal/${slug}`, '')
       return NextResponse.redirect(new URL(`/admin-dashboard/${slug}${rest}`, req.url))
     }
-  }
 
-  return NextResponse.next()
-}
+    return NextResponse.next()
+  },
+  { pages: { signIn: '/login' } }
+)
 
 export const config = {
   matcher: [
-    // Run middleware on all routes except static files
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/admin-dashboard/:path*',
+    '/portal/:path*',
   ],
 }
