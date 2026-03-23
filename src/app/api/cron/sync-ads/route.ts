@@ -304,6 +304,8 @@ async function fetchConversionActions(apiUrl: string, headers: Record<string, st
 }
 
 async function fetchSearchTerms(apiUrl: string, headers: Record<string, string>, gaqlDate: string, clientId: string, date: string) {
+  // Note: OR conditions on metrics are not supported in GAQL WHERE for search_term_view
+  // Filter client-side instead
   const query = `
     SELECT campaign.id,
       search_term_view.search_term,
@@ -311,11 +313,15 @@ async function fetchSearchTerms(apiUrl: string, headers: Record<string, string>,
     FROM search_term_view
     WHERE segments.date = '${gaqlDate}'
       AND campaign.status != 'REMOVED'
-      AND (metrics.conversions > 0 OR metrics.clicks >= 3)
   `;
 
   const rows = await executeGAQL(apiUrl, headers, query);
-  return rows.map((r: any) => {
+  return rows
+    .filter((r: any) => {
+      const m = r.metrics || {};
+      return parseFloat(m.conversions || '0') > 0 || parseInt(m.clicks || '0') >= 3;
+    })
+    .map((r: any) => {
     const m = r.metrics || {};
     const stv = r.searchTermView || r.search_term_view || {};
     const costMicros = parseInt(m.costMicros || m.cost_micros || '0');
