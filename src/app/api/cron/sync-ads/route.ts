@@ -194,7 +194,7 @@ async function executeGAQL(apiUrl: string, headers: Record<string, string>, quer
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Ads API ${response.status}: ${errorText.slice(0, 200)}`);
+    throw new Error(`Ads API ${response.status}: ${errorText.slice(0, 800)}`);
   }
 
   const data = await response.json();
