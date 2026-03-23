@@ -6,8 +6,6 @@ export default withAuth(
     const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
 
-    console.log('[middleware] pathname:', pathname, 'hasToken:', !!token)
-
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
     if (token?.role === 'client' && token?.clientSlug) {
       const allowedPortal = `/portal/${token.clientSlug}`
@@ -38,7 +36,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Only protect these specific routes
+    // Only protect dashboard pages and admin routes
     '/admin-dashboard/:path*',
     '/portal/:path*',
     '/api/admin/:path*',
