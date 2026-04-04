@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
 
   let seoPatched = 0;
   let gbpPatched = 0;
+  let adsPatched = 0;
 
   // ── 1. Patch SEO columns from gsc_daily_summary ─────────────────────────
   // Find summary rows where top_keywords = 0 but gsc_daily_summary has non-zero data
@@ -247,13 +248,112 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── 4. Patch Ads columns from ads_campaign_metrics ─────────────────────────
+  // Google Ads adjusts numbers retroactively (conversion attribution windows,
+  // quality scores, impression shares). Rollup only runs for yesterday, so
+  // older rows can become stale. Re-aggregate and patch any row where the
+  // summary ad_spend or google_ads_conversions differs from the raw source.
+  const { data: adsCampaignRaw } = await supabaseAdmin
+    .from('ads_campaign_metrics')
+    .select('client_id, date, impressions, clicks, cost, conversions, search_impression_share, search_lost_is_budget, quality_score')
+    .gte('date', startDate)
+    .lte('date', endDate);
+
+  if (adsCampaignRaw && adsCampaignRaw.length > 0) {
+    // Aggregate by client_id + date
+    type AdsAgg = {
+      spend: number; impressions: number; clicks: number; conversions: number;
+      impressionShare: number; searchLostBudget: number; qualityScoreSum: number; qualityScoreCount: number;
+    };
+    const adsAgg = new Map<string, AdsAgg>();
+    for (const r of adsCampaignRaw) {
+      const key = `${r.client_id}:${r.date}`;
+      const cur = adsAgg.get(key) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, impressionShare: 0, searchLostBudget: 0, qualityScoreSum: 0, qualityScoreCount: 0 };
+      cur.spend       += r.cost        || 0;
+      cur.impressions += r.impressions || 0;
+      cur.clicks      += r.clicks      || 0;
+      cur.conversions += r.conversions || 0;
+      cur.impressionShare   = Math.max(cur.impressionShare,   r.search_impression_share  || 0);
+      cur.searchLostBudget  = Math.max(cur.searchLostBudget,  r.search_lost_is_budget    || 0);
+      if (r.quality_score && r.quality_score > 0) {
+        cur.qualityScoreSum   += r.quality_score;
+        cur.qualityScoreCount += 1;
+      }
+      adsAgg.set(key, cur);
+    }
+
+    // Get current summary rows for comparison
+    const { data: adsSummaryRows } = await supabaseAdmin
+      .from('client_metrics_summary')
+      .select('client_id, date, ad_spend, google_ads_conversions, ads_impressions, ads_clicks, ads_impression_share, ads_search_lost_budget, ads_quality_score')
+      .eq('period_type', 'daily')
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    const adsSummaryMap = new Map(
+      (adsSummaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])
+    );
+
+    for (const [key, agg] of adsAgg) {
+      if (agg.spend === 0 && agg.conversions === 0 && agg.impressions === 0) continue;
+
+      const summary = adsSummaryMap.get(key);
+      if (!summary) continue;
+
+      const freshSpend       = Math.round(agg.spend * 100) / 100;
+      const freshConversions = Math.round(agg.conversions);
+      const freshQs          = agg.qualityScoreCount > 0
+        ? Math.round((agg.qualityScoreSum / agg.qualityScoreCount) * 10) / 10
+        : 0;
+      const freshCtr = agg.impressions > 0
+        ? Math.round((agg.clicks / agg.impressions) * 10000) / 100
+        : 0;
+      const freshCpc = agg.clicks > 0
+        ? Math.round((agg.spend / agg.clicks) * 100) / 100
+        : 0;
+      const freshConvRate = agg.clicks > 0
+        ? Math.round((agg.conversions / agg.clicks) * 10000) / 100
+        : 0;
+
+      // Detect staleness: spend or conversions differ from current summary
+      const spendDiffers       = Math.abs((summary.ad_spend || 0) - freshSpend) > 0.01;
+      const conversionsDiffer  = (summary.google_ads_conversions || 0) !== freshConversions;
+      const impressionsDiffer  = (summary.ads_impressions || 0) !== agg.impressions;
+
+      if (!spendDiffers && !conversionsDiffer && !impressionsDiffer) continue;
+
+      const [clientId, date] = key.split(':');
+      const { error } = await supabaseAdmin
+        .from('client_metrics_summary')
+        .update({
+          ad_spend:               freshSpend,
+          google_ads_conversions: freshConversions,
+          ads_impressions:        agg.impressions,
+          ads_clicks:             agg.clicks,
+          ads_ctr:                freshCtr,
+          ads_avg_cpc:            freshCpc,
+          ads_conversion_rate:    freshConvRate,
+          ads_impression_share:   agg.impressionShare,
+          ads_search_lost_budget: agg.searchLostBudget,
+          ads_quality_score:      freshQs,
+          ads_top_impression_rate: agg.impressionShare,
+        })
+        .eq('client_id', clientId)
+        .eq('date', date)
+        .eq('period_type', 'daily');
+
+      if (!error) adsPatched++;
+      else console.log(`[fix-summary-lag] Ads patch error ${clientId} ${date}: ${error.message}`);
+    }
+  }
+
   const duration = Date.now() - startTime;
-  console.log(`[fix-summary-lag] Done in ${duration}ms: SEO=${seoPatched} GBP=${gbpPatched} GA4=${ga4Patched} rows patched`);
+  console.log(`[fix-summary-lag] Done in ${duration}ms: SEO=${seoPatched} GBP=${gbpPatched} GA4=${ga4Patched} Ads=${adsPatched} rows patched`);
 
   return NextResponse.json({
     success: true,
     dates: { from: startDate, to: endDate },
-    patched: { seo: seoPatched, gbp: gbpPatched, ga4: ga4Patched },
+    patched: { seo: seoPatched, gbp: gbpPatched, ga4: ga4Patched, ads: adsPatched },
     duration,
   });
 }

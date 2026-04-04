@@ -113,7 +113,9 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
         const batchResults = await Promise.all(
           batch.map((client: any) => processClient(client, targetDate, prevDateStr, previousDataMap))
         );
-        allMetricsToSave.push(...batchResults);
+        // Filter out ghost rows: skip clients with absolutely no data from any source
+        const nonGhostResults = batchResults.filter((row: any) => row !== null);
+        allMetricsToSave.push(...nonGhostResults);
       }
     }
 
@@ -149,14 +151,15 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
 }
 
 /**
- * Process a single client: read all raw tables and aggregate metrics
+ * Process a single client: read all raw tables and aggregate metrics.
+ * Returns null if the client has no data from any source (ghost client).
  */
 async function processClient(
   client: { id: string; name: string; slug: string; city: string },
   targetDate: string,
   prevDateStr: string,
   previousDataMap: Map<string, any>
-) {
+): Promise<Record<string, any> | null> {
   const clientId = client.id;
 
   // Fetch all raw data in parallel
@@ -223,6 +226,23 @@ async function processClient(
       .or('fetch_status.is.null,fetch_status.neq.error')  // Skip rows where fetch failed
       .then(r => r.data || []),
   ]);
+
+  // Ghost client guard: skip clients with no data from any source.
+  // Avoids writing all-zero rows for clients that have no GA4/GSC/Ads/GBP configured.
+  const hasAnyData =
+    ga4SessionsData.length > 0 ||
+    ga4EventsData.length > 0 ||
+    ga4LandingPagesData.length > 0 ||
+    gscSummary !== null ||
+    gscQueriesData.length > 0 ||
+    adsCampaignData.length > 0 ||
+    adsConversionActionsData.length > 0 ||
+    gbpData.length > 0;
+
+  if (!hasAnyData) {
+    console.log(`[Rollup] Skipping ghost client ${client.name} (${clientId}) for ${targetDate} — no data from any source`);
+    return null;
+  }
 
   // =====================================================
   // AGGREGATE GA4 SESSIONS

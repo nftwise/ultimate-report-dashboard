@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const dateToParam = searchParams.get('dateTo')
 
     // Parallel fetch: clients and metrics at the same time for better performance
-    const [clientsResult, metricsResult, gbpMetricsResult, gbpLocResult] = await Promise.all([
+    const [clientsResult, metricsResult, gbpLocResult] = await Promise.all([
       // Fetch clients — admin sees all, client role sees only their own
       (() => {
         let query = supabaseAdmin
@@ -43,27 +43,14 @@ export async function GET(request: NextRequest) {
         return query
       })(),
 
-      // Fetch metrics with date range filter (for leads, forms, ads)
+      // Fetch metrics with date range filter (for leads, forms, ads, and GBP calls).
+      // gbp_calls in client_metrics_summary is already aggregated correctly per day —
+      // reading from the raw gbp_location_daily_metrics without a date filter would
+      // sum all historical data and massively overcount.
       (() => {
         let query = supabaseAdmin
           .from('client_metrics_summary')
-          .select('client_id, total_leads, form_fills, google_ads_conversions, cpl, date')
-
-        if (dateFromParam) {
-          query = query.gte('date', dateFromParam)
-        }
-        if (dateToParam) {
-          query = query.lte('date', dateToParam)
-        }
-
-        return query
-      })(),
-
-      // Fetch GBP phone calls from gbp_location_daily_metrics table
-      (() => {
-        let query = supabaseAdmin
-          .from('gbp_location_daily_metrics')
-          .select('client_id, phone_calls, date')
+          .select('client_id, total_leads, form_fills, google_ads_conversions, gbp_calls, cpl, date')
 
         if (dateFromParam) {
           query = query.gte('date', dateFromParam)
@@ -84,7 +71,6 @@ export async function GET(request: NextRequest) {
 
     const { data: clients, error } = clientsResult
     const { data: metrics, error: metricsError } = metricsResult
-    const { data: gbpMetrics, error: gbpError } = gbpMetricsResult
     const { data: gbpLocRows } = gbpLocResult
     const gbpSet = new Set<string>((gbpLocRows || []).map((r: any) => r.client_id))
 
@@ -97,12 +83,9 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching metrics:', metricsError)
     }
 
-    if (gbpError) {
-      console.error('Error fetching GBP metrics:', gbpError)
-    }
-
-
-    // Build optimized metrics map with aggregation
+    // Build optimized metrics map with aggregation.
+    // gbp_calls comes from client_metrics_summary (already correctly aggregated per day)
+    // to avoid overcounting from the raw gbp_location_daily_metrics table.
     const metricsMap: { [key: string]: any } = {}
     ;(metrics || []).forEach((metric: any) => {
       if (!metricsMap[metric.client_id]) {
@@ -118,26 +101,12 @@ export async function GET(request: NextRequest) {
       metricsMap[metric.client_id].total_leads += metric.total_leads || 0
       metricsMap[metric.client_id].seo_form_submits += metric.form_fills || 0
       metricsMap[metric.client_id].ads_conversions += metric.google_ads_conversions || 0
+      metricsMap[metric.client_id].gbp_calls += metric.gbp_calls || 0
       // Track CPL average (sum of CPL values and count)
       if (metric.cpl && metric.cpl > 0) {
         metricsMap[metric.client_id].ads_cpl += metric.cpl
         metricsMap[metric.client_id].ads_cpl_count += 1
       }
-    })
-
-    // Add GBP phone calls from gbp_location_daily_metrics table
-    ;(gbpMetrics || []).forEach((gbpMetric: any) => {
-      if (!metricsMap[gbpMetric.client_id]) {
-        metricsMap[gbpMetric.client_id] = {
-          total_leads: 0,
-          seo_form_submits: 0,
-          gbp_calls: 0,
-          ads_conversions: 0,
-          ads_cpl: 0,
-          ads_cpl_count: 0
-        }
-      }
-      metricsMap[gbpMetric.client_id].gbp_calls += gbpMetric.phone_calls || 0
     })
 
     // Process clients to determine which services they have
