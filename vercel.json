@@ -5,31 +5,5 @@
     "app/api/**/*.ts": {
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/sync-ga4",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/cron/sync-ads",
-      "schedule": "5 10 * * *"
-    },
-    {
-      "path": "/api/cron/sync-gsc",
-      "schedule": "10 10 * * *"
-    },
-    {
-      "path": "/api/cron/sync-gbp",
-      "schedule": "12 10 * * *"
-    },
-    {
-      "path": "/api/admin/run-rollup",
-      "schedule": "15 10 * * *"
-    },
-    {
-      "path": "/api/cron/fix-summary-lag",
-      "schedule": "20 10 * * *"
-    }
-  ]
+  }
 }

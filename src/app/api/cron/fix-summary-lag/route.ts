@@ -56,13 +56,13 @@ export async function GET(request: NextRequest) {
     .select('client_id, date, top_keywords_count, total_impressions, total_clicks')
     .gte('date', startDate)
     .lte('date', endDate)
-    .gt('top_keywords_count', 0);
+    .or('top_keywords_count.gt.0,total_impressions.gt.0,total_clicks.gt.0');
 
   if (gscData && gscData.length > 0) {
     // Get current summary rows for these clients/dates
     const { data: summaryRows } = await supabaseAdmin
       .from('client_metrics_summary')
-      .select('client_id, date, top_keywords, seo_impressions')
+      .select('client_id, date, top_keywords, seo_impressions, seo_clicks')
       .eq('period_type', 'daily')
       .gte('date', startDate)
       .lte('date', endDate);
@@ -74,13 +74,31 @@ export async function GET(request: NextRequest) {
     for (const gsc of gscData) {
       const key = `${gsc.client_id}:${gsc.date}`;
       const summary = summaryMap.get(key);
+      if (!summary) continue;
 
-      // Only patch if summary has stale zero for top_keywords
-      if (!summary || (summary.top_keywords !== 0 && summary.top_keywords !== null)) continue;
+      // Patch any GSC column that is stale zero but source has non-zero data.
+      // top_keywords, seo_impressions and seo_clicks can all be independently stale.
+      const needsKeywords    = (summary.top_keywords   === 0 || summary.top_keywords   === null) && gsc.top_keywords_count > 0;
+      const needsImpressions = (summary.seo_impressions === 0 || summary.seo_impressions === null) && gsc.total_impressions > 0;
+      const needsClicks      = (summary.seo_clicks      === 0 || summary.seo_clicks      === null) && gsc.total_clicks > 0;
+
+      if (!needsKeywords && !needsImpressions && !needsClicks) continue;
+
+      const patch: Record<string, number> = {};
+      if (needsKeywords)    patch.top_keywords    = gsc.top_keywords_count;
+      if (needsImpressions) patch.seo_impressions = gsc.total_impressions;
+      if (needsClicks) {
+        patch.seo_clicks = gsc.total_clicks;
+        // Recompute CTR when both clicks and impressions are now known
+        const impressions = needsImpressions ? gsc.total_impressions : (summary.seo_impressions || 0);
+        patch.seo_ctr = impressions > 0
+          ? Math.round((gsc.total_clicks / impressions) * 10000) / 100
+          : 0;
+      }
 
       const { error } = await supabaseAdmin
         .from('client_metrics_summary')
-        .update({ top_keywords: gsc.top_keywords_count })
+        .update(patch)
         .eq('client_id', gsc.client_id)
         .eq('date', gsc.date)
         .eq('period_type', 'daily');
@@ -111,10 +129,10 @@ export async function GET(request: NextRequest) {
       gbpAgg.set(key, cur);
     }
 
-    // Get current summary rows
+    // Get current summary rows — fetch all 4 GBP columns for column-by-column check
     const { data: gbpSummaryRows } = await supabaseAdmin
       .from('client_metrics_summary')
-      .select('client_id, date, gbp_profile_views, gbp_calls')
+      .select('client_id, date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
       .eq('period_type', 'daily')
       .gte('date', startDate)
       .lte('date', endDate);
@@ -128,18 +146,27 @@ export async function GET(request: NextRequest) {
       if (agg.views === 0 && agg.calls === 0 && agg.web === 0 && agg.dirs === 0) continue;
 
       const summary = gbpSummaryMap.get(key);
-      // Only patch if summary has stale zeros
-      if (!summary || (summary.gbp_profile_views !== 0 && summary.gbp_profile_views !== null)) continue;
+      if (!summary) continue;
+
+      // Patch each GBP column independently — a column that already has a non-zero value
+      // should not be overwritten, but other stale-zero columns still need patching.
+      const needsViews = (summary.gbp_profile_views === 0 || summary.gbp_profile_views === null) && agg.views > 0;
+      const needsCalls = (summary.gbp_calls         === 0 || summary.gbp_calls         === null) && agg.calls > 0;
+      const needsWeb   = (summary.gbp_website_clicks === 0 || summary.gbp_website_clicks === null) && agg.web > 0;
+      const needsDirs  = (summary.gbp_directions     === 0 || summary.gbp_directions     === null) && agg.dirs > 0;
+
+      if (!needsViews && !needsCalls && !needsWeb && !needsDirs) continue;
+
+      const patch: Record<string, number> = {};
+      if (needsViews) patch.gbp_profile_views  = agg.views;
+      if (needsCalls) patch.gbp_calls          = agg.calls;
+      if (needsWeb)   patch.gbp_website_clicks = agg.web;
+      if (needsDirs)  patch.gbp_directions     = agg.dirs;
 
       const [clientId, date] = key.split(':');
       const { error } = await supabaseAdmin
         .from('client_metrics_summary')
-        .update({
-          gbp_calls: agg.calls,
-          gbp_profile_views: agg.views,
-          gbp_website_clicks: agg.web,
-          gbp_directions: agg.dirs,
-        })
+        .update(patch)
         .eq('client_id', clientId)
         .eq('date', date)
         .eq('period_type', 'daily');
@@ -149,13 +176,84 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── 3. Patch GA4 session columns from ga4_sessions ─────────────────────────
+  // If sessions/users/traffic totals are 0 in summary but raw table has data,
+  // re-aggregate and patch. Covers API thresholding failures that left stale zeros.
+  let ga4Patched = 0;
+
+  const { data: ga4SessionsRaw } = await supabaseAdmin
+    .from('ga4_sessions')
+    .select('client_id, date, sessions, total_users, new_users, device, source_medium')
+    .gte('date', startDate)
+    .lte('date', endDate);
+
+  if (ga4SessionsRaw && ga4SessionsRaw.length > 0) {
+    // Aggregate by client_id + date
+    type GA4Agg = { sessions: number; users: number; newUsers: number; organic: number; paid: number; direct: number; referral: number };
+    const ga4Agg = new Map<string, GA4Agg>();
+    for (const r of ga4SessionsRaw) {
+      const key = `${r.client_id}:${r.date}`;
+      const cur = ga4Agg.get(key) || { sessions: 0, users: 0, newUsers: 0, organic: 0, paid: 0, direct: 0, referral: 0 };
+      const s = r.sessions || 0;
+      cur.sessions += s;
+      cur.users += r.total_users || 0;
+      cur.newUsers += r.new_users || 0;
+      const sm = (r.source_medium || '').toLowerCase();
+      if (sm.includes('organic'))                            cur.organic += s;
+      else if (sm.includes('cpc') || sm.includes('paid'))   cur.paid    += s;
+      else if (sm === '(direct) / (none)')                   cur.direct  += s;
+      else if (sm.includes('referral'))                      cur.referral += s;
+      ga4Agg.set(key, cur);
+    }
+
+    // Get current summary rows — only interested in stale-zero sessions
+    const { data: ga4SummaryRows } = await supabaseAdmin
+      .from('client_metrics_summary')
+      .select('client_id, date, sessions, users')
+      .eq('period_type', 'daily')
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    const ga4SummaryMap = new Map(
+      (ga4SummaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])
+    );
+
+    for (const [key, agg] of ga4Agg) {
+      if (agg.sessions === 0) continue;
+
+      const summary = ga4SummaryMap.get(key);
+      // Only patch if summary sessions is currently zero but raw data is non-zero
+      if (!summary || (summary.sessions !== 0 && summary.sessions !== null)) continue;
+
+      const [clientId, date] = key.split(':');
+      const { error } = await supabaseAdmin
+        .from('client_metrics_summary')
+        .update({
+          sessions:         agg.sessions,
+          users:            agg.users,
+          new_users:        agg.newUsers,
+          returning_users:  Math.max(0, agg.users - agg.newUsers),
+          traffic_organic:  agg.organic,
+          traffic_paid:     agg.paid,
+          traffic_direct:   agg.direct,
+          traffic_referral: agg.referral,
+        })
+        .eq('client_id', clientId)
+        .eq('date', date)
+        .eq('period_type', 'daily');
+
+      if (!error) ga4Patched++;
+      else console.log(`[fix-summary-lag] GA4 patch error ${clientId} ${date}: ${error.message}`);
+    }
+  }
+
   const duration = Date.now() - startTime;
-  console.log(`[fix-summary-lag] Done in ${duration}ms: SEO=${seoPatched} GBP=${gbpPatched} rows patched`);
+  console.log(`[fix-summary-lag] Done in ${duration}ms: SEO=${seoPatched} GBP=${gbpPatched} GA4=${ga4Patched} rows patched`);
 
   return NextResponse.json({
     success: true,
     dates: { from: startDate, to: endDate },
-    patched: { seo: seoPatched, gbp: gbpPatched },
+    patched: { seo: seoPatched, gbp: gbpPatched, ga4: ga4Patched },
     duration,
   });
 }

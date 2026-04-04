@@ -54,20 +54,24 @@ export async function GET(request: NextRequest) {
     const token = tokenResponse.token;
     if (!token) throw new Error('Failed to obtain GA4 access token');
 
-    // Fetch clients with GA4 config
+    // Fetch clients with GA4 config — check service_configs first, fall back to clients.ga4_property_id
     const { data: clients, error: clientsError } = await supabaseAdmin
       .from('clients')
-      .select('id, name, service_configs(ga_property_id)')
+      .select('id, name, ga4_property_id, service_configs(ga_property_id)')
       .eq('is_active', true);
 
     if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
     let clientsWithGA = (clients || [])
-      .map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        propertyId: (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.ga_property_id,
-      }))
+      .map((c: any) => {
+        const servicePropertyId = (Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs)?.ga_property_id;
+        return {
+          id: c.id,
+          name: c.name,
+          // Prefer service_configs.ga_property_id; fall back to clients.ga4_property_id
+          propertyId: servicePropertyId || c.ga4_property_id || null,
+        };
+      })
       .filter((c: any) => c.propertyId);
 
     // Filter by clientId or group
