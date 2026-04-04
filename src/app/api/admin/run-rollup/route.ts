@@ -170,7 +170,6 @@ async function processClient(
     gscSummary,
     gscQueriesData,
     adsCampaignData,
-    adsConversionActionsData,
     gbpData,
   ] = await Promise.all([
     supabaseAdmin
@@ -213,12 +212,6 @@ async function processClient(
       .eq('date', targetDate)
       .then(r => r.data || []),
     supabaseAdmin
-      .from('campaign_conversion_actions')
-      .select('conversions, conversion_action_name')
-      .eq('client_id', clientId)
-      .eq('date', targetDate)
-      .then(r => r.data || []),
-    supabaseAdmin
       .from('gbp_location_daily_metrics')
       .select('phone_calls, website_clicks, direction_requests, views, total_reviews, new_reviews_today, average_rating, business_photo_views, posts_count, posts_views, posts_actions')
       .eq('client_id', clientId)
@@ -236,7 +229,6 @@ async function processClient(
     gscSummary !== null ||
     gscQueriesData.length > 0 ||
     adsCampaignData.length > 0 ||
-    adsConversionActionsData.length > 0 ||
     gbpData.length > 0;
 
   if (!hasAnyData) {

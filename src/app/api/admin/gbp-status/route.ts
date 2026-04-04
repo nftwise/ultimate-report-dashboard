@@ -23,9 +23,16 @@ export async function GET() {
     }
 
     // Per-client GBP data status: get latest date per client
+    // Filter to last 45 days (GBP API lag can be up to 45 days) to avoid missing recent data
+    // when a client has many rows and we'd hit the 200-row limit before reaching recent dates.
+    const dateFilter = new Date();
+    dateFilter.setDate(dateFilter.getDate() - 45);
+    const dateFilterStr = dateFilter.toISOString().split('T')[0];
+
     const { data: gbpData } = await supabaseAdmin
       .from('gbp_location_daily_metrics')
       .select('client_id, date')
+      .gte('date', dateFilterStr)
       .order('date', { ascending: false })
       .limit(200);
 
