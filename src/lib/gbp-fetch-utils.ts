@@ -141,6 +141,116 @@ export async function fetchGBPDay(locationId: string, date: string): Promise<GBP
 }
 
 /**
+ * Fetch GBP metrics for a date range, returning PER-DAY values
+ *
+ * ✅ EFFICIENT: 7 API calls total for the entire range (one per metric),
+ *    regardless of how many days. The API returns timeSeries.datedValues
+ *    with a value per day — we parse those and return a Map keyed by date.
+ *
+ * Use this for backfill operations to avoid N×7 API calls per N days.
+ *
+ * @param locationId Raw location ID
+ * @param startDate "2026-02-01"
+ * @param endDate   "2026-02-28"
+ * @returns Map<"YYYY-MM-DD", GBPMetrics> — one entry per day in the range
+ *
+ * Example:
+ *   const byDay = await fetchGBPRangePerDay('1234567890', '2026-02-01', '2026-02-28');
+ *   for (const [date, metrics] of byDay) {
+ *     const row = transformGBPMetrics(metrics, locationId, clientId, date);
+ *     await supabase.from('gbp_location_daily_metrics').upsert(row, ...);
+ *   }
+ */
+export async function fetchGBPRangePerDay(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): Promise<Map<string, GBPMetrics>> {
+  let accessToken: string | null = null;
+  try {
+    accessToken = await GBPTokenManager.getAccessToken();
+  } catch (err: any) {
+    throw new Error(`GBP auth failed: ${err.message}`);
+  }
+
+  if (!accessToken) {
+    throw new Error('No GBP OAuth token available - check system_settings.gbp_agency_master');
+  }
+
+  // Normalize location ID
+  let normalizedId = locationId;
+  if (normalizedId.includes('/locations/')) {
+    normalizedId = `locations/${normalizedId.split('/locations/')[1]}`;
+  } else if (!normalizedId.startsWith('locations/')) {
+    normalizedId = `locations/${normalizedId}`;
+  }
+
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+
+  // Map<dateStr, partial metrics> — we build this across all 7 metric fetches
+  const perDay = new Map<string, GBPMetrics>();
+
+  // Helper: ensure a date entry exists in the map
+  const getOrInit = (dateStr: string): GBPMetrics => {
+    if (!perDay.has(dateStr)) {
+      const empty: GBPMetrics = {} as GBPMetrics;
+      for (const m of METRICS) empty[m] = 0;
+      perDay.set(dateStr, empty);
+    }
+    return perDay.get(dateStr)!;
+  };
+
+  // Fetch all metrics in parallel — 7 calls for the full range
+  await Promise.all(
+    METRICS.map(async (metric) => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        const url = new URL(
+          `https://businessprofileperformance.googleapis.com/v1/${normalizedId}:getDailyMetricsTimeSeries`
+        );
+        url.searchParams.set('dailyMetric', metric);
+        url.searchParams.set('dailyRange.start_date.year', String(startYear));
+        url.searchParams.set('dailyRange.start_date.month', String(startMonth));
+        url.searchParams.set('dailyRange.start_date.day', String(startDay));
+        url.searchParams.set('dailyRange.end_date.year', String(endYear));
+        url.searchParams.set('dailyRange.end_date.month', String(endMonth));
+        url.searchParams.set('dailyRange.end_date.day', String(endDay));
+
+        const response = await fetch(url.toString(), {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.warn(`[GBP/perDay] ${metric} failed: HTTP ${response.status}`);
+          return;
+        }
+
+        const data = await response.json();
+        const datedValues: Array<{ date: { year: number; month: number; day: number }; value?: string }> =
+          data.timeSeries?.datedValues || [];
+
+        for (const dv of datedValues) {
+          if (!dv.date) continue;
+          const dateStr = `${dv.date.year}-${String(dv.date.month).padStart(2, '0')}-${String(dv.date.day).padStart(2, '0')}`;
+          const entry = getOrInit(dateStr);
+          entry[metric] = parseInt(dv.value || '0') || 0;
+        }
+      } catch (err: any) {
+        const errorMsg = err.name === 'AbortError' ? 'TIMEOUT' : err.message;
+        console.warn(`[GBP/perDay] ${metric} (${startDate}–${endDate}) error: ${errorMsg}`);
+      }
+    })
+  );
+
+  return perDay;
+}
+
+/**
  * Transform GBP metrics to database schema
  *
  * Example:
