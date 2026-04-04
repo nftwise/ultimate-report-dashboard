@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (clientError || !client) {
       return NextResponse.json(
-        { error: 'Client not found' },
+        { error: 'Client not found', detail: clientError?.message, clientId },
         { status: 404 }
       );
     }
