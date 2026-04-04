@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const raw = process.env.GOOGLE_SHEETS_SERVICE_KEY;
-  if (!raw) return NextResponse.json({ status: 'missing' });
-
   return NextResponse.json({
-    length: raw.length,
-    first10: raw.substring(0, 10),
-    last10: raw.substring(raw.length - 10),
-    startsWithBrace: raw.trim().startsWith('{'),
-    endsWithBrace: raw.trim().endsWith('}'),
-    parseError: (() => { try { JSON.parse(raw.trim()); return null; } catch(e: any) { return e.message; } })(),
+    GOOGLE_CLIENT_EMAIL: process.env.GOOGLE_CLIENT_EMAIL ? `✅ ${process.env.GOOGLE_CLIENT_EMAIL.substring(0, 30)}...` : '❌ missing',
+    GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY ? `✅ len=${process.env.GOOGLE_PRIVATE_KEY.length}` : '❌ missing',
+    GOOGLE_PROJECT_ID: process.env.GOOGLE_PROJECT_ID ? `✅ ${process.env.GOOGLE_PROJECT_ID}` : '❌ missing',
+    GOOGLE_SHEETS_SERVICE_KEY: process.env.GOOGLE_SHEETS_SERVICE_KEY
+      ? `present len=${process.env.GOOGLE_SHEETS_SERVICE_KEY.length} starts=${process.env.GOOGLE_SHEETS_SERVICE_KEY.substring(0,5)}`
+      : '❌ missing',
   });
 }
