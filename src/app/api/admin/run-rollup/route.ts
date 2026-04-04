@@ -265,14 +265,22 @@ async function processClient(
   }
 
   for (const row of ga4SessionsData) {
+    const isAggregateRow = row.source_medium === '(all) / (all)';
     const s = row.sessions || 0;
-    sessions += s;
+
     if (!aggregateFallbackRow) {
-      // No aggregate row — sum dimensional rows (may slightly over-count cross-dimension users,
-      // but is the only available approximation when thresholding bypass wasn't needed)
+      // No aggregate row present — sum dimensional rows for users (may slightly over-count
+      // cross-dimension users, but is the only available approximation)
       users += row.total_users || 0;
       newUsers += row.new_users || 0;
     }
+
+    // Skip aggregate row for session count, device/traffic breakdowns, and engagement rate
+    // — its sessions total would double-count what the dimensional rows already sum to.
+    // Users are already taken from aggregateFallbackRow above.
+    if (isAggregateRow) continue;
+
+    sessions += s;
 
     // Device breakdown
     const device = (row.device || '').toLowerCase();

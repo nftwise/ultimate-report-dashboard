@@ -113,25 +113,24 @@ export async function GET(request: NextRequest) {
             }
           };
 
-          const [events, initialSessions, conversions, landingPages] = await Promise.all([
+          const [events, initialSessions, aggregateSessions, conversions, landingPages] = await Promise.all([
             fetchWithRetry(() => fetchGA4Events(token, client.propertyId, targetDate, timeoutMs), 'events'),
             fetchWithRetry(() => fetchGA4Sessions(token, client.propertyId, targetDate, timeoutMs), 'sessions'),
+            fetchWithRetry(() => fetchGA4SessionsAggregate(token, client.propertyId, targetDate, timeoutMs), 'sessions-aggregate'),
             fetchWithRetry(() => fetchGA4Conversions(token, client.propertyId, targetDate, timeoutMs), 'conversions'),
             fetchWithRetry(() => fetchGA4LandingPages(token, client.propertyId, targetDate, timeoutMs), 'landingPages'),
           ]);
-          let sessions = initialSessions;
 
-          // Fallback: if sessions query returned 0 rows (possible GA4 thresholding with 3 dimensions),
-          // try a simpler query with no dimensions to get aggregate session count
-          if (sessions.length === 0) {
-            const fallbackSessions = await fetchWithRetry(
-              () => fetchGA4SessionsAggregate(token, client.propertyId, targetDate, timeoutMs),
-              'sessions-fallback'
-            );
-            if (fallbackSessions.length > 0) {
-              console.log(`[sync-ga4] ${client.name}: used aggregate fallback for sessions (thresholding bypass)`);
-              sessions = fallbackSessions;
-            }
+          // If dimensional sessions returned 0 rows (GA4 thresholding), use aggregate as the only rows.
+          // Otherwise, always include the aggregate row alongside dimensional rows so the rollup can
+          // use its deduplicated user count (avoids double-counting users across source×device×country).
+          let sessions: any[];
+          if (initialSessions.length === 0) {
+            console.log(`[sync-ga4] ${client.name}: used aggregate fallback for sessions (thresholding bypass)`);
+            sessions = aggregateSessions;
+          } else {
+            // Merge: dimensional rows + aggregate row (marked with special source_medium)
+            sessions = [...initialSessions, ...aggregateSessions];
           }
 
           // Only store 3 conversion events — skip scroll/click/page_view noise
