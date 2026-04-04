@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { createClientSheet } from '@/lib/google-sheets';
+import { createClientSheet, parseGoogleServiceKey } from '@/lib/google-sheets';
 
 export const maxDuration = 60;
 
@@ -37,9 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if Google Service Key is configured
-    const googleServiceKey = process.env.GOOGLE_SHEETS_SERVICE_KEY
-      ? JSON.parse(process.env.GOOGLE_SHEETS_SERVICE_KEY)
-      : null;
+    const googleServiceKey = parseGoogleServiceKey();
 
     if (!googleServiceKey) {
       return NextResponse.json(

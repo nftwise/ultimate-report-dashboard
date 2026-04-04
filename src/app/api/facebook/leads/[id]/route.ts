@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { updateLeadByPhone } from '@/lib/google-sheets';
+import { updateLeadByPhone, parseGoogleServiceKey } from '@/lib/google-sheets';
 
 export const maxDuration = 60;
 
@@ -75,9 +75,7 @@ export async function PATCH(
         if (client) {
           const config = client.service_configs?.[0];
           const googleSheetId = config?.fb_sheet_id;
-          const googleServiceKey = process.env.GOOGLE_SHEETS_SERVICE_KEY
-            ? JSON.parse(process.env.GOOGLE_SHEETS_SERVICE_KEY)
-            : null;
+          const googleServiceKey = parseGoogleServiceKey();
 
           if (googleSheetId && googleServiceKey) {
             const lastContactDate = data.last_contacted_at

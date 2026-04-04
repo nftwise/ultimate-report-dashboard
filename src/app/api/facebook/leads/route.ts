@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { appendLead, ensureWorksheet, initializeHeaders } from '@/lib/google-sheets';
+import { appendLead, ensureWorksheet, initializeHeaders, parseGoogleServiceKey } from '@/lib/google-sheets';
 
 export const maxDuration = 60;
 
@@ -123,9 +123,7 @@ export async function POST(request: NextRequest) {
       if (client) {
         const config = client.service_configs?.[0];
         const googleSheetId = config?.fb_sheet_id;
-        const googleServiceKey = process.env.GOOGLE_SHEETS_SERVICE_KEY
-          ? JSON.parse(process.env.GOOGLE_SHEETS_SERVICE_KEY)
-          : null;
+        const googleServiceKey = parseGoogleServiceKey();
 
         if (googleSheetId && googleServiceKey) {
           const worksheetTitle = 'Leads';

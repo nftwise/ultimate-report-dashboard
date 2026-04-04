@@ -1,5 +1,28 @@
 # Claude Code Instructions
 
+## Skills Available (ĐỌC TRƯỚC)
+
+3 skills chuyên biệt trong `.claude/skills/`. Claude PHẢI tự nhận intent và suggest/use đúng skill:
+
+| Intent | Skill | Trigger words |
+|--------|-------|--------------|
+| Build feature mới, thêm trang, tạo dashboard | `/builder` | "build", "tạo", "thêm page", "làm trang", "create" |
+| Fix bug, data không hiện, lỗi, broken | `/fixer` | "bug", "lỗi", "không hiển thị", "fix", "error", "broken" |
+| Sync data, cron, API mới, backfill | `/syncer` | "sync", "cron", "data thiếu", "backfill", "integrate", "thêm API" |
+
+**Khi detect intent rõ ràng** → dùng Skill tool gọi đúng skill, KHÔNG tự làm.  
+**Nếu không chắc** → hỏi 1 câu: "Bạn muốn `/builder`, `/fixer`, hay `/syncer`?"
+
+Edge cases:
+- "cron bị lỗi" → `/fixer` (debug existing code)
+- "thêm cron mới" → `/syncer` (build new pipeline)
+- "data hiển thị sai" → `/fixer` (wrong column/query)
+- "data bị thiếu hoàn toàn" → `/syncer` (sync chưa chạy)
+
+Mỗi skill tự load context riêng (project structure, patterns, DB schema) — không cần nhắc lại.
+
+---
+
 ## IMPORTANT: Read Before Coding
 
 Before working on any dashboard feature, Claude MUST read:
