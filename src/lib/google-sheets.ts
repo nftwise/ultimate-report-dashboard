@@ -55,7 +55,10 @@ export function parseGoogleServiceKey(): any | null {
 function getAuthClient(serviceAccountKey: any) {
   return new google.auth.GoogleAuth({
     credentials: serviceAccountKey,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.file',
+    ],
   });
 }
 
