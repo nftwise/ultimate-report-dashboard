@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendSMS } from '@/lib/twilio';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { appendLead, ensureWorksheet, initializeHeaders } from '@/lib/google-sheets';
 
 export const maxDuration = 60;
 
@@ -133,6 +134,45 @@ export async function POST(request: NextRequest) {
         console.log(`[auto-notify] Lead ${lead.id} enrolled in sequence ${sequence.id}, next at ${nextFollowUpAt.toISOString()}`);
       }
     }
+
+    // ── 4. Sync to Google Sheets (non-blocking) ───────────────
+    void (async () => {
+      try {
+        const { data: clientFull } = await supabaseAdmin
+          .from('clients')
+          .select('service_configs')
+          .eq('id', lead.client_id)
+          .single();
+
+        const config = Array.isArray(clientFull?.service_configs)
+          ? clientFull.service_configs[0]
+          : clientFull?.service_configs;
+        const googleSheetId = config?.fb_sheet_id;
+        const googleServiceKey = process.env.GOOGLE_SHEETS_SERVICE_KEY
+          ? JSON.parse(process.env.GOOGLE_SHEETS_SERVICE_KEY)
+          : null;
+
+        if (googleSheetId && googleServiceKey) {
+          const worksheetTitle = 'Leads';
+          await ensureWorksheet(googleSheetId, worksheetTitle, googleServiceKey);
+          await initializeHeaders(googleSheetId, worksheetTitle, googleServiceKey);
+          await appendLead(googleSheetId, worksheetTitle, {
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+            lead_source: lead.lead_source,
+            ad_name: lead.ad_name,
+            campaign_name: lead.campaign_name,
+            status: 'contacted',
+            created_at: lead.created_at,
+            notes: lead.notes,
+          }, googleServiceKey);
+          console.log(`[auto-notify] Synced to Google Sheets: ${googleSheetId}`);
+        }
+      } catch (sheetErr: any) {
+        console.warn('[auto-notify] Sheets sync failed (non-blocking):', sheetErr.message);
+      }
+    })();
 
     return NextResponse.json({ success: true, leadId: lead.id, smsSent });
 
