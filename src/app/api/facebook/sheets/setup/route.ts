@@ -1,47 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { createClientSheet, parseGoogleServiceKey } from '@/lib/google-sheets';
+import { ensureWorksheet, initializeHeaders, parseGoogleServiceKey } from '@/lib/google-sheets';
 
 export const maxDuration = 60;
 
 /**
  * POST /api/facebook/sheets/setup
- * Create a Google Sheet for a client and save Sheet ID
- * Body: { clientId }
+ * Link an existing Google Sheet to a client.
+ *
+ * User creates the sheet manually, shares it with the service account,
+ * then calls this endpoint with the Sheet ID.
+ *
+ * Body: { clientId, sheetId }
+ *
+ * Service account email to share with:
+ * analysis-api@uplifted-triode-432610-r7.iam.gserviceaccount.com
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check Bearer token auth (for cron/automated calls)
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      const expectedToken = process.env.CRON_SECRET;
-      if (!expectedToken || token !== expectedToken) {
-        return NextResponse.json(
-          { error: 'Invalid authorization token' },
-          { status: 401 }
-        );
-      }
-      // Token is valid, continue
-    }
-    // If no Bearer token, NextAuth should handle auth for UI calls
-
     const body = await request.json();
-    const { clientId } = body;
+    const { clientId, sheetId } = body;
 
-    if (!clientId) {
+    if (!clientId || !sheetId) {
       return NextResponse.json(
-        { error: 'Missing clientId' },
+        { error: 'Missing required fields: clientId, sheetId' },
         { status: 400 }
       );
     }
 
-    // Check if Google Service Key is configured
     const googleServiceKey = parseGoogleServiceKey();
-
     if (!googleServiceKey) {
       return NextResponse.json(
-        { error: 'Google Sheets not configured - missing GOOGLE_SHEETS_SERVICE_KEY env var' },
+        { error: 'Google service account not configured' },
         { status: 500 }
       );
     }
@@ -49,46 +39,40 @@ export async function POST(request: NextRequest) {
     // Get client info
     const { data: client, error: clientError } = await supabaseAdmin
       .from('clients')
-      .select('id, name, service_configs(*)')
+      .select('id, name')
       .eq('id', clientId)
       .single();
 
     if (clientError || !client) {
-      return NextResponse.json(
-        { error: 'Client not found', detail: clientError?.message, clientId },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
-    // Create Google Sheet
-    const googleSheetId = await createClientSheet(client.name, googleServiceKey);
+    // Verify we can access the sheet + initialize headers
+    const worksheetTitle = 'Leads';
+    await ensureWorksheet(sheetId, worksheetTitle, googleServiceKey);
+    await initializeHeaders(sheetId, worksheetTitle, googleServiceKey);
 
-    // Update service_configs with Sheet ID
-    const config = client.service_configs?.[0];
+    // Save Sheet ID to service_configs
     const { error: updateError } = await supabaseAdmin
       .from('service_configs')
-      .update({
-        fb_sheet_id: googleSheetId,
-      })
+      .update({ fb_sheet_id: sheetId })
       .eq('client_id', clientId);
 
     if (updateError) {
-      console.error('[sheets setup] Update error:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to save Sheet ID' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to save Sheet ID', detail: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      sheetId: googleSheetId,
-      sheetUrl: `https://docs.google.com/spreadsheets/d/${googleSheetId}`,
+      client: client.name,
+      sheetId,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+      message: 'Sheet linked successfully. Leads will auto-sync here.',
     });
-  } catch (error) {
-    console.error('[sheets setup] Exception:', error);
+
+  } catch (error: any) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
