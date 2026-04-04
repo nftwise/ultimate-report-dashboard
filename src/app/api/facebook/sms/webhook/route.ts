@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { parseTwilioWebhook, generateTwiMLResponse, normalizePhoneNumber } from '@/lib/twilio';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 export const maxDuration = 60;
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Find lead by phone
     const { data: lead, error: leadError } = await supabaseAdmin
       .from('fb_leads')
-      .select('id, client_id, status')
+      .select('id, client_id, status, name')
       .eq('phone', normalizedPhone)
       .single();
 
@@ -91,6 +92,25 @@ export async function POST(request: NextRequest) {
         console.error('[sms webhook] Update error:', updateError);
       }
     }
+
+    // Telegram alert for inbound SMS (non-blocking)
+    void (async () => {
+      try {
+        const { data: client } = await supabaseAdmin
+          .from('clients')
+          .select('name')
+          .eq('id', lead.client_id)
+          .single();
+        await sendTelegramMessage(
+          `💬 <b>SMS Reply — ${client?.name || 'Unknown Client'}</b>\n\n` +
+          `👤 Lead: ${lead.name || 'Unknown'}\n` +
+          `📞 Phone: ${normalizedPhone}\n` +
+          `💬 Message: ${messageBody}`
+        );
+      } catch {
+        // non-blocking, ignore errors
+      }
+    })();
 
     // Return TwiML response (no message, just acknowledgment)
     return new NextResponse(generateTwiMLResponse(), {

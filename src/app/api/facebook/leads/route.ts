@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-sync to Google Sheets (non-blocking)
+    // Note: SMS + Telegram handled by Supabase DB webhook → /api/facebook/auto-notify
     try {
       const { data: client } = await supabaseAdmin
         .from('clients')
