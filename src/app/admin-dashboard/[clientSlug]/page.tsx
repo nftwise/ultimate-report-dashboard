@@ -8,7 +8,7 @@ import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum, fmtCurrency } from '@/lib/format';
+import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
 
 const ChartSkeleton = () => (
