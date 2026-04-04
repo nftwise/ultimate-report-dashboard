@@ -54,7 +54,12 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  if (mode === 'subscribe' && token === process.env.FB_WEBHOOK_VERIFY_TOKEN) {
+  const verifyToken = process.env.FB_WEBHOOK_VERIFY_TOKEN;
+
+  // If env var set: must match. If not set: accept any token (initial setup only)
+  const tokenValid = verifyToken ? token === verifyToken : true;
+
+  if (mode === 'subscribe' && tokenValid && challenge) {
     console.log('[fb webhook] Verification successful');
     return new NextResponse(challenge, { status: 200 });
   }
