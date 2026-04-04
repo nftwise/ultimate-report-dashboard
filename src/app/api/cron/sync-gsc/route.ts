@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
-import { sendCronFailureAlert } from '@/lib/telegram';
+import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -172,6 +172,14 @@ export async function GET(request: NextRequest) {
     if (errors.length > 0) {
       sendCronFailureAlert('sync-gsc', targetDate, errors).catch(() => {});
     }
+
+    // Save cron status (fire-and-forget)
+    saveCronStatus(supabaseAdmin, 'sync_gsc', {
+      clients: clientsWithGSC.length,
+      records: totalQueries,
+      errors,
+      duration,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

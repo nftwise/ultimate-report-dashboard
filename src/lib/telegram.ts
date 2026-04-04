@@ -55,6 +55,55 @@ export async function sendCronFailureAlert(
 }
 
 // ─────────────────────────────────────────
+// Cron status tracking (fire-and-forget)
+// ─────────────────────────────────────────
+
+/**
+ * Save cron job status to system_settings (fire-and-forget).
+ * Key format: cron_status_{cronName} (underscores, no hyphens)
+ * Value: JSON with lastRun, status, records, errors, duration
+ *
+ * Usage (non-blocking):
+ *   saveCronStatus(supabaseAdmin, 'sync_ga4', { clients: 25, records: 100, errors: [] }).catch(() => {});
+ */
+export async function saveCronStatus(
+  supabaseAdmin: any,
+  cronName: string,
+  payload: {
+    status?: 'success' | 'partial' | 'error';
+    clients?: number;
+    records?: number;
+    errors?: string[];
+    duration?: number;
+    [key: string]: any;
+  }
+): Promise<void> {
+  const key = `cron_status_${cronName}`;
+  const hasErrors = (payload.errors?.length ?? 0) > 0;
+  const status = payload.status ?? (hasErrors ? 'partial' : 'success');
+
+  try {
+    await supabaseAdmin.from('system_settings').upsert(
+      {
+        key,
+        value: JSON.stringify({
+          lastRun: new Date().toISOString(),
+          status,
+          clients: payload.clients ?? 0,
+          records: payload.records ?? 0,
+          errors: (payload.errors ?? []).slice(0, 5), // cap at 5 to keep value small
+          duration: payload.duration ?? 0,
+        }),
+      },
+      { onConflict: 'key' }
+    );
+  } catch (err) {
+    // Non-critical — never let status tracking break the cron
+    console.warn(`[saveCronStatus] Failed to save status for ${cronName}:`, err);
+  }
+}
+
+// ─────────────────────────────────────────
 // Alert logic: compare 7-day rolling window
 // ─────────────────────────────────────────
 

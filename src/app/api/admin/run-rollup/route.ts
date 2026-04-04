@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { checkAndSendAlerts } from '@/lib/telegram';
+import { checkAndSendAlerts, saveCronStatus } from '@/lib/telegram';
 
-// Allow up to 120s — 20 days × 25 clients needs more than the default 60s
-export const maxDuration = 120;
+// Allow up to 300s — 60 days × 25 clients needs extended duration
+export const maxDuration = 300;
 
 const BATCH_SIZE = 5;
 
@@ -49,14 +49,15 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
   const startTime = Date.now();
 
   try {
-    // Build list of dates: specific date if given, otherwise last 20 days.
-    // Alert windows need: cur7 (1-7d ago) + prev7 (8-14d ago) + GBP lag (5-7d) = 21d max.
-    // 20 days covers the full comparison window so both periods always use fresh data.
+    // Build list of dates: specific date if given, otherwise last 60 days.
+    // 60 days covers: alert comparison windows (7d+7d), GBP lag (up to 30d),
+    // and Google Ads retroactive attribution adjustments (up to 60d).
+    // Manual fixes for any date in the past 60 days will be re-applied correctly.
     const datesToProcess: string[] = date ? [date] : (() => {
       const now = new Date();
       const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
       const dates: string[] = [];
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 60; i++) {
         const d = new Date(caToday);
         d.setDate(d.getDate() - i);
         dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
@@ -135,6 +136,14 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
     checkAndSendAlerts(supabaseAdmin, latestDate).catch(err =>
       console.error('[Rollup] Alert check failed:', err)
     );
+
+    // Save cron status (fire-and-forget)
+    saveCronStatus(supabaseAdmin, 'run_rollup', {
+      clients: clients.length,
+      records: allMetricsToSave.length,
+      errors: [],
+      duration,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

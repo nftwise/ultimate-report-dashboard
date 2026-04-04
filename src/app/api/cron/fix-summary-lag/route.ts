@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { saveCronStatus } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -28,12 +29,14 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
   const dateParam = request.nextUrl.searchParams.get('date');
 
-  // Build list of dates to patch: last 10 days, or a specific date
+  // Build list of dates to patch: last 60 days, or a specific date.
+  // GBP lag worst-case: 30 days. Ads retroactive adjustments: up to 60 days.
+  // Stale data outside 10 days would never be patched with the old window.
   const datesToPatch: string[] = dateParam ? [dateParam] : (() => {
     const now = new Date();
     const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
     const dates: string[] = [];
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 60; i++) {
       const d = new Date(caToday);
       d.setDate(d.getDate() - i);
       dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
@@ -348,7 +351,15 @@ export async function GET(request: NextRequest) {
   }
 
   const duration = Date.now() - startTime;
+  const totalPatched = seoPatched + gbpPatched + ga4Patched + adsPatched;
   console.log(`[fix-summary-lag] Done in ${duration}ms: SEO=${seoPatched} GBP=${gbpPatched} GA4=${ga4Patched} Ads=${adsPatched} rows patched`);
+
+  // Save cron status (fire-and-forget)
+  saveCronStatus(supabaseAdmin, 'fix_summary_lag', {
+    records: totalPatched,
+    errors: [],
+    duration,
+  }).catch(() => {});
 
   return NextResponse.json({
     success: true,

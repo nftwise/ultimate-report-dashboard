@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { fetchGBPDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
+import { fetchGBPRangePerDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
 import { GBPTokenManager } from '@/lib/gbp-token-manager';
-import { sendCronFailureAlert } from '@/lib/telegram';
+import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
 
 export const maxDuration = 300;
 
@@ -103,31 +103,39 @@ export async function GET(request: NextRequest) {
     let synced = 0;
     const errors: string[] = [];
 
-    // Step 3: For each date, process all locations in batches of 3
-    for (const syncDate of datesToSync) {
-      console.log(`[sync-gbp] Processing date ${syncDate}`);
+    // Step 3: Fetch entire date range per location using fetchGBPRangePerDay.
+    // This makes 7 API calls per location (one per metric) for the full 45-day range,
+    // versus 45 × 7 = 315 calls with the old per-day approach.
+    // More importantly, range queries return complete finalized data; single-day
+    // queries (start=end) can be suppressed/incomplete by the GBP API.
+    const oldestDate = datesToSync[datesToSync.length - 1]; // earliest date
+    const latestDate = datesToSync[0];                       // most recent date
 
-      for (let i = 0; i < validLocations.length; i += BATCH_SIZE) {
-        const batch = validLocations.slice(i, i + BATCH_SIZE);
+    const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
+      try {
+        return await fn();
+      } catch (err: any) {
+        console.log(`[sync-gbp] ${label} attempt 1 failed: ${err.message}, retrying...`);
+        await new Promise(r => setTimeout(r, 2000));
+        return await fn(); // throws on 2nd failure, caught by outer try/catch
+      }
+    };
 
-        const results = await Promise.all(batch.map(async (location) => {
-          const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
-            try {
-              return await fn();
-            } catch (err: any) {
-              console.log(`[sync-gbp] ${location.location_name} ${label} attempt 1 failed: ${err.message}, retrying...`);
-              try {
-                await new Promise(r => setTimeout(r, 2000));
-                return await fn();
-              } catch (err2: any) {
-                console.log(`[sync-gbp] ${location.location_name} ${label} attempt 2 failed: ${err2.message}`);
-                throw err2;
-              }
-            }
-          };
+    for (let i = 0; i < validLocations.length; i += BATCH_SIZE) {
+      const batch = validLocations.slice(i, i + BATCH_SIZE);
 
-          try {
-            const metrics = await fetchWithRetry(() => fetchGBPDay(location.gbp_location_id, syncDate), 'metrics');
+      const results = await Promise.all(batch.map(async (location) => {
+        try {
+          // Single range call returns per-day Map — 7 API calls total regardless of date count
+          const perDayMap = await fetchWithRetry(
+            () => fetchGBPRangePerDay(location.gbp_location_id, oldestDate, latestDate),
+            `${location.location_name} range ${oldestDate}→${latestDate}`
+          );
+
+          let locationSynced = 0;
+          for (const syncDate of datesToSync) {
+            const metrics = perDayMap.get(syncDate);
+            if (!metrics) continue; // API returned no entry for this date
 
             const row = transformGBPMetrics(metrics, location.id, location.client_id, syncDate);
 
@@ -144,18 +152,20 @@ export async function GET(request: NextRequest) {
               });
 
             if (error) {
-              console.log(`[sync-gbp] Upsert error ${location.location_name}:`, error.message);
+              console.log(`[sync-gbp] Upsert error ${location.location_name} ${syncDate}:`, error.message);
+            } else {
+              locationSynced++;
             }
-
-            return 1;
-          } catch (err: any) {
-            errors.push(`${syncDate} ${location.location_name}: ${err.message}`);
-            return 0;
           }
-        }));
 
-        synced += results.reduce((sum: number, r: number) => sum + r, 0);
-      }
+          return locationSynced;
+        } catch (err: any) {
+          errors.push(`${location.location_name} (${oldestDate}→${latestDate}): ${err.message}`);
+          return 0;
+        }
+      }));
+
+      synced += results.reduce((sum: number, r: number) => sum + r, 0);
     }
 
     // ── Reviews snapshot (once per location, update most-recent date row) ───
@@ -193,6 +203,14 @@ export async function GET(request: NextRequest) {
     if (errors.length > 0) {
       sendCronFailureAlert('sync-gbp', targetDate, errors).catch(() => {});
     }
+
+    // Save cron status (fire-and-forget — never block the response)
+    saveCronStatus(supabaseAdmin, 'sync_gbp', {
+      clients: validLocations.length,
+      records: synced,
+      errors,
+      duration,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
