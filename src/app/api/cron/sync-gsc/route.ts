@@ -111,7 +111,15 @@ export async function GET(request: NextRequest) {
           };
 
           try {
-            const allQueries = await fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, syncDate, client.id), 'queries');
+            const [allQueries, aggregateRows] = await Promise.all([
+              fetchWithRetry(() => fetchGSCQueries(token, client.siteUrl, syncDate, client.id), 'queries'),
+              // Fetch aggregate totals with no dimensions — avoids ~57% undercount from query-level sampling
+              fetchWithRetry(() => fetchGSCData(token, client.siteUrl, syncDate, [], 1), 'aggregate'),
+            ]);
+
+            // Aggregate row has accurate totals unaffected by GSC query sampling
+            const totalClicks = aggregateRows[0]?.clicks || 0;
+            const totalImpressions = aggregateRows[0]?.impressions || 0;
 
             // LAYER 1: Save daily totals to gsc_daily_summary.
             // Always write (even 0s) so cron-monitor knows the sync ran successfully —
@@ -121,8 +129,8 @@ export async function GET(request: NextRequest) {
                 client_id: client.id,
                 site_url: client.siteUrl,
                 date: syncDate,
-                total_impressions: allQueries.reduce((s: number, q: any) => s + (q.impressions || 0), 0),
-                total_clicks: allQueries.reduce((s: number, q: any) => s + (q.clicks || 0), 0),
+                total_impressions: totalImpressions,
+                total_clicks: totalClicks,
                 top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
               }, { onConflict: 'client_id,site_url,date' });
               if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);

@@ -252,11 +252,27 @@ async function processClient(
   let weightedEngagement = 0;
   let totalSessionsForEngagement = 0;
 
+  // Check for aggregate fallback row (source_medium = '(all) / (all)') — stored when GA4
+  // thresholding blocks dimensional data. Its total_users is deduplicated by GA4 directly.
+  // For dimensional rows, summing total_users double-counts users who appear in multiple
+  // source_medium × device × country combinations (e.g. same user via organic/mobile AND direct/desktop).
+  const aggregateFallbackRow = ga4SessionsData.find((r: any) => r.source_medium === '(all) / (all)');
+
+  if (aggregateFallbackRow) {
+    // Use aggregate row's deduplicated user counts directly
+    users = aggregateFallbackRow.total_users || 0;
+    newUsers = aggregateFallbackRow.new_users || 0;
+  }
+
   for (const row of ga4SessionsData) {
     const s = row.sessions || 0;
     sessions += s;
-    users += row.total_users || 0;
-    newUsers += row.new_users || 0;
+    if (!aggregateFallbackRow) {
+      // No aggregate row — sum dimensional rows (may slightly over-count cross-dimension users,
+      // but is the only available approximation when thresholding bypass wasn't needed)
+      users += row.total_users || 0;
+      newUsers += row.new_users || 0;
+    }
 
     // Device breakdown
     const device = (row.device || '').toLowerCase();
