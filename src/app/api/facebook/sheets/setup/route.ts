@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Get client info
     const { data: client, error: clientError } = await supabaseAdmin
       .from('clients')
-      .select('id, name, service_configs')
+      .select('id, name, service_configs(*)')
       .eq('id', clientId)
       .single();
 
