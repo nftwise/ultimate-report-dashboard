@@ -14,20 +14,39 @@ interface GoogleSheetsConfig {
 const sheets = google.sheets('v4');
 
 /**
- * Safely parse GOOGLE_SHEETS_SERVICE_KEY env var.
- * Handles: trimmed strings, double-encoded JSON, extra whitespace.
+ * Build Google service account credentials for Sheets API.
+ * Priority:
+ *  1. GOOGLE_SHEETS_SERVICE_KEY (full JSON)
+ *  2. GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY + GOOGLE_PROJECT_ID (individual vars)
  */
 export function parseGoogleServiceKey(): any | null {
+  // Try GOOGLE_SHEETS_SERVICE_KEY first
   const raw = process.env.GOOGLE_SHEETS_SERVICE_KEY;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw.trim());
-    // If double-encoded (string inside string), parse again
-    if (typeof parsed === 'string') return JSON.parse(parsed);
-    return parsed;
-  } catch {
-    return null;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw.trim());
+      if (typeof parsed === 'string') return JSON.parse(parsed);
+      if (parsed?.type === 'service_account') return parsed;
+    } catch {
+      // fall through to individual vars
+    }
   }
+
+  // Fallback: build from individual Google env vars
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  const projectId = process.env.GOOGLE_PROJECT_ID;
+
+  if (clientEmail && privateKey) {
+    return {
+      type: 'service_account',
+      project_id: projectId || '',
+      private_key: privateKey.replace(/\\n/g, '\n'),
+      client_email: clientEmail,
+    };
+  }
+
+  return null;
 }
 
 /**
