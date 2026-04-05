@@ -137,30 +137,83 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── 3. Send Telegram alert if quality issues found ───────────────────────
-  if (qualityIssues.length > 0) {
+  // ── 3. Stale cron detection — alert if any job hasn't run in > 26 hours ───
+  const staleAlerts: string[] = [];
+  const STALE_THRESHOLD_MS = 26 * 60 * 60 * 1000; // 26 hours
+
+  const cronDisplayNames: Record<string, string> = {
+    cron_status_sync_ga4:          'sync-ga4 (GA4 sessions)',
+    cron_status_sync_gsc:          'sync-gsc (Search Console)',
+    cron_status_sync_ads:          'sync-ads (Google Ads)',
+    cron_status_sync_gbp:          'sync-gbp (Google Business)',
+    cron_status_fix_summary_lag:   'fix-summary-lag',
+    cron_status_run_rollup:        'run-rollup',
+  };
+
+  for (const [key, displayName] of Object.entries(cronDisplayNames)) {
+    const status = cronStatuses[key];
+    if (!status?.savedAt) {
+      staleAlerts.push(`❓ <b>${displayName}</b> — never recorded (may not have run yet)`);
+      continue;
+    }
+    const lastRun = new Date(status.savedAt).getTime();
+    const ageMs = Date.now() - lastRun;
+    if (ageMs > STALE_THRESHOLD_MS) {
+      const ageHours = Math.round(ageMs / 3600000);
+      staleAlerts.push(`🔴 <b>${displayName}</b> — last run ${ageHours}h ago (expected: < 26h)`);
+    }
+  }
+
+  // ── 4. Send Telegram alerts ──────────────────────────────────────────────
+  const hasStale   = staleAlerts.length > 0;
+  const hasQuality = qualityIssues.length > 0;
+
+  if (hasStale) {
+    const message =
+      `🚨 <b>Cron Jobs Not Running!</b>\n` +
+      `Detected ${staleAlerts.length} stale job(s):\n\n` +
+      staleAlerts.join('\n') +
+      `\n\n⏰ Check GitHub Actions: https://github.com/nftwise/ultimate-report-dashboard/actions`;
+    sendTelegramMessage(message).catch(() => {});
+  }
+
+  if (hasQuality) {
     const lines = qualityIssues.slice(0, 15).map(i => `  • ${i}`).join('\n');
     const more = qualityIssues.length > 15 ? `\n  ... and ${qualityIssues.length - 15} more` : '';
     const message =
       `⚠️ <b>Data Quality Issues — ${yesterdayStr}</b>\n` +
       `${qualityIssues.length} issue(s) detected:\n\n` +
       lines + more;
-    sendTelegramMessage(message).catch(() => {}); // fire-and-forget
+    sendTelegramMessage(message).catch(() => {});
   }
 
   const duration = Date.now() - startTime;
-  console.log(`[sync-status] Done in ${duration}ms — ${qualityIssues.length} quality issues, ${Object.keys(cronStatuses).length} cron statuses`);
+  console.log(`[sync-status] Done in ${duration}ms — ${staleAlerts.length} stale jobs, ${qualityIssues.length} quality issues`);
+
+  // Build friendly jobs list
+  const jobs = Object.entries(cronDisplayNames).map(([key, name]) => {
+    const s = cronStatuses[key];
+    const lastRun = s?.savedAt ? new Date(s.savedAt) : null;
+    const ageMs = lastRun ? Date.now() - lastRun.getTime() : Infinity;
+    const ageHours = Math.round(ageMs / 3600000);
+    return {
+      name,
+      status: s?.status || 'unknown',
+      lastRun: s?.savedAt || null,
+      ageHours: lastRun ? ageHours : null,
+      stale: ageMs > STALE_THRESHOLD_MS,
+      records: s?.records || 0,
+      errors:  s?.errorCount || 0,
+    };
+  });
 
   return NextResponse.json({
     success: true,
     checkedDate: yesterdayStr,
-    cronStatuses,
-    qualityCheck: {
-      issues: qualityIssues,
-      issueCount: qualityIssues.length,
-      gscDiscrepancies: qualityIssues.filter(i => i.includes('clicks')).length,
-      dataDrops: zeroClientIds.length,
-    },
+    allHealthy: !hasStale && !hasQuality,
+    jobs,
+    staleJobs:       staleAlerts,
+    dataQualityIssues: qualityIssues,
     duration,
   });
 }

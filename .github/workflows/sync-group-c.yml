@@ -66,3 +66,10 @@ jobs:
           curl -f -s -X GET \
             "${{ secrets.VERCEL_URL }}/api/cron/health-check" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,ok,issues}'
+
+      - name: Sync Status + Stale Alert
+        run: |
+          echo "→ Sync Status (stale detection + data quality)"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-status" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,allHealthy,staleJobs,dataQualityIssues}'
