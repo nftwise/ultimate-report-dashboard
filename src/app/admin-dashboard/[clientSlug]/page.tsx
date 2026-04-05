@@ -217,7 +217,8 @@ export default function ClientDetailPage() {
 
       const { data: metricsData, error: metricsError } = await supabase
         .from('client_metrics_summary')
-        .select(`date, total_leads, form_fills, gbp_calls, google_ads_conversions, sessions,
+        .select(`date, total_leads, form_fills, gbp_calls, gbp_profile_views,
+          gbp_website_clicks, gbp_directions, google_ads_conversions, sessions,
           seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid,
           traffic_direct, traffic_referral, traffic_ai, ads_impressions, ads_clicks,
           ads_ctr, ad_spend, cpl, budget_utilization`)
@@ -229,25 +230,13 @@ export default function ClientDetailPage() {
 
       if (metricsError) { setDailyData([]); return; }
 
-      const { data: gbpData } = await supabase
-        .from('gbp_location_daily_metrics')
-        .select('date, phone_calls, views, website_clicks, direction_requests')
-        .eq('client_id', client.id)
-        .gte('date', dateFromISO)
-        .lte('date', dateToISO)
-        .order('date', { ascending: true });
-
-      const gbpArr = Array.isArray(gbpData) ? gbpData : [];
-      const merged = (metricsData || []).map((metric: any) => {
-        const gbp = gbpArr.find((g: any) => g.date === metric.date);
-        return {
-          ...metric,
-          gbp_calls: gbp?.phone_calls ?? metric.gbp_calls ?? 0,
-          gbp_profile_views: gbp?.views ?? 0,
-          gbp_website_clicks: gbp?.website_clicks ?? 0,
-          gbp_direction_requests: gbp?.direction_requests ?? 0,
-        };
-      });
+      // Map summary columns to DailyMetrics fields
+      const merged = (metricsData || []).map((metric: any) => ({
+        ...metric,
+        gbp_profile_views:      metric.gbp_profile_views  ?? 0,
+        gbp_website_clicks:     metric.gbp_website_clicks ?? 0,
+        gbp_direction_requests: metric.gbp_directions     ?? 0, // column rename
+      }));
       setDailyData(merged as DailyMetrics[]);
       setFetchError(null);
       setLastRefreshed(new Date());
