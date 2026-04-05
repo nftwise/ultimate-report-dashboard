@@ -5,6 +5,10 @@ import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { fmtNum, fmtCurrency } from '@/lib/format';
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend, Line, ComposedChart,
+} from 'recharts';
 
 interface FBLead {
   id: string;
@@ -59,6 +63,25 @@ interface PlacementRow {
   cpl: number;
 }
 
+interface AdCreativeRow {
+  campaign_name: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  ctr: number;
+}
+
+interface HourlyRow {
+  hour: number;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+}
+
+const PIE_COLORS = ['#c4704f', '#d9a854', '#9db5a0', '#10b981', '#6366f1', '#ec4899'];
+
 // Default date range: last 30 days
 function getDefaultDates() {
   const now = new Date();
@@ -103,6 +126,10 @@ export default function FacebookPage() {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingAds, setLoadingAds] = useState(false);
   const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
+  const [adCreativeData, setAdCreativeData] = useState<AdCreativeRow[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyRow[]>([]);
+  const [loadingCreative, setLoadingCreative] = useState(false);
+  const [loadingHourly, setLoadingHourly] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showNewSequence, setShowNewSequence] = useState(false);
@@ -239,8 +266,48 @@ export default function FacebookPage() {
       }
     };
 
+    const fetchCreativeMetrics = async () => {
+      setLoadingCreative(true);
+      try {
+        const res = await fetch(
+          `/api/facebook/ad-creative-metrics?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+        );
+        const json = await res.json();
+        if (res.ok) {
+          setAdCreativeData(json.data || []);
+        } else {
+          console.error('[FB Page] Ad creative metrics API error:', json);
+        }
+      } catch (err) {
+        console.error('[FB Page] Error fetching ad creative metrics:', err);
+      } finally {
+        setLoadingCreative(false);
+      }
+    };
+
+    const fetchHourlyMetrics = async () => {
+      setLoadingHourly(true);
+      try {
+        const res = await fetch(
+          `/api/facebook/hourly-metrics?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+        );
+        const json = await res.json();
+        if (res.ok) {
+          setHourlyData(json.data || []);
+        } else {
+          console.error('[FB Page] Hourly metrics API error:', json);
+        }
+      } catch (err) {
+        console.error('[FB Page] Error fetching hourly metrics:', err);
+      } finally {
+        setLoadingHourly(false);
+      }
+    };
+
     fetchAdsMetrics();
     fetchBreakdowns();
+    fetchCreativeMetrics();
+    fetchHourlyMetrics();
   }, [clientData?.id, dateFrom, dateTo]);
 
   const formatPlatform = (p: string) => {
@@ -594,6 +661,236 @@ export default function FacebookPage() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Ad Creative Performance + Performance by Hour ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '24px' }}>
+            {/* Left: Ad Creative Performance (Pie Chart) */}
+            <div style={{
+              background: 'rgba(255,255,255,0.7)',
+              borderRadius: '12px',
+              border: '1px solid rgba(44,36,25,0.08)',
+              padding: '20px',
+            }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', marginBottom: '16px', margin: '0 0 16px 0' }}>
+                Campaign Spend Distribution
+              </h4>
+              {loadingCreative ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading creative data...</div>
+              ) : adCreativeData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No campaign data found for this period.</div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={adCreativeData}
+                        dataKey="spend"
+                        nameKey="campaign_name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        innerRadius={45}
+                        paddingAngle={2}
+                        label={({ campaign_name, percent }: any) =>
+                          `${(campaign_name || '').substring(0, 18)}${(campaign_name || '').length > 18 ? '...' : ''} ${(percent * 100).toFixed(0)}%`
+                        }
+                        labelLine={{ strokeWidth: 1 }}
+                      >
+                        {adCreativeData.map((_, idx) => (
+                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => fmtCurrency(value)}
+                        contentStyle={{
+                          background: 'rgba(255,255,255,0.95)',
+                          border: '1px solid rgba(44,36,25,0.1)',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  {/* Creative table */}
+                  <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                          {['Campaign', 'Spend', 'Impr.', 'Clicks', 'Leads', 'CTR'].map((col) => (
+                            <th
+                              key={col}
+                              style={{
+                                textAlign: col === 'Campaign' ? 'left' : 'right',
+                                padding: '8px 8px',
+                                color: '#6b7280',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adCreativeData.map((row, idx) => (
+                          <tr
+                            key={row.campaign_name}
+                            style={{
+                              background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                              borderBottom: '1px solid rgba(44,36,25,0.05)',
+                            }}
+                          >
+                            <td style={{ padding: '8px', color: '#2c2419', fontSize: '12px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: PIE_COLORS[idx % PIE_COLORS.length],
+                                marginRight: '6px',
+                              }} />
+                              {row.campaign_name}
+                            </td>
+                            <td style={{ padding: '8px', color: '#2c2419', fontSize: '12px', textAlign: 'right', fontWeight: 500 }}>
+                              {fmtCurrency(row.spend)}
+                            </td>
+                            <td style={{ padding: '8px', color: '#2c2419', fontSize: '12px', textAlign: 'right' }}>
+                              {fmtNum(row.impressions)}
+                            </td>
+                            <td style={{ padding: '8px', color: '#2c2419', fontSize: '12px', textAlign: 'right' }}>
+                              {fmtNum(row.clicks)}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>
+                              <span style={{
+                                background: row.leads > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(44,36,25,0.05)',
+                                color: row.leads > 0 ? '#10b981' : '#9ca3af',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                              }}>
+                                {row.leads}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px', color: '#6b7280', fontSize: '12px', textAlign: 'right' }}>
+                              {row.ctr.toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Right: Performance by Hour (Bar Chart) */}
+            <div style={{
+              background: 'rgba(255,255,255,0.7)',
+              borderRadius: '12px',
+              border: '1px solid rgba(44,36,25,0.08)',
+              padding: '20px',
+            }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', marginBottom: '16px', margin: '0 0 16px 0' }}>
+                Performance by Hour
+              </h4>
+              {loadingHourly ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading hourly data...</div>
+              ) : hourlyData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No hourly data available.</div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <ComposedChart data={hourlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.1)" />
+                      <XAxis
+                        dataKey="hour"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(h: number) => `${h}:00`}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v: number) => `$${v}`}
+                        label={{ value: 'Spend ($)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#9ca3af' } }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fontSize: 11 }}
+                        label={{ value: 'Leads', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#9ca3af' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'rgba(255,255,255,0.95)',
+                          border: '1px solid rgba(44,36,25,0.1)',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'spend') return [fmtCurrency(value), 'Spend'];
+                          if (name === 'leads') return [fmtNum(value), 'Leads'];
+                          return [value, name];
+                        }}
+                        labelFormatter={(h: number) => `${h}:00 - ${h}:59`}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: '12px' }}
+                        formatter={(value: string) => value === 'spend' ? 'Spend' : 'Leads'}
+                      />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="spend"
+                        fill="#c4704f"
+                        radius={[3, 3, 0, 0]}
+                        opacity={0.85}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="leads"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: '#10b981' }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+
+                  {/* Hourly summary stats */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '16px' }}>
+                    {(() => {
+                      const peakSpendHour = hourlyData.reduce((best, h) => h.spend > best.spend ? h : best, hourlyData[0]);
+                      const peakLeadsHour = hourlyData.reduce((best, h) => h.leads > best.leads ? h : best, hourlyData[0]);
+                      const totalHourlyLeads = hourlyData.reduce((s, h) => s + h.leads, 0);
+                      return [
+                        { label: 'Peak Spend Hour', value: `${peakSpendHour.hour}:00`, sub: fmtCurrency(peakSpendHour.spend) },
+                        { label: 'Peak Leads Hour', value: `${peakLeadsHour.hour}:00`, sub: `${peakLeadsHour.leads} leads` },
+                        { label: 'Total Leads', value: fmtNum(totalHourlyLeads), sub: 'all hours' },
+                      ];
+                    })().map((stat) => (
+                      <div
+                        key={stat.label}
+                        style={{
+                          background: 'rgba(255,255,255,0.5)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(44,36,25,0.06)',
+                          padding: '12px',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div style={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px' }}>{stat.label}</div>
+                        <div style={{ color: '#2c2419', fontSize: '18px', fontWeight: 700 }}>{stat.value}</div>
+                        <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>{stat.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
