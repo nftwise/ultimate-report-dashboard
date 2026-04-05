@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
-import { createClient } from '@supabase/supabase-js';
 
 interface FBLead {
   id: string;
@@ -31,23 +30,44 @@ interface Sequence {
   is_active: boolean;
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+interface FBCampaign {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  cpl: number;
+}
+
+// Default date range: last 30 days
+function getDefaultDates() {
+  const now = new Date();
+  const to = now.toISOString().split('T')[0];
+  const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
+  return { from, to };
+}
 
 export default function FacebookPage() {
   const params = useParams();
   const clientSlug = (params?.clientSlug as string) ?? '';
 
+  const { from: defaultFrom, to: defaultTo } = getDefaultDates();
+
   const [clientData, setClientData] = useState<any>(null);
   const [leads, setLeads] = useState<FBLead[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [adsCampaigns, setAdsCampaigns] = useState<FBCampaign[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [loadingLeads, setLoadingLeads] = useState(true);
+  const [loadingAds, setLoadingAds] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showNewSequence, setShowNewSequence] = useState(false);
+  const [dateFrom, setDateFrom] = useState(defaultFrom);
+  const [dateTo, setDateTo] = useState(defaultTo);
 
   // KPI calculations
   const totalLeads = leads.length;
@@ -119,6 +139,32 @@ export default function FacebookPage() {
 
     fetchData();
   }, [clientData?.id]);
+
+  // Fetch FB Ads campaign metrics whenever client or date range changes
+  useEffect(() => {
+    if (!clientData?.id) return;
+
+    const fetchAdsMetrics = async () => {
+      setLoadingAds(true);
+      try {
+        const res = await fetch(
+          `/api/facebook/ads-metrics?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+        );
+        const json = await res.json();
+        if (!res.ok) {
+          console.error('[FB Page] Ads metrics API error:', json);
+        } else {
+          setAdsCampaigns(json.data || []);
+        }
+      } catch (err) {
+        console.error('[FB Page] Error fetching ads metrics:', err);
+      } finally {
+        setLoadingAds(false);
+      }
+    };
+
+    fetchAdsMetrics();
+  }, [clientData?.id, dateFrom, dateTo]);
 
   if (!clientData) {
     return (
@@ -195,6 +241,152 @@ export default function FacebookPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* FB Ads Performance Section */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255,255,255,0.6)',
+                padding: '24px',
+                marginBottom: '32px',
+                boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
+              }}
+            >
+              {/* Section header + date picker */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 style={{ color: '#2c2419', margin: 0 }}>FB Ads Performance</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ color: '#6b7280', fontSize: '13px' }}>From</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    style={{
+                      border: '1px solid rgba(44,36,25,0.15)',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '13px',
+                      color: '#2c2419',
+                      background: 'rgba(255,255,255,0.8)',
+                    }}
+                  />
+                  <label style={{ color: '#6b7280', fontSize: '13px' }}>To</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    style={{
+                      border: '1px solid rgba(44,36,25,0.15)',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '13px',
+                      color: '#2c2419',
+                      background: 'rgba(255,255,255,0.8)',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {loadingAds ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                  Loading ads data...
+                </div>
+              ) : adsCampaigns.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                  No campaign data found for this period.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  {/* Summary totals row */}
+                  {(() => {
+                    const totalSpend = adsCampaigns.reduce((s, c) => s + c.spend, 0);
+                    const totalImpressions = adsCampaigns.reduce((s, c) => s + c.impressions, 0);
+                    const totalClicks = adsCampaigns.reduce((s, c) => s + c.clicks, 0);
+                    const totalLeads = adsCampaigns.reduce((s, c) => s + c.leads, 0);
+                    const blendedCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+                    return (
+                      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                        {[
+                          { label: 'Total Spend', value: `$${totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+                          { label: 'Impressions', value: totalImpressions.toLocaleString() },
+                          { label: 'Clicks', value: totalClicks.toLocaleString() },
+                          { label: 'Leads', value: totalLeads.toLocaleString() },
+                          { label: 'Blended CPL', value: blendedCpl > 0 ? `$${blendedCpl.toFixed(2)}` : '—' },
+                        ].map((stat) => (
+                          <div key={stat.label} style={{ minWidth: '110px' }}>
+                            <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>{stat.label}</div>
+                            <div style={{ color: '#2c2419', fontSize: '22px', fontWeight: '600' }}>{stat.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                        {['Campaign', 'Spend', 'Impressions', 'Clicks', 'Leads', 'CPL'].map((col) => (
+                          <th
+                            key={col}
+                            style={{
+                              textAlign: col === 'Campaign' ? 'left' : 'right',
+                              padding: '10px 12px',
+                              color: '#6b7280',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adsCampaigns.map((campaign, idx) => (
+                        <tr
+                          key={campaign.campaign_id}
+                          style={{
+                            background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                            borderBottom: '1px solid rgba(44,36,25,0.05)',
+                          }}
+                        >
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {campaign.campaign_name}
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                            ${campaign.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                            {campaign.impressions.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                            {campaign.clicks.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            <span style={{
+                              background: campaign.leads > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(44,36,25,0.05)',
+                              color: campaign.leads > 0 ? '#10b981' : '#9ca3af',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '13px',
+                              fontWeight: '500',
+                            }}>
+                              {campaign.leads}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', color: campaign.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                            {campaign.cpl > 0 ? `$${campaign.cpl.toFixed(2)}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Lead Management Section */}
