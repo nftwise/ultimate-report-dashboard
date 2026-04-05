@@ -6,6 +6,45 @@ import { supabaseAdmin } from '@/lib/supabase';
 // Fields that belong to service_configs, not clients
 const SERVICE_CONFIG_FIELDS = ['ga_property_id', 'gads_customer_id', 'gsc_site_url', 'callrail_account_id'];
 
+// ---------------------------------------------------------------------------
+// Validation helpers (mirrors create-client validation)
+// ---------------------------------------------------------------------------
+function validateServiceConfigPatch(fields: Record<string, unknown>): { valid: boolean; error?: string } {
+  const gaPropertyId = fields['ga_property_id'] as string | undefined;
+  const gadsCustomerId = fields['gads_customer_id'] as string | undefined;
+  const gscSiteUrl = fields['gsc_site_url'] as string | undefined;
+
+  if (gaPropertyId) {
+    if (!/^\d{6,12}$/.test(gaPropertyId.trim())) {
+      return {
+        valid: false,
+        error: `Invalid ga_property_id "${gaPropertyId}": must be a numeric string of 6–12 digits (e.g. "305884406")`,
+      };
+    }
+  }
+
+  if (gadsCustomerId) {
+    const stripped = gadsCustomerId.replace(/-/g, '').trim();
+    if (!/^\d{10}$/.test(stripped)) {
+      return {
+        valid: false,
+        error: `Invalid gads_customer_id "${gadsCustomerId}": must be 10 digits (e.g. "1234567890" or "123-456-7890")`,
+      };
+    }
+  }
+
+  if (gscSiteUrl) {
+    if (!/^https?:\/\//i.test(gscSiteUrl.trim())) {
+      return {
+        valid: false,
+        error: `Invalid gsc_site_url "${gscSiteUrl}": must start with http:// or https://`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,6 +79,14 @@ export async function PATCH(
 
     if (Object.keys(clientUpdates).length === 0 && Object.keys(serviceConfigUpdates).length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    // Validate service config formats before writing
+    if (Object.keys(serviceConfigUpdates).length > 0) {
+      const validation = validateServiceConfigPatch(serviceConfigUpdates);
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
     }
 
     let clientData = null;
