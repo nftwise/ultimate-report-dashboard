@@ -330,8 +330,10 @@ export default function GBPPage() {
   const momClicks = calcChange(pClicks, prevpClicks);
   const momDir = calcChange(pDir, prevpDir);
 
-  const engRate = pViews > 0 ? ((pActions / pViews) * 100).toFixed(2) : '0.00';
-  const callConv = pViews > 0 ? ((pCalls / pViews) * 100).toFixed(2) : '0.00';
+  const engRateNum  = pViews > 0 ? (pActions / pViews) * 100 : null;
+  const callConvNum = pViews > 0 ? (pCalls   / pViews) * 100 : null;
+  const engRate  = engRateNum  != null ? engRateNum.toFixed(2)  : '—';
+  const callConv = callConvNum != null ? callConvNum.toFixed(2) : '—';
   const callsPct = pActions > 0 ? ((pCalls / pActions) * 100).toFixed(1) : '0';
   const clicksPct = pActions > 0 ? ((pClicks / pActions) * 100).toFixed(1) : '0';
   const dirPct = pActions > 0 ? ((pDir / pActions) * 100).toFixed(1) : '0';
@@ -489,9 +491,9 @@ export default function GBPPage() {
                   </p>
                   <p style={{ fontSize: '12px', color: '#5c5850', margin: 0, lineHeight: '1.7' }}>
                     In the last <strong>{periodDays} days</strong>, your Google Business Profile received <strong>{fmtNum(pViews)} profile views</strong> and generated{' '}
-                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv}% call rate</strong> (calls per profile view).
+                    <strong>{fmtNum(pCalls)} phone calls</strong> — a <strong>{callConv === '—' ? '—' : `${callConv}%`} call rate</strong> (calls per profile view).
                     Customers also visited your website <strong>{fmtNum(pClicks)} times</strong> and requested directions <strong>{fmtNum(pDir)} times</strong>.
-                    Overall engagement rate: <strong>{engRate}%</strong>.
+                    Overall engagement rate: <strong>{engRate === '—' ? '—' : `${engRate}%`}</strong>.
                     {latestRating > 0 && <> Business maintains a <strong>{latestRating.toFixed(1)}-star</strong> rating across <strong>{fmtNum(latestReviews)} reviews</strong>{pNewReviews > 0 ? `, with ${fmtNum(pNewReviews)} new this period` : ''}.</>}
                   </p>
                 </div>
@@ -509,7 +511,7 @@ export default function GBPPage() {
                         <div>
                           {momBadge(momCalls, `vs prev ${periodDays}d`)}
                           <p style={{ fontSize: '11px', color: '#5c5850', margin: '6px 0 0' }}>
-                            Call rate: <strong>{callConv}%</strong> of people who viewed your profile called
+                            Call rate: <strong>{callConv === '—' ? '—' : `${callConv}%`}</strong> of people who viewed your profile called
                           </p>
                         </div>
                       </div>
@@ -518,7 +520,7 @@ export default function GBPPage() {
                       {[
                         { label: 'Share of Actions', val: `${callsPct}%`, color: '#10b981' },
                         { label: 'Avg / Day', val: periodDays > 0 ? (pCalls / periodDays).toFixed(1) : '0', color: '#10b981' },
-                        { label: 'Call Rate', val: `${callConv}%`, color: '#10b981' },
+                        { label: 'Call Rate', val: callConv === '—' ? '—' : `${callConv}%`, color: '#10b981' },
                       ].map(item => (
                         <div key={item.label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                           <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600 }}>{item.label}</p>
@@ -571,14 +573,14 @@ export default function GBPPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
                       <div style={{ background: 'rgba(16,185,129,0.06)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                         <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Engagement Rate</p>
-                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', margin: '0 0 2px 0' }}>{engRate}%</p>
-                        <p style={{ fontSize: '9px', fontWeight: 600, margin: 0, color: parseFloat(engRate) >= 8 ? '#d9a854' : parseFloat(engRate) >= 3 ? '#10b981' : '#ef4444' }}>
-                          {parseFloat(engRate) >= 8 ? 'Excellent' : parseFloat(engRate) >= 3 ? 'Good' : 'Below avg'}
+                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', margin: '0 0 2px 0' }}>{engRateNum != null ? `${engRate}%` : '—'}</p>
+                        <p style={{ fontSize: '9px', fontWeight: 600, margin: 0, color: (engRateNum ?? 0) >= 8 ? '#d9a854' : (engRateNum ?? 0) >= 3 ? '#10b981' : '#ef4444' }}>
+                          {engRateNum == null ? '' : (engRateNum >= 8 ? 'Excellent' : engRateNum >= 3 ? 'Good' : 'Below avg')}
                         </p>
                       </div>
                       <div style={{ background: 'rgba(217,168,84,0.06)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                         <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 2px 0', fontWeight: 600 }}>Call Rate</p>
-                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#d9a854', margin: 0 }}>{callConv}%</p>
+                        <p style={{ fontSize: '20px', fontWeight: 700, color: '#d9a854', margin: 0 }}>{callConvNum != null ? `${callConv}%` : '—'}</p>
                       </div>
                     </div>
                   </div>
