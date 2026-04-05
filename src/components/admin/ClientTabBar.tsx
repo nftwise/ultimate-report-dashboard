@@ -59,7 +59,15 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
       </div>
 
       {/* Tab row */}
-      <div style={{ display: 'flex', gap: '0', borderTop: '1px solid rgba(44,36,25,0.06)' }}>
+      <div style={{
+        display: 'flex',
+        gap: '0',
+        borderTop: '1px solid rgba(44,36,25,0.06)',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      }}>
         {TABS.map(({ id, label, icon: Icon, href, badge }) => {
           const active = activeTab === id;
           return (
