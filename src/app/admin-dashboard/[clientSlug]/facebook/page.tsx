@@ -45,6 +45,7 @@ export default function FacebookPage() {
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [loadingLeads, setLoadingLeads] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showNewSequence, setShowNewSequence] = useState(false);
 
@@ -62,11 +63,23 @@ export default function FacebookPage() {
 
   useEffect(() => {
     const fetchClientData = async () => {
-      const res = await fetch('/api/clients/list');
-      const json = await res.json();
-      const list = json.clients || json.data || [];
-      const client = list.find((c: any) => c.slug === clientSlug);
-      if (client) setClientData(client);
+      try {
+        const res = await fetch('/api/clients/list');
+        if (!res.ok) {
+          console.error('[FB Page] /api/clients/list returned', res.status);
+          return;
+        }
+        const json = await res.json();
+        const list = json.clients || json.data || [];
+        const client = list.find((c: any) => c.slug === clientSlug);
+        if (client) {
+          setClientData(client);
+        } else {
+          console.error('[FB Page] Client not found for slug:', clientSlug, 'list length:', list.length);
+        }
+      } catch (err) {
+        console.error('[FB Page] Failed to load client data:', err);
+      }
     };
     fetchClientData();
   }, [clientSlug]);
@@ -76,18 +89,29 @@ export default function FacebookPage() {
 
     const fetchData = async () => {
       setLoadingLeads(true);
+      setFetchError(null);
       try {
         // Fetch leads
         const leadsRes = await fetch(`/api/facebook/leads?clientId=${clientData.id}`);
-        const { data: leadsData } = await leadsRes.json();
-        setLeads(leadsData || []);
+        const leadsJson = await leadsRes.json();
+        if (!leadsRes.ok) {
+          console.error('[FB Page] Leads API error:', leadsJson);
+          setFetchError(`Leads API error: ${leadsJson.error || leadsRes.status}`);
+        } else {
+          setLeads(leadsJson.data || []);
+        }
 
         // Fetch sequences
         const seqRes = await fetch(`/api/facebook/sequences?clientId=${clientData.id}`);
-        const { data: seqData } = await seqRes.json();
-        setSequences(seqData || []);
+        const seqJson = await seqRes.json();
+        if (!seqRes.ok) {
+          console.error('[FB Page] Sequences API error:', seqJson);
+        } else {
+          setSequences(seqJson.data || []);
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('[FB Page] Error fetching data:', error);
+        setFetchError(String(error));
       } finally {
         setLoadingLeads(false);
       }
@@ -117,6 +141,19 @@ export default function FacebookPage() {
       />
 
       <div style={{ padding: '24px' }}>
+        {fetchError && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            color: '#dc2626',
+            fontSize: '13px',
+          }}>
+            Error loading data: {fetchError}
+          </div>
+        )}
         <>
             {/* KPI Row */}
             <div
@@ -335,11 +372,11 @@ export default function FacebookPage() {
                     >
                       <h4 style={{ color: '#2c2419', margin: '0 0 8px 0' }}>{seq.name}</h4>
                       <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-                        {seq.steps.length} steps
+                        {(seq.steps || []).length} steps
                       </div>
-                      {seq.steps.map((step, idx) => (
+                      {(seq.steps || []).map((step, idx) => (
                         <div key={idx} style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>
-                          Day {step.day}: {step.message.substring(0, 40)}...
+                          Day {step.day}: {(step.message || '').substring(0, 40)}...
                         </div>
                       ))}
                     </div>
