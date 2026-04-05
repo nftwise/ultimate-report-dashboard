@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, CheckCircle2, Database } from 'lucide-react';
 
@@ -94,6 +94,25 @@ export default function NewClientPage() {
   const [backfill, setBackfill] = useState<BackfillState>({
     running: false, currentDay: 0, totalDays: 0, currentService: '', done: false, errors: [],
   });
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // #18: Warn before closing tab while backfill is running
+  useEffect(() => {
+    if (!backfill.running) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Backfill is still running. Are you sure you want to leave?';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [backfill.running]);
+
+  // #30: Animate success screen
+  useEffect(() => {
+    if (createdClient) {
+      setTimeout(() => setShowSuccess(true), 50);
+    }
+  }, [createdClient]);
 
   function handleNameChange(value: string) {
     setForm(f => ({
@@ -230,6 +249,12 @@ export default function NewClientPage() {
 
     return (
       <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
+        <style>{`
+          @keyframes checkPop { 0%{transform:scale(0) rotate(-20deg);opacity:0} 70%{transform:scale(1.2) rotate(5deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+          .check-animate { animation: checkPop 0.5s ease-out forwards; }
+          @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+          .slide-up { animation: slideUp 0.4s ease-out 0.2s both; }
+        `}</style>
         <nav className="sticky top-14 md:top-0 z-30 flex items-center gap-4 px-8 py-4" style={{
           background: 'rgba(245, 241, 237, 0.95)',
           backdropFilter: 'blur(12px)',
@@ -248,10 +273,10 @@ export default function NewClientPage() {
         </nav>
 
         <div style={{ maxWidth: '560px', margin: '60px auto', padding: '0 24px' }}>
-          <div style={sectionStyle}>
+          <div className="slide-up" style={sectionStyle}>
             {/* Success header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <CheckCircle2 style={{ color: '#10b981', width: 32, height: 32, flexShrink: 0 }} />
+              <CheckCircle2 className={showSuccess ? 'check-animate' : ''} style={{ color: '#10b981', width: 36, height: 36, flexShrink: 0 }} />
               <div>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#2c2419', margin: 0 }}>
                   {createdClient.name}
@@ -271,8 +296,11 @@ export default function NewClientPage() {
                     <Database style={{ width: 15, height: 15, color: '#c4704f' }} />
                     <span style={{ fontSize: '13px', fontWeight: '600', color: '#2c2419' }}>Backfill 90 Days</span>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#8a7f74', marginBottom: '12px' }}>
+                  <p style={{ fontSize: '12px', color: '#8a7f74', marginBottom: '4px' }}>
                     Sync historical data from the last 90 days. Keep this tab open while running.
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '12px' }}>
+                    Estimated time: ~{Math.ceil(90 * 4 / 60)} minutes
                   </p>
 
                   {backfill.running ? (
@@ -408,7 +436,7 @@ export default function NewClientPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>Client Name *</label>
+                <label style={labelStyle}>Client Name <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   value={form.name}
@@ -420,7 +448,7 @@ export default function NewClientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>Slug * <span style={{ fontWeight: 400, textTransform: 'none', color: '#aaa' }}>(URL identifier)</span></label>
+                <label style={labelStyle}>Slug <span style={{ color: '#ef4444' }}>*</span> <span style={{ fontWeight: 400, textTransform: 'none', color: '#aaa' }}>(URL identifier)</span></label>
                 <input
                   type="text"
                   value={form.slug}
@@ -432,7 +460,7 @@ export default function NewClientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>City *</label>
+                <label style={labelStyle}>City <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   value={form.city}
@@ -444,7 +472,7 @@ export default function NewClientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>Contact Email *</label>
+                <label style={labelStyle}>Contact Email <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="email"
                   value={form.contactEmail}
@@ -504,7 +532,10 @@ export default function NewClientPage() {
                 {form.has_seo && (
                   <>
                     <div>
-                      <label style={labelStyle}>GA4 Property ID</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ ...labelStyle, marginBottom: 0 }}>GA4 Property ID</label>
+                        <a href="https://analytics.google.com/analytics/web/#/admin" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#c4704f', textDecoration: 'none', fontWeight: 500 }}>How to find? →</a>
+                      </div>
                       <input
                         type="text"
                         value={form.gaPropertyId}
@@ -514,7 +545,10 @@ export default function NewClientPage() {
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}>GSC Site URL</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ ...labelStyle, marginBottom: 0 }}>GSC Site URL</label>
+                        <a href="https://search.google.com/search-console/welcome" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#c4704f', textDecoration: 'none', fontWeight: 500 }}>How to find? →</a>
+                      </div>
                       <input
                         type="text"
                         value={form.gscSiteUrl}
@@ -527,7 +561,10 @@ export default function NewClientPage() {
                 )}
                 {form.has_ads && (
                   <div>
-                    <label style={labelStyle}>Google Ads Customer ID</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ ...labelStyle, marginBottom: 0 }}>Google Ads Customer ID</label>
+                      <a href="https://ads.google.com/aw/accountaccess/managedaccounts" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#c4704f', textDecoration: 'none', fontWeight: 500 }}>How to find? →</a>
+                    </div>
                     <input
                       type="text"
                       value={form.gadsCustomerId}
