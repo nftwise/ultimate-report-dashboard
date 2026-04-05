@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DateRangePickerProps {
   dateRange: { from: Date; to: Date };
@@ -16,22 +16,43 @@ const getFirstDayOfMonth = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 };
 
+const PRESETS = [
+  { label: 'Last 7d', days: 7 },
+  { label: 'Last 30d', days: 30 },
+  { label: 'Last 90d', days: 90 },
+];
+
 export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [tempFromDate, setTempFromDate] = useState<Date | null>(null);
   const [tempToDate, setTempToDate] = useState<Date | null>(null);
 
+  const handlePreset = (days: number) => {
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to); from.setDate(from.getDate() - days);
+    onDateRangeChange({ from, to });
+    setShowCalendar(false);
+    setTempFromDate(null);
+    setTempToDate(null);
+  };
+
+  const handleReset = () => {
+    const to = new Date(); to.setDate(to.getDate() - 1);
+    const from = new Date(to); from.setDate(from.getDate() - 30);
+    onDateRangeChange({ from, to });
+    setShowCalendar(false);
+    setTempFromDate(null);
+    setTempToDate(null);
+  };
+
   const handleDateClick = (day: number) => {
     const selectedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
 
     if (tempFromDate === null) {
-      // First date selected
       setTempFromDate(selectedDate);
     } else if (tempToDate === null) {
-      // Second date selected
       if (selectedDate < tempFromDate) {
-        // If selected date is before start date, swap them
         setTempToDate(tempFromDate);
         setTempFromDate(selectedDate);
       } else {
@@ -79,7 +100,27 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
   const isBothSelected = tempFromDate !== null && tempToDate !== null;
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Reset link */}
+      <button
+        onClick={handleReset}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '11px',
+          color: '#9ca3af',
+          padding: '2px 4px',
+          textDecoration: 'underline',
+          transition: 'color 150ms',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = '#c4704f')}
+        onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}
+        title="Reset to last 30 days"
+      >
+        Reset
+      </button>
+
       <button
         onClick={() => setShowCalendar(!showCalendar)}
         className="flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition hover:bg-opacity-80"
@@ -110,6 +151,41 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
             zIndex: 50
           }}
         >
+          {/* Preset buttons row */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+            {PRESETS.map(({ label, days }) => (
+              <button
+                key={days}
+                onClick={() => handlePreset(days)}
+                style={{
+                  flex: 1,
+                  padding: '5px 8px',
+                  background: 'rgba(196,112,79,0.08)',
+                  border: '1px solid rgba(196,112,79,0.2)',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#c4704f',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = '#c4704f';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,112,79,0.08)';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#c4704f';
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ borderTop: '1px solid rgba(44,36,25,0.08)', marginBottom: '12px' }} />
+
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4">
             <button
