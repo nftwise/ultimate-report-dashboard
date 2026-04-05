@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// One-shot: deactivate clients that have no data + North Alabama (manually deactivated Mar 21)
+// One-shot: deactivate clients that have no data / were accidentally activated
 export async function POST() {
-  // Clients with no summary data and no configs = safe to deactivate
+  // All clients that stopped having data on Feb 28 (were deactivated, accidentally re-activated)
   const toDeactivate = [
     'trieu chiropractor',
     'Trieu Ly',
     'Cornerstone Chiropractic',
+    'Case Animal Hospital',
+    'Symmetry Health Center',
+    'Axis Chiropractic',
+    'Rigel & Rigel',
+    'Functional Spine Chiropractic',
+    'Regenerate Chiropractic',
+    'The Chiropractic Source',
+    'Saigon District Restaurant',
   ];
   // North Alabama was manually deactivated - revert accidental activation
   const northAlabamaId = 'c83bbae9-5ee0-4924-8a2f-593aec45bd64';
