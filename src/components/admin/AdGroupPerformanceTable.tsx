@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 interface AdGroup {
   campaignId: string;
@@ -30,9 +30,36 @@ interface CampaignGroup {
   avgCtr: number;
 }
 
+type AdGroupSortKey = 'conversions' | 'impressions' | 'clicks' | 'ctr' | 'cost' | 'cpl';
+
 export default function AdGroupPerformanceTable({
   data
 }: AdGroupPerformanceTableProps) {
+  const [sortBy, setSortBy] = useState<AdGroupSortKey>('conversions');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: AdGroupSortKey) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('desc'); }
+  };
+
+  const sortIcon = (key: AdGroupSortKey) => {
+    if (sortBy !== key) return <span style={{ opacity: 0.3, fontSize: '8px' }}>▼</span>;
+    return <span style={{ fontSize: '8px', color: '#c4704f' }}>{sortDir === 'desc' ? '▼' : '▲'}</span>;
+  };
+
+  const thS = (key: AdGroupSortKey): React.CSSProperties => ({
+    padding: '8px',
+    textAlign: 'center',
+    fontWeight: '600',
+    color: sortBy === key ? '#c4704f' : '#5c5850',
+    fontSize: '10px',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    userSelect: 'none',
+    whiteSpace: 'nowrap',
+  });
+
   // Filter only active groups and group by campaign
   const groupedByCampaign = useMemo(() => {
     const active = (data || []).filter(g => g.status === 'active');
@@ -56,7 +83,7 @@ export default function AdGroupPerformanceTable({
 
       return {
         campaignName,
-        adGroups: adGroups.sort((a, b) => b.cost - a.cost),
+        adGroups,
         totalImpressions,
         totalClicks,
         totalCost,
@@ -229,90 +256,38 @@ export default function AdGroupPerformanceTable({
 
               {/* Ad Groups Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '11px'
-                }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                   <thead>
-                    <tr style={{
-                      borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
-                      background: 'rgba(44, 36, 25, 0.03)'
-                    }}>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'left',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
+                    <tr style={{ borderBottom: '1px solid rgba(44, 36, 25, 0.1)', background: 'rgba(44, 36, 25, 0.03)' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#5c5850', fontSize: '10px', textTransform: 'uppercase' }}>
                         Ad Group
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        Impr
+                      <th style={thS('impressions')} onClick={() => handleSort('impressions')}>
+                        Impr {sortIcon('impressions')}
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        Clicks
+                      <th style={thS('clicks')} onClick={() => handleSort('clicks')}>
+                        Clicks {sortIcon('clicks')}
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        CTR%
+                      <th style={thS('ctr')} onClick={() => handleSort('ctr')}>
+                        CTR% {sortIcon('ctr')}
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        Cost
+                      <th style={thS('cost')} onClick={() => handleSort('cost')}>
+                        Cost {sortIcon('cost')}
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        Conv
+                      <th style={thS('conversions')} onClick={() => handleSort('conversions')}>
+                        Conv {sortIcon('conversions')}
                       </th>
-                      <th style={{
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: '#5c5850',
-                        fontSize: '10px',
-                        textTransform: 'uppercase'
-                      }}>
-                        CPL
+                      <th style={thS('cpl')} onClick={() => handleSort('cpl')}>
+                        CPL {sortIcon('cpl')}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {campaign.adGroups.map((group) => (
+                    {[...campaign.adGroups].sort((a, b) => {
+                      const valA = a[sortBy] as number;
+                      const valB = b[sortBy] as number;
+                      return sortDir === 'desc' ? valB - valA : valA - valB;
+                    }).map((group) => (
                       <tr
                         key={group.adGroupId}
                         style={{
