@@ -30,11 +30,6 @@ const supabase = createClient(
 
 const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d; };
 
-const pickVal = (a: any, b: any): number => {
-  if (a != null && a > 0) return a;
-  if (b != null && b > 0) return b;
-  return a ?? b ?? 0;
-};
 
 function buildLast12Months() {
   const today = new Date();
@@ -110,6 +105,7 @@ export default function GBPPage() {
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   // ── period data (DYNAMIC — from date picker) ──────────────────────────────
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [periodLoading, setPeriodLoading] = useState(false);
   const [pViews, setPViews] = useState(0);
   const [pCalls, setPCalls] = useState(0);
@@ -209,45 +205,34 @@ export default function GBPPage() {
     const overallFrom = prior12[0].from;
     const overallTo = current12[11].to;
 
-    Promise.all([
-      supabase.from('gbp_location_daily_metrics')
-        .select('date, views, phone_calls, website_clicks, direction_requests')
-        .eq('client_id', client.id).gte('date', overallFrom).lte('date', overallTo),
-      supabase.from('client_metrics_summary')
-        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
-        .eq('client_id', client.id).eq('period_type', 'daily')
-        .gte('date', overallFrom).lte('date', overallTo),
-    ]).then(([{ data: det }, { data: sum }]) => {
-      const detMap = new Map<string, any>(); (det || []).forEach((r: any) => detMap.set(r.date, r));
-      const sumMap = new Map<string, any>(); (sum || []).forEach((r: any) => sumMap.set(r.date, r));
-      const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)]));
+    supabase.from('client_metrics_summary')
+      .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
+      .eq('client_id', client.id).eq('period_type', 'daily')
+      .gte('date', overallFrom).lte('date', overallTo)
+      .then(({ data: sum }) => {
+        const buckets = new Map<string, { views: number; calls: number; clicks: number; directions: number }>();
+        current12.forEach(m => buckets.set(m.key, { views: 0, calls: 0, clicks: 0, directions: 0 }));
 
-      const buckets = new Map<string, { views: number; calls: number; clicks: number; directions: number }>();
-      current12.forEach(m => buckets.set(m.key, { views: 0, calls: 0, clicks: 0, directions: 0 }));
+        for (const r of (sum || [])) {
+          const mk = (r as any).date.slice(0, 7);
+          if (!buckets.has(mk)) continue;
+          const b = buckets.get(mk)!;
+          b.views += (r as any).gbp_profile_views || 0;
+          b.calls += (r as any).gbp_calls || 0;
+          b.clicks += (r as any).gbp_website_clicks || 0;
+          b.directions += (r as any).gbp_directions || 0;
+        }
 
-      for (const date of allDates) {
-        const mk = date.slice(0, 7);
-        if (!buckets.has(mk)) continue;
-        const d = detMap.get(date), s = sumMap.get(date);
-        const v = pickVal(d?.views, s?.gbp_profile_views);
-        const c = pickVal(d?.phone_calls, s?.gbp_calls);
-        const cl = pickVal(d?.website_clicks, s?.gbp_website_clicks);
-        const dir = pickVal(d?.direction_requests, s?.gbp_directions);
-        if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
-        const b = buckets.get(mk)!;
-        b.views += v; b.calls += c; b.clicks += cl; b.directions += dir;
-      }
-
-      setViewsChart(current12.map(m => {
-        const b = buckets.get(m.key)!;
-        return { month: m.label, views: b.views, clicks: b.clicks, directions: b.directions };
-      }));
-      setActionsChart(current12.map(m => {
-        const b = buckets.get(m.key)!;
-        return { month: m.label, calls: b.calls };
-      }));
-      setMonthlyLoading(false);
-    });
+        setViewsChart(current12.map(m => {
+          const b = buckets.get(m.key)!;
+          return { month: m.label, views: b.views, clicks: b.clicks, directions: b.directions };
+        }));
+        setActionsChart(current12.map(m => {
+          const b = buckets.get(m.key)!;
+          return { month: m.label, calls: b.calls };
+        }));
+        setMonthlyLoading(false);
+      });
   }, [client]);
 
   // ── fetch period data (re-runs on date change) ────────────────────────────
@@ -266,38 +251,35 @@ export default function GBPPage() {
     const prevToISO = prevTo.toISOString().split('T')[0];
 
     Promise.all([
-      // current period
-      supabase.from('gbp_location_daily_metrics')
-        .select('date, views, phone_calls, website_clicks, direction_requests, new_reviews_today, total_reviews, average_rating')
-        .eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
+      // current period — summary only (verified accurate)
       supabase.from('client_metrics_summary')
-        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions, gbp_reviews_new, gbp_reviews_count, gbp_rating_avg')
+        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions, gbp_reviews_new')
         .eq('client_id', client.id).eq('period_type', 'daily').gte('date', fromISO).lte('date', toISO),
-      // previous period
-      supabase.from('gbp_location_daily_metrics')
-        .select('date, views, phone_calls, website_clicks, direction_requests')
-        .eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
+      // previous period — summary only
       supabase.from('client_metrics_summary')
         .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
         .eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
-    ]).then(([{ data: det }, { data: sum }, { data: pDet }, { data: pSum }]) => {
-      const detMap = new Map<string, any>(); (det || []).forEach((r: any) => detMap.set(r.date, r));
-      const sumMap = new Map<string, any>(); (sum || []).forEach((r: any) => sumMap.set(r.date, r));
+    ]).then(([{ data: sum, error: sumErr }, { data: pSum }]) => {
+      if (sumErr) {
+        console.error('Error fetching GBP period data:', sumErr);
+        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+        setPeriodLoading(false);
+        return;
+      }
+      setFetchError(null);
 
-      const allDates = Array.from(new Set([...(det || []).map((r: any) => r.date), ...(sum || []).map((r: any) => r.date)])).sort();
+      const allDates = ((sum || []) as any[]).map((r: any) => r.date).sort();
       if (allDates.length > 0) setLastGbpDataDate(allDates[allDates.length - 1]);
 
       let totViews = 0, totCalls = 0, totClicks = 0, totDir = 0, totNewRev = 0, dataRows = 0;
-
-      for (const date of allDates) {
-        const d = detMap.get(date), s = sumMap.get(date);
-        const v = pickVal(d?.views, s?.gbp_profile_views);
-        const c = pickVal(d?.phone_calls, s?.gbp_calls);
-        const cl = pickVal(d?.website_clicks, s?.gbp_website_clicks);
-        const dir = pickVal(d?.direction_requests, s?.gbp_directions);
+      for (const r of (sum || []) as any[]) {
+        const v = r.gbp_profile_views || 0;
+        const c = r.gbp_calls || 0;
+        const cl = r.gbp_website_clicks || 0;
+        const dir = r.gbp_directions || 0;
         if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
         totViews += v; totCalls += c; totClicks += cl; totDir += dir;
-        totNewRev += pickVal(d?.new_reviews_today, s?.gbp_reviews_new);
+        totNewRev += r.gbp_reviews_new || 0;
         dataRows++;
       }
 
@@ -306,16 +288,12 @@ export default function GBPPage() {
       setPeriodDataCount(dataRows);
 
       // previous period
-      const pDetMap = new Map<string, any>(); (pDet || []).forEach((r: any) => pDetMap.set(r.date, r));
-      const pSumMap = new Map<string, any>(); (pSum || []).forEach((r: any) => pSumMap.set(r.date, r));
-      const pAllDates = Array.from(new Set([...(pDet || []).map((r: any) => r.date), ...(pSum || []).map((r: any) => r.date)]));
       let pv = 0, pc = 0, pcl = 0, pd = 0;
-      for (const date of pAllDates) {
-        const d = pDetMap.get(date), s = pSumMap.get(date);
-        const pViews = pickVal(d?.views, s?.gbp_profile_views);
-        const pCalls = pickVal(d?.phone_calls, s?.gbp_calls);
-        const pClicks = pickVal(d?.website_clicks, s?.gbp_website_clicks);
-        const pDirs = pickVal(d?.direction_requests, s?.gbp_directions);
+      for (const r of (pSum || []) as any[]) {
+        const pViews = r.gbp_profile_views || 0;
+        const pCalls = r.gbp_calls || 0;
+        const pClicks = r.gbp_website_clicks || 0;
+        const pDirs = r.gbp_directions || 0;
         if (pViews === 0 && pCalls === 0 && pClicks === 0 && pDirs === 0) continue;
         pv += pViews; pc += pCalls; pcl += pClicks; pd += pDirs;
       }
@@ -383,6 +361,25 @@ export default function GBPPage() {
       <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+
+        {/* Error banner */}
+        {fetchError && (
+          <div style={{
+            background: 'rgba(196,112,79,0.1)',
+            border: '1px solid #c4704f',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            color: '#8a4a2e',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            ⚠️ {fetchError}
+            <button onClick={() => setFetchError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+          </div>
+        )}
 
         {/* ── Date Controls (sticky, same as other tabs) ────────────────── */}
         <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3"
