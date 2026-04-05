@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { COLORS, Z_INDEX, BORDER_RADIUS, TRANSITIONS } from '@/lib/design-tokens';
 
 interface DateRangePickerProps {
   dateRange: { from: Date; to: Date };
@@ -138,14 +139,14 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
       fontWeight: start || end || sel ? '700' : '400',
       border: 'none',
       cursor: future ? 'not-allowed' : 'pointer',
-      transition: 'all 0.1s',
-      background: start || end ? '#c4704f'
-        : sel ? '#c4704f'
-        : inRange ? 'rgba(196,112,79,0.15)'
+      transition: TRANSITIONS.COLOR,
+      background: start || end ? COLORS.ACCENT
+        : sel ? COLORS.ACCENT
+        : inRange ? COLORS.TREND_DOWN_BG
         : 'transparent',
       color: start || end || sel ? '#fff'
-        : future ? 'rgba(44,36,25,0.2)'
-        : '#2c2419',
+        : future ? COLORS.TEXT_DISABLED
+        : COLORS.TEXT_PRIMARY,
       opacity: 1,
     };
   };
@@ -158,11 +159,11 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
         onClick={applyReset}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '11px', color: '#9ca3af', padding: '2px 4px',
-          textDecoration: 'underline', transition: 'color 120ms',
+          fontSize: '11px', color: COLORS.TEXT_MUTED, padding: '2px 4px',
+          textDecoration: 'underline', transition: TRANSITIONS.FAST,
         }}
-        onMouseEnter={e => (e.currentTarget.style.color = '#c4704f')}
-        onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}
+        onMouseEnter={e => (e.currentTarget.style.color = COLORS.ACCENT)}
+        onMouseLeave={e => (e.currentTarget.style.color = COLORS.TEXT_MUTED)}
         title="Reset to last 30 days"
       >
         Reset
@@ -174,11 +175,11 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           padding: '7px 14px', borderRadius: '20px', fontSize: '13px',
-          fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-          background: open ? '#c4704f' : '#fff',
-          border: `1px solid ${open ? '#c4704f' : 'rgba(44,36,25,0.12)'}`,
-          color: open ? '#fff' : '#2c2419',
-          boxShadow: open ? '0 2px 8px rgba(196,112,79,0.25)' : 'none',
+          fontWeight: 600, cursor: 'pointer', transition: TRANSITIONS.COLOR,
+          background: open ? COLORS.ACCENT : '#fff',
+          border: `1px solid ${open ? COLORS.ACCENT : 'rgba(44,36,25,0.12)'}`,
+          color: open ? '#fff' : COLORS.TEXT_PRIMARY,
+          boxShadow: open ? `0 2px 8px rgba(196,112,79,0.25)` : 'none',
         }}
       >
         <Calendar size={14} style={{ color: open ? '#fff' : '#c4704f' }} />
@@ -191,7 +192,7 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0,
           background: '#fff', borderRadius: '14px', padding: '16px',
-          width: '310px', zIndex: 100,
+          width: '310px', zIndex: Z_INDEX.DROPDOWN,
           boxShadow: '0 8px 32px rgba(44,36,25,0.14), 0 1px 4px rgba(44,36,25,0.06)',
           border: '1px solid rgba(44,36,25,0.08)',
           animation: 'fadeSlideDown 0.15s ease',
@@ -205,11 +206,11 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
                 onClick={() => applyPreset(days)}
                 style={{
                   flex: 1, padding: '5px 0', borderRadius: '8px', fontSize: '12px',
-                  fontWeight: 600, color: '#c4704f', cursor: 'pointer', transition: 'all 0.12s',
-                  background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.18)',
+                  fontWeight: 600, color: COLORS.ACCENT, cursor: 'pointer', transition: TRANSITIONS.COLOR,
+                  background: COLORS.BG_ACTIVE, border: '1px solid rgba(196,112,79,0.18)',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#c4704f'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(196,112,79,0.08)'; e.currentTarget.style.color = '#c4704f'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = COLORS.ACCENT; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = COLORS.BG_ACTIVE; e.currentTarget.style.color = COLORS.ACCENT; }}
               >
                 {label}
               </button>
@@ -222,27 +223,27 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <button
               onClick={() => setCalMonth(new Date(year, month - 1, 1))}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', transition: 'background 0.1s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,36,25,0.06)')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: BORDER_RADIUS.SM, transition: TRANSITIONS.COLOR }}
+              onMouseEnter={e => (e.currentTarget.style.background = COLORS.BG_HOVER)}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <ChevronLeft size={16} style={{ color: '#5c5850' }} />
+              <ChevronLeft size={16} style={{ color: COLORS.TEXT_SECONDARY }} />
             </button>
-            <span style={{ fontWeight: 700, fontSize: '14px', color: '#2c2419' }}>{monthLabel}</span>
+            <span style={{ fontWeight: 700, fontSize: '14px', color: COLORS.TEXT_PRIMARY }}>{monthLabel}</span>
             <button
               onClick={() => setCalMonth(new Date(year, month + 1, 1))}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', transition: 'background 0.1s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(44,36,25,0.06)')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: BORDER_RADIUS.SM, transition: TRANSITIONS.COLOR }}
+              onMouseEnter={e => (e.currentTarget.style.background = COLORS.BG_HOVER)}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <ChevronRight size={16} style={{ color: '#5c5850' }} />
+              <ChevronRight size={16} style={{ color: COLORS.TEXT_SECONDARY }} />
             </button>
           </div>
 
           {/* Day headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
             {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-              <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: '#9ca3af', padding: '4px 0' }}>
+              <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: COLORS.TEXT_MUTED, padding: '4px 0' }}>
                 {d}
               </div>
             ))}
@@ -273,18 +274,18 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
           </div>
 
           {/* Status hint */}
-          <div style={{ marginTop: '12px', fontSize: '11px', color: '#9ca3af', textAlign: 'center', minHeight: '18px' }}>
+          <div style={{ marginTop: '12px', fontSize: '11px', color: COLORS.TEXT_MUTED, textAlign: 'center', minHeight: '18px' }}>
             {!startDate && 'Click to select start date'}
             {startDate && !hoverDate && (
               <span>
-                <span style={{ color: '#c4704f', fontWeight: 600 }}>
+                <span style={{ color: COLORS.ACCENT, fontWeight: 600 }}>
                   {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
                 {' '}— now click end date
               </span>
             )}
             {startDate && hoverDate && visualFrom && visualTo && (
-              <span style={{ color: '#c4704f', fontWeight: 600 }}>
+              <span style={{ color: COLORS.ACCENT, fontWeight: 600 }}>
                 {visualFrom.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 {' – '}
                 {visualTo.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -299,11 +300,11 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
               style={{
                 width: '100%', marginTop: '8px', padding: '7px',
                 background: 'none', border: '1px solid rgba(44,36,25,0.1)',
-                borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                color: '#9ca3af', cursor: 'pointer', transition: 'all 0.12s',
+                borderRadius: BORDER_RADIUS.MD, fontSize: '12px', fontWeight: 600,
+                color: COLORS.TEXT_MUTED, cursor: 'pointer', transition: TRANSITIONS.COLOR,
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#c4704f'; e.currentTarget.style.color = '#c4704f'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.1)'; e.currentTarget.style.color = '#9ca3af'; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.ACCENT; e.currentTarget.style.color = COLORS.ACCENT; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(44,36,25,0.1)'; e.currentTarget.style.color = COLORS.TEXT_MUTED; }}
             >
               Start over
             </button>

@@ -8,6 +8,7 @@ import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
+import { COLORS, MS_PER_DAY } from '@/lib/design-tokens';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
 import { Users, Globe, DollarSign, Target, Phone, FileText, Settings, BarChart2, RefreshCw } from 'lucide-react';
@@ -252,7 +253,7 @@ export default function ClientDetailPage() {
       setLastRefreshed(new Date());
 
       // Previous period for MoM
-      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
+      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
       const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
       const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
 
@@ -327,7 +328,7 @@ export default function ClientDetailPage() {
   const hasGbp = client.services?.googleLocalService !== false;
 
   // ── MoM ──────────────────────────────────────────────────────────────────
-  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
+  const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
   const calcMoM = (curr: number, prev: number, invert = false) => {
     if (prev === 0) return { pct: '—', type: 'neutral' as const };
     const raw = (curr - prev) / prev * 100;
@@ -356,8 +357,8 @@ export default function ClientDetailPage() {
   const trendBadge = (mom: ReturnType<typeof calcMoM>) => (
     <div style={{ marginTop: '8px' }}>
       <span className="text-xs font-semibold px-2 py-1 rounded" style={{
-        background: mom.type === 'up' ? 'rgba(157,181,160,0.15)' : mom.type === 'down' ? 'rgba(196,112,79,0.15)' : 'rgba(92,88,80,0.1)',
-        color: mom.type === 'up' ? '#4a6b4e' : mom.type === 'down' ? '#8a4a2e' : '#5c5850'
+        background: mom.type === 'up' ? COLORS.TREND_UP_BG : mom.type === 'down' ? COLORS.TREND_DOWN_BG : COLORS.TREND_NEUTRAL_BG,
+        color: mom.type === 'up' ? COLORS.TREND_UP_TEXT : mom.type === 'down' ? COLORS.TREND_DOWN_TEXT : COLORS.TREND_NEUTRAL_TEXT
       }}>
         {mom.pct}
       </span>

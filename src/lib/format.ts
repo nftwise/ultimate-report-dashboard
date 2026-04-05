@@ -15,7 +15,7 @@ export function fmtNum(n: number | null | undefined, decimals = 0): string {
 }
 
 export function fmtCurrency(n: number | null | undefined, decimals = 2): string {
-  if (!n && n !== 0) return '—';
+  if (n === null || n === undefined || isNaN(n as number)) return '—';
   if ((n as number) === 0) return '$0';
   return '$' + fmtNum(n, decimals);
 }
