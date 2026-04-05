@@ -227,10 +227,10 @@ export default function ClientsManagementPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('clients')
-        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, has_gbp, notes, ads_budget_month, status, industry, owner')
+        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, notes, ads_budget_month, status, industry, owner')
         .order('name', { ascending: true });
       if (fetchError) throw new Error(fetchError.message);
-      setClients(data || []);
+      // Note: setClients called below after deriving has_gbp
 
       // Fetch last sync date per client (last 60 days)
       const since = new Date(); since.setDate(since.getDate() - 60);
@@ -248,6 +248,14 @@ export default function ClientsManagementPage() {
         }
         setLastSync(map);
       }
+
+      // Derive has_gbp from gbp_locations table (column doesn't exist on clients)
+      const { data: gbpLocs } = await supabase
+        .from('gbp_locations')
+        .select('client_id')
+        .eq('is_active', true);
+      const gbpSet = new Set((gbpLocs || []).map((l: any) => l.client_id));
+      setClients((data || []).map((c: any) => ({ ...c, has_gbp: gbpSet.has(c.id) })));
 
       // Fetch all manual form fills
       const { data: fillsData } = await supabase
