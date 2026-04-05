@@ -1,0 +1,51 @@
+name: CI Gate — Data Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  data-quality:
+    name: Data Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run CI Gate
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+        run: node scripts/ci-gate.mjs
+
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"text\": \"❌ <b>CI Gate FAILED</b>\\n\\nBranch: ${{ github.ref_name }}\\nCommit: ${{ github.sha }}\\nBy: ${{ github.actor }}\\n\\nData quality checks failed — deployment blocked.\\n\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View details</a>\",
+              \"parse_mode\": \"HTML\"
+            }"
+
+      - name: Notify Telegram on success
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"text\": \"✅ <b>CI Gate PASSED</b>\\n\\nAll data quality checks passed.\\nDeploying to production...\",
+              \"parse_mode\": \"HTML\"
+            }"
