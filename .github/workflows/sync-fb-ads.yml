@@ -1,0 +1,40 @@
+name: Sync Facebook Ads
+
+on:
+  schedule:
+    - cron: '25 10 * * *'  # 3:25 AM PDT = 10:25 UTC
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to sync (YYYY-MM-DD). Leave empty for yesterday.'
+        required: false
+        default: ''
+      clientId:
+        description: 'Specific client UUID (optional). Leave empty for all clients.'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Build params
+        id: dp
+        run: |
+          PARAMS=""
+          if [ -n "${{ inputs.date }}" ]; then
+            PARAMS="${PARAMS}&date=${{ inputs.date }}"
+          fi
+          if [ -n "${{ inputs.clientId }}" ]; then
+            PARAMS="${PARAMS}&clientId=${{ inputs.clientId }}"
+          fi
+          echo "params=${PARAMS}" >> $GITHUB_OUTPUT
+
+      - name: Sync Facebook Ads
+        run: |
+          echo "→ Facebook Ads sync"
+          curl -f -s -X GET \
+            "${{ secrets.VERCEL_URL }}/api/cron/sync-fb-ads?_=1${{ steps.dp.outputs.params }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,date,clients,rows,errors}'
