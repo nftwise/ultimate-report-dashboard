@@ -191,6 +191,7 @@ export default function GoogleAdsPage() {
   const [showAdGroups, setShowAdGroups] = useState(false);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
@@ -313,8 +314,10 @@ export default function GoogleAdsPage() {
         });
 
         setDailyData(aggregated as DailyMetrics[]);
+        setFetchError(null);
       } catch (error) {
         console.error('Error fetching metrics:', error);
+        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
       } finally {
         setChartLoading(false);
       }
@@ -553,6 +556,25 @@ export default function GoogleAdsPage() {
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
 
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+        {/* Error banner */}
+        {fetchError && (
+          <div style={{
+            background: 'rgba(196,112,79,0.1)',
+            border: '1px solid #c4704f',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            color: '#8a4a2e',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            ⚠️ {fetchError}
+            <button onClick={() => setFetchError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+          </div>
+        )}
+
         {/* Date Controls */}
         <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {lastDataDate && (

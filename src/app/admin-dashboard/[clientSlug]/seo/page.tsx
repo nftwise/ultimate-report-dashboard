@@ -66,6 +66,7 @@ export default function SEOPage() {
   });
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
   const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
   const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number }>({ improved: 0, declined: 0 });
@@ -123,7 +124,15 @@ export default function SEOPage() {
       .eq('period_type', 'daily')
       .gte('date', from).lte('date', to)
       .order('date', { ascending: true })
-      .then(({ data }) => setDailyData((data || []) as DailyMetrics[]));
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching SEO metrics:', error);
+          setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+        } else {
+          setDailyData((data || []) as DailyMetrics[]);
+          setFetchError(null);
+        }
+      });
   }, [client, dateRange]);
 
   // Fetch keyword rankings + top keywords
@@ -311,6 +320,23 @@ export default function SEOPage() {
   return (
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="seo" />
+      {fetchError && (
+        <div style={{
+          background: 'rgba(196,112,79,0.1)',
+          border: '1px solid #c4704f',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          margin: '16px 24px 0',
+          color: '#8a4a2e',
+          fontSize: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          ⚠️ {fetchError}
+          <button onClick={() => setFetchError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+        </div>
+      )}
 
       {/* Sticky date bar — justify-end, consistent with all other tabs */}
       <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 px-8 py-3"

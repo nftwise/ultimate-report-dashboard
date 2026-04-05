@@ -84,6 +84,7 @@ export default function ClientDetailPage() {
   const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number; formFills: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0, formFills: 0 });
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
@@ -213,6 +214,7 @@ export default function ClientDetailPage() {
           };
         });
         setDailyData(merged as DailyMetrics[]);
+        setFetchError(null);
 
         // Previous period for MoM
         const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
@@ -242,6 +244,7 @@ export default function ClientDetailPage() {
         });
       } catch (error) {
         console.error('[Client Details] Error:', error);
+        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
         setDailyData([]);
       } finally {
         setChartLoading(false);
@@ -350,6 +353,25 @@ export default function ClientDetailPage() {
 
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
+
+          {/* Error banner */}
+          {fetchError && (
+            <div style={{
+              background: 'rgba(196,112,79,0.1)',
+              border: '1px solid #c4704f',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              color: '#8a4a2e',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ⚠️ {fetchError}
+              <button onClick={() => setFetchError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+            </div>
+          )}
 
           {/* Header */}
           <div className="mb-8">

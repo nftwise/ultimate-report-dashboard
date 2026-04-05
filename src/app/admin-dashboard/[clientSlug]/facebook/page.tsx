@@ -108,7 +108,7 @@ export default function FacebookPage() {
   }
 
   const serviceConfig = clientData.service_configs?.[0];
-  const hasFBConfig = serviceConfig?.fb_ad_account_id;
+  const hasFBConfig = serviceConfig?.fb_page_id || serviceConfig?.fb_sheet_id || serviceConfig?.fb_ad_account_id;
 
   return (
     <AdminLayout>
