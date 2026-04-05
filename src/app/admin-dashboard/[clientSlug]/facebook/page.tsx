@@ -107,9 +107,6 @@ export default function FacebookPage() {
     );
   }
 
-  const serviceConfig = clientData.service_configs?.[0];
-  const hasFBConfig = serviceConfig?.fb_page_id || serviceConfig?.fb_sheet_id || serviceConfig?.fb_ad_account_id;
-
   return (
     <AdminLayout>
       <ClientTabBar
@@ -120,26 +117,7 @@ export default function FacebookPage() {
       />
 
       <div style={{ padding: '24px' }}>
-        {!hasFBConfig ? (
-          <div
-            style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.6)',
-              padding: '48px 24px',
-              textAlign: 'center',
-            }}
-          >
-            <h3 style={{ color: '#2c2419', marginBottom: '8px' }}>
-              Facebook Not Configured
-            </h3>
-            <p style={{ color: '#6b7280' }}>
-              Please configure Facebook Ad Account ID in client settings to use this feature.
-            </p>
-          </div>
-        ) : (
-          <>
+        <>
             {/* KPI Row */}
             <div
               style={{
@@ -369,8 +347,7 @@ export default function FacebookPage() {
                 </div>
               )}
             </div>
-          </>
-        )}
+        </>
       </div>
     </AdminLayout>
   );
