@@ -8,6 +8,7 @@ import { fmtNum, fmtCurrency } from '@/lib/format';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Line, ComposedChart,
+  AreaChart, Area,
 } from 'recharts';
 
 interface FBLead {
@@ -80,6 +81,19 @@ interface HourlyRow {
   leads: number;
 }
 
+interface DetailedInsights {
+  regions: Array<{ region: string; spend: number; impressions: number; clicks: number; leads: number; calls_placed: number; calls_60s: number }>;
+  devices: Array<{ device: string; spend: number; impressions: number; clicks: number }>;
+  summary: {
+    spend: number; impressions: number; clicks: number; reach: number; frequency: number;
+    leads: number; calls_placed: number; calls_confirmed: number; calls_20s: number; calls_60s: number;
+    messages_started: number; messages_replied: number; messages_blocked: number;
+    video_views: number; link_clicks: number; post_engagement: number; comments: number; post_saves: number;
+    costPerAction: { cost_per_lead: number; cost_per_call: number; cost_per_message: number; cost_per_link_click: number };
+  };
+  daily: Array<{ date: string; spend: number; impressions: number; clicks: number; leads: number; calls_placed: number; calls_60s: number; messages_started: number; video_views: number }>;
+}
+
 const PIE_COLORS = ['#c4704f', '#d9a854', '#9db5a0', '#10b981', '#6366f1', '#ec4899'];
 
 // Default date range: last 30 days
@@ -135,6 +149,8 @@ export default function FacebookPage() {
   const [showNewSequence, setShowNewSequence] = useState(false);
   const [dateFrom, setDateFrom] = useState(defaultFrom);
   const [dateTo, setDateTo] = useState(defaultTo);
+  const [detailedInsights, setDetailedInsights] = useState<DetailedInsights | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   // KPI calculations
   const totalLeads = leads.length;
@@ -304,10 +320,30 @@ export default function FacebookPage() {
       }
     };
 
+    const fetchDetailedInsights = async () => {
+      setLoadingInsights(true);
+      try {
+        const res = await fetch(
+          `/api/facebook/detailed-insights?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+        );
+        const json = await res.json();
+        if (res.ok) {
+          setDetailedInsights(json.data || null);
+        } else {
+          console.error('[FB Page] Detailed insights API error:', json);
+        }
+      } catch (err) {
+        console.error('[FB Page] Error fetching detailed insights:', err);
+      } finally {
+        setLoadingInsights(false);
+      }
+    };
+
     fetchAdsMetrics();
     fetchBreakdowns();
     fetchCreativeMetrics();
     fetchHourlyMetrics();
+    fetchDetailedInsights();
   }, [clientData?.id, dateFrom, dateTo]);
 
   const formatPlatform = (p: string) => {
@@ -894,6 +930,398 @@ export default function FacebookPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* ═══ CALL & MESSAGING ANALYTICS ═══ */}
+        <div style={sectionCard}>
+          <h3 style={sectionHeader}>Call &amp; Messaging Analytics</h3>
+          {loadingInsights ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading insights...</div>
+          ) : !detailedInsights?.summary ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No detailed insights available for this period.</div>
+          ) : (
+            <>
+              {/* 6 KPI cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                {[
+                  { label: 'Calls Placed', value: fmtNum(detailedInsights.summary.calls_placed), color: '#2c2419' },
+                  { label: 'Calls > 20s', value: fmtNum(detailedInsights.summary.calls_20s), color: '#2c2419' },
+                  { label: 'Quality Calls > 60s', value: fmtNum(detailedInsights.summary.calls_60s), color: '#c4704f' },
+                  { label: 'Messages Started', value: fmtNum(detailedInsights.summary.messages_started), color: '#6366f1' },
+                  { label: 'Messages Replied', value: fmtNum(detailedInsights.summary.messages_replied), color: '#10b981' },
+                  { label: 'Cost per Call', value: fmtCurrency(detailedInsights.summary.costPerAction?.cost_per_call), color: '#d9a854' },
+                ].map((kpi) => (
+                  <div key={kpi.label} style={{
+                    background: 'rgba(255,255,255,0.7)',
+                    borderRadius: '12px',
+                    border: kpi.color === '#c4704f' ? '2px solid rgba(196,112,79,0.3)' : '1px solid rgba(44,36,25,0.08)',
+                    padding: '16px 20px',
+                  }}>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px' }}>{kpi.label}</div>
+                    <div style={{ color: kpi.color, fontSize: '24px', fontWeight: 700 }}>{kpi.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Call Funnel Donut */}
+              <div style={{
+                background: 'rgba(255,255,255,0.7)',
+                borderRadius: '12px',
+                border: '1px solid rgba(44,36,25,0.08)',
+                padding: '20px',
+              }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', margin: '0 0 16px 0' }}>
+                  Call Funnel
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
+                  <ResponsiveContainer width="100%" height={250} style={{ maxWidth: 300 }}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Calls Placed', value: detailedInsights.summary.calls_placed },
+                          { name: 'Confirmed', value: detailedInsights.summary.calls_confirmed },
+                          { name: '> 20s', value: detailedInsights.summary.calls_20s },
+                          { name: '> 60s', value: detailedInsights.summary.calls_60s },
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        innerRadius={50}
+                        paddingAngle={3}
+                        label={({ name, value }: any) => `${name}: ${value}`}
+                        labelLine={{ strokeWidth: 1 }}
+                      >
+                        {['#c4704f', '#d9a854', '#9db5a0', '#10b981'].map((color, idx) => (
+                          <Cell key={idx} fill={color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: 'rgba(255,255,255,0.95)',
+                          border: '1px solid rgba(44,36,25,0.1)',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[
+                      { label: 'Calls Placed', value: detailedInsights.summary.calls_placed, color: '#c4704f' },
+                      { label: 'Confirmed', value: detailedInsights.summary.calls_confirmed, color: '#d9a854' },
+                      { label: '> 20s', value: detailedInsights.summary.calls_20s, color: '#9db5a0' },
+                      { label: '> 60s (Quality)', value: detailedInsights.summary.calls_60s, color: '#10b981' },
+                    ].map((item) => (
+                      <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color }} />
+                        <span style={{ fontSize: '13px', color: '#2c2419' }}>{item.label}: <strong>{fmtNum(item.value)}</strong></span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ═══ GEOGRAPHIC PERFORMANCE ═══ */}
+        <div style={sectionCard}>
+          <h3 style={sectionHeader}>Geographic Performance</h3>
+          {loadingInsights ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading insights...</div>
+          ) : !detailedInsights ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No detailed insights available for this period.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* LEFT: Region Table */}
+              <div style={{
+                background: 'rgba(255,255,255,0.7)',
+                borderRadius: '12px',
+                border: '1px solid rgba(44,36,25,0.08)',
+                padding: '20px',
+              }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', margin: '0 0 16px 0' }}>
+                  Top Regions
+                </h4>
+                {detailedInsights.regions.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No region data available.</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                          {['Region', 'Spend', 'Impressions', 'Calls', 'Leads'].map((col) => (
+                            <th key={col} style={{
+                              textAlign: col === 'Region' ? 'left' : 'right',
+                              padding: '8px 10px',
+                              color: '#6b7280',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}>{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailedInsights.regions.slice(0, 10).map((row, idx) => {
+                          const isColorado = row.region?.toLowerCase().includes('colorado');
+                          return (
+                            <tr key={`${row.region}-${idx}`} style={{
+                              background: isColorado ? 'rgba(196,112,79,0.08)' : idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                              borderBottom: '1px solid rgba(44,36,25,0.05)',
+                            }}>
+                              <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', fontWeight: isColorado ? 600 : 400 }}>
+                                {row.region}
+                              </td>
+                              <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right', fontWeight: 500 }}>
+                                {fmtCurrency(row.spend)}
+                              </td>
+                              <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                                {fmtNum(row.impressions)}
+                              </td>
+                              <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                                {fmtNum(row.calls_placed)}
+                              </td>
+                              <td style={{ padding: '10px', textAlign: 'right' }}>
+                                <span style={{
+                                  background: row.leads > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(44,36,25,0.05)',
+                                  color: row.leads > 0 ? '#10b981' : '#9ca3af',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 500,
+                                }}>{fmtNum(row.leads)}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: Device Breakdown Pie Chart */}
+              <div style={{
+                background: 'rgba(255,255,255,0.7)',
+                borderRadius: '12px',
+                border: '1px solid rgba(44,36,25,0.08)',
+                padding: '20px',
+              }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', margin: '0 0 16px 0' }}>
+                  Device Breakdown
+                </h4>
+                {detailedInsights.devices.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No device data available.</div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={detailedInsights.devices}
+                          dataKey="spend"
+                          nameKey="device"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={90}
+                          innerRadius={45}
+                          paddingAngle={2}
+                          label={({ device, percent }: any) => {
+                            const name = (device || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                            return `${name} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ strokeWidth: 1 }}
+                        >
+                          {detailedInsights.devices.map((_, idx) => (
+                            <Cell key={idx} fill={['#c4704f', '#d9a854', '#9db5a0', '#6366f1'][idx % 4]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [fmtCurrency(value), 'Spend']}
+                          contentStyle={{
+                            background: 'rgba(255,255,255,0.95)',
+                            border: '1px solid rgba(44,36,25,0.1)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Device stats */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', marginTop: '12px' }}>
+                      {detailedInsights.devices.map((d, idx) => (
+                        <div key={d.device} style={{
+                          background: 'rgba(255,255,255,0.5)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(44,36,25,0.06)',
+                          padding: '10px',
+                          textAlign: 'center',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ['#c4704f', '#d9a854', '#9db5a0', '#6366f1'][idx % 4] }} />
+                            <span style={{ color: '#6b7280', fontSize: '11px' }}>{(d.device || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+                          </div>
+                          <div style={{ color: '#2c2419', fontSize: '14px', fontWeight: 600 }}>{fmtNum(d.clicks)} clicks</div>
+                          <div style={{ color: '#9ca3af', fontSize: '11px' }}>{fmtCurrency(d.spend)} spend</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ═══ ENGAGEMENT & VIDEO ═══ */}
+        <div style={sectionCard}>
+          <h3 style={sectionHeader}>Engagement &amp; Video</h3>
+          {loadingInsights ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading insights...</div>
+          ) : !detailedInsights?.summary ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No detailed insights available for this period.</div>
+          ) : (
+            <>
+              {/* 4 KPI cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                {[
+                  { label: 'Video Views', value: fmtNum(detailedInsights.summary.video_views), color: '#6366f1' },
+                  { label: 'Link Clicks', value: fmtNum(detailedInsights.summary.link_clicks), color: '#c4704f' },
+                  { label: 'Comments', value: fmtNum(detailedInsights.summary.comments), color: '#d9a854' },
+                  { label: 'Post Saves', value: fmtNum(detailedInsights.summary.post_saves), color: '#ec4899' },
+                ].map((kpi) => (
+                  <div key={kpi.label} style={{
+                    background: 'rgba(255,255,255,0.7)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(44,36,25,0.08)',
+                    padding: '16px 20px',
+                  }}>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px' }}>{kpi.label}</div>
+                    <div style={{ color: kpi.color, fontSize: '24px', fontWeight: 700 }}>{kpi.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Daily trend area chart */}
+              <div style={{
+                background: 'rgba(255,255,255,0.7)',
+                borderRadius: '12px',
+                border: '1px solid rgba(44,36,25,0.08)',
+                padding: '20px',
+              }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', margin: '0 0 16px 0' }}>
+                  Daily Trend: Spend, Calls &amp; Messages
+                </h4>
+                {detailedInsights.daily.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No daily data available.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={detailedInsights.daily}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.1)" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(d: string) => {
+                          const parts = d.split('-');
+                          return `${parts[1]}/${parts[2]}`;
+                        }}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'rgba(255,255,255,0.95)',
+                          border: '1px solid rgba(44,36,25,0.1)',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'spend') return [fmtCurrency(value), 'Spend'];
+                          return [fmtNum(value), name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())];
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} formatter={(v: string) => v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} />
+                      <Area type="monotone" dataKey="spend" stroke="#c4704f" fill="rgba(196,112,79,0.15)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="calls_placed" stroke="#10b981" fill="rgba(16,185,129,0.1)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="messages_started" stroke="#6366f1" fill="rgba(99,102,241,0.1)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ═══ COST EFFICIENCY ═══ */}
+        <div style={sectionCard}>
+          <h3 style={sectionHeader}>Cost Efficiency</h3>
+          {loadingInsights ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading insights...</div>
+          ) : !detailedInsights?.summary ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No detailed insights available for this period.</div>
+          ) : (
+            <>
+              {/* 4 cost cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                {[
+                  { label: 'Cost per Lead', value: fmtCurrency(detailedInsights.summary.costPerAction?.cost_per_lead), color: '#c4704f' },
+                  { label: 'Cost per Call', value: fmtCurrency(detailedInsights.summary.costPerAction?.cost_per_call), color: '#d9a854' },
+                  { label: 'Cost per Message', value: fmtCurrency(detailedInsights.summary.costPerAction?.cost_per_message), color: '#6366f1' },
+                  { label: 'Cost per Link Click', value: fmtCurrency(detailedInsights.summary.costPerAction?.cost_per_link_click), color: '#9db5a0' },
+                ].map((kpi) => (
+                  <div key={kpi.label} style={{
+                    background: 'rgba(255,255,255,0.7)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(44,36,25,0.08)',
+                    padding: '20px',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>{kpi.label}</div>
+                    <div style={{ color: kpi.color, fontSize: '28px', fontWeight: 700 }}>{kpi.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Reach & Frequency */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(44,36,25,0.08)',
+                  padding: '16px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'rgba(196,112,79,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                    👁
+                  </div>
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '2px' }}>Reach</div>
+                    <div style={{ color: '#2c2419', fontSize: '22px', fontWeight: 700 }}>{fmtNum(detailedInsights.summary.reach)}</div>
+                  </div>
+                </div>
+                <div style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(44,36,25,0.08)',
+                  padding: '16px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'rgba(217,168,84,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                    🔄
+                  </div>
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '2px' }}>Frequency</div>
+                    <div style={{ color: '#2c2419', fontSize: '22px', fontWeight: 700 }}>{fmtNum(detailedInsights.summary.frequency, 2)}</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ═══ SECTION 2: LEAD CRM ═══ */}
