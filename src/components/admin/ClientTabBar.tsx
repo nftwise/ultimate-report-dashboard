@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft, Bot } from 'lucide-react';
+import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft, Bot, Facebook } from 'lucide-react';
 
 interface ClientTabBarProps {
   clientSlug: string;
@@ -17,6 +17,7 @@ const TABS = [
   { id: 'google-ads',  label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads',badge: null },
   { id: 'gbp',         label: 'Google Business', icon: MapPin,      href: '/gbp',       badge: null },
   { id: 'geo',         label: 'News & AI',   icon: Bot,             href: '/geo',       badge: null },
+  { id: 'facebook',    label: 'Facebook',    icon: Facebook,        href: '/facebook',  badge: null },
 ] as const;
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {
