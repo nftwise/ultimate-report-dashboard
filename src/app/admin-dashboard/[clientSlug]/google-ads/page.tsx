@@ -290,8 +290,6 @@ export default function GoogleAdsPage() {
               ad_spend: 0,
               cpl: 0,
               google_ads_conversions: 0,
-              ads_phone_calls: 0,
-              form_fills: 0,
               sessions_mobile: device.sessions_mobile,
               sessions_desktop: device.sessions_desktop,
             });

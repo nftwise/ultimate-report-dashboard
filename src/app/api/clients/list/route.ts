@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         let query = supabaseAdmin
           .from('client_metrics_summary')
           .select('client_id, total_leads, form_fills, google_ads_conversions, gbp_calls, cpl, date')
+          .eq('period_type', 'daily')
 
         if (dateFromParam) {
           query = query.gte('date', dateFromParam)

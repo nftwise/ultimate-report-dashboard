@@ -206,7 +206,7 @@ export default function SEOPage() {
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
       supabase.from('client_metrics_summary').select('sessions, users, seo_impressions, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
-      supabase.from('ga4_events').select('event_count').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).ilike('event_name', '%success%'),
+      supabase.from('ga4_events').select('event_count').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']),
     ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { data: convData }]) => {
       const prevAvg = avgPos(prevKW || []);
       const currAvg = avgPos(currKW || []);
