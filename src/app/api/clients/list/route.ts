@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
             ga_property_id,
             gads_customer_id,
             gsc_site_url,
-            callrail_account_id
+            callrail_account_id,
+            fb_page_id,
+            fb_ad_account_id,
+            fb_sheet_id,
+            twilio_phone_number
           )
         `)
         .order('name', { ascending: true })

@@ -62,11 +62,11 @@ export default function FacebookPage() {
 
   useEffect(() => {
     const fetchClientData = async () => {
-      const res = await fetch(`/api/clients/list?slug=${clientSlug}`);
-      const { data } = await res.json();
-      if (data?.length > 0) {
-        setClientData(data[0]);
-      }
+      const res = await fetch('/api/clients/list');
+      const json = await res.json();
+      const list = json.clients || json.data || [];
+      const client = list.find((c: any) => c.slug === clientSlug);
+      if (client) setClientData(client);
     };
     fetchClientData();
   }, [clientSlug]);
