@@ -194,7 +194,8 @@ function LoginHeatmap({ activityByDay, recentLogins }: {
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'admin';
+  const userRole = (session?.user as any)?.role;
+  const isAdmin = userRole === 'admin' || userRole === 'team';
 
   const [users, setUsers]         = useState<User[]>([]);
   const [clients, setClients]     = useState<Client[]>([]);
@@ -258,6 +259,7 @@ export default function UsersPage() {
     e.preventDefault();
     setError(null); setSuccess(null);
     if (!form.email || !form.password) { setError('Email and password are required'); return; }
+    if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
     if (form.role === 'client' && !form.clientId) { setError('Please select a client for this user'); return; }
     setSubmitting(true);
     try {

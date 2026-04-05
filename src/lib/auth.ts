@@ -64,11 +64,15 @@ export const authOptions: NextAuthOptions = {
 
         // Log login event (fire-and-forget async IIFE — Supabase is lazy, needs .then())
         ;(async () => {
-          await supabaseAdmin.from('login_logs').insert({
-            user_id: user.id,
-            email: user.email,
-            role: user.role,
-          })
+          try {
+            await supabaseAdmin.from('login_logs').insert({
+              user_id: user.id,
+              email: user.email,
+              role: user.role,
+            })
+          } catch (logErr) {
+            console.error('Failed to insert login_log:', logErr)
+          }
         })()
 
         // Get client data - handle both array and single object responses

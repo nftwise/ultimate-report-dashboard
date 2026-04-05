@@ -85,6 +85,7 @@ export default function EditClientPage({ params }: EditClientParams) {
     has_ads: false,
     ga4_property_id: '',
     google_ads_customer_id: '',
+    gsc_site_url: '',
   });
 
   useEffect(() => {
@@ -143,6 +144,7 @@ export default function EditClientPage({ params }: EditClientParams) {
         has_ads: client.has_ads || false,
         ga4_property_id: config.ga_property_id || '',
         google_ads_customer_id: config.gads_customer_id || '',
+        gsc_site_url: config.gsc_site_url || '',
       });
       setLoading(false);
     } catch {
@@ -226,6 +228,7 @@ export default function EditClientPage({ params }: EditClientParams) {
           // service_configs table fields (correct DB field names)
           ga_property_id: form.ga4_property_id.trim() || null,
           gads_customer_id: form.google_ads_customer_id.trim() || null,
+          gsc_site_url: form.gsc_site_url.trim() || null,
         }),
       });
 
@@ -468,6 +471,18 @@ export default function EditClientPage({ params }: EditClientParams) {
                     />
                   </div>
                 )}
+                {form.has_seo && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>GSC Site URL</label>
+                    <input
+                      type="text"
+                      value={form.gsc_site_url}
+                      onChange={e => setForm(f => ({ ...f, gsc_site_url: e.target.value }))}
+                      placeholder="https://example.com"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -558,7 +573,7 @@ export default function EditClientPage({ params }: EditClientParams) {
                 <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                   <button
                     type="button"
-                    disabled={credSaving}
+                    disabled={credSaving || !credForm.label || !credForm.username || !credForm.password}
                     onClick={async () => {
                       if (!credForm.label || !credForm.username || !credForm.password) {
                         setCredError('Label, username and password are required.');

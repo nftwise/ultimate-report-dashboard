@@ -111,11 +111,19 @@ export async function PATCH(
       clientData = data;
     }
 
-    // Upsert service_configs table (handles missing row gracefully)
+    // Upsert service_configs table — fetch existing first to avoid overwriting other fields
     if (Object.keys(serviceConfigUpdates).length > 0) {
+      const { data: existingConfig } = await supabaseAdmin
+        .from('service_configs')
+        .select('*')
+        .eq('client_id', id)
+        .maybeSingle();
+
+      const merged = { ...(existingConfig || {}), client_id: id, ...serviceConfigUpdates };
+
       const { error: configError } = await supabaseAdmin
         .from('service_configs')
-        .upsert({ client_id: id, ...serviceConfigUpdates }, { onConflict: 'client_id' });
+        .upsert(merged, { onConflict: 'client_id' });
 
       if (configError) {
         return NextResponse.json({ error: `service_configs update failed: ${configError.message}` }, { status: 500 });

@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    if (!password || !password.trim()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Password is required'
+      }, { status: 400 });
+    }
+
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
