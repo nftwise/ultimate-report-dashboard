@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
+import { fmtNum, fmtCurrency } from '@/lib/format';
 
 interface FBLead {
   id: string;
@@ -68,6 +69,24 @@ function getDefaultDates() {
   return { from, to };
 }
 
+const sectionCard: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.9)',
+  backdropFilter: 'blur(10px)',
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.6)',
+  padding: '24px',
+  marginBottom: '24px',
+  boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
+};
+
+const sectionHeader: React.CSSProperties = {
+  fontSize: '16px',
+  fontWeight: 700,
+  color: '#2c2419',
+  marginBottom: '16px',
+  margin: 0,
+};
+
 export default function FacebookPage() {
   const params = useParams();
   const clientSlug = (params?.clientSlug as string) ?? '';
@@ -101,6 +120,14 @@ export default function FacebookPage() {
   const filteredLeads = selectedStatus === 'all'
     ? leads
     : leads.filter(l => l.status === selectedStatus);
+
+  // Ad Performance KPIs
+  const totalSpend = adsCampaigns.reduce((s, c) => s + c.spend, 0);
+  const totalFBLeads = adsCampaigns.reduce((s, c) => s + c.leads, 0);
+  const totalImpressions = adsCampaigns.reduce((s, c) => s + c.impressions, 0);
+  const totalClicks = adsCampaigns.reduce((s, c) => s + c.clicks, 0);
+  const cpl = totalFBLeads > 0 ? totalSpend / totalFBLeads : 0;
+  const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) + '%' : '0.00%';
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -216,6 +243,32 @@ export default function FacebookPage() {
     fetchBreakdowns();
   }, [clientData?.id, dateFrom, dateTo]);
 
+  const formatPlatform = (p: string) => {
+    const map: Record<string, string> = {
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      messenger: 'Messenger',
+      audience_network: 'Audience Network',
+    };
+    return map[p?.toLowerCase()] ?? p;
+  };
+
+  const formatPlacement = (p: string) => {
+    const map: Record<string, string> = {
+      feed: 'Feed',
+      facebook_reels: 'Reels',
+      instagram_reels: 'Reels',
+      stories: 'Stories',
+      reels: 'Reels',
+      right_hand_column: 'Right Column',
+      search: 'Search',
+      marketplace: 'Marketplace',
+      video_feeds: 'Video Feeds',
+      instream_video: 'In-Stream Video',
+    };
+    return map[p?.toLowerCase()] ?? p?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   if (!clientData) {
     return (
       <AdminLayout>
@@ -250,216 +303,154 @@ export default function FacebookPage() {
             Error loading data: {fetchError}
           </div>
         )}
-        <>
-            {/* KPI Row */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '16px',
-                marginBottom: '32px',
-              }}
-            >
-              {[
-                { label: 'Total Leads', value: totalLeads },
-                { label: 'Contacted', value: contactedLeads },
-                { label: 'Responded', value: respondedLeads },
-                { label: 'Response Rate', value: `${responseRate}%` },
-              ].map((kpi) => (
-                <div
-                  key={kpi.label}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.6)',
-                    padding: '20px',
-                    boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
-                  }}
-                >
-                  <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '8px' }}>
-                    {kpi.label}
-                  </div>
-                  <div
-                    style={{
-                      color: '#2c2419',
-                      fontSize: '32px',
-                      fontWeight: '600',
-                    }}
-                  >
-                    {kpi.value}
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            {/* FB Ads Performance Section */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.6)',
-                padding: '24px',
-                marginBottom: '32px',
-                boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
-              }}
-            >
-              {/* Section header + date picker */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h3 style={{ color: '#2c2419', margin: 0 }}>FB Ads Performance</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ color: '#6b7280', fontSize: '13px' }}>From</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    style={{
-                      border: '1px solid rgba(44,36,25,0.15)',
-                      borderRadius: '8px',
-                      padding: '6px 10px',
-                      fontSize: '13px',
-                      color: '#2c2419',
-                      background: 'rgba(255,255,255,0.8)',
-                    }}
-                  />
-                  <label style={{ color: '#6b7280', fontSize: '13px' }}>To</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    style={{
-                      border: '1px solid rgba(44,36,25,0.15)',
-                      borderRadius: '8px',
-                      padding: '6px 10px',
-                      fontSize: '13px',
-                      color: '#2c2419',
-                      background: 'rgba(255,255,255,0.8)',
-                    }}
-                  />
-                </div>
+        {/* ═══ SECTION 1: AD PERFORMANCE ═══ */}
+        <div style={sectionCard}>
+          {/* Section header + date range picker */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <h3 style={sectionHeader}>Ad Performance</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ color: '#6b7280', fontSize: '13px' }}>From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                style={{
+                  border: '1px solid rgba(44,36,25,0.15)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  fontSize: '13px',
+                  color: '#2c2419',
+                  background: 'rgba(255,255,255,0.8)',
+                }}
+              />
+              <label style={{ color: '#6b7280', fontSize: '13px' }}>To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                style={{
+                  border: '1px solid rgba(44,36,25,0.15)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  fontSize: '13px',
+                  color: '#2c2419',
+                  background: 'rgba(255,255,255,0.8)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* KPI row — 5 cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: '16px',
+            marginBottom: '24px',
+          }}>
+            {[
+              { label: 'Total Spend', value: fmtCurrency(totalSpend) },
+              { label: 'FB Leads', value: fmtNum(totalFBLeads) },
+              { label: 'CPL', value: cpl > 0 ? fmtCurrency(cpl) : '—' },
+              { label: 'CTR', value: ctr },
+              { label: 'Impressions', value: fmtNum(totalImpressions) },
+            ].map((kpi) => (
+              <div
+                key={kpi.label}
+                style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(44,36,25,0.08)',
+                  padding: '16px 20px',
+                }}
+              >
+                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px' }}>{kpi.label}</div>
+                <div style={{ color: '#2c2419', fontSize: '24px', fontWeight: 700 }}>{kpi.value}</div>
               </div>
+            ))}
+          </div>
 
-              {loadingAds ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  Loading ads data...
-                </div>
-              ) : adsCampaigns.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  No campaign data found for this period.
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  {/* Summary totals row */}
-                  {(() => {
-                    const totalSpend = adsCampaigns.reduce((s, c) => s + c.spend, 0);
-                    const totalImpressions = adsCampaigns.reduce((s, c) => s + c.impressions, 0);
-                    const totalClicks = adsCampaigns.reduce((s, c) => s + c.clicks, 0);
-                    const totalLeads = adsCampaigns.reduce((s, c) => s + c.leads, 0);
-                    const blendedCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-                    return (
-                      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                        {[
-                          { label: 'Total Spend', value: `$${totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-                          { label: 'Impressions', value: totalImpressions.toLocaleString() },
-                          { label: 'Clicks', value: totalClicks.toLocaleString() },
-                          { label: 'Leads', value: totalLeads.toLocaleString() },
-                          { label: 'Blended CPL', value: blendedCpl > 0 ? `$${blendedCpl.toFixed(2)}` : '—' },
-                        ].map((stat) => (
-                          <div key={stat.label} style={{ minWidth: '110px' }}>
-                            <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>{stat.label}</div>
-                            <div style={{ color: '#2c2419', fontSize: '22px', fontWeight: '600' }}>{stat.value}</div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
-                        {['Campaign', 'Spend', 'Impressions', 'Clicks', 'Leads', 'CPL'].map((col) => (
-                          <th
-                            key={col}
-                            style={{
-                              textAlign: col === 'Campaign' ? 'left' : 'right',
-                              padding: '10px 12px',
-                              color: '#6b7280',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adsCampaigns.map((campaign, idx) => (
-                        <tr
-                          key={campaign.campaign_id}
-                          style={{
-                            background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
-                            borderBottom: '1px solid rgba(44,36,25,0.05)',
-                          }}
-                        >
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {campaign.campaign_name}
-                          </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                            ${campaign.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                            {campaign.impressions.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                            {campaign.clicks.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <span style={{
-                              background: campaign.leads > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(44,36,25,0.05)',
-                              color: campaign.leads > 0 ? '#10b981' : '#9ca3af',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '13px',
-                              fontWeight: '500',
-                            }}>
-                              {campaign.leads}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px', color: campaign.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                            {campaign.cpl > 0 ? `$${campaign.cpl.toFixed(2)}` : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+          {/* Campaigns table */}
+          {loadingAds ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading ads data...</div>
+          ) : adsCampaigns.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No campaign data found for this period.</div>
+          ) : (
+            <div style={{ overflowX: 'auto', marginBottom: '24px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                    {['Campaign', 'Spend', 'Impressions', 'Clicks', 'Leads', 'CPL'].map((col) => (
+                      <th
+                        key={col}
+                        style={{
+                          textAlign: col === 'Campaign' ? 'left' : 'right',
+                          padding: '10px 12px',
+                          color: '#6b7280',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {adsCampaigns.map((campaign, idx) => (
+                    <tr
+                      key={campaign.campaign_id}
+                      style={{
+                        background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                        borderBottom: '1px solid rgba(44,36,25,0.05)',
+                      }}
+                    >
+                      <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {campaign.campaign_name}
+                      </td>
+                      <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: 500 }}>
+                        {fmtCurrency(campaign.spend)}
+                      </td>
+                      <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                        {fmtNum(campaign.impressions)}
+                      </td>
+                      <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                        {fmtNum(campaign.clicks)}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>
+                        <span style={{
+                          background: campaign.leads > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(44,36,25,0.05)',
+                          color: campaign.leads > 0 ? '#10b981' : '#9ca3af',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                        }}>
+                          {campaign.leads}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px', color: campaign.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: 500 }}>
+                        {campaign.cpl > 0 ? fmtCurrency(campaign.cpl) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          )}
 
-            {/* Age & Gender Breakdown Section */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.6)',
-                padding: '24px',
-                marginBottom: '32px',
-                boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
-              }}
-            >
-              <h3 style={{ color: '#2c2419', margin: '0 0 20px 0' }}>Age &amp; Gender Breakdown</h3>
+          {/* Bottom row: Age/Gender + Placement side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Age & Gender breakdown */}
+            <div>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', marginBottom: '12px' }}>
+                Age &amp; Gender Breakdown
+              </h4>
               {loadingBreakdowns ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  Loading breakdown data...
-                </div>
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading breakdown data...</div>
               ) : ageGenderData.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  No age/gender data found for this period.
-                </div>
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No age/gender data found for this period.</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -470,10 +461,10 @@ export default function FacebookPage() {
                             key={col}
                             style={{
                               textAlign: col === 'Age Group' || col === 'Gender' ? 'left' : 'right',
-                              padding: '10px 12px',
+                              padding: '8px 10px',
                               color: '#6b7280',
-                              fontSize: '12px',
-                              fontWeight: '600',
+                              fontSize: '11px',
+                              fontWeight: 600,
                               whiteSpace: 'nowrap',
                             }}
                           >
@@ -491,33 +482,33 @@ export default function FacebookPage() {
                             borderBottom: '1px solid rgba(44,36,25,0.05)',
                           }}
                         >
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', fontWeight: '500' }}>
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', fontWeight: 500 }}>
                             {row.age}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '14px' }}>
+                          <td style={{ padding: '10px', fontSize: '13px' }}>
                             <span style={{
                               background: row.gender === 'female' ? 'rgba(236,72,153,0.1)' : 'rgba(59,130,246,0.1)',
                               color: row.gender === 'female' ? '#db2777' : '#3b82f6',
-                              padding: '3px 8px',
+                              padding: '2px 7px',
                               borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: '500',
+                              fontSize: '11px',
+                              fontWeight: 500,
                               textTransform: 'capitalize',
                             }}>
                               {row.gender}
                             </span>
                           </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                            ${row.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right', fontWeight: 500 }}>
+                            {fmtCurrency(row.spend)}
                           </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                            {row.impressions.toLocaleString()}
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                            {fmtNum(row.impressions)}
                           </td>
-                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                            {row.clicks.toLocaleString()}
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                            {fmtNum(row.clicks)}
                           </td>
-                          <td style={{ padding: '12px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                            {row.cpl > 0 ? `$${row.cpl.toFixed(2)}` : '—'}
+                          <td style={{ padding: '10px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '13px', textAlign: 'right', fontWeight: 500 }}>
+                            {row.cpl > 0 ? fmtCurrency(row.cpl) : '—'}
                           </td>
                         </tr>
                       ))}
@@ -527,247 +518,76 @@ export default function FacebookPage() {
               )}
             </div>
 
-            {/* Placement Breakdown Section */}
-            {(() => {
-              const formatPlatform = (p: string) => {
-                const map: Record<string, string> = {
-                  facebook: 'Facebook',
-                  instagram: 'Instagram',
-                  messenger: 'Messenger',
-                  audience_network: 'Audience Network',
-                };
-                return map[p?.toLowerCase()] ?? p;
-              };
-
-              const formatPlacement = (p: string) => {
-                const map: Record<string, string> = {
-                  feed: 'Feed',
-                  facebook_reels: 'Reels',
-                  instagram_reels: 'Reels',
-                  stories: 'Stories',
-                  reels: 'Reels',
-                  right_hand_column: 'Right Column',
-                  search: 'Search',
-                  marketplace: 'Marketplace',
-                  video_feeds: 'Video Feeds',
-                  instream_video: 'In-Stream Video',
-                };
-                return map[p?.toLowerCase()] ?? p?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-              };
-
-              return (
-                <div
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.6)',
-                    padding: '24px',
-                    marginBottom: '32px',
-                    boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
-                  }}
-                >
-                  <h3 style={{ color: '#2c2419', margin: '0 0 20px 0' }}>Placement Breakdown</h3>
-                  {loadingBreakdowns ? (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                      Loading breakdown data...
-                    </div>
-                  ) : placementData.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                      No placement data found for this period.
-                    </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
-                            {['Platform', 'Placement', 'Spend', 'Impressions', 'Clicks', 'CPL'].map((col) => (
-                              <th
-                                key={col}
-                                style={{
-                                  textAlign: col === 'Platform' || col === 'Placement' ? 'left' : 'right',
-                                  padding: '10px 12px',
-                                  color: '#6b7280',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {col}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {placementData.map((row, idx) => (
-                            <tr
-                              key={`${row.publisher_platform}-${row.placement}-${idx}`}
-                              style={{
-                                background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
-                                borderBottom: '1px solid rgba(44,36,25,0.05)',
-                              }}
-                            >
-                              <td style={{ padding: '12px', fontSize: '14px' }}>
-                                <span style={{
-                                  background: row.publisher_platform?.toLowerCase() === 'instagram'
-                                    ? 'rgba(236,72,153,0.1)'
-                                    : 'rgba(59,130,246,0.1)',
-                                  color: row.publisher_platform?.toLowerCase() === 'instagram'
-                                    ? '#db2777'
-                                    : '#3b82f6',
-                                  padding: '3px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  fontWeight: '500',
-                                }}>
-                                  {formatPlatform(row.publisher_platform)}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px' }}>
-                                {formatPlacement(row.placement)}
-                              </td>
-                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                                ${row.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
-                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                                {row.impressions.toLocaleString()}
-                              </td>
-                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
-                                {row.clicks.toLocaleString()}
-                              </td>
-                              <td style={{ padding: '12px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
-                                {row.cpl > 0 ? `$${row.cpl.toFixed(2)}` : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Lead Management Section */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.6)',
-                padding: '24px',
-                marginBottom: '32px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ color: '#2c2419', margin: 0 }}>Lead Management</h3>
-                <button
-                  onClick={() => setShowAddLead(true)}
-                  style={{
-                    background: '#c4704f',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                  }}
-                >
-                  + Add Lead
-                </button>
-              </div>
-
-              {/* Status Tabs */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', borderBottom: '1px solid rgba(44,36,25,0.1)', paddingBottom: '12px' }}>
-                {['all', 'new', 'contacted', 'responded', 'converted', 'closed'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setSelectedStatus(status)}
-                    style={{
-                      background: selectedStatus === status ? 'rgba(196, 112, 79, 0.1)' : 'transparent',
-                      color: selectedStatus === status ? '#c4704f' : '#6b7280',
-                      border: 'none',
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      borderBottom: selectedStatus === status ? '2px solid #c4704f' : 'none',
-                    }}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Leads Table */}
-              {loadingLeads ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  Loading leads...
-                </div>
-              ) : filteredLeads.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  No leads found.
-                </div>
+            {/* Placement breakdown */}
+            <div>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#2c2419', marginBottom: '12px' }}>
+                Placement Breakdown
+              </h4>
+              {loadingBreakdowns ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading breakdown data...</div>
+              ) : placementData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>No placement data found for this period.</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Name</th>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Phone</th>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Source</th>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Status</th>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Created</th>
-                        <th style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>Actions</th>
+                        {['Platform', 'Placement', 'Spend', 'Impressions', 'Clicks', 'CPL'].map((col) => (
+                          <th
+                            key={col}
+                            style={{
+                              textAlign: col === 'Platform' || col === 'Placement' ? 'left' : 'right',
+                              padding: '8px 10px',
+                              color: '#6b7280',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {col}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLeads.map((lead) => (
+                      {placementData.map((row, idx) => (
                         <tr
-                          key={lead.id}
+                          key={`${row.publisher_platform}-${row.placement}-${idx}`}
                           style={{
+                            background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
                             borderBottom: '1px solid rgba(44,36,25,0.05)',
-                            cursor: 'pointer',
                           }}
                         >
-                          <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.name || 'N/A'}</td>
-                          <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.phone}</td>
-                          <td style={{ padding: '12px 0' }}>
+                          <td style={{ padding: '10px', fontSize: '13px' }}>
                             <span style={{
-                              background: 'rgba(196, 112, 79, 0.1)',
-                              color: '#c4704f',
-                              padding: '4px 8px',
+                              background: row.publisher_platform?.toLowerCase() === 'instagram'
+                                ? 'rgba(236,72,153,0.1)'
+                                : 'rgba(59,130,246,0.1)',
+                              color: row.publisher_platform?.toLowerCase() === 'instagram'
+                                ? '#db2777'
+                                : '#3b82f6',
+                              padding: '2px 7px',
                               borderRadius: '4px',
-                              fontSize: '12px',
+                              fontSize: '11px',
+                              fontWeight: 500,
                             }}>
-                              {lead.lead_source}
+                              {formatPlatform(row.publisher_platform)}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 0' }}>
-                            <span style={{
-                              background: lead.status === 'responded' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                              color: lead.status === 'responded' ? '#10b981' : '#3b82f6',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                            }}>
-                              {lead.status}
-                            </span>
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px' }}>
+                            {formatPlacement(row.placement)}
                           </td>
-                          <td style={{ padding: '12px 0', color: '#9ca3af', fontSize: '12px' }}>
-                            {new Date(lead.created_at).toLocaleDateString()}
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right', fontWeight: 500 }}>
+                            {fmtCurrency(row.spend)}
                           </td>
-                          <td style={{ padding: '12px 0' }}>
-                            <button
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: '#c4704f',
-                                fontSize: '14px',
-                              }}
-                            >
-                              💬 SMS
-                            </button>
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                            {fmtNum(row.impressions)}
+                          </td>
+                          <td style={{ padding: '10px', color: '#2c2419', fontSize: '13px', textAlign: 'right' }}>
+                            {fmtNum(row.clicks)}
+                          </td>
+                          <td style={{ padding: '10px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '13px', textAlign: 'right', fontWeight: 500 }}>
+                            {row.cpl > 0 ? fmtCurrency(row.cpl) : '—'}
                           </td>
                         </tr>
                       ))}
@@ -776,66 +596,193 @@ export default function FacebookPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Sequences Section */}
-            <div
+        {/* ═══ SECTION 2: LEAD CRM ═══ */}
+        <div style={sectionCard}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={sectionHeader}>Lead Management</h3>
+            <button
+              onClick={() => setShowAddLead(true)}
               style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.6)',
-                padding: '24px',
+                background: '#c4704f',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ color: '#2c2419', margin: 0 }}>Follow-up Sequences</h3>
-                <button
-                  onClick={() => setShowNewSequence(true)}
+              + Add Lead
+            </button>
+          </div>
+
+          {/* KPI row — 4 cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: '16px',
+            marginBottom: '24px',
+          }}>
+            {[
+              { label: 'Total Leads', value: fmtNum(totalLeads) },
+              { label: 'Contacted', value: fmtNum(contactedLeads) },
+              { label: 'Responded', value: fmtNum(respondedLeads) },
+              { label: 'Response Rate', value: `${responseRate}%` },
+            ].map((kpi) => (
+              <div
+                key={kpi.label}
+                style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(44,36,25,0.08)',
+                  padding: '16px 20px',
+                }}
+              >
+                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px' }}>{kpi.label}</div>
+                <div style={{ color: '#2c2419', fontSize: '24px', fontWeight: 700 }}>{kpi.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Status filter tabs */}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid rgba(44,36,25,0.1)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+            {['all', 'new', 'contacted', 'responded', 'converted', 'closed'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setSelectedStatus(status)}
+                style={{
+                  background: selectedStatus === status ? 'rgba(196,112,79,0.1)' : 'transparent',
+                  color: selectedStatus === status ? '#c4704f' : '#6b7280',
+                  border: 'none',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  borderBottom: selectedStatus === status ? '2px solid #c4704f' : '2px solid transparent',
+                  fontWeight: selectedStatus === status ? 600 : 400,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Leads table */}
+          {loadingLeads ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>Loading leads...</div>
+          ) : filteredLeads.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No leads found.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                    {['Name', 'Phone', 'Source', 'Status', 'Created', 'Actions'].map((col) => (
+                      <th key={col} style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: 600 }}>
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeads.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      style={{ borderBottom: '1px solid rgba(44,36,25,0.05)', cursor: 'pointer' }}
+                    >
+                      <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.name || 'N/A'}</td>
+                      <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.phone}</td>
+                      <td style={{ padding: '12px 0' }}>
+                        <span style={{
+                          background: 'rgba(196,112,79,0.1)',
+                          color: '#c4704f',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}>
+                          {lead.lead_source}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 0' }}>
+                        <span style={{
+                          background: lead.status === 'responded' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                          color: lead.status === 'responded' ? '#10b981' : '#3b82f6',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}>
+                          {lead.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 0', color: '#9ca3af', fontSize: '12px' }}>
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: '12px 0' }}>
+                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c4704f', fontSize: '14px' }}>
+                          💬 SMS
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ═══ SECTION 3: AUTOMATION ═══ */}
+        <div style={{ ...sectionCard, marginBottom: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={sectionHeader}>Follow-up Sequences</h3>
+            <button
+              onClick={() => setShowNewSequence(true)}
+              style={{
+                background: '#c4704f',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+              }}
+            >
+              + New Sequence
+            </button>
+          </div>
+
+          {sequences.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No sequences created yet.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
+              {sequences.map((seq) => (
+                <div
+                  key={seq.id}
                   style={{
-                    background: '#c4704f',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
+                    background: 'rgba(255,255,255,0.5)',
+                    border: '1px solid rgba(196,112,79,0.2)',
+                    borderRadius: '12px',
+                    padding: '16px',
                   }}
                 >
-                  + New Sequence
-                </button>
-              </div>
-
-              {sequences.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                  No sequences created yet.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
-                  {sequences.map((seq) => (
-                    <div
-                      key={seq.id}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.5)',
-                        border: '1px solid rgba(196, 112, 79, 0.2)',
-                        borderRadius: '12px',
-                        padding: '16px',
-                      }}
-                    >
-                      <h4 style={{ color: '#2c2419', margin: '0 0 8px 0' }}>{seq.name}</h4>
-                      <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-                        {(seq.steps || []).length} steps
-                      </div>
-                      {(seq.steps || []).map((step, idx) => (
-                        <div key={idx} style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>
-                          Day {step.day}: {(step.message || '').substring(0, 40)}...
-                        </div>
-                      ))}
+                  <h4 style={{ color: '#2c2419', margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>{seq.name}</h4>
+                  <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
+                    {(seq.steps || []).length} steps
+                  </div>
+                  {(seq.steps || []).map((step, idx) => (
+                    <div key={idx} style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>
+                      Day {step.day}: {(step.message || '').substring(0, 40)}...
                     </div>
                   ))}
                 </div>
-              )}
+              ))}
             </div>
-        </>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );
