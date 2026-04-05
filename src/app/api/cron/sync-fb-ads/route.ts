@@ -132,6 +132,48 @@ export async function GET(request: NextRequest) {
             totalRows += rows.length;
             console.log(`[sync-fb-ads] ${client.name}: ${rows.length} campaign rows saved`);
 
+            // ── Age/Gender breakdown ───────────────────────────────
+            const ageGenderRows = await fetchWithRetry(
+              () => fetchFBBreakdown(client.fb_ad_account_id, targetDate, accessToken, 'age,gender', timeoutMs),
+              'age_gender'
+            );
+            if (ageGenderRows.length > 0) {
+              await supabaseAdmin.from('fb_age_gender_metrics').upsert(
+                ageGenderRows.map((r: any) => ({
+                  client_id: client.id,
+                  date: targetDate,
+                  age: r.age || 'unknown',
+                  gender: r.gender || 'unknown',
+                  spend: parseFloat(r.spend || '0'),
+                  impressions: parseInt(r.impressions || '0', 10),
+                  clicks: parseInt(r.clicks || '0', 10),
+                  leads: parseInt(r.actions?.find((a: any) => a.action_type === 'lead')?.value || '0', 10),
+                })),
+                { onConflict: 'client_id,date,age,gender' }
+              );
+            }
+
+            // ── Placement breakdown ───────────────────────────────
+            const placementRows = await fetchWithRetry(
+              () => fetchFBBreakdown(client.fb_ad_account_id, targetDate, accessToken, 'publisher_platform,platform_position', timeoutMs),
+              'placement'
+            );
+            if (placementRows.length > 0) {
+              await supabaseAdmin.from('fb_placement_metrics').upsert(
+                placementRows.map((r: any) => ({
+                  client_id: client.id,
+                  date: targetDate,
+                  platform: r.publisher_platform || 'unknown',
+                  placement: r.platform_position || 'unknown',
+                  spend: parseFloat(r.spend || '0'),
+                  impressions: parseInt(r.impressions || '0', 10),
+                  clicks: parseInt(r.clicks || '0', 10),
+                  leads: parseInt(r.actions?.find((a: any) => a.action_type === 'lead')?.value || '0', 10),
+                })),
+                { onConflict: 'client_id,date,platform,placement' }
+              );
+            }
+
             // ── Roll up aggregated totals into client_metrics_summary ──
             const totals = aggregateTotals(rows);
             const { error: summaryErr } = await supabaseAdmin
@@ -253,6 +295,36 @@ async function fetchFBInsights(
   }
 
   return rows;
+}
+
+/**
+ * Fetch FB breakdown data (age/gender or placement)
+ */
+async function fetchFBBreakdown(
+  adAccountId: string,
+  date: string,
+  accessToken: string,
+  breakdowns: string,
+  timeoutMs: number
+): Promise<any[]> {
+  const params = new URLSearchParams({
+    fields: 'spend,impressions,clicks,actions',
+    level: 'account',
+    breakdowns,
+    time_range: JSON.stringify({ since: date, until: date }),
+    access_token: accessToken,
+    limit: '500',
+  });
+
+  const url = `${FB_GRAPH_BASE}/act_${adAccountId}/insights?${params.toString()}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const response = await fetch(url, { signal: controller.signal });
+  clearTimeout(timeoutId);
+  if (!response.ok) return [];
+  const json = await response.json();
+  if (json.error) return [];
+  return json.data || [];
 }
 
 /**
