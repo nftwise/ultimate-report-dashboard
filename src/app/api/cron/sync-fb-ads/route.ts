@@ -136,22 +136,18 @@ export async function GET(request: NextRequest) {
             const totals = aggregateTotals(rows);
             const { error: summaryErr } = await supabaseAdmin
               .from('client_metrics_summary')
-              .upsert(
-                {
-                  client_id: client.id,
-                  date: targetDate,
-                  period_type: 'daily',
-                  fb_spend: totals.spend,
-                  fb_leads: totals.leads,
-                  fb_impressions: totals.impressions,
-                  fb_clicks: totals.clicks,
-                  updated_at: new Date().toISOString(),
-                },
-                { onConflict: 'client_id,date' }
-              );
+              .update({
+                fb_spend: totals.spend,
+                fb_leads: totals.leads,
+                fb_impressions: totals.impressions,
+                fb_clicks: totals.clicks,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('client_id', client.id)
+              .eq('date', targetDate)
+              .eq('period_type', 'daily');
 
             if (summaryErr) {
-              // Columns may not exist yet — log but don't fail
               console.warn(`[sync-fb-ads] Summary rollup warning ${client.name}:`, summaryErr.message);
             }
           } catch (err: any) {
