@@ -40,6 +40,24 @@ interface FBCampaign {
   cpl: number;
 }
 
+interface AgeGenderRow {
+  age: string;
+  gender: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  cpl: number;
+}
+
+interface PlacementRow {
+  publisher_platform: string;
+  placement: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  cpl: number;
+}
+
 // Default date range: last 30 days
 function getDefaultDates() {
   const now = new Date();
@@ -61,8 +79,11 @@ export default function FacebookPage() {
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [adsCampaigns, setAdsCampaigns] = useState<FBCampaign[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [ageGenderData, setAgeGenderData] = useState<AgeGenderRow[]>([]);
+  const [placementData, setPlacementData] = useState<PlacementRow[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingAds, setLoadingAds] = useState(false);
+  const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showNewSequence, setShowNewSequence] = useState(false);
@@ -140,7 +161,7 @@ export default function FacebookPage() {
     fetchData();
   }, [clientData?.id]);
 
-  // Fetch FB Ads campaign metrics whenever client or date range changes
+  // Fetch FB Ads campaign metrics + breakdowns whenever client or date range changes
   useEffect(() => {
     if (!clientData?.id) return;
 
@@ -163,7 +184,36 @@ export default function FacebookPage() {
       }
     };
 
+    const fetchBreakdowns = async () => {
+      setLoadingBreakdowns(true);
+      try {
+        const [ageRes, placementRes] = await Promise.all([
+          fetch(`/api/facebook/age-gender-metrics?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`),
+          fetch(`/api/facebook/placement-metrics?clientId=${clientData.id}&dateFrom=${dateFrom}&dateTo=${dateTo}`),
+        ]);
+
+        const ageJson = await ageRes.json();
+        if (!ageRes.ok) {
+          console.error('[FB Page] Age/gender metrics API error:', ageJson);
+        } else {
+          setAgeGenderData(ageJson.data || []);
+        }
+
+        const placementJson = await placementRes.json();
+        if (!placementRes.ok) {
+          console.error('[FB Page] Placement metrics API error:', placementJson);
+        } else {
+          setPlacementData(placementJson.data || []);
+        }
+      } catch (err) {
+        console.error('[FB Page] Error fetching breakdown metrics:', err);
+      } finally {
+        setLoadingBreakdowns(false);
+      }
+    };
+
     fetchAdsMetrics();
+    fetchBreakdowns();
   }, [clientData?.id, dateFrom, dateTo]);
 
   if (!clientData) {
@@ -388,6 +438,215 @@ export default function FacebookPage() {
                 </div>
               )}
             </div>
+
+            {/* Age & Gender Breakdown Section */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255,255,255,0.6)',
+                padding: '24px',
+                marginBottom: '32px',
+                boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
+              }}
+            >
+              <h3 style={{ color: '#2c2419', margin: '0 0 20px 0' }}>Age &amp; Gender Breakdown</h3>
+              {loadingBreakdowns ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                  Loading breakdown data...
+                </div>
+              ) : ageGenderData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                  No age/gender data found for this period.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                        {['Age Group', 'Gender', 'Spend', 'Impressions', 'Clicks', 'CPL'].map((col) => (
+                          <th
+                            key={col}
+                            style={{
+                              textAlign: col === 'Age Group' || col === 'Gender' ? 'left' : 'right',
+                              padding: '10px 12px',
+                              color: '#6b7280',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ageGenderData.map((row, idx) => (
+                        <tr
+                          key={`${row.age}-${row.gender}-${idx}`}
+                          style={{
+                            background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                            borderBottom: '1px solid rgba(44,36,25,0.05)',
+                          }}
+                        >
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', fontWeight: '500' }}>
+                            {row.age}
+                          </td>
+                          <td style={{ padding: '12px', fontSize: '14px' }}>
+                            <span style={{
+                              background: row.gender === 'female' ? 'rgba(236,72,153,0.1)' : 'rgba(59,130,246,0.1)',
+                              color: row.gender === 'female' ? '#db2777' : '#3b82f6',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              textTransform: 'capitalize',
+                            }}>
+                              {row.gender}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                            ${row.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                            {row.impressions.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                            {row.clicks.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                            {row.cpl > 0 ? `$${row.cpl.toFixed(2)}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Placement Breakdown Section */}
+            {(() => {
+              const formatPlatform = (p: string) => {
+                const map: Record<string, string> = {
+                  facebook: 'Facebook',
+                  instagram: 'Instagram',
+                  messenger: 'Messenger',
+                  audience_network: 'Audience Network',
+                };
+                return map[p?.toLowerCase()] ?? p;
+              };
+
+              const formatPlacement = (p: string) => {
+                const map: Record<string, string> = {
+                  feed: 'Feed',
+                  facebook_reels: 'Reels',
+                  instagram_reels: 'Reels',
+                  stories: 'Stories',
+                  reels: 'Reels',
+                  right_hand_column: 'Right Column',
+                  search: 'Search',
+                  marketplace: 'Marketplace',
+                  video_feeds: 'Video Feeds',
+                  instream_video: 'In-Stream Video',
+                };
+                return map[p?.toLowerCase()] ?? p?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+              };
+
+              return (
+                <div
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.6)',
+                    padding: '24px',
+                    marginBottom: '32px',
+                    boxShadow: '0 4px 24px rgba(44,36,25,0.08)',
+                  }}
+                >
+                  <h3 style={{ color: '#2c2419', margin: '0 0 20px 0' }}>Placement Breakdown</h3>
+                  {loadingBreakdowns ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                      Loading breakdown data...
+                    </div>
+                  ) : placementData.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+                      No placement data found for this period.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
+                            {['Platform', 'Placement', 'Spend', 'Impressions', 'Clicks', 'CPL'].map((col) => (
+                              <th
+                                key={col}
+                                style={{
+                                  textAlign: col === 'Platform' || col === 'Placement' ? 'left' : 'right',
+                                  padding: '10px 12px',
+                                  color: '#6b7280',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {placementData.map((row, idx) => (
+                            <tr
+                              key={`${row.publisher_platform}-${row.placement}-${idx}`}
+                              style={{
+                                background: idx % 2 === 0 ? 'transparent' : 'rgba(44,36,25,0.02)',
+                                borderBottom: '1px solid rgba(44,36,25,0.05)',
+                              }}
+                            >
+                              <td style={{ padding: '12px', fontSize: '14px' }}>
+                                <span style={{
+                                  background: row.publisher_platform?.toLowerCase() === 'instagram'
+                                    ? 'rgba(236,72,153,0.1)'
+                                    : 'rgba(59,130,246,0.1)',
+                                  color: row.publisher_platform?.toLowerCase() === 'instagram'
+                                    ? '#db2777'
+                                    : '#3b82f6',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                }}>
+                                  {formatPlatform(row.publisher_platform)}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px' }}>
+                                {formatPlacement(row.placement)}
+                              </td>
+                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                                ${row.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                                {row.impressions.toLocaleString()}
+                              </td>
+                              <td style={{ padding: '12px', color: '#2c2419', fontSize: '14px', textAlign: 'right' }}>
+                                {row.clicks.toLocaleString()}
+                              </td>
+                              <td style={{ padding: '12px', color: row.cpl > 0 ? '#c4704f' : '#9ca3af', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>
+                                {row.cpl > 0 ? `$${row.cpl.toFixed(2)}` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Lead Management Section */}
             <div
