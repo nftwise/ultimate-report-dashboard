@@ -1031,55 +1031,7 @@ export default function FacebookPage() {
           )}
         </div>
 
-        {/* ═══ SECTION 3: AUTOMATION ═══ */}
-        <div style={{ ...sectionCard, marginBottom: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={sectionHeader}>Follow-up Sequences</h3>
-            <button
-              onClick={() => setShowNewSequence(true)}
-              style={{
-                background: '#c4704f',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-              }}
-            >
-              + New Sequence
-            </button>
-          </div>
-
-          {sequences.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>No sequences created yet.</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
-              {sequences.map((seq) => (
-                <div
-                  key={seq.id}
-                  style={{
-                    background: 'rgba(255,255,255,0.5)',
-                    border: '1px solid rgba(196,112,79,0.2)',
-                    borderRadius: '12px',
-                    padding: '16px',
-                  }}
-                >
-                  <h4 style={{ color: '#2c2419', margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>{seq.name}</h4>
-                  <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-                    {(seq.steps || []).length} steps
-                  </div>
-                  {(seq.steps || []).map((step, idx) => (
-                    <div key={idx} style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>
-                      Day {step.day}: {(step.message || '').substring(0, 40)}...
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Follow-up Sequences section removed */}
       </div>
     </AdminLayout>
   );
