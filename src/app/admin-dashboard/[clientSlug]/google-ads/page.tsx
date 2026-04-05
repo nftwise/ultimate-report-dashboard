@@ -290,7 +290,6 @@ export default function GoogleAdsPage() {
               ad_spend: 0,
               cpl: 0,
               google_ads_conversions: 0,
-              total_leads: 0,
               ads_phone_calls: 0,
               form_fills: 0,
               sessions_mobile: device.sessions_mobile,
@@ -302,7 +301,6 @@ export default function GoogleAdsPage() {
           entry.ads_clicks += row.clicks || 0;
           entry.ad_spend += row.cost || 0;
           entry.google_ads_conversions += row.conversions || 0;
-          entry.total_leads += row.conversions || 0;
         });
 
         const aggregated = Array.from(dateMap.values());
@@ -310,7 +308,7 @@ export default function GoogleAdsPage() {
         // Calculate CTR and CPL for each day
         aggregated.forEach(d => {
           d.ads_ctr = d.ads_impressions > 0 ? (d.ads_clicks / d.ads_impressions) * 100 : 0;
-          d.cpl = d.total_leads > 0 ? d.ad_spend / d.total_leads : 0;
+          d.cpl = d.google_ads_conversions > 0 ? d.ad_spend / d.google_ads_conversions : 0;
         });
 
         setDailyData(aggregated as DailyMetrics[]);

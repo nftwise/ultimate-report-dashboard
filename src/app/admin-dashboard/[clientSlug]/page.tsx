@@ -297,7 +297,8 @@ export default function ClientDetailPage() {
     const raw = (curr - prev) / prev * 100;
     const isPos = raw > 0;
     const isGood = invert ? !isPos : isPos;
-    return { pct: isPos ? `+${raw.toFixed(1)}%` : `${raw.toFixed(1)}%`, type: (raw === 0 ? 'neutral' : isGood ? 'up' : 'down') as 'up' | 'down' | 'neutral' };
+    const type = Math.abs(raw) < 0.01 ? 'neutral' : (invert ? (raw < 0 ? 'up' : 'down') : (raw > 0 ? 'up' : 'down'));
+    return { pct: isPos ? `+${raw.toFixed(1)}%` : `${raw.toFixed(1)}%`, type: type as 'up' | 'down' | 'neutral' };
   };
 
   // Compute previous period label for display in MoM badges

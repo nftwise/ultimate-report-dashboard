@@ -409,8 +409,6 @@ function aggregateMetrics(metrics: any[]) {
   let rankCount = 0;
   let engagementSum = 0;
   let engagementCount = 0;
-  let gscPositionSum = 0;
-  let gscPositionCount = 0;
   let healthScoreSum = 0;
   let healthScoreCount = 0;
   let budgetUtilSum = 0;
@@ -463,10 +461,7 @@ function aggregateMetrics(metrics: any[]) {
     // Search Console (SEO columns in DB)
     totalGscClicks += m.seo_clicks || 0;
     totalGscImpressions += m.seo_impressions || 0;
-    if (m.seo_ctr) {
-      gscPositionSum += parseFloat(m.seo_ctr) || 0;
-      gscPositionCount++;
-    }
+    // Note: client_metrics_summary has no avg_position column; gscPosition stays 0
     // Combined
     totalLeads += m.total_leads || 0;
     maxTopKeywords = Math.max(maxTopKeywords, m.top_keywords || 0);
@@ -503,11 +498,10 @@ function aggregateMetrics(metrics: any[]) {
     ? Math.round((engagementSum / engagementCount) * 100) / 100
     : 0;
   const conversionRate = totalSessions > 0
-    ? Math.round((totalFormFills / totalSessions) * 10000) / 100
+    ? Math.round((totalLeads / totalSessions) * 10000) / 100
     : 0;
-  const avgGscPosition = gscPositionCount > 0
-    ? Math.round((gscPositionSum / gscPositionCount) * 10) / 10
-    : 0;
+  // gscPosition: no avg_position column in client_metrics_summary
+  const avgGscPosition = 0;
   const gscCtr = totalGscImpressions > 0
     ? Math.round((totalGscClicks / totalGscImpressions) * 10000) / 100
     : 0;
