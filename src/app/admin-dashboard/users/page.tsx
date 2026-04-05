@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
@@ -194,8 +194,10 @@ function LoginHeatmap({ activityByDay, recentLogins }: {
 
 export default function UsersPage() {
   const { data: session } = useSession();
+  const currentUserId = (session?.user as any)?.id as string | undefined;
   const userRole = (session?.user as any)?.role;
-  const isAdmin = userRole === 'admin' || userRole === 'team';
+  const isAdmin = userRole === 'admin';
+  const isAdminOrTeam = userRole === 'admin' || userRole === 'team';
 
   const [users, setUsers]         = useState<User[]>([]);
   const [clients, setClients]     = useState<Client[]>([]);
@@ -204,6 +206,16 @@ export default function UsersPage() {
   const [error, setError]         = useState<string | null>(null);
   const [success, setSuccess]     = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Toggle loading state: stores the user id being toggled
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  // Confirm deactivate dialog: stores the user to deactivate
+  const [confirmDeactivate, setConfirmDeactivate] = useState<User | null>(null);
+
+  // Confirm delete dialog: stores the user to delete
+  const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // login_logs: { userId → { dateStr → count } }
   const [activityMap, setActivityMap] = useState<Record<string, Record<string, number>>>({});
@@ -259,20 +271,26 @@ export default function UsersPage() {
     e.preventDefault();
     setError(null); setSuccess(null);
     if (!form.email || !form.password) { setError('Email and password are required'); return; }
-    if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    const trimmedPw = form.password.trim();
+    if (trimmedPw.length < 8) { setError('Password must be at least 8 characters'); return; }
     if (form.role === 'client' && !form.clientId) { setError('Please select a client for this user'); return; }
     setSubmitting(true);
     try {
       const res = await fetch('/api/admin/add-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email.trim(), password: form.password, role: form.role, clientId: form.role === 'client' ? form.clientId : null }),
+        body: JSON.stringify({ email: form.email.trim(), password: trimmedPw, role: form.role, clientId: form.role === 'client' ? form.clientId : null }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create user');
       setSuccess(`User ${form.email} created`);
       setForm({ email: '', password: '', role: 'client', clientId: '' });
-      await fetchData();
+      // Prepend new user to list immediately — no re-fetch needed
+      if (data.user) {
+        setUsers(prev => [data.user, ...prev]);
+      } else {
+        await fetchData();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -280,7 +298,9 @@ export default function UsersPage() {
     }
   }
 
-  async function toggleActive(user: User) {
+  async function doToggleActive(user: User) {
+    setError(null); setSuccess(null);
+    setToggling(user.id);
     try {
       const res = await fetch('/api/admin/add-user', {
         method: 'PATCH',
@@ -292,6 +312,45 @@ export default function UsersPage() {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  function toggleActive(user: User) {
+    setError(null); setSuccess(null);
+    // Self-deactivate protection
+    if (user.is_active && user.id === currentUserId) {
+      setError('Cannot deactivate your own account');
+      return;
+    }
+    // Deactivating: show confirm dialog
+    if (user.is_active) {
+      setConfirmDeactivate(user);
+      return;
+    }
+    // Reactivating: no confirm needed
+    doToggleActive(user);
+  }
+
+  async function handleDelete(user: User) {
+    setError(null); setSuccess(null);
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/admin/add-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to delete user');
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      setSuccess(`User ${user.email} deleted`);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(null);
     }
   }
 
@@ -342,7 +401,7 @@ export default function UsersPage() {
         {/* Golden ratio layout: form 38.2% / table 61.8% */}
         <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start' : 'grid grid-cols-1 gap-5 items-start'}>
 
-          {/* Create User Form */}
+          {/* Create User Form — admin only */}
           {isAdmin && (
             <div style={{
               background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.08)',
@@ -438,11 +497,12 @@ export default function UsersPage() {
                   <table className="users-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '34%' }}>Email</th>
+                        <th style={{ width: '32%' }}>Email</th>
                         <th style={{ width: '11%' }}>Role</th>
-                        <th style={{ width: '22%' }}>Client</th>
-                        <th style={{ width: '15%' }}>Last Login</th>
+                        <th style={{ width: '20%' }}>Client</th>
+                        <th style={{ width: '14%' }}>Last Login</th>
                         <th style={{ width: '10%' }}>Status</th>
+                        {isAdmin && <th style={{ width: '5%', textAlign: 'center' }}></th>}
                         {isAdmin && <th style={{ width: '5%', textAlign: 'center' }}></th>}
                         <th style={{ width: '3%' }}></th>
                       </tr>
@@ -453,6 +513,8 @@ export default function UsersPage() {
                         const isExpanded = expandedId === user.id;
                         const hasActivity = !!activityMap[user.id];
                         const totalLogins = hasActivity ? Object.values(activityMap[user.id]).reduce((s, n) => s + n, 0) : 0;
+                        const isToggling = toggling === user.id;
+                        const colSpan = isAdmin ? 8 : 6;
 
                         return (
                           <>
@@ -492,11 +554,33 @@ export default function UsersPage() {
                                   {user.is_active ? 'Active' : 'Off'}
                                 </span>
                               </td>
+                              {/* Toggle active button — admin only */}
                               {isAdmin && (
                                 <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                                  <button onClick={() => toggleActive(user)} title={user.is_active ? 'Deactivate' : 'Activate'}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: user.is_active ? '#10b981' : '#9ca3af', display: 'inline-flex', alignItems: 'center' }}>
-                                    {user.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                  <button
+                                    onClick={() => toggleActive(user)}
+                                    title={user.is_active ? 'Deactivate' : 'Activate'}
+                                    disabled={isToggling}
+                                    style={{ background: 'none', border: 'none', cursor: isToggling ? 'wait' : 'pointer', color: user.is_active ? '#10b981' : '#9ca3af', display: 'inline-flex', alignItems: 'center', opacity: isToggling ? 0.5 : 1 }}
+                                  >
+                                    {isToggling
+                                      ? <Loader2 size={18} className="animate-spin" />
+                                      : user.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />
+                                    }
+                                  </button>
+                                </td>
+                              )}
+                              {/* Delete button — admin only */}
+                              {isAdmin && (
+                                <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => { setError(null); setSuccess(null); setConfirmDelete(user); }}
+                                    title="Delete user"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', display: 'inline-flex', alignItems: 'center', opacity: 0.5 }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0.5'}
+                                  >
+                                    <Trash2 size={15} />
                                   </button>
                                 </td>
                               )}
@@ -508,7 +592,7 @@ export default function UsersPage() {
                             {/* Expanded heatmap row */}
                             {isExpanded && (
                               <tr key={`${user.id}-activity`}>
-                                <td colSpan={isAdmin ? 7 : 6} style={{
+                                <td colSpan={colSpan} style={{
                                   padding: 0,
                                   background: 'rgba(90,155,118,0.03)',
                                   borderBottom: '1.5px solid rgba(44,36,25,0.08)',
@@ -539,7 +623,7 @@ export default function UsersPage() {
                       })}
                       {users.length === 0 && (
                         <tr>
-                          <td colSpan={isAdmin ? 7 : 6} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>No users found</td>
+                          <td colSpan={isAdmin ? 8 : 6} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>No users found</td>
                         </tr>
                       )}
                     </tbody>
@@ -551,6 +635,75 @@ export default function UsersPage() {
 
         </div>
       </div>
+
+      {/* Confirm Deactivate Dialog */}
+      {confirmDeactivate && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(44,36,25,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => setConfirmDeactivate(null)}>
+          <div style={{
+            background: '#fff', borderRadius: '18px', padding: '28px 32px', maxWidth: '400px', width: '90%',
+            boxShadow: '0 20px 60px rgba(44,36,25,0.18)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', marginBottom: '10px' }}>Deactivate user?</div>
+            <div style={{ fontSize: '13px', color: '#5c5850', marginBottom: '24px', lineHeight: 1.5 }}>
+              <strong>{confirmDeactivate.email}</strong> will no longer be able to log in. You can reactivate them at any time.
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDeactivate(null)}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { const u = confirmDeactivate; setConfirmDeactivate(null); doToggleActive(u); }}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Dialog */}
+      {confirmDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(44,36,25,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => setConfirmDelete(null)}>
+          <div style={{
+            background: '#fff', borderRadius: '18px', padding: '28px 32px', maxWidth: '400px', width: '90%',
+            boxShadow: '0 20px 60px rgba(44,36,25,0.18)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', marginBottom: '10px' }}>Delete user?</div>
+            <div style={{ fontSize: '13px', color: '#5c5850', marginBottom: '24px', lineHeight: 1.5 }}>
+              <strong>{confirmDelete.email}</strong> will be permanently deleted. This action cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleting}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(confirmDelete)}
+                disabled={deleting}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: deleting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: deleting ? 0.7 : 1 }}
+              >
+                {deleting && <Loader2 size={13} className="animate-spin" />}
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

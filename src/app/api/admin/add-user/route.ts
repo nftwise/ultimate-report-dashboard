@@ -6,23 +6,30 @@ import bcrypt from 'bcryptjs';
 
 /**
  * POST /api/admin/add-user
- * Add a new user to the database
+ * Add a new user to the database (admin only)
  */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role === 'client') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!session || role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     const body = await request.json();
-    const { email, role, clientId, password } = body;
+    const { email, role: userRole, clientId, password } = body;
 
-    if (!email || !role) {
+    if (!email || !userRole) {
       return NextResponse.json({
         success: false,
         error: 'Email and role are required'
       }, { status: 400 });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return NextResponse.json({ success: false, error: 'Invalid email format' }, { status: 400 });
     }
 
     if (!password || !password.trim()) {
@@ -46,18 +53,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Hash password if provided (for credentials login)
-    let passwordHash = null;
-    if (password) {
-      passwordHash = await bcrypt.hash(password, 10);
-    }
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // Insert new user
     const { data: newUser, error } = await supabaseAdmin
       .from('users')
       .insert({
         email,
-        role,
+        role: userRole,
         client_id: clientId || null,
         password_hash: passwordHash,
         is_active: true,
@@ -80,6 +84,10 @@ export async function POST(request: NextRequest) {
         id: newUser.id,
         email: newUser.email,
         role: newUser.role,
+        is_active: newUser.is_active,
+        created_at: newUser.created_at,
+        last_login: null,
+        client_id: newUser.client_id,
       }
     });
 
@@ -94,12 +102,13 @@ export async function POST(request: NextRequest) {
 
 /**
  * PATCH /api/admin/add-user
- * Update user (toggle is_active or reset password)
+ * Update user (toggle is_active or reset password) (admin only)
  */
 export async function PATCH(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role === 'client') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!session || role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -131,12 +140,13 @@ export async function PATCH(request: NextRequest) {
 
 /**
  * DELETE /api/admin/add-user
- * Delete a user by ID
+ * Delete a user by ID (admin only)
  */
 export async function DELETE(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role === 'client') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!session || role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -160,11 +170,12 @@ export async function DELETE(request: NextRequest) {
 
 /**
  * GET /api/admin/add-user
- * List all users
+ * List all users (admin + team can view)
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role === 'client') {
+  const role = (session?.user as any)?.role;
+  if (!session || role === 'client') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -181,7 +192,8 @@ export async function GET() {
         .from('login_logs')
         .select('user_id, logged_at')
         .gte('logged_at', sixMonthsAgo.toISOString())
-        .order('logged_at', { ascending: false }),
+        .order('logged_at', { ascending: false })
+        .limit(5000),
     ]);
 
     if (error) {
