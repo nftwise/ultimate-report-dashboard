@@ -203,8 +203,8 @@ export default function SEOPage() {
     };
 
     Promise.all([
-      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO),
-      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO),
+      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO).order('date', { ascending: false }),
+      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).order('date', { ascending: false }),
       supabase.from('client_metrics_summary').select('sessions, users, seo_impressions, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
       supabase.from('ga4_events').select('event_count').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']),
     ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { data: convData }]) => {
@@ -463,8 +463,8 @@ export default function SEOPage() {
               const s2 = totalOrganicVisits;
               const s3 = realConversions;
               const maxVal = s1 || 1;
-              const organicRate = s1 > 0 ? fmtPct((s2 / s1) * 100, 1) : '0%';
-              const formRate = s2 > 0 ? fmtPct((s3 / s2) * 100, 2) : '0%';
+              const organicRate = s1 > 0 ? fmtPct((s2 / s1) * 100, 1) : '—';
+              const formRate = s2 > 0 ? fmtPct((s3 / s2) * 100, 2) : '—';
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {[
