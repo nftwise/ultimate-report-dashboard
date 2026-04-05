@@ -26,21 +26,38 @@ export async function POST(request: NextRequest) {
     const { data: client } = await supabaseAdmin
       .from('clients').select('name').eq('id', clientId).single();
 
-    // Fetch leads from FB
-    let url = `https://graph.facebook.com/v19.0/act_${adAccountId}/leads` +
-      `?fields=id,created_time,field_data,ad_id,ad_name,adset_name,campaign_name,form_name` +
-      `&limit=100&access_token=${accessToken}`;
+    // Get all ads from the ad account
+    const adsUrl = `https://graph.facebook.com/v19.0/act_${adAccountId}/ads?fields=id,name&limit=200&access_token=${accessToken}`;
+    const adsRes = await fetch(adsUrl);
+    const adsJson = await adsRes.json();
+    if (adsJson.error) throw new Error(`Ads fetch: ${adsJson.error.message}`);
+    const adIds = (adsJson.data || []).map((a: any) => a.id);
 
+    // Fetch leads from each ad (ad-level endpoint works with Business Manager pages)
     let allLeads: any[] = [];
-    while (url) {
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      allLeads = allLeads.concat(json.data || []);
-      url = json.paging?.next || null;
+    for (const adId of adIds) {
+      let url: string | null = `https://graph.facebook.com/v19.0/${adId}/leads` +
+        `?fields=id,created_time,field_data,ad_name,campaign_name` +
+        `&limit=100&access_token=${accessToken}`;
+
+      while (url) {
+        const adRes: Response = await fetch(url);
+        const adJson: any = await adRes.json();
+        if (adJson.error) break;
+        allLeads = allLeads.concat(adJson.data || []);
+        url = adJson.paging?.next || null;
+      }
     }
 
-    console.log(`[import-leads] Found ${allLeads.length} leads from FB`);
+    // Deduplicate by lead ID
+    const seen = new Set<string>();
+    allLeads = allLeads.filter((l: any) => {
+      if (seen.has(l.id)) return false;
+      seen.add(l.id);
+      return true;
+    });
+
+    console.log(`[import-leads] Found ${allLeads.length} leads from ${adIds.length} ads`);
 
     let inserted = 0, skipped = 0;
 
