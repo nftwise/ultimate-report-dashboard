@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown } from 'lucide-react';
+import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 
@@ -18,6 +18,7 @@ interface Client {
   is_active: boolean;
   has_seo: boolean;
   has_ads: boolean;
+  has_gbp: boolean;
   notes: string | null;
   ads_budget_month: number | null;
   status: string | null;
@@ -63,6 +64,7 @@ export default function ClientsManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+  const [confirmReactivate, setConfirmReactivate] = useState<string | null>(null);
 
   // Last sync dates per client
   const [lastSync, setLastSync] = useState<Record<string, string>>({});
@@ -108,7 +110,7 @@ export default function ClientsManagementPage() {
   const [modalStep, setModalStep] = useState<ModalStep>('idle');
   const [testResults, setTestResults] = useState<{ label: string; ok: boolean; message: string }[]>([]);
   const [backfill, setBackfill] = useState<{
-    currentDay: number; totalDays: number; currentService: string; errors: string[];
+    currentDay: number; totalDays: number; currentService: string; errors: string[]; _enabledServiceCount?: number;
   }>({ currentDay: 0, totalDays: 0, currentService: '', errors: [] });
 
   function openBackfillModal(client: Client) {
@@ -133,7 +135,7 @@ export default function ClientsManagementPage() {
       { endpoint: '/api/cron/sync-ga4', label: 'GA4 (Analytics)', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-gsc', label: 'GSC (Search Console)', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
-      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: !!backfillClient.has_gbp },
     ];
     const results = [];
     for (const svc of services) {
@@ -166,7 +168,7 @@ export default function ClientsManagementPage() {
       { endpoint: '/api/cron/sync-ga4', label: 'GA4', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-gsc', label: 'GSC', enabled: backfillClient.has_seo },
       { endpoint: '/api/cron/sync-ads', label: 'Google Ads', enabled: backfillClient.has_ads },
-      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: true },
+      { endpoint: '/api/cron/sync-gbp', label: 'GBP', enabled: !!backfillClient.has_gbp },
     ].filter(s => s.enabled);
 
     const dates: string[] = [];
@@ -186,22 +188,30 @@ export default function ClientsManagementPage() {
       for (const service of services) {
         setBackfill(prev => ({ ...prev, currentDay: i + 1, currentService: service.label }));
         try {
-          await fetch('/api/admin/trigger-cron', {
+          const res = await fetch('/api/admin/trigger-cron', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint: service.endpoint, params: { date, clientId: backfillClient.id } }),
           });
-        } catch { errors.push(`${date} ${service.label}`); }
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            errors.push(`${date} ${service.label}: ${(err as any).error || 'HTTP ' + res.status}`);
+          }
+        } catch (e: any) { errors.push(`${date} ${service.label}: ${e.message}`); }
       }
       setBackfill(prev => ({ ...prev, currentService: 'Rollup' }));
       try {
-        await fetch('/api/admin/trigger-cron', {
+        const res = await fetch('/api/admin/trigger-cron', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: '/api/admin/run-rollup', method: 'POST', params: { date, clientId: backfillClient.id } }),
         });
-      } catch { errors.push(`${date} rollup`); }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          errors.push(`${date} rollup: ${(err as any).error || 'HTTP ' + res.status}`);
+        }
+      } catch (e: any) { errors.push(`${date} rollup: ${e.message}`); }
     }
 
-    setBackfill(prev => ({ ...prev, errors }));
+    setBackfill(prev => ({ ...prev, errors, _enabledServiceCount: services.length }));
     setModalStep('done');
   }
 
@@ -217,7 +227,7 @@ export default function ClientsManagementPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('clients')
-        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, notes, ads_budget_month, status, industry, owner')
+        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, has_gbp, notes, ads_budget_month, status, industry, owner')
         .order('name', { ascending: true });
       if (fetchError) throw new Error(fetchError.message);
       setClients(data || []);
@@ -292,12 +302,19 @@ export default function ClientsManagementPage() {
     } finally { setSaving(false); }
   };
 
-  const handleToggleActive = async (client: Client) => {
+  const handleToggleActive = (client: Client) => {
     if (client.is_active) { setConfirmCancel(client.id); return; }
-    setClients(prev => prev.map(c => c.id === client.id ? { ...c, is_active: true, status: 'Working' } : c));
+    setConfirmReactivate(client.id);
+  };
+
+  const confirmReactivateClient = async () => {
+    if (!confirmReactivate) return;
+    const targetId = confirmReactivate;
+    setConfirmReactivate(null);
+    setClients(prev => prev.map(c => c.id === targetId ? { ...c, is_active: true, status: 'Working' } : c));
     try {
-      const res = await fetch(`/api/admin/clients/${client.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: true, status: 'Working' }) });
-      if (!res.ok) { const result = await res.json(); setClients(prev => prev.map(c => c.id === client.id ? { ...c, is_active: false } : c)); throw new Error(result.error || 'Failed to reactivate'); }
+      const res = await fetch(`/api/admin/clients/${targetId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: true, status: 'Working' }) });
+      if (!res.ok) { const result = await res.json(); setClients(prev => prev.map(c => c.id === targetId ? { ...c, is_active: false } : c)); throw new Error(result.error || 'Failed to reactivate'); }
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reactivate client'); }
   };
 
@@ -332,10 +349,14 @@ export default function ClientsManagementPage() {
     const key = `${clientId}:${ym}`;
     setFillsSavingKey(key);
     try {
-      await fetch('/api/admin/form-fills', {
+      const res = await fetch('/api/admin/form-fills', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: clientId, year_month: ym, form_fills: val }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError((err as any).error || 'Failed to save form fills');
+      }
     } finally {
       setFillsSavingKey(null);
     }
@@ -356,7 +377,9 @@ export default function ClientsManagementPage() {
     const matches = (c: Client) =>
       c.name.toLowerCase().includes(lq) ||
       c.slug.toLowerCase().includes(lq) ||
-      (c.city || '').toLowerCase().includes(lq);
+      (c.city || '').toLowerCase().includes(lq) ||
+      (c.contact_name || '').toLowerCase().includes(lq) ||
+      (c.contact_email || '').toLowerCase().includes(lq);
 
     const active = activeClients.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
     const cancelled = cancelledClients.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
@@ -464,7 +487,7 @@ export default function ClientsManagementPage() {
           <div style={{ position: 'relative', marginBottom: '16px' }}>
             <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', width: '15px', height: '15px' }} />
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name, slug or city..."
+              placeholder="Search by name, slug, city, contact..."
               style={{ width: '100%', paddingLeft: '36px', paddingRight: '16px', paddingTop: '9px', paddingBottom: '9px', border: '1.5px solid transparent', borderRadius: '10px', background: '#f5f1ed', color: '#2c2419', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
               onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#c4704f'; }}
               onBlur={e => { e.currentTarget.style.background = '#f5f1ed'; e.currentTarget.style.borderColor = 'transparent'; }}
@@ -552,17 +575,29 @@ export default function ClientsManagementPage() {
                             </div>
                           </td>
                           <td className="col-status sep" style={{ textAlign: 'center' }}>
-                            {(() => { const sc = statusColor(client.is_active ? client.status : 'Cancelled'); return (
-                              <span style={{ background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>
-                                {client.is_active ? (client.status || 'Working') : 'Cancelled'}
-                              </span>
-                            ); })()}
+                            {(() => {
+                              const displayStatus = client.status || (client.is_active ? 'Working' : 'Inactive');
+                              const sc = statusColor(client.is_active ? displayStatus : 'Cancelled');
+                              return (
+                                <span style={{ background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 700 }}>
+                                  {client.is_active ? displayStatus : 'Cancelled'}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="col-email sep" style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {client.contact_email || <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
                           <td className="col-acts" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                              {/* View dashboard */}
+                              <button onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
+                                title="View dashboard"
+                                style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.15)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}>
+                                <ExternalLink size={13} />
+                              </button>
                               {/* Expand notes/fills */}
                               <button onClick={() => toggleExpand(client.id)}
                                 title={expandedRows.has(client.id) ? 'Collapse' : 'Notes & Fills'}
@@ -577,6 +612,13 @@ export default function ClientsManagementPage() {
                                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
                                   title="Edit">
                                   <Edit2 size={13} />
+                                </button>
+                                <button onClick={() => openBackfillModal(client)}
+                                  style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,168,84,0.15)'; (e.currentTarget as HTMLElement).style.color = '#b45309'; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
+                                  title="Backfill data">
+                                  <RefreshCw size={13} />
                                 </button>
                                 <button onClick={() => handleToggleActive(client)}
                                   style={{ padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer', color: client.is_active ? '#dc2626' : '#059669', background: client.is_active ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)' }}
@@ -659,6 +701,29 @@ export default function ClientsManagementPage() {
         </div>
 
       </div>
+
+      {/* Reactivate Confirmation */}
+      {confirmReactivate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(44,36,25,0.5)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setConfirmReactivate(null)}>
+          <div className="rounded-2xl p-8 w-full max-w-md mx-4"
+            style={{ background: '#fff', boxShadow: '0 20px 60px rgba(44,36,25,0.3)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-full" style={{ background: '#f0fdf4' }}><CheckCircle size={22} style={{ color: '#059669' }} /></div>
+              <h3 className="text-lg font-bold" style={{ color: '#2c2419' }}>Reactivate Client</h3>
+            </div>
+            <p className="text-sm mb-6" style={{ color: '#5c5850' }}>
+              Reactivate this client? Daily syncs will resume and the client will appear as active.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmReactivate(null)} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(44,36,25,0.05)', color: '#5c5850', border: 'none', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={confirmReactivateClient} style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, background: '#059669', color: '#fff', border: 'none', cursor: 'pointer' }}>Reactivate</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation */}
       {confirmCancel && (
@@ -785,7 +850,7 @@ export default function ClientsManagementPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: '#5c5850' }}>Ads Budget/mo ($)</label>
-                      <input type="number" value={formData.ads_budget_month} onChange={e => setFormData(p => ({ ...p, ads_budget_month: e.target.value }))}
+                      <input type="number" min="0" value={formData.ads_budget_month} onChange={e => setFormData(p => ({ ...p, ads_budget_month: e.target.value }))}
                         className="w-full px-4 py-2.5 rounded-xl border-2 focus:outline-none text-sm"
                         style={{ borderColor: 'rgba(44,36,25,0.1)', color: '#2c2419' }}
                         onFocus={e => { e.currentTarget.style.borderColor = '#c4704f'; }}
@@ -924,7 +989,7 @@ export default function ClientsManagementPage() {
                   color: backfill.errors.length > 0 ? '#b45309' : '#059669' }}>
                   {backfill.errors.length > 0
                     ? `Done with ${backfill.errors.length} error${backfill.errors.length > 1 ? 's' : ''} — data may be partially synced`
-                    : `Backfill complete · all ${backfill.totalDays * 4} sync jobs succeeded`}
+                    : `Backfill complete · all ${backfill.totalDays * (backfill._enabledServiceCount ?? 1)} sync jobs succeeded`}
                 </div>
               )}
             </div>
