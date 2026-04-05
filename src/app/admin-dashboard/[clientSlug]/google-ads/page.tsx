@@ -28,6 +28,7 @@ interface DailyMetrics {
   ad_spend?: number;
   cpl?: number;
   google_ads_conversions?: number;
+  total_leads?: number;
   sessions_mobile?: number;
   sessions_desktop?: number;
 }
@@ -257,22 +258,23 @@ export default function GoogleAdsPage() {
             .gte('date', dateFromISO)
             .lte('date', dateToISO)
             .order('date', { ascending: true }),
-          // Fetch device split from client_metrics_summary (GA4 data)
+          // Fetch device split + total_leads from client_metrics_summary
           supabase
             .from('client_metrics_summary')
-            .select('date, sessions_mobile, sessions_desktop')
+            .select('date, sessions_mobile, sessions_desktop, total_leads')
             .eq('client_id', client.id)
             .eq('period_type', 'daily')
             .gte('date', dateFromISO)
             .lte('date', dateToISO),
         ]);
 
-        // Build device lookup by date
-        const deviceByDate = new Map<string, { sessions_mobile: number; sessions_desktop: number }>();
+        // Build device + leads lookup by date
+        const deviceByDate = new Map<string, { sessions_mobile: number; sessions_desktop: number; total_leads: number }>();
         (summaryData || []).forEach((row: any) => {
           deviceByDate.set(row.date, {
-            sessions_mobile: row.sessions_mobile || 0,
+            sessions_mobile:  row.sessions_mobile  || 0,
             sessions_desktop: row.sessions_desktop || 0,
+            total_leads:      row.total_leads      || 0,
           });
         });
 
@@ -281,7 +283,7 @@ export default function GoogleAdsPage() {
         (campaignMetricsData || []).forEach(row => {
           const date = row.date;
           if (!dateMap.has(date)) {
-            const device = deviceByDate.get(date) || { sessions_mobile: 0, sessions_desktop: 0 };
+            const device = deviceByDate.get(date) || { sessions_mobile: 0, sessions_desktop: 0, total_leads: 0 };
             dateMap.set(date, {
               date,
               ads_impressions: 0,
@@ -290,7 +292,8 @@ export default function GoogleAdsPage() {
               ad_spend: 0,
               cpl: 0,
               google_ads_conversions: 0,
-              sessions_mobile: device.sessions_mobile,
+              total_leads:      device.total_leads,
+              sessions_mobile:  device.sessions_mobile,
               sessions_desktop: device.sessions_desktop,
             });
           }
