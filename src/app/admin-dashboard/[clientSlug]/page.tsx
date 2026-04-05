@@ -10,16 +10,50 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
+import { Users, Globe, DollarSign, Target, Phone, FileText, Settings, BarChart2, RefreshCw } from 'lucide-react';
 
 const ChartSkeleton = () => (
   <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
-    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
     Loading chart…
   </div>
 );
+
+const SkeletonCard = () => (
+  <div style={{
+    background: 'rgba(255,255,255,0.9)',
+    backdropFilter: 'blur(10px)',
+    borderRadius: '16px',
+    padding: '24px',
+    border: '1px solid rgba(44,36,25,0.1)',
+    boxShadow: '0 4px 20px rgba(44,36,25,0.08)',
+    animation: 'pulse 1.5s infinite',
+  }}>
+    <div style={{ height: '12px', width: '60%', background: '#e5e7eb', borderRadius: '4px', marginBottom: '12px' }} />
+    <div style={{ height: '10px', width: '80%', background: '#f3f4f6', borderRadius: '4px', marginBottom: '16px' }} />
+    <div style={{ height: '32px', width: '50%', background: '#e5e7eb', borderRadius: '4px' }} />
+  </div>
+);
+
+function EmptyState({ source, hasConfig }: { source: string; hasConfig: boolean }) {
+  if (!hasConfig) return (
+    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+      <Settings size={32} style={{ marginBottom: '12px', opacity: 0.5, display: 'block', margin: '0 auto 12px' }} />
+      <p style={{ margin: '0 0 4px', fontSize: '14px' }}>{source} is not connected yet.</p>
+      <p style={{ fontSize: '12px', margin: 0 }}>Contact admin to configure this integration.</p>
+    </div>
+  );
+  return (
+    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+      <BarChart2 size={32} style={{ marginBottom: '12px', opacity: 0.5, display: 'block', margin: '0 auto 12px' }} />
+      <p style={{ margin: '0 0 4px', fontSize: '14px' }}>No data for this period.</p>
+      <p style={{ fontSize: '12px', margin: 0 }}>Try selecting a different date range.</p>
+    </div>
+  );
+}
 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false, loading: ChartSkeleton });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false, loading: ChartSkeleton });
@@ -93,6 +127,7 @@ export default function ClientDetailPage() {
     return { from, to };
   });
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   // FIX #10: fetch latest GBP rating independently of date range
   const [latestGbpRating, setLatestGbpRating] = useState(0);
 
@@ -172,86 +207,87 @@ export default function ClientDetailPage() {
       });
   }, [client]);
 
-  useEffect(() => {
-    const fetchDailyMetrics = async () => {
-      if (!client) return;
-      setChartLoading(true);
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        const dateToISO = toLocalDateStr(dateRange.to);
+  const fetchDailyMetrics = async () => {
+    if (!client) return;
+    setChartLoading(true);
+    try {
+      const dateFromISO = toLocalDateStr(dateRange.from);
+      const dateToISO = toLocalDateStr(dateRange.to);
 
-        const { data: metricsData, error: metricsError } = await supabase
-          .from('client_metrics_summary')
-          .select(`date, total_leads, form_fills, gbp_calls, google_ads_conversions, sessions,
-            seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid,
-            traffic_direct, traffic_referral, traffic_ai, ads_impressions, ads_clicks,
-            ads_ctr, ad_spend, cpl, budget_utilization`)
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('client_metrics_summary')
+        .select(`date, total_leads, form_fills, gbp_calls, google_ads_conversions, sessions,
+          seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid,
+          traffic_direct, traffic_referral, traffic_ai, ads_impressions, ads_clicks,
+          ads_ctr, ad_spend, cpl, budget_utilization`)
+        .eq('client_id', client.id)
+        .eq('period_type', 'daily')
+        .gte('date', dateFromISO)
+        .lte('date', dateToISO)
+        .order('date', { ascending: true });
+
+      if (metricsError) { setDailyData([]); return; }
+
+      const { data: gbpData } = await supabase
+        .from('gbp_location_daily_metrics')
+        .select('date, phone_calls, views, website_clicks, direction_requests')
+        .eq('client_id', client.id)
+        .gte('date', dateFromISO)
+        .lte('date', dateToISO)
+        .order('date', { ascending: true });
+
+      const gbpArr = Array.isArray(gbpData) ? gbpData : [];
+      const merged = (metricsData || []).map((metric: any) => {
+        const gbp = gbpArr.find((g: any) => g.date === metric.date);
+        return {
+          ...metric,
+          gbp_calls: gbp?.phone_calls ?? metric.gbp_calls ?? 0,
+          gbp_profile_views: gbp?.views ?? 0,
+          gbp_website_clicks: gbp?.website_clicks ?? 0,
+          gbp_direction_requests: gbp?.direction_requests ?? 0,
+        };
+      });
+      setDailyData(merged as DailyMetrics[]);
+      setFetchError(null);
+      setLastRefreshed(new Date());
+
+      // Previous period for MoM
+      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
+      const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
+      const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
+
+      const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
+        supabase.from('client_metrics_summary')
+          .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls, form_fills')
+          .eq('client_id', client.id).eq('period_type', 'daily')
+          .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
+        supabase.from('gbp_location_daily_metrics')
+          .select('phone_calls')
           .eq('client_id', client.id)
-          .eq('period_type', 'daily')
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
+          .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
+      ]);
 
-        if (metricsError) { setDailyData([]); return; }
+      setPrevData({
+        leads: prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
+        sessions: prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
+        adSpend: prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
+        adsCv: prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
+        seoClicks: prevMetrics?.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0) || 0,
+        gbpCalls: prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
+          || prevMetrics?.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) || 0,
+        formFills: prevMetrics?.reduce((s: number, d: any) => s + (d.form_fills || 0), 0) || 0,
+      });
+    } catch (error) {
+      console.error('[Client Details] Error:', error);
+      setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+      setDailyData([]);
+    } finally {
+      setChartLoading(false);
+    }
+  };
 
-        const { data: gbpData } = await supabase
-          .from('gbp_location_daily_metrics')
-          .select('date, phone_calls, views, website_clicks, direction_requests')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO)
-          .order('date', { ascending: true });
-
-        const gbpArr = Array.isArray(gbpData) ? gbpData : [];
-        const merged = (metricsData || []).map((metric: any) => {
-          const gbp = gbpArr.find((g: any) => g.date === metric.date);
-          return {
-            ...metric,
-            gbp_calls: gbp?.phone_calls ?? metric.gbp_calls ?? 0,
-            gbp_profile_views: gbp?.views ?? 0,
-            gbp_website_clicks: gbp?.website_clicks ?? 0,
-            gbp_direction_requests: gbp?.direction_requests ?? 0,
-          };
-        });
-        setDailyData(merged as DailyMetrics[]);
-        setFetchError(null);
-
-        // Previous period for MoM
-        const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
-        const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
-        const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
-
-        const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
-          supabase.from('client_metrics_summary')
-            .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls, form_fills')
-            .eq('client_id', client.id).eq('period_type', 'daily')
-            .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
-          supabase.from('gbp_location_daily_metrics')
-            .select('phone_calls')
-            .eq('client_id', client.id)
-            .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
-        ]);
-
-        setPrevData({
-          leads: prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
-          sessions: prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
-          adSpend: prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
-          adsCv: prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
-          seoClicks: prevMetrics?.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0) || 0,
-          gbpCalls: prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
-            || prevMetrics?.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) || 0,
-          formFills: prevMetrics?.reduce((s: number, d: any) => s + (d.form_fills || 0), 0) || 0,
-        });
-      } catch (error) {
-        console.error('[Client Details] Error:', error);
-        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
-        setDailyData([]);
-      } finally {
-        setChartLoading(false);
-      }
-    };
-    fetchDailyMetrics();
-  }, [client, dateRange.from, dateRange.to]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchDailyMetrics(); }, [client, dateRange.from, dateRange.to]);
 
   if (loading || !client) {
     return (
@@ -325,7 +361,7 @@ export default function ClientDetailPage() {
       }}>
         {mom.pct}
       </span>
-      <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '5px' }}>vs prev {periodDays}d</span>
+      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '3px' }}>vs {prevLabel}</div>
     </div>
   );
 
@@ -335,11 +371,32 @@ export default function ClientDetailPage() {
 
       {/* Sticky date bar */}
       <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
-        {dailyData.length > 0 && (
-          <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
-            Data through {new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </span>
-        )}
+        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {dailyData.length > 0 && (
+            <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+              Data through {new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
+          {lastRefreshed && (
+            <span style={{ fontSize: '11px', color: '#10b981' }}>· Updated just now</span>
+          )}
+        </div>
+        {/* Refresh button */}
+        <button
+          onClick={() => fetchDailyMetrics()}
+          disabled={chartLoading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.2)',
+            borderRadius: '20px', padding: '5px 12px', cursor: chartLoading ? 'not-allowed' : 'pointer',
+            fontSize: '12px', fontWeight: 600, color: '#c4704f', transition: 'all 150ms',
+          }}
+          onMouseEnter={e => { if (!chartLoading) { (e.currentTarget as HTMLElement).style.background = '#c4704f'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.08)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
+        >
+          <RefreshCw size={12} style={{ animation: chartLoading ? 'spin 1s linear infinite' : 'none' }} />
+          Refresh
+        </button>
         <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
           {[7, 30, 90].map((days) => (
             <button key={days} onClick={() => handlePresetDays(days as 7 | 30 | 90)}
@@ -370,7 +427,10 @@ export default function ClientDetailPage() {
               gap: '8px'
             }}>
               ⚠️ {fetchError}
-              <button onClick={() => setFetchError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                <button onClick={() => { setFetchError(null); fetchDailyMetrics(); }} style={{ background: '#c4704f', border: 'none', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', color: '#fff', fontSize: '12px', fontWeight: 600 }}>Retry</button>
+                <button onClick={() => setFetchError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
+              </div>
             </div>
           )}
 
@@ -380,58 +440,73 @@ export default function ClientDetailPage() {
             <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
           </div>
 
-          {/* FIX #9: KPI Cards — hide Ad Spend + CPL if no Ads service */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
-            {/* Total Leads — always shown */}
-            <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Inquiries</p>
-              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + forms + Google Ads</p>
-              <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalLeads)}</div>
-              {trendBadge(leadTrendData)}
-            </div>
+          {/* KPI Cards — skeleton while loading, real data after */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            {chartLoading ? (
+              <>{[0,1,2,3].map(i => <SkeletonCard key={i} />)}</>
+            ) : (<>
+              {/* Patient Inquiries — always shown */}
+              <div className="rounded-2xl p-6" title="Total inquiries: phone calls + contact forms + Google Ads conversions" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                <Users size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Patient Inquiries</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + forms + Google Ads</p>
+                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalLeads)}</div>
+                {trendBadge(leadTrendData)}
+              </div>
 
-            {/* Website Visits — always shown */}
-            <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visitors</p>
-              <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>People who visited your website</p>
-              <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(sessions)}</div>
-              {trendBadge(sessionsTrendData)}
-            </div>
+              {/* Website Visitors — always shown */}
+              <div className="rounded-2xl p-6" title="Total website sessions from all traffic sources" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                <Globe size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visitors</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>People who visited your website</p>
+                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(sessions)}</div>
+                {trendBadge(sessionsTrendData)}
+              </div>
 
-            {/* Ad Spend — only if Ads service active */}
-            {hasAds ? (
-              <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Ad Spend</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Amount spent on Google Ads</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtCurrency(adSpend, 0)}</div>
-                {trendBadge(adSpendTrendData)}
-              </div>
-            ) : (
-              <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Contact Forms</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms submitted on your website</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalFormFills)}</div>
-                {trendBadge(formFillsTrendData)}
-              </div>
-            )}
+              {/* Ad Spend — only if Ads service active */}
+              {hasAds ? (
+                <div className="rounded-2xl p-6" title="Total Google Ads spend for this period" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                  <DollarSign size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Ad Spend</p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Amount spent on Google Ads</p>
+                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtCurrency(adSpend, 0)}</div>
+                  {trendBadge(adSpendTrendData)}
+                </div>
+              ) : (
+                <div className="rounded-2xl p-6" title="Contact form submissions on your website" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                  <FileText size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Contact Forms</p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms submitted on your website</p>
+                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalFormFills)}</div>
+                  {trendBadge(formFillsTrendData)}
+                </div>
+              )}
 
-            {/* CPL — only if Ads active, else GBP Calls */}
-            {hasAds ? (
-              <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Inquiry</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Average ad cost per patient inquiry</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
-                {trendBadge(cplTrendData)}
-              </div>
-            ) : hasGbp ? (
-              <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Google Phone Calls</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Taps on your Google Business phone number</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalGbpCalls)}</div>
-                {trendBadge(gbpCallsTrendData)}
-              </div>
-            ) : null}
+              {/* CPL — only if Ads active, else GBP Calls */}
+              {hasAds ? (
+                <div className="rounded-2xl p-6" title="Average Google Ads cost per patient inquiry (conversions)" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                  <Target size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Inquiry</p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Average ad cost per patient inquiry</p>
+                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
+                  {trendBadge(cplTrendData)}
+                </div>
+              ) : hasGbp ? (
+                <div className="rounded-2xl p-6" title="Phone call taps on your Google Business listing" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                  <Phone size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Google Phone Calls</p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Taps on your Google Business phone number</p>
+                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalGbpCalls)}</div>
+                  {trendBadge(gbpCallsTrendData)}
+                </div>
+              ) : null}
+            </>)}
           </div>
+
+          {/* Empty state when no data after loading */}
+          {!chartLoading && dailyData.length === 0 && (
+            <EmptyState source="Analytics" hasConfig={hasSeo || hasAds || hasGbp} />
+          )}
 
           {/* Full-width: Daily Traffic & Leads */}
           <div className="rounded-2xl p-8 mb-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
