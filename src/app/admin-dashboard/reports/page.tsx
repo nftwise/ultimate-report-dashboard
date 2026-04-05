@@ -118,7 +118,7 @@ export default function AgencyReportsPage() {
       // Fetch current period metrics
       const { data: currMetrics } = await supabase
         .from('client_metrics_summary')
-        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions')
+        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions, fb_spend, fb_leads')
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .eq('period_type', 'daily');
@@ -126,7 +126,7 @@ export default function AgencyReportsPage() {
       // Fetch previous period metrics
       const { data: prevMetrics } = await supabase
         .from('client_metrics_summary')
-        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions')
+        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions, fb_spend, fb_leads')
         .gte('date', prevFromStr)
         .lte('date', prevToStr)
         .eq('period_type', 'daily');
@@ -143,24 +143,27 @@ export default function AgencyReportsPage() {
         .order('date', { ascending: true });
 
       // Aggregate current metrics by client
-      const currMap: Record<string, { leads: number; gbp_calls: number; sessions: number; ad_spend: number; ads_conv: number }> = {};
+      const currMap: Record<string, { leads: number; gbp_calls: number; sessions: number; ad_spend: number; ads_conv: number; fb_spend: number; fb_leads: number }> = {};
       (currMetrics || []).forEach((m: any) => {
-        if (!currMap[m.client_id]) currMap[m.client_id] = { leads: 0, gbp_calls: 0, sessions: 0, ad_spend: 0, ads_conv: 0 };
+        if (!currMap[m.client_id]) currMap[m.client_id] = { leads: 0, gbp_calls: 0, sessions: 0, ad_spend: 0, ads_conv: 0, fb_spend: 0, fb_leads: 0 };
         currMap[m.client_id].leads += m.total_leads || 0;
         currMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         currMap[m.client_id].sessions += m.sessions || 0;
         currMap[m.client_id].ad_spend += m.ad_spend || 0;
         currMap[m.client_id].ads_conv += m.google_ads_conversions || 0;
+        currMap[m.client_id].fb_spend += m.fb_spend || 0;
+        currMap[m.client_id].fb_leads += m.fb_leads || 0;
       });
 
       // Aggregate previous metrics by client
-      const prevMap: Record<string, { leads: number; gbp_calls: number; sessions: number; ad_spend: number }> = {};
+      const prevMap: Record<string, { leads: number; gbp_calls: number; sessions: number; ad_spend: number; fb_spend: number }> = {};
       (prevMetrics || []).forEach((m: any) => {
-        if (!prevMap[m.client_id]) prevMap[m.client_id] = { leads: 0, gbp_calls: 0, sessions: 0, ad_spend: 0 };
+        if (!prevMap[m.client_id]) prevMap[m.client_id] = { leads: 0, gbp_calls: 0, sessions: 0, ad_spend: 0, fb_spend: 0 };
         prevMap[m.client_id].leads += m.total_leads || 0;
         prevMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         prevMap[m.client_id].sessions += m.sessions || 0;
         prevMap[m.client_id].ad_spend += m.ad_spend || 0;
+        prevMap[m.client_id].fb_spend += m.fb_spend || 0;
       });
 
       // Build client rows
