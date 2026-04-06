@@ -152,17 +152,23 @@ export default function FacebookPage() {
   const [detailedInsights, setDetailedInsights] = useState<DetailedInsights | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
 
-  // KPI calculations
-  const totalLeads = leads.length;
-  const contactedLeads = leads.filter(l => ['contacted', 'responded', 'converted'].includes(l.status)).length;
-  const respondedLeads = leads.filter(l => ['responded', 'converted'].includes(l.status)).length;
-  const convertedLeads = leads.filter(l => l.status === 'converted').length;
+  // Separate real leads from spam (no phone = spam)
+  const realLeads = leads.filter(l => !(l as any).phone?.startsWith('+0') && l.status !== 'closed');
+  const spamLeads = leads.filter(l => (l as any).phone?.startsWith('+0') || l.status === 'closed');
+
+  // KPI calculations (only real leads)
+  const totalLeads = realLeads.length;
+  const contactedLeads = realLeads.filter(l => ['contacted', 'responded', 'converted'].includes(l.status)).length;
+  const respondedLeads = realLeads.filter(l => ['responded', 'converted'].includes(l.status)).length;
+  const convertedLeads = realLeads.filter(l => l.status === 'converted').length;
   const responseRate = contactedLeads > 0 ? ((respondedLeads / contactedLeads) * 100).toFixed(1) : '0';
 
   // Filtered leads
-  const filteredLeads = selectedStatus === 'all'
-    ? leads
-    : leads.filter(l => l.status === selectedStatus);
+  const filteredLeads = selectedStatus === 'spam'
+    ? spamLeads
+    : selectedStatus === 'all'
+    ? realLeads
+    : realLeads.filter(l => l.status === selectedStatus);
 
   // Ad Performance KPIs
   const totalSpend = adsCampaigns.reduce((s, c) => s + c.spend, 0);
@@ -1228,7 +1234,7 @@ export default function FacebookPage() {
 
           {/* Status filter tabs */}
           <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid rgba(44,36,25,0.1)', paddingBottom: '12px', flexWrap: 'wrap' }}>
-            {['all', 'new', 'contacted', 'responded', 'converted', 'closed'].map((status) => (
+            {['all', 'new', 'contacted', 'responded', 'converted', 'spam'].map((status) => (
               <button
                 key={status}
                 onClick={() => setSelectedStatus(status)}
@@ -1245,6 +1251,16 @@ export default function FacebookPage() {
                 }}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'spam' && spamLeads.length > 0 && (
+                  <span style={{ marginLeft: '4px', background: 'rgba(239,68,68,0.15)', color: '#dc2626', padding: '1px 6px', borderRadius: '10px', fontSize: '11px' }}>
+                    {spamLeads.length}
+                  </span>
+                )}
+                {status === 'all' && (
+                  <span style={{ marginLeft: '4px', color: '#9ca3af', fontSize: '11px' }}>
+                    {realLeads.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
