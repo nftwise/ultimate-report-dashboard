@@ -27,10 +27,8 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin-dashboard', icon: LayoutDashboard },
-  { label: 'Reports', href: '/admin-dashboard/reports', icon: BarChart2 },
   { label: 'Clients', href: '/admin-dashboard/clients', icon: Briefcase },
   { label: 'Users', href: '/admin-dashboard/users', icon: Users },
-  { label: 'Cron Monitor', href: '/admin-dashboard/cron-monitor', icon: Activity },
 ];
 
 const SETTINGS_ITEMS = [
