@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     const adsJson = await adsRes.json();
     if (adsJson.error) throw new Error(`Ads fetch: ${adsJson.error.message}`);
     const adIds = (adsJson.data || []).map((a: any) => a.id);
+    console.log(`[import-leads] Found ${adIds.length} ads, error: ${adsJson.error?.message || 'none'}`);
 
     // Fetch leads from each ad (ad-level endpoint works with Business Manager pages)
     let allLeads: any[] = [];
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
       skipped,
       errors: errors.length > 0 ? errors : undefined,
       client: client?.name,
+      adsFound: adIds.length,
     });
 
   } catch (err: any) {
