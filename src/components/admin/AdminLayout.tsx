@@ -17,6 +17,8 @@ import {
   Menu,
   X,
   BarChart2,
+  Settings,
+  Facebook,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -29,6 +31,10 @@ const NAV_ITEMS = [
   { label: 'Clients', href: '/admin-dashboard/clients', icon: Briefcase },
   { label: 'Users', href: '/admin-dashboard/users', icon: Users },
   { label: 'Cron Monitor', href: '/admin-dashboard/cron-monitor', icon: Activity },
+];
+
+const SETTINGS_ITEMS = [
+  { label: 'FB Onboarding', href: '/admin-dashboard/settings/onboard-fb', icon: Facebook },
 ];
 
 const CLIENT_TABS = [
@@ -283,6 +289,40 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Nav items */}
         <nav style={{ flex: 1, padding: '0 8px' }}>
           {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <button
+                key={href}
+                onClick={() => { router.push(href); setMobileOpen(false); }}
+                style={navButtonStyle(active)}
+                onMouseEnter={e => {
+                  if (!active) {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
+                    (e.currentTarget as HTMLElement).style.color = '#2c2419';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!active) {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = '#5c5850';
+                  }
+                }}
+              >
+                <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
+                <span>{label}</span>
+                {active && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+              </button>
+            );
+          })}
+
+          {/* Settings section */}
+          <div style={{ margin: '14px 0 6px', padding: '0 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>
+              <Settings size={11} />
+              Settings
+            </div>
+          </div>
+          {SETTINGS_ITEMS.map(({ label, href, icon: Icon }) => {
             const active = isActive(href);
             return (
               <button
