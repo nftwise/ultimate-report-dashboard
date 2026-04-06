@@ -108,8 +108,9 @@ export async function POST(request: NextRequest) {
 
       if (existing) { skipped++; continue; }
 
-      // Normalize phone if present
-      const normalizedPhone = finalPhone ? normalizePhoneNumber(finalPhone) : `+0${lead.id.slice(-10)}`;
+      // Normalize phone — only if it has 7+ digits, otherwise use lead ID placeholder
+      const digits = (finalPhone || '').replace(/\D/g, '');
+      const normalizedPhone = digits.length >= 7 ? normalizePhoneNumber(finalPhone) : `+0${lead.id.slice(-10)}`;
 
       // Insert lead — include ALL data, mark spam
       const { error } = await supabaseAdmin.from('fb_leads').insert({
