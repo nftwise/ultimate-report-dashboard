@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { appendLead, ensureWorksheet, initializeHeaders, parseGoogleServiceKey } from '@/lib/google-sheets';
+import { getStateFromPhone } from '@/lib/area-codes';
 
 export const maxDuration = 60;
 
@@ -37,7 +38,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    // Get client state for local flag
+    const { data: clientData } = await supabaseAdmin
+      .from('clients').select('city').eq('id', clientId).single();
+    const clientState = clientData?.city?.split(',').pop()?.trim() || '';
+
+    // Add state + local flag to each lead
+    const enriched = (data || []).map((lead: any) => {
+      const state = getStateFromPhone(lead.phone || '');
+      return {
+        ...lead,
+        phone_state: state,
+        is_local: state === clientState || state === 'Unknown' || state === 'Toll-Free' ? null : state === clientState,
+        is_out_of_area: state !== 'Unknown' && state !== 'Toll-Free' && state !== clientState,
+      };
+    });
+
+    return NextResponse.json({ data: enriched });
   } catch (error) {
     console.error('[fb_leads GET] Exception:', error);
     return NextResponse.json(

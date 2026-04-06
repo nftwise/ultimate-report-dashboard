@@ -1259,7 +1259,7 @@ export default function FacebookPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.1)' }}>
-                    {['Name', 'Phone', 'Source', 'Status', 'Created', 'Actions'].map((col) => (
+                    {['Name', 'Phone', 'Region', 'Source', 'Status', 'Notes', 'Created'].map((col) => (
                       <th key={col} style={{ textAlign: 'left', padding: '12px 0', color: '#6b7280', fontSize: '12px', fontWeight: 600 }}>
                         {col}
                       </th>
@@ -1273,7 +1273,21 @@ export default function FacebookPage() {
                       style={{ borderBottom: '1px solid rgba(44,36,25,0.05)', cursor: 'pointer' }}
                     >
                       <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.name || 'N/A'}</td>
-                      <td style={{ padding: '12px 0', color: '#2c2419' }}>{lead.phone}</td>
+                      <td style={{ padding: '12px 0', color: '#2c2419' }}>{(lead as any).phone?.startsWith('+0') ? '—' : (lead as any).phone}</td>
+                      <td style={{ padding: '12px 0' }}>
+                        {(lead as any).phone_state && (
+                          <span style={{
+                            background: (lead as any).is_out_of_area ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                            color: (lead as any).is_out_of_area ? '#dc2626' : '#10b981',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                          }}>
+                            {(lead as any).is_out_of_area ? '⚠️ ' : '✅ '}{(lead as any).phone_state}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 0' }}>
                         <span style={{
                           background: 'rgba(196,112,79,0.1)',
@@ -1296,13 +1310,11 @@ export default function FacebookPage() {
                           {lead.status}
                         </span>
                       </td>
+                      <td style={{ padding: '12px 0', color: '#6b7280', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(lead as any).notes?.split('\n')[0]?.replace(/^phone_number:\s*/,'') || '—'}
+                      </td>
                       <td style={{ padding: '12px 0', color: '#9ca3af', fontSize: '12px' }}>
                         {new Date(lead.created_at).toLocaleDateString()}
-                      </td>
-                      <td style={{ padding: '12px 0' }}>
-                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c4704f', fontSize: '14px' }}>
-                          💬 SMS
-                        </button>
                       </td>
                     </tr>
                   ))}
