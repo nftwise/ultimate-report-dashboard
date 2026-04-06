@@ -61,8 +61,14 @@ export async function POST(request: NextRequest) {
 
     let inserted = 0, skipped = 0;
 
+    const SPAM_PATTERNS = [
+      /skip\s*question/i, /not\s*interested/i, /no\s*thank/i, /disregard/i,
+      /accidental/i, /by\s*mistake/i, /in\s*error/i, /don'?t\s*know\s*why/i,
+      /just\s*scrolling/i, /sorry/i, /no\s*pets/i, /kiss\s*my/i,
+    ];
+
     for (const lead of allLeads) {
-      // Parse field_data
+      // Parse ALL field_data
       const fields: Record<string, string> = {};
       for (const f of lead.field_data || []) {
         fields[f.name] = f.values?.[0] || '';
@@ -72,9 +78,25 @@ export async function POST(request: NextRequest) {
       const name = fields['full_name'] || fields['name'] || '';
       const email = fields['email'] || '';
 
-      if (!phone) { skipped++; continue; }
+      // Build notes from ALL form responses
+      const allResponses = (lead.field_data || [])
+        .map((f: any) => `${f.name}: ${f.values?.[0] || ''}`)
+        .join('\n');
 
-      const normalizedPhone = normalizePhoneNumber(phone);
+      // Detect spam from responses
+      const allText = Object.values(fields).join(' ');
+      const isSpam = SPAM_PATTERNS.some(p => p.test(allText));
+
+      // Extract phone from any field if phone_number field is empty
+      let finalPhone = phone;
+      if (!finalPhone) {
+        for (const v of Object.values(fields)) {
+          if (/^\+?[\d\s\-()]{10,}$/.test(v.trim())) {
+            finalPhone = v.trim();
+            break;
+          }
+        }
+      }
 
       // Check if already exists
       const { data: existing } = await supabaseAdmin
@@ -86,7 +108,10 @@ export async function POST(request: NextRequest) {
 
       if (existing) { skipped++; continue; }
 
-      // Insert lead
+      // Normalize phone if present
+      const normalizedPhone = finalPhone ? normalizePhoneNumber(finalPhone) : `+0${lead.id.slice(-10)}`;
+
+      // Insert lead — include ALL data, mark spam
       const { error } = await supabaseAdmin.from('fb_leads').insert({
         client_id: clientId,
         lead_source: 'fb_lead_ad',
@@ -96,7 +121,8 @@ export async function POST(request: NextRequest) {
         email: email || null,
         ad_name: lead.ad_name || null,
         campaign_name: lead.campaign_name || null,
-        status: 'new',
+        status: isSpam ? 'closed' : 'new',
+        notes: allResponses || null,
         created_at: lead.created_time,
       });
 
