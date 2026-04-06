@@ -11,7 +11,7 @@ export const maxDuration = 60;
  */
 export async function POST(request: NextRequest) {
   try {
-    const { clientId, adAccountId, forceReimport } = await request.json();
+    const { clientId, adAccountId, forceReimport, accessToken: bodyToken } = await request.json();
 
     if (!clientId || !adAccountId) {
       return NextResponse.json({ error: 'Missing clientId or adAccountId' }, { status: 400 });
@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
       console.log(`[import-leads] Deleted existing fb_lead_ad leads for client ${clientId}`);
     }
 
-    const accessToken = process.env.FB_ADS_ACCESS_TOKEN;
+    const accessToken = bodyToken || process.env.FB_ADS_ACCESS_TOKEN;
     if (!accessToken) {
-      return NextResponse.json({ error: 'Missing FB_ADS_ACCESS_TOKEN' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing accessToken or FB_ADS_ACCESS_TOKEN' }, { status: 500 });
     }
 
     // Get client name
