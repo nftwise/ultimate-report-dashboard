@@ -11,10 +11,20 @@ export const maxDuration = 60;
  */
 export async function POST(request: NextRequest) {
   try {
-    const { clientId, adAccountId } = await request.json();
+    const { clientId, adAccountId, forceReimport } = await request.json();
 
     if (!clientId || !adAccountId) {
       return NextResponse.json({ error: 'Missing clientId or adAccountId' }, { status: 400 });
+    }
+
+    // Force reimport: delete existing FB leads for this client
+    if (forceReimport) {
+      await supabaseAdmin
+        .from('fb_leads')
+        .delete()
+        .eq('client_id', clientId)
+        .eq('lead_source', 'fb_lead_ad');
+      console.log(`[import-leads] Deleted existing fb_lead_ad leads for client ${clientId}`);
     }
 
     const accessToken = process.env.FB_ADS_ACCESS_TOKEN;
