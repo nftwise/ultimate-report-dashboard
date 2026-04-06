@@ -355,7 +355,6 @@ async function processClient(
   // AGGREGATE GA4 LANDING PAGES
   // =====================================================
   let blogSessions = 0;
-  let contentConversions = 0;
 
   // Aggregate sessions per landing page for top 5
   const landingPageMap = new Map<string, { sessions: number; conversions: number }>();
@@ -372,7 +371,6 @@ async function processClient(
 
     if (page.includes('/blog')) {
       blogSessions += s;
-      contentConversions += c;
     }
   }
 
@@ -514,7 +512,6 @@ async function processClient(
   let gbpReviewsNew = 0;
   let gbpRatingAvg = 0;
   let gbpRatingCount = 0;
-  let gbpPhotosCount = 0;
   let gbpPostsCount = 0;
   let gbpPostsViews = 0;
   let gbpPostsClicks = 0;
@@ -530,7 +527,6 @@ async function processClient(
       gbpRatingAvg += row.average_rating;
       gbpRatingCount++;
     }
-    gbpPhotosCount += row.business_photo_views || 0;
     gbpPostsCount = Math.max(gbpPostsCount, row.posts_count || 0);
     gbpPostsViews += row.posts_views || 0;
     gbpPostsClicks += row.posts_actions || 0;
@@ -561,18 +557,6 @@ async function processClient(
   if (gbpPostsCount > 0) healthScore += 5;
   if (gbpReviewsNew > 0) healthScore += 5;
   healthScore = Math.min(100, healthScore);
-
-  // MoM leads change
-  const prevLeads = prevData?.total_leads || totalLeads;
-  const momLeadsChange = prevLeads > 0
-    ? Math.round(((totalLeads - prevLeads) / prevLeads) * 10000) / 100
-    : 0;
-
-  // Alerts count
-  let alertsCount = 0;
-  if (gbpRatingAvg > 0 && gbpRatingAvg < 4.0) alertsCount++;
-  if (googleRank && googleRank > 20) alertsCount++;
-  if (adsSearchLostBudget > 50) alertsCount++;
 
   // Budget utilization
   const dayOfMonth = new Date(targetDate).getDate();
@@ -631,18 +615,14 @@ async function processClient(
     gbp_website_clicks: gbpWebsiteClicks,
     gbp_directions: gbpDirections,
     gbp_profile_views: gbpProfileViews,
-    gbp_searches_direct: 0,  // Not available in raw table
-    gbp_searches_discovery: 0, // Not available in raw table
 
     // GBP reviews
     gbp_reviews_count: gbpReviewsCount,
     gbp_reviews_new: gbpReviewsNew,
     gbp_rating_avg: gbpRatingAvg,
-    gbp_q_and_a_count: 0, // Not available in raw table
     days_since_review: 0,  // Would need historical lookup
 
     // GBP content
-    gbp_photos_count: gbpPhotosCount,
     gbp_posts_count: gbpPostsCount,
     gbp_posts_views: gbpPostsViews,
     gbp_posts_clicks: gbpPostsClicks,
@@ -650,14 +630,11 @@ async function processClient(
 
     // AM metrics
     health_score: healthScore,
-    mom_leads_change: momLeadsChange,
-    alerts_count: alertsCount,
     budget_utilization: budgetUtilization,
 
     // Content metrics
     top_landing_pages: topLandingPages,
     blog_sessions: blogSessions,
-    content_conversions: contentConversions,
     engagement_rate: engagementRate,
     returning_users: returningUsers,
     conversion_rate: conversionRate,
