@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     console.log(`[import-leads] Found ${allLeads.length} leads from ${adIds.length} ads`);
 
     let inserted = 0, skipped = 0;
+    const errors: string[] = [];
 
     const SPAM_PATTERNS = [
       /skip\s*question/i, /not\s*interested/i, /no\s*thank/i, /disregard/i,
@@ -138,7 +139,10 @@ export async function POST(request: NextRequest) {
       });
 
       if (!error) inserted++;
-      else skipped++;
+      else {
+        skipped++;
+        errors.push(`${name || lead.id}: ${error.message}`);
+      }
     }
 
     return NextResponse.json({
@@ -146,6 +150,7 @@ export async function POST(request: NextRequest) {
       total: allLeads.length,
       inserted,
       skipped,
+      errors: errors.length > 0 ? errors : undefined,
       client: client?.name,
     });
 
