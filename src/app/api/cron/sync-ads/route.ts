@@ -10,7 +10,10 @@ const TIMEOUT_MS = 25000;
 
 /**
  * GET /api/cron/sync-ads
- * Daily cron: Sync yesterday's Google Ads data to raw tables
+ * Daily cron: Sync Google Ads data for the last 7 days (rolling window).
+ * Syncing 7 days catches retroactive Google Ads conversion attribution updates
+ * (view-through, cross-device, phone call threshold) which can arrive up to 30-90 days late.
+ * For days 2-7 only campaign_metrics + conversions are re-synced (search_terms skipped to save time).
  * Tables: ads_campaign_metrics, ads_ad_group_metrics, campaign_conversion_actions, campaign_search_terms
  */
 export async function GET(request: NextRequest) {
@@ -24,17 +27,29 @@ export async function GET(request: NextRequest) {
 
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
-    const targetDate = dateParam || (() => {
-      // Use California timezone for "yesterday" calculation
-      const now = new Date();
-      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-      caToday.setDate(caToday.getDate() - 1);
-      return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
-    })();
-    const gaqlDate = targetDate.replace(/-/g, '');
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
-    console.log(`[sync-ads] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
+    // Build list of dates to sync.
+    // ?date=YYYY-MM-DD → single specific date (manual override)
+    // default → last 7 days to catch retroactive conversion updates
+    const caDateStr = (d: Date) => {
+      const ca = new Date(d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      return `${ca.getFullYear()}-${String(ca.getMonth() + 1).padStart(2, '0')}-${String(ca.getDate()).padStart(2, '0')}`;
+    };
+    const datesToSync: string[] = dateParam ? [dateParam] : (() => {
+      const now = new Date();
+      const dates: string[] = [];
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        dates.push(caDateStr(d));
+      }
+      return dates; // [yesterday, 2d ago, ..., 7d ago]
+    })();
+
+    const targetDate = datesToSync[0]; // most recent date for response/logs
+
+    console.log(`[sync-ads] Starting for ${datesToSync.length} days: ${datesToSync[datesToSync.length - 1]} → ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     // Get auth
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
@@ -83,83 +98,95 @@ export async function GET(request: NextRequest) {
     const errors: string[] = [];
     const cleanMccId = mccId?.replace(/-|\s/g, '');
 
-    // Process clients in batches
-    for (let i = 0; i < clientsWithAds.length; i += BATCH_SIZE) {
-      const batch = clientsWithAds.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(batch.map(async (client: any) => {
-        try {
-          const headers: Record<string, string> = {
-            'Authorization': `Bearer ${accessToken}`,
-            'developer-token': developerToken,
-            'Content-Type': 'application/json',
-          };
-          if (cleanMccId) headers['login-customer-id'] = cleanMccId;
+    // Process each date in the rolling window.
+    // Yesterday (index 0): full sync — campaigns, ad groups, conversions, search terms.
+    // Older dates (index 1-6): lightweight re-sync — campaigns + conversions only.
+    //   Rationale: ad groups and search terms don't change retroactively; conversions do.
+    for (let dateIdx = 0; dateIdx < datesToSync.length; dateIdx++) {
+      const syncDate = datesToSync[dateIdx];
+      const gaqlDate = syncDate.replace(/-/g, '');
+      const isFullSync = dateIdx === 0; // only yesterday gets all 4 report types
 
-          const apiUrl = `https://googleads.googleapis.com/v20/customers/${client.customerId}/googleAds:searchStream`;
+      console.log(`[sync-ads] Syncing ${syncDate} (${isFullSync ? 'full' : 'conversion re-sync'})`);
 
-          const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
-            try {
-              return await fn();
-            } catch (err: any) {
-              console.log(`[sync-ads] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+      for (let i = 0; i < clientsWithAds.length; i += BATCH_SIZE) {
+        const batch = clientsWithAds.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(async (client: any) => {
+          try {
+            const headers: Record<string, string> = {
+              'Authorization': `Bearer ${accessToken}`,
+              'developer-token': developerToken,
+              'Content-Type': 'application/json',
+            };
+            if (cleanMccId) headers['login-customer-id'] = cleanMccId;
+
+            const apiUrl = `https://googleads.googleapis.com/v20/customers/${client.customerId}/googleAds:searchStream`;
+
+            const fetchWithRetry = async (fn: () => Promise<any[]>, label: string) => {
               try {
-                await new Promise(r => setTimeout(r, 2000));
                 return await fn();
-              } catch (err2: any) {
-                console.log(`[sync-ads] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
-                errors.push(`${client.name} ${label}: ${err2.message}`);
-                return [];
+              } catch (err: any) {
+                console.log(`[sync-ads] ${client.name} ${label} attempt 1 failed: ${err.message}, retrying...`);
+                try {
+                  await new Promise(r => setTimeout(r, 2000));
+                  return await fn();
+                } catch (err2: any) {
+                  console.log(`[sync-ads] ${client.name} ${label} attempt 2 failed: ${err2.message}`);
+                  errors.push(`${client.name} ${syncDate} ${label}: ${err2.message}`);
+                  return [];
+                }
+              }
+            };
+
+            // Full sync (yesterday): all 4 report types
+            // Lookback sync (older days): campaigns + conversions only (retroactive updates only)
+            const [campaigns, adGroups, conversions, searchTerms] = await Promise.all([
+              fetchWithRetry(() => fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, syncDate), 'campaigns'),
+              isFullSync ? fetchWithRetry(() => fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, syncDate), 'adGroups') : Promise.resolve([]),
+              fetchWithRetry(() => fetchConversionActions(apiUrl, headers, gaqlDate, client.id, syncDate), 'conversions'),
+              isFullSync ? fetchWithRetry(() => fetchSearchTerms(apiUrl, headers, gaqlDate, client.id, syncDate), 'searchTerms') : Promise.resolve([]),
+            ]);
+
+            // Upsert each table
+            if (campaigns.length > 0) {
+              const { error } = await supabaseAdmin.from('ads_campaign_metrics').upsert(campaigns, { onConflict: 'client_id,campaign_id,date' });
+              if (error) { console.error(`[sync-ads] Campaign upsert error ${client.name} ${syncDate}:`, error.message); errors.push(`${client.name} ${syncDate} campaigns: ${error.message}`); }
+            }
+            if (adGroups.length > 0) {
+              const { error } = await supabaseAdmin.from('ads_ad_group_metrics').upsert(adGroups, { onConflict: 'client_id,campaign_id,ad_group_id,date' });
+              if (error) { console.error(`[sync-ads] AdGroup upsert error ${client.name} ${syncDate}:`, error.message); errors.push(`${client.name} ${syncDate} ad_groups: ${error.message}`); }
+            }
+            if (conversions.length > 0) {
+              const { error } = await supabaseAdmin.from('campaign_conversion_actions').upsert(conversions, { onConflict: 'client_id,campaign_id,date,conversion_action_name' });
+              if (error) { console.error(`[sync-ads] Conversion upsert error ${client.name} ${syncDate}:`, error.message); errors.push(`${client.name} ${syncDate} conversions: ${error.message}`); }
+            }
+            if (searchTerms.length > 0) {
+              const UPSERT_BATCH = 500;
+              for (let j = 0; j < searchTerms.length; j += UPSERT_BATCH) {
+                const chunk = searchTerms.slice(j, j + UPSERT_BATCH);
+                const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(chunk, { onConflict: 'client_id,campaign_id,date,search_term' });
+                if (error) { console.error(`[sync-ads] SearchTerm upsert error ${client.name} ${syncDate}:`, error.message); errors.push(`${client.name} ${syncDate} search_terms: ${error.message}`); break; }
               }
             }
-          };
 
-          // Fetch all 4 report types in parallel
-          const [campaigns, adGroups, conversions, searchTerms] = await Promise.all([
-            fetchWithRetry(() => fetchCampaignMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'campaigns'),
-            fetchWithRetry(() => fetchAdGroupMetrics(apiUrl, headers, gaqlDate, client.id, targetDate), 'adGroups'),
-            fetchWithRetry(() => fetchConversionActions(apiUrl, headers, gaqlDate, client.id, targetDate), 'conversions'),
-            fetchWithRetry(() => fetchSearchTerms(apiUrl, headers, gaqlDate, client.id, targetDate), 'searchTerms'),
-          ]);
+            return { campaigns: campaigns.length, adGroups: adGroups.length, conversions: conversions.length, searchTerms: searchTerms.length };
+          } catch (err: any) {
+            errors.push(`${client.name} ${syncDate}: ${err.message}`);
+            return { campaigns: 0, adGroups: 0, conversions: 0, searchTerms: 0 };
+          }
+        }));
 
-          // Upsert each table
-          if (campaigns.length > 0) {
-            const { error } = await supabaseAdmin.from('ads_campaign_metrics').upsert(campaigns, { onConflict: 'client_id,campaign_id,date' });
-            if (error) { console.error(`[sync-ads] Campaign upsert error ${client.name}:`, error.message); errors.push(`${client.name} campaigns: ${error.message}`); }
-          }
-          if (adGroups.length > 0) {
-            const { error } = await supabaseAdmin.from('ads_ad_group_metrics').upsert(adGroups, { onConflict: 'client_id,campaign_id,ad_group_id,date' });
-            if (error) { console.error(`[sync-ads] AdGroup upsert error ${client.name}:`, error.message); errors.push(`${client.name} ad_groups: ${error.message}`); }
-          }
-          if (conversions.length > 0) {
-            const { error } = await supabaseAdmin.from('campaign_conversion_actions').upsert(conversions, { onConflict: 'client_id,campaign_id,date,conversion_action_name' });
-            if (error) { console.error(`[sync-ads] Conversion upsert error ${client.name}:`, error.message); errors.push(`${client.name} conversions: ${error.message}`); }
-          }
-          if (searchTerms.length > 0) {
-            const UPSERT_BATCH = 500;
-            for (let j = 0; j < searchTerms.length; j += UPSERT_BATCH) {
-              const chunk = searchTerms.slice(j, j + UPSERT_BATCH);
-              const { error } = await supabaseAdmin.from('campaign_search_terms').upsert(chunk, { onConflict: 'client_id,campaign_id,date,search_term' });
-              if (error) { console.error(`[sync-ads] SearchTerm upsert error ${client.name}:`, error.message); errors.push(`${client.name} search_terms: ${error.message}`); break; }
-            }
-          }
-
-          return { campaigns: campaigns.length, adGroups: adGroups.length, conversions: conversions.length, searchTerms: searchTerms.length };
-        } catch (err: any) {
-          errors.push(`${client.name}: ${err.message}`);
-          return { campaigns: 0, adGroups: 0, conversions: 0, searchTerms: 0 };
-        }
-      }));
-
-      results.forEach((r) => {
-        totalCampaigns += r.campaigns;
-        totalAdGroups += r.adGroups;
-        totalConversions += r.conversions;
-        totalSearchTerms += r.searchTerms;
-      });
+        results.forEach((r) => {
+          totalCampaigns += r.campaigns;
+          totalAdGroups += r.adGroups;
+          totalConversions += r.conversions;
+          totalSearchTerms += r.searchTerms;
+        });
+      }
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[sync-ads] Done in ${duration}ms: ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
+    console.log(`[sync-ads] Done in ${duration}ms: ${datesToSync.length} days × ${clientsWithAds.length} clients → ${totalCampaigns} campaigns, ${totalAdGroups} ad groups, ${totalConversions} conversions, ${totalSearchTerms} search terms`);
 
     if (errors.length > 0) {
       sendCronFailureAlert('sync-ads', targetDate, errors).catch(() => {});
@@ -175,7 +202,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      date: targetDate,
+      dateRange: { from: datesToSync[datesToSync.length - 1], to: targetDate, days: datesToSync.length },
       clients: clientsWithAds.length,
       records: { campaigns: totalCampaigns, adGroups: totalAdGroups, conversions: totalConversions, searchTerms: totalSearchTerms },
       total: totalCampaigns + totalAdGroups + totalConversions + totalSearchTerms,

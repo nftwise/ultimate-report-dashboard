@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp, Trash2, KeyRound } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
@@ -217,6 +217,11 @@ export default function UsersPage() {
   const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Reset password dialog
+  const [resetTarget, setResetTarget]   = useState<User | null>(null);
+  const [resetPw, setResetPw]           = useState('');
+  const [resetting, setResetting]       = useState(false);
+
   // login_logs: { userId → { dateStr → count } }
   const [activityMap, setActivityMap] = useState<Record<string, Record<string, number>>>({});
   // recent logins: { userId → Array<{logged_at}> }
@@ -351,6 +356,28 @@ export default function UsersPage() {
     } finally {
       setDeleting(false);
       setConfirmDelete(null);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!resetTarget || !resetPw.trim()) return;
+    if (resetPw.trim().length < 8) { setError('Password must be at least 8 characters'); return; }
+    setResetting(true);
+    try {
+      const res = await fetch('/api/admin/add-user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: resetTarget.id, password: resetPw.trim() }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to reset password');
+      setSuccess(`Password reset for ${resetTarget.email}`);
+      setResetTarget(null);
+      setResetPw('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -614,6 +641,22 @@ export default function UsersPage() {
                                         No login history recorded yet. Activity will appear after the next login.
                                       </div>
                                     )}
+                                    {isAdmin && (
+                                      <div style={{ padding: '10px 24px 18px', borderTop: '1px solid rgba(44,36,25,0.06)' }}>
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setResetPw(''); setResetTarget(user); }}
+                                          style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                            padding: '7px 14px', borderRadius: 7,
+                                            border: '1.5px solid rgba(196,112,79,0.3)',
+                                            background: 'transparent', color: '#c4704f',
+                                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                          }}
+                                        >
+                                          <KeyRound size={13} /> Reset Password
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -699,6 +742,56 @@ export default function UsersPage() {
               >
                 {deleting && <Loader2 size={13} className="animate-spin" />}
                 {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reset Password Dialog */}
+      {resetTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(44,36,25,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => { setResetTarget(null); setResetPw(''); }}>
+          <div style={{
+            background: '#fff', borderRadius: '18px', padding: '28px 32px', maxWidth: '400px', width: '90%',
+            boxShadow: '0 20px 60px rgba(44,36,25,0.18)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <KeyRound size={17} color="#c4704f" />
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419' }}>Reset Password</div>
+            </div>
+            <div style={{ fontSize: '13px', color: '#5c5850', marginBottom: '20px', lineHeight: 1.5 }}>
+              Set a new password for <strong>{resetTarget.email}</strong>.
+            </div>
+            <input
+              type="password"
+              value={resetPw}
+              onChange={e => setResetPw(e.target.value)}
+              placeholder="New password (min 8 characters)"
+              autoFocus
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                border: '1.5px solid rgba(44,36,25,0.15)', fontSize: 14,
+                outline: 'none', boxSizing: 'border-box', marginBottom: 20,
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setResetTarget(null); setResetPw(''); }}
+                disabled={resetting}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid rgba(44,36,25,0.15)', background: 'transparent', color: '#5c5850', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetPassword}
+                disabled={resetting || resetPw.trim().length < 8}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#c4704f', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: (resetting || resetPw.trim().length < 8) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: (resetting || resetPw.trim().length < 8) ? 0.6 : 1 }}
+              >
+                {resetting && <Loader2 size={13} className="animate-spin" />}
+                {resetting ? 'Saving…' : 'Set Password'}
               </button>
             </div>
           </div>

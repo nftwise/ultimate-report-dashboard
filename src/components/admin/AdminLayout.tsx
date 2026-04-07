@@ -192,11 +192,36 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             })}
           </nav>
 
-          {/* Bottom: email + logout */}
+          {/* Bottom: email + account + logout */}
           <div style={{ padding: '12px 8px 20px 8px', borderTop: '1px solid rgba(44,36,25,0.08)', marginTop: 'auto' }}>
             <div style={{ padding: '6px 14px 10px', fontSize: '11px', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {userEmail}
             </div>
+            {(() => {
+              const settingsHref = `/portal/${clientSlug}/settings`;
+              const settingsActive = pathname === settingsHref;
+              return (
+                <button
+                  onClick={() => { router.push(settingsHref); setMobileOpen(false); }}
+                  style={navButtonStyle(settingsActive)}
+                  onMouseEnter={e => {
+                    if (!settingsActive) {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
+                      (e.currentTarget as HTMLElement).style.color = '#2c2419';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!settingsActive) {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      (e.currentTarget as HTMLElement).style.color = '#5c5850';
+                    }
+                  }}
+                >
+                  <Settings size={15} strokeWidth={settingsActive ? 2.2 : 1.8} />
+                  <span>My Account</span>
+                </button>
+              );
+            })()}
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               aria-label="Logout"
@@ -369,6 +394,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               {userEmail}
             </div>
           </div>
+          <button
+            onClick={() => { router.push('/admin-dashboard/settings'); setMobileOpen(false); }}
+            style={navButtonStyle(pathname === '/admin-dashboard/settings')}
+            onMouseEnter={e => {
+              if (pathname !== '/admin-dashboard/settings') {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.04)';
+                (e.currentTarget as HTMLElement).style.color = '#2c2419';
+              }
+            }}
+            onMouseLeave={e => {
+              if (pathname !== '/admin-dashboard/settings') {
+                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                (e.currentTarget as HTMLElement).style.color = '#5c5850';
+              }
+            }}
+          >
+            <Settings size={15} strokeWidth={pathname === '/admin-dashboard/settings' ? 2.2 : 1.8} />
+            <span>My Account</span>
+            {pathname === '/admin-dashboard/settings' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+          </button>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
             aria-label="Logout"
