@@ -107,6 +107,265 @@ interface DetailedInsights {
 
 const PIE_COLORS = ['#c4704f', '#d9a854', '#9db5a0', '#10b981', '#6366f1', '#ec4899'];
 
+// ── FB Upsell / FOMO page ────────────────────────────────────────────────
+function FBUpsellPage({ clientSlug, clientData, fomoData }: {
+  clientSlug: string;
+  clientData: any;
+  fomoData: { totalLeads: number; avgCpl: number; clientCount: number; dailyTrend: { date: string; leads: number }[] } | null;
+}) {
+  const [showDemo, setShowDemo] = useState(false);
+  const [demo, setDemo] = useState<any>(null);
+  const [loadingDemo, setLoadingDemo] = useState(false);
+
+  const now = new Date();
+  const month = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  const openDemo = async () => {
+    setShowDemo(true);
+    if (demo) return;
+    setLoadingDemo(true);
+    try {
+      const res = await fetch('/api/facebook/demo-data');
+      if (res.ok) setDemo(await res.json());
+    } catch { /* silent */ } finally {
+      setLoadingDemo(false);
+    }
+  };
+
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)',
+    borderRadius: '14px', border: '1px solid rgba(44,36,25,0.08)',
+    padding: '20px', marginBottom: '16px',
+    boxShadow: '0 2px 16px rgba(44,36,25,0.06)',
+  };
+
+  return (
+    <AdminLayout>
+      <ClientTabBar clientSlug={clientSlug} clientName={clientData.name} clientCity={clientData.city} activeTab="facebook" />
+
+      <div style={{ padding: '24px', maxWidth: '780px', margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
+            Facebook Ads is not active for your account
+          </h1>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: 0 }}>
+            Reach new patients on Facebook & Instagram — leads flow directly into this dashboard.
+          </p>
+        </div>
+
+        {/* FOMO stats */}
+        <div style={{
+          background: 'linear-gradient(135deg, #c4704f 0%, #d9a854 100%)',
+          borderRadius: '14px', padding: '20px', marginBottom: '16px',
+          boxShadow: '0 6px 24px rgba(196,112,79,0.22)',
+        }}>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', margin: '0 0 16px' }}>
+            {month} — Our clients are getting
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            {[
+              { value: fomoData ? fmtNum(fomoData.totalLeads) : '…', label: 'New Leads' },
+              { value: fomoData?.avgCpl ? `$${fomoData.avgCpl.toFixed(0)}` : '…', label: 'Avg Cost / Lead' },
+              { value: fomoData ? `${fomoData.clientCount}` : '…', label: 'Active Clinics' },
+            ].map(({ value, label }) => (
+              <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.18)', borderRadius: '10px', padding: '14px 8px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
+                <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: '11px', marginTop: '4px' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Blurred trend preview */}
+        {fomoData && fomoData.dailyTrend.length > 3 && (
+          <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '16px 20px' }}>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: '0 0 12px' }}>
+              Daily Lead Volume — All clients combined (anonymous)
+            </p>
+            <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
+              <ResponsiveContainer width="100%" height={120}>
+                <AreaChart data={fomoData.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fomoG" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                  <YAxis hide />
+                  <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#fomoG)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={openDemo} style={{
+                background: '#2c2419', color: 'white', border: 'none', cursor: 'pointer',
+                padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                boxShadow: '0 4px 16px rgba(44,36,25,0.3)',
+              }}>
+                👁 View Live Demo Dashboard →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CTA */}
+        <div style={{ ...card, border: '1.5px solid rgba(196,112,79,0.3)', background: 'rgba(196,112,79,0.03)', marginBottom: 0 }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px' }}>Ready to get started?</p>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: '0 0 16px' }}>
+            We can have your campaigns live within 7 business days.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <a href={`tel:${CONTACT_PHONE_TEL}`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: '#c4704f', color: 'white', padding: '10px 18px',
+              borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px',
+            }}>📞 {CONTACT_PHONE}</a>
+            <a href={`mailto:${CONTACT_EMAIL}`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: 'white', color: '#c4704f', padding: '10px 18px',
+              borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px',
+              border: '1.5px solid #c4704f',
+            }}>✉️ {CONTACT_EMAIL}</a>
+            <button onClick={openDemo} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: 'rgba(44,36,25,0.06)', color: '#2c2419', padding: '10px 18px',
+              borderRadius: '8px', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer',
+            }}>👁 View Demo</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo modal */}
+      {showDemo && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          overflowY: 'auto', padding: '24px 16px',
+        }} onClick={(e) => { if (e.target === e.currentTarget) setShowDemo(false); }}>
+          <div style={{
+            background: '#f9f7f4', borderRadius: '16px', width: '100%', maxWidth: '860px',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden',
+          }}>
+            {/* Modal header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #2c2419, #4a3728)',
+              padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <span style={{ color: '#d9a854', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  DEMO — Anonymous Client Data
+                </span>
+                <p style={{ color: 'white', fontSize: '15px', fontWeight: 700, margin: '2px 0 0' }}>
+                  Facebook Ads Dashboard Preview
+                </p>
+              </div>
+              <button onClick={() => setShowDemo(false)} style={{
+                background: 'rgba(255,255,255,0.12)', border: 'none', color: 'white',
+                width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px',
+              }}>×</button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              {loadingDemo && (
+                <div style={{ textAlign: 'center', padding: '48px', color: '#6b5c4e' }}>Loading demo data…</div>
+              )}
+
+              {!loadingDemo && !demo && (
+                <div style={{ textAlign: 'center', padding: '48px', color: '#6b5c4e' }}>No demo data available.</div>
+              )}
+
+              {!loadingDemo && demo && (() => {
+                const s = demo.summary;
+                const kpis = [
+                  { label: 'Total Leads', value: fmtNum(s.totalLeads) },
+                  { label: 'Total Spend', value: fmtCurrency(s.totalSpend) },
+                  { label: 'Cost / Lead', value: fmtCurrency(s.avgCpl) },
+                  { label: 'CTR', value: `${s.avgCtr}%` },
+                ];
+                return (
+                  <>
+                    {/* KPI cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '20px' }}>
+                      {kpis.map(({ label, value }) => (
+                        <div key={label} style={{ background: 'white', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                          <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
+                          <div style={{ fontSize: '22px', fontWeight: 800, color: '#2c2419', marginTop: '4px' }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Daily trend */}
+                    <div style={{ background: 'white', borderRadius: '10px', padding: '16px', marginBottom: '20px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: '0 0 12px' }}>Daily Leads This Month</p>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <AreaChart data={demo.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="demoG" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                          <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={28} />
+                          <Tooltip formatter={(v: any) => [v, 'Leads']} />
+                          <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#demoG)" strokeWidth={2} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Campaign table */}
+                    <div style={{ background: 'white', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.08)', overflow: 'hidden' }}>
+                      <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: 0 }}>Campaign Performance</p>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(44,36,25,0.03)' }}>
+                              {['Campaign', 'Leads', 'Spend', 'CPL', 'CTR'].map(h => (
+                                <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Campaign' ? 'left' : 'right', fontWeight: 600, color: '#6b5c4e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {demo.campaigns.map((c: any, i: number) => (
+                              <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 500, color: '#2c2419' }}>{c.name}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#c4704f' }}>{c.leads}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{fmtCurrency(c.spend)}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{fmtCurrency(c.cpl)}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{c.ctr}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* CTA inside modal */}
+                    <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(196,112,79,0.06)', borderRadius: '10px', border: '1px solid rgba(196,112,79,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#2c2419' }}>Want results like this for your clinic?</p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a href={`tel:${CONTACT_PHONE_TEL}`} style={{ background: '#c4704f', color: 'white', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>📞 {CONTACT_PHONE}</a>
+                        <a href={`mailto:${CONTACT_EMAIL}`} style={{ background: 'white', color: '#c4704f', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px', border: '1.5px solid #c4704f' }}>✉️ Email Us</a>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
+
 // Default date range: last 30 days
 function getDefaultDates() {
   const now = new Date();
@@ -439,146 +698,14 @@ export default function FacebookPage() {
     );
   }
 
-  // ── FOMO / Upsell page for clients without FB Ads configured ─────────────
+  // ── Upsell page for clients without FB Ads configured ───────────────────
   const hasFBConfigured = !!(
     clientData?.service_configs?.[0]?.fb_ad_account_id ||
     clientData?.service_configs?.fb_ad_account_id
   );
 
   if (!hasFBConfigured) {
-    const now = new Date();
-    const monthName = now.toLocaleString('vi-VN', { month: 'long', year: 'numeric' });
-    return (
-      <AdminLayout>
-        <ClientTabBar clientSlug={clientSlug} clientName={clientData.name} clientCity={clientData.city} activeTab="facebook" />
-        <div style={{ padding: '24px', maxWidth: '860px', margin: '0 auto' }}>
-
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontSize: '52px', marginBottom: '12px' }}>📱</div>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#2c2419', margin: 0 }}>
-              Facebook Ads chưa được kích hoạt
-            </h1>
-            <p style={{ color: '#6b5c4e', marginTop: '8px', fontSize: '14px' }}>
-              Tiếp cận bệnh nhân mới ngay trên Facebook & Instagram — tự động hoá toàn bộ quy trình từ lead đến lịch hẹn.
-            </p>
-          </div>
-
-          {/* FOMO Stats */}
-          <div style={{
-            background: 'linear-gradient(135deg, #c4704f 0%, #d9a854 100%)',
-            borderRadius: '16px', padding: '24px', marginBottom: '24px',
-            boxShadow: '0 8px 32px rgba(196,112,79,0.25)',
-          }}>
-            <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '20px', margin: '0 0 20px' }}>
-              📊 {monthName} — Khách hàng của chúng tôi đã đạt được
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-              {[
-                { value: fomoData ? fmtNum(fomoData.totalLeads) : '…', label: 'New Leads' },
-                { value: fomoData?.avgCpl ? `$${fomoData.avgCpl.toFixed(0)}` : '…', label: 'Cost Per Lead' },
-                { value: fomoData ? `${fomoData.clientCount} clinics` : '…', label: 'Đang chạy' },
-              ].map(({ value, label }) => (
-                <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'white', lineHeight: 1.1 }}>{value}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Blurred demo chart */}
-          {fomoData && fomoData.dailyTrend.length > 3 && (
-            <div style={{ ...sectionCard, position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 16px' }}>
-                📈 Lead Trend — Tổng hợp từ tất cả clients (ẩn danh)
-              </p>
-              <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
-                <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={fomoData.dailyTrend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fomoGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#c4704f" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={28} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#fomoGrad)" strokeWidth={2.5} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              <div style={{
-                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(1px)',
-              }}>
-                <div style={{
-                  background: 'rgba(44,36,25,0.88)', color: 'white', padding: '10px 22px',
-                  borderRadius: '10px', fontSize: '14px', fontWeight: 600, letterSpacing: '0.3px',
-                }}>
-                  🔒 Kích hoạt để xem dashboard đầy đủ của bạn
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* What you get */}
-          <div style={{ ...sectionCard, marginBottom: '24px' }}>
-            <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 16px' }}>
-              ✅ Bạn sẽ nhận được gì
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {[
-                '🎯 Campaign tối ưu cho chiropractic',
-                '📥 Lead tự động đổ về dashboard',
-                '💬 Tự động SMS follow-up cho lead',
-                '📊 Báo cáo hàng ngày, hàng tuần',
-                '🔔 Alert khi có lead mới ngay lập tức',
-                '🤝 Đội ngũ hỗ trợ chuyên biệt',
-              ].map(item => (
-                <div key={item} style={{ fontSize: '13px', color: '#4a3728', padding: '8px 12px', background: 'rgba(44,36,25,0.04)', borderRadius: '8px' }}>
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div style={{
-            ...sectionCard,
-            border: '2px solid rgba(196,112,79,0.35)',
-            background: 'rgba(196,112,79,0.04)',
-          }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
-              Bắt đầu ngay hôm nay
-            </h2>
-            <p style={{ color: '#6b5c4e', fontSize: '13px', margin: '0 0 20px' }}>
-              Liên hệ với chúng tôi — chúng tôi có thể kích hoạt và chạy campaign cho bạn trong vòng 7 ngày làm việc.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <a href={`tel:${CONTACT_PHONE_TEL}`} style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                background: '#c4704f', color: 'white', padding: '12px 22px',
-                borderRadius: '10px', textDecoration: 'none', fontWeight: 600, fontSize: '15px',
-              }}>
-                📞 {CONTACT_PHONE}
-              </a>
-              <a href={`mailto:${CONTACT_EMAIL}`} style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                background: 'white', color: '#c4704f', padding: '12px 22px',
-                borderRadius: '10px', textDecoration: 'none', fontWeight: 600, fontSize: '15px',
-                border: '2px solid #c4704f',
-              }}>
-                ✉️ {CONTACT_EMAIL}
-              </a>
-            </div>
-          </div>
-
-        </div>
-      </AdminLayout>
-    );
+    return <FBUpsellPage clientSlug={clientSlug} clientData={clientData} fomoData={fomoData} />;
   }
 
   return (
