@@ -36,6 +36,7 @@ jobs:
             echo "→ Re-validating ${START} → ${END}"
             RESULT=$(curl -f -s -X GET \
               "${{ secrets.VERCEL_URL }}/api/admin/gbp-rebackfill?start=${START}&end=${END}" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
               -m 300 || echo '{"success":false,"error":"request failed"}')
 
             echo "$RESULT" | python3 -c "
