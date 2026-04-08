@@ -107,37 +107,66 @@ interface DetailedInsights {
 
 const PIE_COLORS = ['#c4704f', '#d9a854', '#9db5a0', '#10b981', '#6366f1', '#ec4899'];
 
+// ── Synthetic demo data (hardcoded for consistent marketing display) ─────
+// Daily leads per day — aggregate across all active clinics (blurred preview)
+const FOMO_SEED = [14, 18, 13, 22, 17, 19, 15, 21, 16, 23, 18, 20, 14, 24, 19, 17, 22, 15, 20, 25, 18, 21, 16, 23, 19, 22, 17, 24, 20, 18, 21];
+// Daily leads per day — single clinic demo
+const DEMO_SEED = [3, 4, 3, 5, 4, 4, 3, 5, 4, 5, 3, 4, 5, 4, 3, 5, 4, 4, 5, 3, 4, 4, 5, 4, 3, 5, 4, 4, 5, 4, 3];
+
+function buildSyntheticTrend() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const daysElapsed = now.getDate();
+  return Array.from({ length: daysElapsed }, (_, i) => ({
+    date: `${mm}-${String(i + 1).padStart(2, '0')}`,
+    leads: FOMO_SEED[i] ?? 18,
+  }));
+}
+
+function buildSyntheticDemo() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const daysElapsed = now.getDate();
+  const CPL = 68;
+
+  const dailyTrend = Array.from({ length: daysElapsed }, (_, i) => {
+    const leads = DEMO_SEED[i] ?? 4;
+    return { date: `${mm}-${String(i + 1).padStart(2, '0')}`, leads, spend: +(leads * CPL).toFixed(2) };
+  });
+
+  const totalLeads = dailyTrend.reduce((s, r) => s + r.leads, 0);
+  const totalSpend = +(totalLeads * CPL).toFixed(2);
+  const totalImpressions = totalLeads * 390;
+  const totalClicks = Math.round(totalLeads * 13.5);
+
+  return {
+    period: { from: `${yyyy}-${mm}-01`, to: now.toISOString().split('T')[0] },
+    summary: { totalLeads, totalSpend, totalImpressions, totalClicks, avgCpl: CPL, avgCtr: 2.8 },
+    campaigns: [
+      { name: 'Campaign A', leads: Math.round(totalLeads * 0.52), spend: +(totalSpend * 0.48).toFixed(2), impressions: Math.round(totalImpressions * 0.50), clicks: Math.round(totalClicks * 0.52), cpl: 63, ctr: 3.2 },
+      { name: 'Campaign B', leads: Math.round(totalLeads * 0.30), spend: +(totalSpend * 0.33).toFixed(2), impressions: Math.round(totalImpressions * 0.30), clicks: Math.round(totalClicks * 0.28), cpl: 75, ctr: 2.5 },
+      { name: 'Campaign C', leads: Math.round(totalLeads * 0.18), spend: +(totalSpend * 0.19).toFixed(2), impressions: Math.round(totalImpressions * 0.20), clicks: Math.round(totalClicks * 0.20), cpl: 71, ctr: 2.1 },
+    ],
+    dailyTrend,
+  };
+}
+
 // ── FB Upsell / FOMO page ────────────────────────────────────────────────
-function FBUpsellPage({ clientSlug, clientData, fomoData }: {
+function FBUpsellPage({ clientSlug, clientData }: {
   clientSlug: string;
   clientData: any;
-  fomoData: { totalLeads: number; avgCpl: number; clientCount: number; dailyTrend: { date: string; leads: number }[] } | null;
 }) {
   const [showDemo, setShowDemo] = useState(false);
   const [demo, setDemo] = useState<any>(null);
-  const [loadingDemo, setLoadingDemo] = useState(false);
 
   const now = new Date();
   const month = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const syntheticTrend = buildSyntheticTrend();
 
-  // Per-clinic average, floored to marketing-friendly minimums
-  const perClinicLeads = fomoData && fomoData.clientCount > 0
-    ? Math.max(15, Math.round(fomoData.totalLeads / fomoData.clientCount))
-    : 15;
-  const displayCpl = fomoData?.avgCpl && fomoData.avgCpl > 0
-    ? Math.min(80, fomoData.avgCpl)
-    : 80;
-
-  const openDemo = async () => {
+  const openDemo = () => {
+    if (!demo) setDemo(buildSyntheticDemo());
     setShowDemo(true);
-    if (demo) return;
-    setLoadingDemo(true);
-    try {
-      const res = await fetch('/api/facebook/demo-data');
-      if (res.ok) setDemo(await res.json());
-    } catch { /* silent */ } finally {
-      setLoadingDemo(false);
-    }
   };
 
   const card: React.CSSProperties = {
@@ -174,9 +203,9 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             {[
-              { value: `${perClinicLeads}+`, label: 'New Leads / Clinic' },
-              { value: `$${displayCpl.toFixed(0)}`, label: 'Avg Cost / Lead' },
-              { value: fomoData ? `${fomoData.clientCount}` : '…', label: 'Active Clinics' },
+              { value: '18+', label: 'New Leads / Clinic' },
+              { value: '$68', label: 'Avg Cost / Lead' },
+              { value: '9', label: 'Active Clinics' },
             ].map(({ value, label }) => (
               <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.18)', borderRadius: '10px', padding: '14px 8px' }}>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
@@ -188,26 +217,22 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
 
         {/* Blurred trend preview + big View Demo CTA */}
         <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '0', marginBottom: '16px' }}>
-          {fomoData && fomoData.dailyTrend.length > 3 ? (
-            <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: '16px 20px 8px' }}>
-              <p style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', margin: '0 0 10px' }}>Daily Leads — All active clinics (anonymous)</p>
-              <ResponsiveContainer width="100%" height={110}>
-                <AreaChart data={fomoData.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="fomoG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} />
-                  <YAxis hide />
-                  <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#fomoG)" strokeWidth={2} dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div style={{ height: '60px' }} />
-          )}
+          <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: '16px 20px 8px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', margin: '0 0 10px' }}>Daily Leads — All active clinics (anonymous)</p>
+            <ResponsiveContainer width="100%" height={110}>
+              <AreaChart data={syntheticTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="fomoG" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                <YAxis hide />
+                <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#fomoG)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
           {/* Big View Demo button overlay */}
           <div style={{
             position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -230,8 +255,6 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
               <span style={{ fontSize: '18px' }}>→</span>
             </button>
           </div>
-          {/* Invisible padding so card has height */}
-          <div style={{ height: fomoData && fomoData.dailyTrend.length > 3 ? 0 : '100px' }} />
         </div>
 
         {/* CTA */}
@@ -288,15 +311,7 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
             </div>
 
             <div style={{ padding: '24px' }}>
-              {loadingDemo && (
-                <div style={{ textAlign: 'center', padding: '48px', color: '#6b5c4e' }}>Loading demo data…</div>
-              )}
-
-              {!loadingDemo && !demo && (
-                <div style={{ textAlign: 'center', padding: '48px', color: '#6b5c4e' }}>No demo data available.</div>
-              )}
-
-              {!loadingDemo && demo && (() => {
+              {demo && (() => {
                 const s = demo.summary;
                 const kpis = [
                   { label: 'Total Leads', value: fmtNum(s.totalLeads) },
@@ -439,46 +454,6 @@ export default function FacebookPage() {
   const [dateTo, setDateTo] = useState(defaultTo);
   const [detailedInsights, setDetailedInsights] = useState<DetailedInsights | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
-  const [fomoData, setFomoData] = useState<{
-    totalLeads: number; avgCpl: number; clientCount: number;
-    dailyTrend: { date: string; leads: number }[];
-  } | null>(null);
-
-  // Fetch FOMO aggregate stats when client has no FB configured
-  useEffect(() => {
-    if (!clientData) return;
-    const fbConfigured = clientData?.service_configs?.[0]?.fb_ad_account_id
-      || clientData?.service_configs?.fb_ad_account_id;
-    if (fbConfigured) return;
-
-    const now = new Date();
-    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const today = now.toISOString().split('T')[0];
-
-    supabase
-      .from('client_metrics_summary')
-      .select('client_id, date, fb_leads, fb_spend')
-      .eq('period_type', 'daily')
-      .gte('date', startOfMonth)
-      .lte('date', today)
-      .gt('fb_leads', 0)
-      .then(({ data }) => {
-        if (!data?.length) return;
-        const totalLeads = data.reduce((s, r) => s + (r.fb_leads || 0), 0);
-        const totalSpend = data.reduce((s, r) => s + (r.fb_spend || 0), 0);
-        const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-        const clientCount = new Set(data.map(r => r.client_id)).size;
-        const byDate: Record<string, number> = {};
-        for (const r of data) {
-          byDate[r.date] = (byDate[r.date] || 0) + (r.fb_leads || 0);
-        }
-        const dailyTrend = Object.entries(byDate)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([date, leads]) => ({ date: date.slice(5), leads }));
-        setFomoData({ totalLeads, avgCpl, clientCount, dailyTrend });
-      });
-  }, [clientData]);
-
   // Separate real leads from spam (no phone = spam)
   const realLeads = leads.filter(l => !(l as any).phone?.startsWith('+0') && l.status !== 'closed');
   const spamLeads = leads.filter(l => (l as any).phone?.startsWith('+0') || l.status === 'closed');
@@ -723,7 +698,7 @@ export default function FacebookPage() {
   );
 
   if (!hasFBConfigured) {
-    return <FBUpsellPage clientSlug={clientSlug} clientData={clientData} fomoData={fomoData} />;
+    return <FBUpsellPage clientSlug={clientSlug} clientData={clientData} />;
   }
 
   return (
