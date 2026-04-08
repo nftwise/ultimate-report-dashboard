@@ -1,6 +1,6 @@
 /**
- * Twilio SMS Helper
- * Handles sending SMS and parsing Twilio webhooks
+ * SMS Helper — AWS SNS (primary) with Twilio fallback
+ * Handles sending SMS via AWS SNS and parsing Twilio webhooks
  */
 
 export interface TwilioSendResult {
@@ -11,36 +11,134 @@ export interface TwilioSendResult {
 }
 
 /**
- * Send SMS via Twilio
+ * Send SMS via AWS SNS (or Twilio fallback)
  * @param to Phone number in E.164 format (e.g., +16175551234)
  * @param body Message text
- * @returns Twilio message SID
+ * @returns Message ID
  * @throws Error if send fails
  */
 export async function sendSMS(to: string, body: string): Promise<string> {
+  // Try AWS SNS first
+  const awsKey = process.env.AWS_ACCESS_KEY_ID;
+  const awsSecret = process.env.AWS_SECRET_ACCESS_KEY;
+  const awsRegion = process.env.AWS_REGION || 'us-east-1';
+
+  if (awsKey && awsSecret) {
+    return sendViaSNS(to, body, awsKey, awsSecret, awsRegion);
+  }
+
+  // Fallback to Twilio
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (!accountSid || !authToken || !fromNumber) {
-    throw new Error(
-      'Missing Twilio env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER'
-    );
+    throw new Error('Missing SMS config: set AWS_ACCESS_KEY_ID or TWILIO_ACCOUNT_SID');
   }
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  return sendViaTwilio(to, body, accountSid, authToken, fromNumber);
+}
 
-  // Basic auth header
+async function sendViaSNS(
+  to: string,
+  body: string,
+  accessKeyId: string,
+  secretAccessKey: string,
+  region: string
+): Promise<string> {
+  // AWS SNS Publish via REST API (no SDK needed)
+  const host = `sns.${region}.amazonaws.com`;
+  const endpoint = `https://${host}/`;
+
+  const params = new URLSearchParams({
+    Action: 'Publish',
+    PhoneNumber: to,
+    Message: body,
+    Version: '2010-03-31',
+  });
+
+  // AWS Signature V4
+  const now = new Date();
+  const dateStamp = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 8);
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+
+  const method = 'POST';
+  const service = 'sns';
+  const contentType = 'application/x-www-form-urlencoded';
+  const bodyStr = params.toString();
+
+  // Create canonical request
+  const { createHmac, createHash } = await import('crypto');
+
+  const payloadHash = createHash('sha256').update(bodyStr).digest('hex');
+  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = 'content-type;host;x-amz-date';
+  const canonicalRequest = `${method}\n/\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${createHash('sha256').update(canonicalRequest).digest('hex')}`;
+
+  const sign = (key: Buffer | string, msg: string) => createHmac('sha256', key).update(msg).digest();
+  const kDate = sign(`AWS4${secretAccessKey}`, dateStamp);
+  const kRegion = sign(kDate, region);
+  const kService = sign(kRegion, service);
+  const kSigning = sign(kService, 'aws4_request');
+  const signature = createHmac('sha256', kSigning).update(stringToSign).digest('hex');
+
+  const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method,
+      headers: {
+        'Content-Type': contentType,
+        'X-Amz-Date': amzDate,
+        Authorization: authHeader,
+        Host: host,
+      },
+      body: bodyStr,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`AWS SNS error (${response.status}): ${text.slice(0, 200)}`);
+    }
+
+    // Extract MessageId from XML
+    const match = text.match(/<MessageId>(.*?)<\/MessageId>/);
+    return match?.[1] || 'sns-ok';
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('AWS SNS request timeout');
+    }
+    throw error;
+  }
+}
+
+async function sendViaTwilio(
+  to: string,
+  body: string,
+  accountSid: string,
+  authToken: string,
+  fromNumber: string
+): Promise<string> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
-  // Build form data
   const params = new URLSearchParams();
   params.append('From', fromNumber);
   params.append('To', to);
   params.append('Body', body);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(url, {
@@ -57,9 +155,7 @@ export async function sendSMS(to: string, body: string): Promise<string> {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Twilio API error (${response.status}): ${errorText}`
-      );
+      throw new Error(`Twilio API error (${response.status}): ${errorText}`);
     }
 
     const data = (await response.json()) as TwilioSendResult;
