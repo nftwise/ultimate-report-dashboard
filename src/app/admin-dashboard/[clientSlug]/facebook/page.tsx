@@ -120,6 +120,14 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
   const now = new Date();
   const month = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
+  // Per-clinic average, floored to marketing-friendly minimums
+  const perClinicLeads = fomoData && fomoData.clientCount > 0
+    ? Math.max(15, Math.round(fomoData.totalLeads / fomoData.clientCount))
+    : 15;
+  const displayCpl = fomoData?.avgCpl && fomoData.avgCpl > 0
+    ? Math.min(80, fomoData.avgCpl)
+    : 80;
+
   const openDemo = async () => {
     setShowDemo(true);
     if (demo) return;
@@ -166,8 +174,8 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             {[
-              { value: fomoData ? fmtNum(fomoData.totalLeads) : '…', label: 'New Leads' },
-              { value: fomoData?.avgCpl ? `$${fomoData.avgCpl.toFixed(0)}` : '…', label: 'Avg Cost / Lead' },
+              { value: `${perClinicLeads}+`, label: 'New Leads / Clinic' },
+              { value: `$${displayCpl.toFixed(0)}`, label: 'Avg Cost / Lead' },
               { value: fomoData ? `${fomoData.clientCount}` : '…', label: 'Active Clinics' },
             ].map(({ value, label }) => (
               <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.18)', borderRadius: '10px', padding: '14px 8px' }}>
@@ -178,14 +186,12 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
           </div>
         </div>
 
-        {/* Blurred trend preview */}
-        {fomoData && fomoData.dailyTrend.length > 3 && (
-          <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '16px 20px' }}>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: '0 0 12px' }}>
-              Daily Lead Volume — All clients combined (anonymous)
-            </p>
-            <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
-              <ResponsiveContainer width="100%" height={120}>
+        {/* Blurred trend preview + big View Demo CTA */}
+        <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '0', marginBottom: '16px' }}>
+          {fomoData && fomoData.dailyTrend.length > 3 ? (
+            <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: '16px 20px 8px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', margin: '0 0 10px' }}>Daily Leads — All active clinics (anonymous)</p>
+              <ResponsiveContainer width="100%" height={110}>
                 <AreaChart data={fomoData.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="fomoG" x1="0" y1="0" x2="0" y2="1">
@@ -199,17 +205,34 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <button onClick={openDemo} style={{
-                background: '#2c2419', color: 'white', border: 'none', cursor: 'pointer',
-                padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                boxShadow: '0 4px 16px rgba(44,36,25,0.3)',
-              }}>
-                👁 View Live Demo Dashboard →
-              </button>
-            </div>
+          ) : (
+            <div style={{ height: '60px' }} />
+          )}
+          {/* Big View Demo button overlay */}
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(249,247,244,0.5)', backdropFilter: 'blur(2px)',
+          }}>
+            <button onClick={openDemo} style={{
+              background: 'linear-gradient(135deg, #c4704f, #d9a854)',
+              color: 'white', border: 'none', cursor: 'pointer',
+              padding: '16px 36px', borderRadius: '12px',
+              fontSize: '17px', fontWeight: 700, letterSpacing: '0.3px',
+              boxShadow: '0 8px 28px rgba(196,112,79,0.45)',
+              display: 'flex', alignItems: 'center', gap: '10px',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.03)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+            >
+              <span style={{ fontSize: '20px' }}>👁</span>
+              View Live Demo Dashboard
+              <span style={{ fontSize: '18px' }}>→</span>
+            </button>
           </div>
-        )}
+          {/* Invisible padding so card has height */}
+          <div style={{ height: fomoData && fomoData.dailyTrend.length > 3 ? 0 : '100px' }} />
+        </div>
 
         {/* CTA */}
         <div style={{ ...card, border: '1.5px solid rgba(196,112,79,0.3)', background: 'rgba(196,112,79,0.03)', marginBottom: 0 }}>
@@ -229,11 +252,6 @@ function FBUpsellPage({ clientSlug, clientData, fomoData }: {
               borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px',
               border: '1.5px solid #c4704f',
             }}>✉️ {CONTACT_EMAIL}</a>
-            <button onClick={openDemo} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              background: 'rgba(44,36,25,0.06)', color: '#2c2419', padding: '10px 18px',
-              borderRadius: '8px', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer',
-            }}>👁 View Demo</button>
           </div>
         </div>
       </div>
