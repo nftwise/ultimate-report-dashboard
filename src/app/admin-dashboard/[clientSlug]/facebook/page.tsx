@@ -2,9 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { fmtNum, fmtCurrency } from '@/lib/format';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
+// ── Contact info for upsell page ──────────────────────────────────────────
+const CONTACT_PHONE     = '(714) 555-0199';       // TODO: update
+const CONTACT_PHONE_TEL = '+17145550199';          // TODO: update
+const CONTACT_EMAIL     = 'hello@wiseclinics.com'; // TODO: update
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Line, ComposedChart,
@@ -151,6 +162,45 @@ export default function FacebookPage() {
   const [dateTo, setDateTo] = useState(defaultTo);
   const [detailedInsights, setDetailedInsights] = useState<DetailedInsights | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [fomoData, setFomoData] = useState<{
+    totalLeads: number; avgCpl: number; clientCount: number;
+    dailyTrend: { date: string; leads: number }[];
+  } | null>(null);
+
+  // Fetch FOMO aggregate stats when client has no FB configured
+  useEffect(() => {
+    if (!clientData) return;
+    const fbConfigured = clientData?.service_configs?.[0]?.fb_ad_account_id
+      || clientData?.service_configs?.fb_ad_account_id;
+    if (fbConfigured) return;
+
+    const now = new Date();
+    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const today = now.toISOString().split('T')[0];
+
+    supabase
+      .from('client_metrics_summary')
+      .select('client_id, date, fb_leads, fb_spend')
+      .eq('period_type', 'daily')
+      .gte('date', startOfMonth)
+      .lte('date', today)
+      .gt('fb_leads', 0)
+      .then(({ data }) => {
+        if (!data?.length) return;
+        const totalLeads = data.reduce((s, r) => s + (r.fb_leads || 0), 0);
+        const totalSpend = data.reduce((s, r) => s + (r.fb_spend || 0), 0);
+        const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+        const clientCount = new Set(data.map(r => r.client_id)).size;
+        const byDate: Record<string, number> = {};
+        for (const r of data) {
+          byDate[r.date] = (byDate[r.date] || 0) + (r.fb_leads || 0);
+        }
+        const dailyTrend = Object.entries(byDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, leads]) => ({ date: date.slice(5), leads }));
+        setFomoData({ totalLeads, avgCpl, clientCount, dailyTrend });
+      });
+  }, [clientData]);
 
   // Separate real leads from spam (no phone = spam)
   const realLeads = leads.filter(l => !(l as any).phone?.startsWith('+0') && l.status !== 'closed');
@@ -384,6 +434,148 @@ export default function FacebookPage() {
         <ClientTabBar clientSlug={clientSlug} activeTab="facebook" />
         <div style={{ padding: '24px' }}>
           <div>Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // ── FOMO / Upsell page for clients without FB Ads configured ─────────────
+  const hasFBConfigured = !!(
+    clientData?.service_configs?.[0]?.fb_ad_account_id ||
+    clientData?.service_configs?.fb_ad_account_id
+  );
+
+  if (!hasFBConfigured) {
+    const now = new Date();
+    const monthName = now.toLocaleString('vi-VN', { month: 'long', year: 'numeric' });
+    return (
+      <AdminLayout>
+        <ClientTabBar clientSlug={clientSlug} clientName={clientData.name} clientCity={clientData.city} activeTab="facebook" />
+        <div style={{ padding: '24px', maxWidth: '860px', margin: '0 auto' }}>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontSize: '52px', marginBottom: '12px' }}>📱</div>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#2c2419', margin: 0 }}>
+              Facebook Ads chưa được kích hoạt
+            </h1>
+            <p style={{ color: '#6b5c4e', marginTop: '8px', fontSize: '14px' }}>
+              Tiếp cận bệnh nhân mới ngay trên Facebook & Instagram — tự động hoá toàn bộ quy trình từ lead đến lịch hẹn.
+            </p>
+          </div>
+
+          {/* FOMO Stats */}
+          <div style={{
+            background: 'linear-gradient(135deg, #c4704f 0%, #d9a854 100%)',
+            borderRadius: '16px', padding: '24px', marginBottom: '24px',
+            boxShadow: '0 8px 32px rgba(196,112,79,0.25)',
+          }}>
+            <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '20px', margin: '0 0 20px' }}>
+              📊 {monthName} — Khách hàng của chúng tôi đã đạt được
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              {[
+                { value: fomoData ? fmtNum(fomoData.totalLeads) : '…', label: 'New Leads' },
+                { value: fomoData?.avgCpl ? `$${fomoData.avgCpl.toFixed(0)}` : '…', label: 'Cost Per Lead' },
+                { value: fomoData ? `${fomoData.clientCount} clinics` : '…', label: 'Đang chạy' },
+              ].map(({ value, label }) => (
+                <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'white', lineHeight: 1.1 }}>{value}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Blurred demo chart */}
+          {fomoData && fomoData.dailyTrend.length > 3 && (
+            <div style={{ ...sectionCard, position: 'relative', overflow: 'hidden' }}>
+              <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 16px' }}>
+                📈 Lead Trend — Tổng hợp từ tất cả clients (ẩn danh)
+              </p>
+              <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={fomoData.dailyTrend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="fomoGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#c4704f" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={28} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#fomoGrad)" strokeWidth={2.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(1px)',
+              }}>
+                <div style={{
+                  background: 'rgba(44,36,25,0.88)', color: 'white', padding: '10px 22px',
+                  borderRadius: '10px', fontSize: '14px', fontWeight: 600, letterSpacing: '0.3px',
+                }}>
+                  🔒 Kích hoạt để xem dashboard đầy đủ của bạn
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* What you get */}
+          <div style={{ ...sectionCard, marginBottom: '24px' }}>
+            <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 16px' }}>
+              ✅ Bạn sẽ nhận được gì
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {[
+                '🎯 Campaign tối ưu cho chiropractic',
+                '📥 Lead tự động đổ về dashboard',
+                '💬 Tự động SMS follow-up cho lead',
+                '📊 Báo cáo hàng ngày, hàng tuần',
+                '🔔 Alert khi có lead mới ngay lập tức',
+                '🤝 Đội ngũ hỗ trợ chuyên biệt',
+              ].map(item => (
+                <div key={item} style={{ fontSize: '13px', color: '#4a3728', padding: '8px 12px', background: 'rgba(44,36,25,0.04)', borderRadius: '8px' }}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{
+            ...sectionCard,
+            border: '2px solid rgba(196,112,79,0.35)',
+            background: 'rgba(196,112,79,0.04)',
+          }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
+              Bắt đầu ngay hôm nay
+            </h2>
+            <p style={{ color: '#6b5c4e', fontSize: '13px', margin: '0 0 20px' }}>
+              Liên hệ với chúng tôi — chúng tôi có thể kích hoạt và chạy campaign cho bạn trong vòng 7 ngày làm việc.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <a href={`tel:${CONTACT_PHONE_TEL}`} style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                background: '#c4704f', color: 'white', padding: '12px 22px',
+                borderRadius: '10px', textDecoration: 'none', fontWeight: 600, fontSize: '15px',
+              }}>
+                📞 {CONTACT_PHONE}
+              </a>
+              <a href={`mailto:${CONTACT_EMAIL}`} style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                background: 'white', color: '#c4704f', padding: '12px 22px',
+                borderRadius: '10px', textDecoration: 'none', fontWeight: 600, fontSize: '15px',
+                border: '2px solid #c4704f',
+              }}>
+                ✉️ {CONTACT_EMAIL}
+              </a>
+            </div>
+          </div>
+
         </div>
       </AdminLayout>
     );
