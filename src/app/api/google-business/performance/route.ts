@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
  * GET /api/google-business/performance
  * Fetch performance metrics for a location
  */
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId');

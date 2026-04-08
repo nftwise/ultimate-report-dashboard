@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Hash new password and update
-  const newHash = await bcrypt.hash(newPassword, 10);
+  const newHash = await bcrypt.hash(newPassword, 12);
   const { error: updateError } = await supabaseAdmin
     .from('users')
     .update({ password_hash: newHash })

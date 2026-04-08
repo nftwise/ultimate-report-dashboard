@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
  * GET /api/google-business/reviews
  * Fetch reviews for a location
  */
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId');
@@ -19,13 +25,17 @@ export async function GET(request: NextRequest) {
         error: 'clientId and locationId parameters are required'
       }, { status: 400 });
     }
+    if ((session.user as any).role === 'client' && (session.user as any).clientId !== clientId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Load OAuth tokens - Try agency master token first, then client-specific token
     let tokenFile = path.join(process.cwd(), '.oauth-tokens', 'agency-gbp-master.json');
 
-    // If no master token, fall back to client-specific token
+    // If no master token, fall back to client-specific token (sanitize clientId for path safety)
     if (!fs.existsSync(tokenFile)) {
-      tokenFile = path.join(process.cwd(), '.oauth-tokens', `${clientId}-gbp.json`);
+      const safeClientId = clientId.replace(/[^a-zA-Z0-9_-]/g, '');
+      tokenFile = path.join(process.cwd(), '.oauth-tokens', `${safeClientId}-gbp.json`);
     }
 
     if (!fs.existsSync(tokenFile)) {

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   // Verify FB signature
   const signature = request.headers.get('x-hub-signature-256') || '';
   const appSecret = process.env.FB_APP_SECRET || '';
-  if (appSecret && !verifySignature(rawBody, signature, appSecret)) {
+  if (!appSecret || !verifySignature(rawBody, signature, appSecret)) {
     console.warn('[fb webhook] Invalid signature');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }

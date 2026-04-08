@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 import { getCachedOrFetch, generateCacheKey } from '@/lib/smart-cache';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 interface ClientConfig {
   id: string;
@@ -119,6 +121,10 @@ const getClientConfig = async (clientId: string): Promise<ClientConfig | null> =
 };
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '7d';
@@ -130,6 +136,9 @@ export async function GET(request: NextRequest) {
 
     if (!clientId) {
       return NextResponse.json({ error: 'Client ID is required' }, { status: 400 });
+    }
+    if ((session.user as any).role === 'client' && (session.user as any).clientId !== clientId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const clientConfig = await getClientConfig(clientId);

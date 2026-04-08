@@ -6,14 +6,23 @@ import { ApiResponse } from '@/types';
 import { cachedApiCall, performanceCache } from '@/lib/performance-cache';
 import clientsData from '@/data/clients.json';
 import { getCachedOrFetch, generateCacheKey } from '@/lib/smart-cache';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || '7days';
     const report = searchParams.get('report') || searchParams.get('type') || 'basic';
     const clientId = searchParams.get('clientId');
     const forceFresh = searchParams.get('forceFresh') === 'true'; // Skip cache
+    if (clientId && (session.user as any).role === 'client' && (session.user as any).clientId !== clientId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Check for custom date range params first, otherwise use period
     const customStartDate = searchParams.get('startDate');

@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
  * GET /api/google-business/locations
  * List all locations accessible with OAuth token
  */
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId');
@@ -17,6 +23,9 @@ export async function GET(request: NextRequest) {
         success: false,
         error: 'Valid clientId parameter is required'
       }, { status: 400 });
+    }
+    if ((session.user as any).role === 'client' && (session.user as any).clientId !== clientId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Load OAuth tokens - Try agency master token first, then client-specific token
