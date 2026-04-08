@@ -456,7 +456,11 @@ async function checkSyncStatus() {
 async function checkRollupEndpoint() {
   const url = `${BASE_URL}/api/admin/run-rollup?date=2026-03-15`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(9000) });
+    const headers = {};
+    if (process.env.CRON_SECRET) {
+      headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`;
+    }
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(9000) });
     if (!res.ok) {
       return { passed: false, detail: `HTTP ${res.status} from ${url}` };
     }
