@@ -1,212 +1,280 @@
 # Claude Code Instructions
 
-## Skills Available (ĐỌC TRƯỚC)
-
-3 skills chuyên biệt trong `.claude/skills/`. Claude PHẢI tự nhận intent và suggest/use đúng skill:
-
-| Intent | Skill | Trigger words |
-|--------|-------|--------------|
-| Build feature mới, thêm trang, tạo dashboard | `/builder` | "build", "tạo", "thêm page", "làm trang", "create" |
-| Fix bug, data không hiện, lỗi, broken | `/fixer` | "bug", "lỗi", "không hiển thị", "fix", "error", "broken" |
-| Sync data, cron, API mới, backfill | `/syncer` | "sync", "cron", "data thiếu", "backfill", "integrate", "thêm API" |
-
-**Khi detect intent rõ ràng** → dùng Skill tool gọi đúng skill, KHÔNG tự làm.  
-**Nếu không chắc** → hỏi 1 câu: "Bạn muốn `/builder`, `/fixer`, hay `/syncer`?"
-
-Edge cases:
-- "cron bị lỗi" → `/fixer` (debug existing code)
-- "thêm cron mới" → `/syncer` (build new pipeline)
-- "data hiển thị sai" → `/fixer` (wrong column/query)
-- "data bị thiếu hoàn toàn" → `/syncer` (sync chưa chạy)
-
-Mỗi skill tự load context riêng (project structure, patterns, DB schema) — không cần nhắc lại.
+> **NEW SESSION? Start here.** This file + DATABASE_SCHEMA.md = everything you need. No other MD files required.
+> Last verified against codebase: 2026-04-08
 
 ---
 
-## IMPORTANT: Read Before Coding
+## Skills — Use These First
 
-Before working on any dashboard feature, Claude MUST read:
+3 skills in `.claude/skills/`. Auto-detect intent and invoke the correct one:
 
-1. **gemini/relay.md** - Latest system changes and historical context (MANDATORY)
-2. **DATABASE_SCHEMA.md** - Complete database schema with all tables and columns
-3. **FRONTEND_IMPLEMENTATION_SUMMARY.md** - Frontend architecture documentation
+| Intent | Skill | Trigger words |
+|--------|-------|--------------|
+| Build new feature, page, dashboard | `/builder` | "build", "tạo", "thêm page", "làm trang", "create" |
+| Fix bug, broken UI, wrong data | `/fixer` | "bug", "lỗi", "không hiển thị", "fix", "error", "broken" |
+| Sync data, cron, backfill, new API | `/syncer` | "sync", "cron", "data thiếu", "backfill", "integrate" |
+
+Edge cases:
+- "cron bị lỗi" → `/fixer` | "thêm cron mới" → `/syncer` | "data hiển thị sai" → `/fixer` | "data bị thiếu hoàn toàn" → `/syncer`
+
+---
 
 ## Project Overview
 
-This is the Ultimate Report Dashboard - a Next.js application that displays marketing analytics for clients:
-- **SEO Analytics** (GA4 + Google Search Console)
-- **Google Ads Performance**
-- **Google Business Profile (GBP)** metrics
+**WiseCRM** — Multi-client marketing analytics dashboard for chiropractic practices (~19 active clients).
+
+**Tech Stack (verified):**
+- Next.js 15.5.9 (App Router) + React 19.1.0 + TypeScript 5.9.3
+- Supabase (PostgreSQL) — anon key for client reads, service_role for server writes
+- Recharts 3.1.2 for charts, Tailwind CSS v4 + inline styles
+- NextAuth.js — JWT sessions (30-day), roles: `admin` | `team` | `client`
+- bcryptjs for password hashing
+
+**Data sources integrated:**
+- Google Analytics 4 (GA4 Data API v1)
+- Google Search Console (Search Console API)
+- Google Ads (Google Ads API v20)
+- Google Business Profile (Business Profile Performance API)
+- Facebook Ads (Marketing API v21)
+
+---
+
+## Dashboard Pages (all verified to exist)
+
+### Admin/Team routes (`/admin-dashboard/`)
+| Path | Purpose |
+|------|---------|
+| `/admin-dashboard` | Overview — redirects to first client or client list |
+| `/admin-dashboard/clients` | Client management (CRUD, backfill, GBP status) |
+| `/admin-dashboard/users` | User management (add/edit/deactivate/reset password) |
+| `/admin-dashboard/[clientSlug]` | Client overview — all metrics |
+| `/admin-dashboard/[clientSlug]/seo` | SEO: GA4 + GSC |
+| `/admin-dashboard/[clientSlug]/google-ads` | Google Ads campaigns |
+| `/admin-dashboard/[clientSlug]/gbp` | Google Business Profile |
+| `/admin-dashboard/[clientSlug]/geo` | GEO / AI visibility (NEW) |
+| `/admin-dashboard/settings` | Account settings — admin/team password change |
+| `/admin-dashboard/settings/onboard-fb` | Facebook Ads onboarding |
+
+### Client portal routes (`/portal/[clientSlug]/`)
+Middleware blocks clients from `/admin-dashboard/*` → redirects to `/portal/[slug]`.
+| Path | Purpose |
+|------|---------|
+| `/portal/[clientSlug]` | Client overview |
+| `/portal/[clientSlug]/seo` | SEO view |
+| `/portal/[clientSlug]/google-ads` | Ads view |
+| `/portal/[clientSlug]/gbp` | GBP view |
+| `/portal/[clientSlug]/geo` | GEO view |
+| `/portal/[clientSlug]/facebook` | Facebook Ads view |
+| `/portal/[clientSlug]/settings` | Client password change |
+
+---
 
 ## Key Database Tables
 
-### Main Tables
-- `clients` - Client information (25 clients)
-- `client_metrics_summary` - **66 columns** of aggregated daily metrics (USE THIS FIRST)
+See `DATABASE_SCHEMA.md` for full column lists.
 
-### GBP Data (IMPORTANT - Different Column Names!)
-| gbp_location_daily_metrics | client_metrics_summary |
-|---------------------------|------------------------|
+### Critical — Read First
+- `clients` — 19 active clients (is_active=true). Has `sync_group` (A/B/C) for cron batching.
+- `service_configs` — Per-client API credentials JSON. **NOT in clients table.** Keys: `ga_property_id`, `gads_customer_id`, `gsc_site_url`, `callrail_account_id`
+- `client_metrics_summary` — 66-col daily rollup. **USE THIS for dashboard reads** (fast, pre-aggregated)
+- `system_settings` — Global config. Key `gbp_agency_master` stores GBP OAuth token.
+
+### GBP Column Name Mapping (CRITICAL — different between tables!)
+| `gbp_location_daily_metrics` | `client_metrics_summary` |
+|------------------------------|--------------------------|
 | `phone_calls` | `gbp_calls` |
 | `website_clicks` | `gbp_website_clicks` |
 | `direction_requests` | `gbp_directions` |
 | `views` | `gbp_profile_views` |
 
-### Google Ads Data
-- `ads_campaign_metrics` - Campaign level data
-- `ads_ad_group_metrics` - Ad group level data
-- `campaign_conversion_actions` - Conversion tracking
-- `campaign_search_terms` - Search terms performance
+### client_metrics_summary — KNOWN ZERO COLUMNS (never computed)
+These columns exist in DB but are **always 0** — do not display or rely on:
+- `ads_phone_calls` — hardcoded 0 (not available at campaign level)
+- `days_since_review` — hardcoded 0 (needs historical lookup)
+- `days_since_post` — hardcoded 0 (needs historical lookup)
+- `alerts_count`, `content_conversions`, `gbp_searches_direct`, `gbp_searches_discovery`, `gbp_q_and_a_count`, `gbp_photos_count`, `mom_leads_change` — never computed in rollup
 
-### SEO/Analytics Data
-- `ga4_sessions` - Session data
-- `ga4_events` - Event tracking
-- `ga4_landing_pages` - Landing page performance
-- `gsc_queries` - Search Console keywords
-- `gsc_pages` - Search Console pages
+---
 
-## Dashboard Pages
+## Cron Architecture (GitHub Actions — NOT Vercel)
 
-- `/admin-dashboard/[clientSlug]` - Overview (all metrics)
-- `/admin-dashboard/[clientSlug]/seo` - SEO Analytics
-- `/admin-dashboard/[clientSlug]/google-ads` - Google Ads
-- `/admin-dashboard/[clientSlug]/gbp` - Google Business Profile
+Vercel free tier → only 2 cron slots. All daily syncs run via **GitHub Actions** in 3 groups:
 
-## Design System
+| Group | Schedule (UTC) | Clients | Workflow file |
+|-------|---------------|---------|---------------|
+| A | 09:00 daily | CA South + Orange County | `sync-group-a.yml` |
+| B | 10:00 daily | CA North + Mountain + Central | `sync-group-b.yml` |
+| C | 11:00 daily | East Coast + Europe | `sync-group-c.yml` |
 
-- **Colors**: #2c2419 (dark), #c4704f (accent), #d9a854 (gold), #9db5a0 (green), #10b981 (success)
-- **Cards**: Glassmorphism with `rgba(255, 255, 255, 0.9)` + `backdrop-filter: blur(10px)`
-- **Layout**: 4-tier structure (KPIs → Charts → Analysis → Granular Data)
+Each group workflow calls ALL these endpoints in order:
+1. `GET /api/cron/sync-ga4?group={A|B|C}` — GA4 sessions
+2. `GET /api/cron/sync-gsc?group={A|B|C}` — Search Console
+3. `GET /api/cron/sync-ads?group={A|B|C}` — Google Ads (**7-day rolling window** to catch retroactive conversions)
+4. `GET /api/cron/sync-gbp?group={A|B|C}` — GBP (**90-day rolling window** to catch lag)
+5. `GET /api/admin/run-rollup` — Aggregates into client_metrics_summary
+
+**Additional workflows:**
+- `sync-fb-ads.yml` — Facebook Ads daily at 10:25 UTC
+- `refresh-fb-token.yml` — FB token renewal on 1st of month at 10:00 UTC
+- `gbp-monthly-revalidation.yml` — Re-fetches last 3 months GBP on 2nd of month at 12:00 UTC
+- `ci-gate.yml` — 17 data quality checks on every push
+
+**Auth:** All cron endpoints require `Authorization: Bearer ${CRON_SECRET}` header.
+
+---
+
+## GBP API — CORRECT Approach
+
+⚠️ **Always use `fetchGBPRangePerDay`** — returns a `Map<"YYYY-MM-DD", GBPMetrics>`.
+Never use single-day queries (start=end) — GBP API suppresses/truncates them.
+
+```typescript
+import { fetchGBPRangePerDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
+
+// Returns Map<date, metrics> for every day in range
+const perDayMap = await fetchGBPRangePerDay(locationId, '2026-03-01', '2026-03-31');
+
+for (const [date, metrics] of perDayMap) {
+  const row = transformGBPMetrics(metrics, location.id, location.client_id, date);
+  await supabase.from('gbp_location_daily_metrics').upsert(row, {
+    onConflict: 'location_id,date',
+    ignoreDuplicates: !hasRealData, // never overwrite real data with API zeros
+  });
+}
+```
+
+Token refresh: `GBPTokenManager.getAccessToken()` in `src/lib/gbp-token-manager.ts` — auto-refreshes from `system_settings.gbp_agency_master`.
+
+---
 
 ## Common Patterns
 
-### Fetching Data from Supabase
+### Supabase — server-side (API routes)
 ```typescript
+import { supabaseAdmin } from '@/lib/supabase'; // uses service_role key
+
+const { data, error } = await supabaseAdmin
+  .from('client_metrics_summary')
+  .select('date, gbp_calls, gbp_profile_views, sessions, ad_spend')
+  .eq('client_id', clientId)
+  .eq('period_type', 'daily')
+  .gte('date', '2026-03-01')
+  .lte('date', '2026-03-31')
+  .order('date', { ascending: true });
+```
+
+### Supabase — client-side (page components)
+```typescript
+import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
-
-const { data } = await supabase
-  .from('table_name')
-  .select('columns')
-  .eq('client_id', client.id)
-  .gte('date', dateFromISO)
-  .lte('date', dateToISO)
-  .order('date', { ascending: true });
 ```
 
-### Always Merge GBP Data from Both Tables
+### GBP data — always merge from both tables
+Dashboard pages should read from `client_metrics_summary` first (fast), fallback to `gbp_location_daily_metrics` for granular daily data.
+
+### Get client from slug (server-side)
 ```typescript
-// Fetch from BOTH tables
-const { data: gbpData } = await supabase.from('gbp_location_daily_metrics')...
-const { data: summaryData } = await supabase.from('client_metrics_summary')...
-
-// Merge with preference for detailed data, fallback to summary
+const { data: client } = await supabaseAdmin
+  .from('clients')
+  .select('id, name, slug')
+  .eq('slug', clientSlug)
+  .eq('is_active', true)
+  .single();
 ```
 
-### GBP API: Date Range Fetching (CRITICAL!)
-
-⚠️ **IMPORTANT**: Always fetch **date ranges**, never individual days!
-
-**Why:** Google's API consolidates data differently:
-- Single day (start = end): Incomplete data, 1-6 hour lag
-- Date range (start ≠ end): Complete aggregated data, stable
-
+### Get service_configs for a client
 ```typescript
-import { fetchGBPRange, fetchGBPDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
-
-// For backfill/bulk operations: fetch entire month
-const metrics = await fetchGBPRange('locationId', '2026-02-01', '2026-02-28');
-console.log(metrics.CALL_CLICKS); // 33 (complete data)
-
-// For daily cron: fetch single day (uses range internally)
-const metrics = await fetchGBPDay('locationId', '2026-02-01');
-
-// Transform to database schema
-const row = transformGBPMetrics(metrics, locationId, clientId, date);
-await supabase.from('gbp_location_daily_metrics').upsert(row);
+const { data: config } = await supabaseAdmin
+  .from('service_configs')
+  .select('ga_property_id, gads_customer_id, gsc_site_url')
+  .eq('client_id', clientId)
+  .single();
 ```
 
-**Production Scripts** (in root directory):
-- `diagnose_gbp.mjs` - Check token status & connectivity
-- `import-gbp-token.mjs` - Initial OAuth setup
-- `check_all_clients_gbp.mjs` - Verify data coverage
-- `check_jan_vs_provided.mjs` - Validate API data
-- `refetch_all_clients.mjs` - Bulk re-sync for all clients
+### Auth — server-side session check
+```typescript
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-**Cron Job**: `/src/app/api/cron/sync-gbp/route.ts` (runs daily 10:12 UTC)
-- Auto-fetches yesterday's data
-- Uses new `gbp-fetch-utils` internally
-- No manual intervention needed
+const session = await getServerSession(authOptions);
+const role = (session?.user as any)?.role; // 'admin' | 'team' | 'client'
+const userId = (session?.user as any)?.id;
+```
 
-## Tech Stack
+---
 
-- Next.js 14+ (App Router)
-- TypeScript
-- Supabase (PostgreSQL)
-- Recharts for visualizations
-- Tailwind CSS + inline styles
+## Design System
+
+- **Colors**: `#2c2419` (dark/text), `#c4704f` (accent/CTA), `#d9a854` (gold), `#9db5a0` (green), `#10b981` (success)
+- **Design tokens**: `src/lib/design-tokens.ts` — COLORS, Z_INDEX, TRANSITIONS, FONT_SIZES, BORDER_RADIUS
+- **Cards**: `background: rgba(255,255,255,0.9)` + `backdropFilter: blur(10px)` + `border: 1px solid rgba(44,36,25,0.1)`
+- **Layout**: 4-tier — KPIs → Charts → Analysis → Granular Data
+- **Sidebar width**: 220px, sticky, `background: linear-gradient(180deg, #f9f7f4, #f5f1ed)`
+
+---
+
+## Key Files — Important Locations
+
+| File | Purpose |
+|------|---------|
+| `src/lib/gbp-fetch-utils.ts` | GBP API: `fetchGBPRangePerDay`, `transformGBPMetrics` |
+| `src/lib/gbp-token-manager.ts` | GBP OAuth token refresh |
+| `src/lib/auth.ts` | NextAuth config, JWT callbacks, role mapping |
+| `src/lib/supabase.ts` | Supabase client (anon + admin) |
+| `src/lib/design-tokens.ts` | Design system constants |
+| `src/lib/format.ts` | `fmtCurrency`, `fmtNumber`, `fmtPct` helpers |
+| `src/lib/telegram.ts` | `sendCronFailureAlert`, `saveCronStatus` |
+| `src/middleware.ts` | Route protection: client → portal, admin/team → admin-dashboard |
+| `src/components/admin/AdminLayout.tsx` | Shared sidebar layout (handles all 3 roles) |
+| `src/app/api/admin/run-rollup/route.ts` | Main aggregation → client_metrics_summary |
+| `src/app/api/cron/sync-gbp/route.ts` | GBP daily sync (90-day window) |
+| `src/app/api/cron/sync-ads/route.ts` | Ads daily sync (7-day window for retroactive conversions) |
+| `src/app/api/cron/fix-summary-lag/route.ts` | Patches stale zeros in client_metrics_summary |
+| `.github/workflows/` | All cron workflows (A/B/C groups + FB + CI gate) |
+
+---
 
 ## Commands
 
 ```bash
-npm run dev      # Development server
+npm run dev      # Dev server (localhost:3000)
 npm run build    # Production build
-npm run lint     # Linting
+npm run lint     # ESLint
 ```
+
+---
+
+## Known Issues / Limitations (as of 2026-04-08)
+
+- **Cinque Chiropractic, Healing Hands, Zen Care** — active clients with no GBP location configured yet (waiting for client to grant access)
+- **North Alabama Spine & Rehab** — has GBP location in system but is an inactive client (no longer running ads)
+- **Abundant Life GA4** — occasionally missing 3-4 days/month (property-level, not a bug)
+- **`ads_phone_calls` in client_metrics_summary** — always 0, not available at campaign level
+- **Facebook Messenger** — not accessible (pages owned by Business Portfolio need `business_management` permission)
+- **Twilio SMS** — configured but requires $20 upgrade + A2P 10DLC registration before SMS works
 
 ---
 
 ## Workflow Orchestration
 
-### 1. Plan Node Default
+### Plan Mode
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+- Stop and re-plan if something goes sideways — don't keep pushing
 
-### 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
+### Subagent Strategy
+- Use subagents to keep main context clean
+- Parallelize independent queries/tasks
+- One focused task per subagent
 
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+### Verification
+- Never mark complete without proving it works
+- Check logs, run rollup, verify DB numbers match API
 
-### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
-## Task Management
-
-1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review section to `tasks/todo.md`
-6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+### Core Principles
+- **Simplicity First** — minimal code change, maximal impact
+- **No Laziness** — find root causes, no temp fixes
+- **Minimal Impact** — only touch what's necessary
