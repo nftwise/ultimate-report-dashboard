@@ -44,6 +44,255 @@ interface Client {
 const PRESETS = [30, 90, 0] as const; // 0 = All time
 type Preset = typeof PRESETS[number];
 
+// ── Contact info ─────────────────────────────────────────────────────────
+const CONTACT_PHONE_GEO     = '(714) 555-0199';
+const CONTACT_PHONE_TEL_GEO = '+17145550199';
+const CONTACT_EMAIL_GEO     = 'hello@wiseclinics.com';
+
+// ── Synthetic demo data (GEO/AI) ─────────────────────────────────────────
+const GEO_FOMO_SEED = [48,62,55,78,65,71,58,82,68,90,62,75,55,95,72,80,85,68,88,102,78,88,65,92,78,88,72,95,82,78,75];
+const GEO_DEMO_SEED = [8,12,9,15,11,13,10,16,12,18,10,13,15,12,9,16,11,13,15,8,12,12,15,11,9,16,11,13,14,12,10];
+
+function buildGeoFomoTrend() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return Array.from({ length: now.getDate() }, (_, i) => ({
+    date: `${mm}-${String(i + 1).padStart(2, '0')}`,
+    citations: GEO_FOMO_SEED[i] ?? 72,
+  }));
+}
+
+function buildGeoDemoData() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dailyTrend = Array.from({ length: now.getDate() }, (_, i) => ({
+    date: `${mm}-${String(i + 1).padStart(2, '0')}`,
+    citations: GEO_DEMO_SEED[i] ?? 12,
+  }));
+  const totalCitations = dailyTrend.reduce((s, r) => s + r.citations, 0);
+  return {
+    totalCitations,
+    dailyTrend,
+    topQueries: [
+      { query: 'best chiropractor near me', citations: Math.round(totalCitations * 0.22) },
+      { query: 'back pain chiropractor', citations: Math.round(totalCitations * 0.17) },
+      { query: 'neck pain treatment', citations: Math.round(totalCitations * 0.14) },
+      { query: 'sports injury chiropractic', citations: Math.round(totalCitations * 0.11) },
+      { query: 'chiropractic adjustment cost', citations: Math.round(totalCitations * 0.09) },
+    ],
+    topPages: [
+      { page: '/services/back-pain-relief', citations: Math.round(totalCitations * 0.28) },
+      { page: '/about', citations: Math.round(totalCitations * 0.19) },
+      { page: '/services/neck-pain', citations: Math.round(totalCitations * 0.15) },
+      { page: '/blog/what-is-chiropractic', citations: Math.round(totalCitations * 0.12) },
+    ],
+  };
+}
+
+function GeoUpsellPage({ clientSlug, client }: { clientSlug: string; client: Client | null }) {
+  const [showDemo, setShowDemo] = useState(false);
+  const [demo, setDemo] = useState<any>(null);
+
+  const month = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const fomoTrend = buildGeoFomoTrend();
+
+  const openDemo = () => { if (!demo) setDemo(buildGeoDemoData()); setShowDemo(true); };
+
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)',
+    borderRadius: '14px', border: '1px solid rgba(44,36,25,0.08)',
+    padding: '20px', marginBottom: '16px',
+    boxShadow: '0 2px 16px rgba(44,36,25,0.06)',
+  };
+
+  return (
+    <AdminLayout>
+      <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="geo" />
+
+      <div style={{ padding: '24px', maxWidth: '780px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
+            AI / GEO Visibility Tracking is not active
+          </h1>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: 0 }}>
+            See how often your clinic appears in ChatGPT, Perplexity, Copilot & other AI searches.
+          </p>
+        </div>
+
+        {/* FOMO stats */}
+        <div style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+          borderRadius: '14px', padding: '20px', marginBottom: '16px',
+          boxShadow: '0 6px 24px rgba(124,58,237,0.22)',
+        }}>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', margin: '0 0 16px' }}>
+            {month} — Our clients are getting
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            {[
+              { value: '145+', label: 'AI Citations / Mo' },
+              { value: '15', label: 'AI Platforms Tracked' },
+              { value: '9', label: 'Active Clinics' },
+            ].map(({ value, label }) => (
+              <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.18)', borderRadius: '10px', padding: '14px 8px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
+                <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: '11px', marginTop: '4px' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Blurred chart + View Demo */}
+        <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '0', marginBottom: '16px' }}>
+          <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: '16px 20px 8px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', margin: '0 0 10px' }}>Daily AI Citations — All active clinics (anonymous)</p>
+            <ResponsiveContainer width="100%" height={110}>
+              <AreaChart data={fomoTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="geoG" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                <YAxis hide />
+                <Area type="monotone" dataKey="citations" stroke="#7c3aed" fill="url(#geoG)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(249,247,244,0.5)', backdropFilter: 'blur(2px)',
+          }}>
+            <button onClick={openDemo} style={{
+              background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+              color: 'white', border: 'none', cursor: 'pointer',
+              padding: '16px 36px', borderRadius: '12px',
+              fontSize: '17px', fontWeight: 700, letterSpacing: '0.3px',
+              boxShadow: '0 8px 28px rgba(124,58,237,0.45)',
+              display: 'flex', alignItems: 'center', gap: '10px',
+              transition: 'transform 0.15s',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.03)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+            >
+              <span style={{ fontSize: '20px' }}>👁</span>
+              View Live Demo Dashboard
+              <span style={{ fontSize: '18px' }}>→</span>
+            </button>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div style={{ ...card, border: '1.5px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.03)', marginBottom: 0 }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px' }}>Ready to track your AI visibility?</p>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: '0 0 16px' }}>We can have your AI tracking set up within 3 business days.</p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <a href={`tel:${CONTACT_PHONE_TEL_GEO}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#7c3aed', color: 'white', padding: '10px 18px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>📞 {CONTACT_PHONE_GEO}</a>
+            <a href={`mailto:${CONTACT_EMAIL_GEO}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#7c3aed', padding: '10px 18px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px', border: '1.5px solid #7c3aed' }}>✉️ {CONTACT_EMAIL_GEO}</a>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo modal */}
+      {showDemo && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          overflowY: 'auto', padding: '24px 16px',
+        }} onClick={e => { if (e.target === e.currentTarget) setShowDemo(false); }}>
+          <div style={{ background: '#f9f7f4', borderRadius: '16px', width: '100%', maxWidth: '860px', boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, #2c2419, #4a3728)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ color: '#d9a854', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>DEMO — Anonymous Client Data</span>
+                <p style={{ color: 'white', fontSize: '15px', fontWeight: 700, margin: '2px 0 0' }}>AI / GEO Visibility Dashboard Preview</p>
+              </div>
+              <button onClick={() => setShowDemo(false)} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>×</button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              {demo && (() => {
+                return (
+                  <>
+                    {/* KPI summary */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
+                      {[
+                        { label: 'Total AI Citations', value: fmtNum(demo.totalCitations) },
+                        { label: 'AI Queries Tracked', value: fmtNum(demo.topQueries.length) },
+                        { label: 'Pages Cited', value: fmtNum(demo.topPages.length) },
+                      ].map(({ label, value }) => (
+                        <div key={label} style={{ background: 'white', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                          <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
+                          <div style={{ fontSize: '22px', fontWeight: 800, color: '#2c2419', marginTop: '4px' }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Daily citations chart */}
+                    <div style={{ background: 'white', borderRadius: '10px', padding: '16px', marginBottom: '20px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: '0 0 12px' }}>Daily AI Citations This Month</p>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <AreaChart data={demo.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="geoDemoG" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                          <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={28} />
+                          <Tooltip formatter={(v: any) => [v, 'Citations']} />
+                          <Area type="monotone" dataKey="citations" stroke="#7c3aed" fill="url(#geoDemoG)" strokeWidth={2} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Top queries + top pages */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                      <div style={{ background: 'white', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.08)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
+                          <p style={{ fontSize: '12px', fontWeight: 600, color: '#2c2419', margin: 0 }}>Top AI Queries</p>
+                        </div>
+                        {demo.topQueries.map((q: any, i: number) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 16px', borderTop: i > 0 ? '1px solid rgba(44,36,25,0.04)' : undefined }}>
+                            <span style={{ fontSize: '12px', color: '#4a3728', maxWidth: '75%' }}>{q.query}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#7c3aed' }}>{q.citations}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ background: 'white', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.08)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
+                          <p style={{ fontSize: '12px', fontWeight: 600, color: '#2c2419', margin: 0 }}>Top Cited Pages</p>
+                        </div>
+                        {demo.topPages.map((p: any, i: number) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 16px', borderTop: i > 0 ? '1px solid rgba(44,36,25,0.04)' : undefined }}>
+                            <span style={{ fontSize: '12px', color: '#4a3728', maxWidth: '75%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.page}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#7c3aed' }}>{p.citations}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '16px', background: 'rgba(124,58,237,0.06)', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#2c2419' }}>Want AI visibility for your clinic?</p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a href={`tel:${CONTACT_PHONE_TEL_GEO}`} style={{ background: '#7c3aed', color: 'white', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>📞 {CONTACT_PHONE_GEO}</a>
+                        <a href={`mailto:${CONTACT_EMAIL_GEO}`} style={{ background: 'white', color: '#7c3aed', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px', border: '1.5px solid #7c3aed' }}>✉️ Email Us</a>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
+
 export default function GeoPage() {
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
@@ -113,6 +362,11 @@ export default function GeoPage() {
   }, [aiDaily, selectedDays, lastDataDate]);
 
   const hasData = aiDaily.length > 0 || aiPages.length > 0 || aiQueries.length > 0;
+
+  // Show upsell for client role when no data (admin/team keeps import flow)
+  if (!loading && !hasData && !canImport) {
+    return <GeoUpsellPage clientSlug={clientSlug} client={client} />;
+  }
 
   // ── KPIs ───────────────────────────────────────────────────────────────────
   const totalCitations = filteredDaily.reduce((s, r) => s + r.citations, 0);

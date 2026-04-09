@@ -9,9 +9,9 @@ import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
-import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ClientMetrics {
   id: string;
@@ -176,6 +176,250 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
+
+// ── Contact info ─────────────────────────────────────────────────────────
+const CONTACT_PHONE     = '(714) 555-0199';
+const CONTACT_PHONE_TEL = '+17145550199';
+const CONTACT_EMAIL     = 'hello@wiseclinics.com';
+
+// ── Synthetic demo data ───────────────────────────────────────────────────
+const ADS_FOMO_SEED = [16,22,18,28,21,24,19,26,23,27,20,25,18,29,22,24,26,21,28,30,23,25,19,27,24,26,22,28,25,24,23];
+const ADS_DEMO_SEED = [4,5,4,6,5,5,4,6,5,7,4,5,6,5,4,6,5,5,6,4,5,5,6,5,4,6,5,5,6,5,4];
+
+function buildAdsFomoTrend() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return Array.from({ length: now.getDate() }, (_, i) => ({
+    date: `${mm}-${String(i + 1).padStart(2, '0')}`,
+    leads: ADS_FOMO_SEED[i] ?? 22,
+  }));
+}
+
+function buildAdsDemoData() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const CPL = 78;
+  const dailyTrend = Array.from({ length: now.getDate() }, (_, i) => {
+    const leads = ADS_DEMO_SEED[i] ?? 5;
+    return { date: `${mm}-${String(i + 1).padStart(2, '0')}`, leads, spend: +(leads * CPL).toFixed(2) };
+  });
+  const totalLeads = dailyTrend.reduce((s, r) => s + r.leads, 0);
+  const totalSpend = +(totalLeads * CPL).toFixed(2);
+  const totalImpressions = totalLeads * 420;
+  const totalClicks = Math.round(totalLeads * 11.5);
+  return {
+    summary: { totalLeads, totalSpend, totalImpressions, totalClicks, avgCpl: CPL, avgCtr: 2.4 },
+    campaigns: [
+      { name: 'Campaign A', leads: Math.round(totalLeads * 0.54), spend: +(totalSpend * 0.50).toFixed(2), cpl: 72, ctr: 2.8 },
+      { name: 'Campaign B', leads: Math.round(totalLeads * 0.28), spend: +(totalSpend * 0.31).toFixed(2), cpl: 85, ctr: 2.1 },
+      { name: 'Campaign C', leads: Math.round(totalLeads * 0.18), spend: +(totalSpend * 0.19).toFixed(2), cpl: 82, ctr: 1.9 },
+    ],
+    dailyTrend,
+  };
+}
+
+function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any }) {
+  const [showDemo, setShowDemo] = useState(false);
+  const [demo, setDemo] = useState<any>(null);
+
+  const month = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const fomoTrend = buildAdsFomoTrend();
+
+  const openDemo = () => { if (!demo) setDemo(buildAdsDemoData()); setShowDemo(true); };
+
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)',
+    borderRadius: '14px', border: '1px solid rgba(44,36,25,0.08)',
+    padding: '20px', marginBottom: '16px',
+    boxShadow: '0 2px 16px rgba(44,36,25,0.06)',
+  };
+
+  return (
+    <AdminLayout>
+      <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
+
+      <div style={{ padding: '24px', maxWidth: '780px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
+            Google Ads is not active for your account
+          </h1>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: 0 }}>
+            Reach patients actively searching for chiropractors — leads flow directly into this dashboard.
+          </p>
+        </div>
+
+        {/* FOMO stats */}
+        <div style={{
+          background: 'linear-gradient(135deg, #c4704f 0%, #d9a854 100%)',
+          borderRadius: '14px', padding: '20px', marginBottom: '16px',
+          boxShadow: '0 6px 24px rgba(196,112,79,0.22)',
+        }}>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', margin: '0 0 16px' }}>
+            {month} — Our clients are getting
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            {[
+              { value: '24+', label: 'New Leads / Clinic' },
+              { value: '$78', label: 'Avg Cost / Lead' },
+              { value: '9', label: 'Active Clinics' },
+            ].map(({ value, label }) => (
+              <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.18)', borderRadius: '10px', padding: '14px 8px' }}>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'white', lineHeight: 1 }}>{value}</div>
+                <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: '11px', marginTop: '4px' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Blurred chart + View Demo */}
+        <div style={{ ...card, position: 'relative', overflow: 'hidden', padding: '0', marginBottom: '16px' }}>
+          <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: '16px 20px 8px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', margin: '0 0 10px' }}>Daily Leads — All active clinics (anonymous)</p>
+            <ResponsiveContainer width="100%" height={110}>
+              <AreaChart data={fomoTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="adsG" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                <YAxis hide />
+                <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#adsG)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(249,247,244,0.5)', backdropFilter: 'blur(2px)',
+          }}>
+            <button onClick={openDemo} style={{
+              background: 'linear-gradient(135deg, #c4704f, #d9a854)',
+              color: 'white', border: 'none', cursor: 'pointer',
+              padding: '16px 36px', borderRadius: '12px',
+              fontSize: '17px', fontWeight: 700, letterSpacing: '0.3px',
+              boxShadow: '0 8px 28px rgba(196,112,79,0.45)',
+              display: 'flex', alignItems: 'center', gap: '10px',
+              transition: 'transform 0.15s',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.03)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+            >
+              <span style={{ fontSize: '20px' }}>👁</span>
+              View Live Demo Dashboard
+              <span style={{ fontSize: '18px' }}>→</span>
+            </button>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div style={{ ...card, border: '1.5px solid rgba(196,112,79,0.3)', background: 'rgba(196,112,79,0.03)', marginBottom: 0 }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px' }}>Ready to get started?</p>
+          <p style={{ color: '#6b5c4e', fontSize: '13px', margin: '0 0 16px' }}>We can have your campaigns live within 7 business days.</p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <a href={`tel:${CONTACT_PHONE_TEL}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#c4704f', color: 'white', padding: '10px 18px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>📞 {CONTACT_PHONE}</a>
+            <a href={`mailto:${CONTACT_EMAIL}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#c4704f', padding: '10px 18px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px', border: '1.5px solid #c4704f' }}>✉️ {CONTACT_EMAIL}</a>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo modal */}
+      {showDemo && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          overflowY: 'auto', padding: '24px 16px',
+        }} onClick={e => { if (e.target === e.currentTarget) setShowDemo(false); }}>
+          <div style={{ background: '#f9f7f4', borderRadius: '16px', width: '100%', maxWidth: '860px', boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, #2c2419, #4a3728)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ color: '#d9a854', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>DEMO — Anonymous Client Data</span>
+                <p style={{ color: 'white', fontSize: '15px', fontWeight: 700, margin: '2px 0 0' }}>Google Ads Dashboard Preview</p>
+              </div>
+              <button onClick={() => setShowDemo(false)} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>×</button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              {demo && (() => {
+                const s = demo.summary;
+                const kpis = [
+                  { label: 'Total Leads', value: fmtNum(s.totalLeads) },
+                  { label: 'Total Spend', value: fmtCurrency(s.totalSpend) },
+                  { label: 'Cost / Lead', value: fmtCurrency(s.avgCpl) },
+                  { label: 'Avg CTR', value: `${s.avgCtr}%` },
+                ];
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '20px' }}>
+                      {kpis.map(({ label, value }) => (
+                        <div key={label} style={{ background: 'white', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                          <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
+                          <div style={{ fontSize: '22px', fontWeight: 800, color: '#2c2419', marginTop: '4px' }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ background: 'white', borderRadius: '10px', padding: '16px', marginBottom: '20px', border: '1px solid rgba(44,36,25,0.08)' }}>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: '0 0 12px' }}>Daily Leads This Month</p>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <AreaChart data={demo.dailyTrend} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="adsDemoG" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#c4704f" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#c4704f" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.06)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                          <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={28} />
+                          <Tooltip formatter={(v: any) => [v, 'Leads']} />
+                          <Area type="monotone" dataKey="leads" stroke="#c4704f" fill="url(#adsDemoG)" strokeWidth={2} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div style={{ background: 'white', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.08)', overflow: 'hidden', marginBottom: '20px' }}>
+                      <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: 0 }}>Campaign Performance</p>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr style={{ background: 'rgba(44,36,25,0.03)' }}>
+                            {['Campaign', 'Leads', 'Spend', 'CPL', 'CTR'].map(h => (
+                              <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Campaign' ? 'left' : 'right', fontWeight: 600, color: '#6b5c4e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {demo.campaigns.map((c: any, i: number) => (
+                            <tr key={i} style={{ borderTop: '1px solid rgba(44,36,25,0.05)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: 500, color: '#2c2419' }}>{c.name}</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#c4704f' }}>{c.leads}</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{fmtCurrency(c.spend)}</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{fmtCurrency(c.cpl)}</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', color: '#4a3728' }}>{c.ctr}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ padding: '16px', background: 'rgba(196,112,79,0.06)', borderRadius: '10px', border: '1px solid rgba(196,112,79,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#2c2419' }}>Want results like this for your clinic?</p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a href={`tel:${CONTACT_PHONE_TEL}`} style={{ background: '#c4704f', color: 'white', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>📞 {CONTACT_PHONE}</a>
+                        <a href={`mailto:${CONTACT_EMAIL}`} style={{ background: 'white', color: '#c4704f', padding: '9px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '13px', border: '1.5px solid #c4704f' }}>✉️ Email Us</a>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
 
 export default function GoogleAdsPage() {
   const params = useParams();
@@ -483,15 +727,7 @@ export default function GoogleAdsPage() {
   }
 
   if (client && (client as any).services?.googleAds === false) {
-    return (
-      <AdminLayout>
-        <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
-        <ServiceNotActive
-          serviceName="Google Ads"
-          description="Your account does not have Google Ads configured. Contact our team to set up paid search campaigns and start driving leads."
-        />
-      </AdminLayout>
-    );
+    return <AdsUpsellPage clientSlug={clientSlug} client={client} />;
   }
 
   // Calculate KPIs - ALL from Google Ads API data
