@@ -140,14 +140,17 @@ async function checkGBPFreshness() {
 }
 
 async function checkSummaryYesterday() {
-  // Check that summary has rows within last 2 days (yesterday or day before)
-  // Using 2-day window because rollup runs at ~10 UTC and CI may run before it completes
-  const twoDaysAgo = daysAgo(2);
-  const yesterday  = daysAgo(1);
+  // Check that summary has rows within last 4 days.
+  // 4-day window because:
+  //   - CI often runs at ~03 UTC, before the 09-11 UTC cron completes
+  //   - Rollup runs per group (A/B/C), each may complete at slightly different times
+  //   - Weekends/holidays can shift timing by 1 extra day
+  const fourDaysAgo = daysAgo(4);
+  const yesterday   = daysAgo(1);
   const { data, error } = await supabase
     .from('client_metrics_summary')
     .select('date')
-    .gte('date', twoDaysAgo)
+    .gte('date', fourDaysAgo)
     .lte('date', yesterday)
     .order('date', { ascending: false })
     .limit(1);
@@ -157,8 +160,8 @@ async function checkSummaryYesterday() {
   return {
     passed,
     detail: passed
-      ? `latest summary row: ${latest} (within last 2 days ✓)`
-      : `No summary rows in last 2 days (${twoDaysAgo} → ${yesterday})`,
+      ? `latest summary row: ${latest} (within last 4 days ✓)`
+      : `No summary rows in last 4 days (${fourDaysAgo} → ${yesterday})`,
   };
 }
 
@@ -551,7 +554,7 @@ async function main() {
   await check(2, 'GSC data < 5 days old', checkGSCFreshness);
   await check(3, 'Ads data < 3 days old', checkAdsFreshness);
   await check(4, 'GBP data < 5 days old', checkGBPFreshness);
-  await check(5, 'client_metrics_summary has rows for yesterday', checkSummaryYesterday);
+  await check(5, 'client_metrics_summary has rows in last 4 days', checkSummaryYesterday);
 
   // Group B
   console.log(`\n${BOLD}Group B — Data Integrity${RESET}`);
