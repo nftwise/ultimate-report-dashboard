@@ -16,12 +16,25 @@ on:
         required: false
         default: 'all'
 
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+  GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
+  GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+  GOOGLE_ADS_MCC_ID: ${{ secrets.GOOGLE_ADS_MCC_ID }}
+  GBP_ACCOUNT_ID: ${{ secrets.GBP_ACCOUNT_ID }}
+  FB_ADS_ACCESS_TOKEN: ${{ secrets.FB_ADS_ACCESS_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
 jobs:
   backfill-group-a:
     name: Backfill Group A
     if: ${{ github.event.inputs.group == 'A' || github.event.inputs.group == 'all' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,70 +42,31 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Backfill GA4 A
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group A --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ga4
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill Ads A
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group A --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ads
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
-          GOOGLE_ADS_MCC_ID: ${{ secrets.GOOGLE_ADS_MCC_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GSC A
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group A --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gsc
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GBP A
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group A --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gbp
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GBP_ACCOUNT_ID: ${{ secrets.GBP_ACCOUNT_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Run Rollup A
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group A --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source rollup
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Backfill Group A
+        run: |
+          d="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
+            echo "=== $d ==="
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --group A --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ads.ts --group A --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --group A --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --group A --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --group A || true
+            d=$(date -d "$d + 1 day" +%Y-%m-%d)
+          done
       - name: Alert on failure
         if: failure()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>Backfill Group A FAILED</b>\\n\\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
+            -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"❌ <b>Backfill Group A FAILED</b>\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\",\"parse_mode\":\"HTML\"}"
 
   backfill-group-b:
     name: Backfill Group B
     if: ${{ github.event.inputs.group == 'B' || github.event.inputs.group == 'all' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -100,70 +74,31 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Backfill GA4 B
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group B --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ga4
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill Ads B
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group B --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ads
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
-          GOOGLE_ADS_MCC_ID: ${{ secrets.GOOGLE_ADS_MCC_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GSC B
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group B --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gsc
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GBP B
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group B --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gbp
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GBP_ACCOUNT_ID: ${{ secrets.GBP_ACCOUNT_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Run Rollup B
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group B --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source rollup
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Backfill Group B
+        run: |
+          d="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
+            echo "=== $d ==="
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --group B --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ads.ts --group B --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --group B --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --group B --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --group B || true
+            d=$(date -d "$d + 1 day" +%Y-%m-%d)
+          done
       - name: Alert on failure
         if: failure()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>Backfill Group B FAILED</b>\\n\\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
+            -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"❌ <b>Backfill Group B FAILED</b>\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\",\"parse_mode\":\"HTML\"}"
 
   backfill-group-c:
     name: Backfill Group C
     if: ${{ github.event.inputs.group == 'C' || github.event.inputs.group == 'all' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -171,64 +106,25 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Backfill GA4 C
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group C --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ga4
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill Ads C
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group C --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source ads
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
-          GOOGLE_ADS_MCC_ID: ${{ secrets.GOOGLE_ADS_MCC_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GSC C
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group C --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gsc
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_PRIVATE_KEY_B64: ${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Backfill GBP C
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group C --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source gbp
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GBP_ACCOUNT_ID: ${{ secrets.GBP_ACCOUNT_ID }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Run Rollup C
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --group C --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source rollup
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Backfill Group C
+        run: |
+          d="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
+            echo "=== $d ==="
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --group C --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ads.ts --group C --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --group C --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --group C --date "$d" || true
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --group C || true
+            d=$(date -d "$d + 1 day" +%Y-%m-%d)
+          done
       - name: Alert on failure
         if: failure()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>Backfill Group C FAILED</b>\\n\\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
+            -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"❌ <b>Backfill Group C FAILED</b>\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\",\"parse_mode\":\"HTML\"}"
 
   backfill-fb:
     name: Backfill Facebook Ads
@@ -243,17 +139,17 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Backfill FB Ads
-        run: npx tsx --tsconfig scripts/tsconfig.json scripts/backfill.ts --start ${{ github.event.inputs.start_date }} --end ${{ github.event.inputs.end_date }} --source fb
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          FB_ADS_ACCESS_TOKEN: ${{ secrets.FB_ADS_ACCESS_TOKEN }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          d="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
+            echo "=== FB $d ==="
+            DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-fb-ads.ts --date "$d" || true
+            d=$(date -d "$d + 1 day" +%Y-%m-%d)
+          done
       - name: Alert on failure
         if: failure()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>Backfill Facebook Ads FAILED</b>\\n\\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
+            -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"❌ <b>Backfill Facebook Ads FAILED</b>\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\",\"parse_mode\":\"HTML\"}"
