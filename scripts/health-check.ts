@@ -15,15 +15,19 @@ async function main() {
   const yesterday = caDate(1);
   const gscDate   = caDate(3);
 
-  const { data: clients } = await supabaseAdmin
-    .from('clients')
-    .select('id, name, has_seo, has_ads, sync_group')
-    .eq('is_active', true);
+  const [clientsRes, gbpLocationsRes] = await Promise.all([
+    supabaseAdmin.from('clients').select('id, name, has_seo, has_ads, sync_group').eq('is_active', true),
+    supabaseAdmin.from('gbp_locations').select('client_id').eq('is_active', true),
+  ]);
 
+  const clients = clientsRes.data;
   if (!clients?.length) {
     console.log('[health-check] No active clients');
     return;
   }
+
+  // Only flag GBP issues for clients that have a location configured
+  const gbpConfigured = new Set((gbpLocationsRes.data || []).map((r: any) => r.client_id));
 
   const [ga4Rows, adsRows, gbpRows, gscRows] = await Promise.all([
     supabaseAdmin.from('ga4_sessions').select('client_id').eq('date', yesterday),
@@ -44,7 +48,7 @@ async function main() {
     const issues: string[] = [];
     if (c.has_seo && !ga4Have.has(c.id)) issues.push('GA4');
     if (c.has_ads && !adsHave.has(c.id)) issues.push('Ads');
-    if (!gbpOK.has(c.id)) issues.push(gbpErr.has(c.id) ? 'GBP(error)' : 'GBP(missing)');
+    if (gbpConfigured.has(c.id) && !gbpOK.has(c.id)) issues.push(gbpErr.has(c.id) ? 'GBP(error)' : 'GBP(missing)');
     if (c.has_seo && !gscHave.has(c.id)) issues.push(`GSC(${gscDate})`);
     if (issues.length > 0) missing.push(`<b>${c.name}</b> [${c.sync_group}]: ${issues.join(', ')}`);
   }
@@ -66,7 +70,8 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch(async err => {
   console.error('[health-check] Fatal:', err.message);
+  await sendTelegramMessage(`🔴 <b>Health Check CRASHED</b>\n${err.message}`).catch(() => {});
   process.exit(1);
 });

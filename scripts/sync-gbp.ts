@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../src/lib/supabase';
 import { fetchGBPRangePerDay, transformGBPMetrics } from '../src/lib/gbp-fetch-utils';
 import { GBPTokenManager } from '../src/lib/gbp-token-manager';
-import { sendCronFailureAlert, saveCronStatus } from '../src/lib/telegram';
+import { sendCronFailureAlert, saveCronStatus, sendTelegramMessage } from '../src/lib/telegram';
 
 const args = process.argv.slice(2);
 const getArg = (name: string): string | undefined => {
@@ -218,4 +218,4 @@ async function fetchLocationReviews(
   }
 }
 
-main().then(r => { console.log(JSON.stringify(r)); process.exit(0); }).catch(e => { console.error('FAILED:', e.message); process.exit(1); });
+main().then(r => { console.log(JSON.stringify(r)); process.exit(0); }).catch(async e => { console.error('FAILED:', e.message); await sendTelegramMessage(`🔴 <b>Sync CRASHED</b>: ${e.message}`).catch(() => {}); process.exit(1); });
