@@ -2,7 +2,7 @@ name: Sync Facebook Ads
 
 on:
   schedule:
-    - cron: '25 10 * * *'  # 3:25 AM PDT = 10:25 UTC
+    - cron: '25 10 * * *'
   workflow_dispatch:
     inputs:
       date:
@@ -20,21 +20,22 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Build params
-        id: dp
-        run: |
-          PARAMS=""
-          if [ -n "${{ inputs.date }}" ]; then
-            PARAMS="${PARAMS}&date=${{ inputs.date }}"
-          fi
-          if [ -n "${{ inputs.clientId }}" ]; then
-            PARAMS="${PARAMS}&clientId=${{ inputs.clientId }}"
-          fi
-          echo "params=${PARAMS}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
 
       - name: Sync Facebook Ads
-        run: |
-          echo "→ Facebook Ads sync"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/cron/sync-fb-ads?_=1${{ steps.dp.outputs.params }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,date,clients,rows,errors}'
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-fb-ads.ts
+        env:
+          DATE: ${{ inputs.date }}
+          CLIENT_ID: ${{ inputs.clientId }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FB_ADS_ACCESS_TOKEN: ${{ secrets.FB_ADS_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -2,7 +2,7 @@ name: Sync Group A (CA South + Orange County)
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # 2:00 AM PDT = 09:00 UTC
+    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
       date:
@@ -13,49 +13,68 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
-      - name: Build date param
-        id: dp
-        run: |
-          if [ -n "${{ inputs.date }}" ]; then
-            echo "param=&date=${{ inputs.date }}" >> $GITHUB_OUTPUT
-          else
-            echo "param=" >> $GITHUB_OUTPUT
-          fi
+      - uses: actions/checkout@v4
 
-      - name: Sync GA4 — Group A
-        run: |
-          echo "→ GA4 Group A"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/cron/sync-ga4?group=A${{ steps.dp.outputs.param }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-      - name: Sync Ads — Group A
-        run: |
-          echo "→ Ads Group A"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/cron/sync-ads?group=A${{ steps.dp.outputs.param }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+      - run: npm ci
 
-      - name: Sync GSC — Group A
-        run: |
-          echo "→ GSC Group A"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/cron/sync-gsc?group=A${{ steps.dp.outputs.param }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,clients,total,errors}'
+      - name: Sync GA4
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --group A
+        env:
+          DATE: ${{ inputs.date }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Sync GBP — Group A
-        run: |
-          echo "→ GBP Group A"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/cron/sync-gbp?group=A${{ steps.dp.outputs.param }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,locations,synced,errors}'
+      - name: Sync Ads
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ads.ts --group A
+        env:
+          DATE: ${{ inputs.date }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_MCC_ID: ${{ secrets.GOOGLE_ADS_MCC_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Rollup — Group A
-        run: |
-          echo "→ Rollup Group A"
-          curl -f -s -X GET \
-            "${{ secrets.VERCEL_URL }}/api/admin/run-rollup?group=A${{ steps.dp.outputs.param }}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" | jq '{success,processed}'
+      - name: Sync GSC
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --group A
+        env:
+          DATE: ${{ inputs.date }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Sync GBP
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --group A
+        env:
+          DATE: ${{ inputs.date }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GBP_ACCOUNT_ID: ${{ secrets.GBP_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Run Rollup
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --group A
+        env:
+          DATE: ${{ inputs.date }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
