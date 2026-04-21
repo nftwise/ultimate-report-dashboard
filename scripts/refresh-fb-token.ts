@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../src/lib/supabase';
 import { sendTelegramMessage } from '../src/lib/telegram';
+import * as fs from 'fs';
 
 async function main() {
   const appId = process.env.FB_APP_ID;
@@ -12,7 +13,6 @@ async function main() {
   }
 
   try {
-    // Exchange current token for a new long-lived token (resets 60-day expiry)
     const res = await fetch(
       `https://graph.facebook.com/v19.0/oauth/access_token` +
       `?grant_type=fb_exchange_token` +
@@ -21,47 +21,39 @@ async function main() {
       `&fb_exchange_token=${currentToken}`
     );
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`FB token exchange failed: ${err}`);
-    }
+    if (!res.ok) throw new Error(`FB token exchange failed: ${await res.text()}`);
 
     const data = await res.json();
     if (data.error) throw new Error(`FB API error: ${data.error.message}`);
 
     const newToken: string = data.access_token;
-    const expiresIn: number = data.expires_in || 5184000; // ~60 days
-    const expiresInDays = Math.round(expiresIn / 86400);
-
+    const expiresInDays = Math.round((data.expires_in || 5184000) / 86400);
     if (!newToken) throw new Error('No access_token returned by FB');
 
-    // Save to Supabase system_settings so scripts can read it on next run
-    const { error: upsertErr } = await supabaseAdmin
+    console.log(`[refresh-fb-token] Token refreshed. Expires in ${expiresInDays} days.`);
+
+    // Save to Supabase (backup store — sync-fb-ads reads this as fallback)
+    await supabaseAdmin
       .from('system_settings')
       .upsert(
         { key: 'fb_ads_access_token', value: newToken, updated_at: new Date().toISOString() },
         { onConflict: 'key' }
       );
 
-    if (upsertErr) {
-      console.warn('[refresh-fb-token] Supabase upsert warning:', upsertErr.message);
-    }
-
-    console.log(`[refresh-fb-token] Token refreshed. Expires in ${expiresInDays} days.`);
-    console.log(`[refresh-fb-token] NEW TOKEN (update FB_ADS_ACCESS_TOKEN GitHub Secret):\n${newToken}`);
+    // Write new token to file so the workflow step can update GitHub Secret
+    fs.writeFileSync('/tmp/fb_new_token.txt', newToken, 'utf8');
+    console.log('[refresh-fb-token] New token written to /tmp/fb_new_token.txt for GitHub Secret update.');
 
     await sendTelegramMessage(
       `🔄 <b>FB Ads Token Refreshed</b>\n\n` +
-      `✅ New long-lived token generated\n` +
-      `⏳ Expires in: ${expiresInDays} days\n\n` +
-      `⚠️ <b>Action required:</b> Update <code>FB_ADS_ACCESS_TOKEN</code> secret in GitHub repo settings with the new token printed in Actions log.`
+      `✅ Token renewed automatically\n` +
+      `⏳ Expires in: ${expiresInDays} days\n` +
+      `🔒 GitHub Secret will be auto-updated`
     ).catch(() => {});
 
   } catch (err: any) {
     console.error('[refresh-fb-token] Failed:', err.message);
-    await sendTelegramMessage(
-      `❌ <b>FB Token Refresh FAILED</b>\n\n${err.message}`
-    ).catch(() => {});
+    await sendTelegramMessage(`❌ <b>FB Token Refresh FAILED</b>\n\n${err.message}`).catch(() => {});
     process.exit(1);
   }
 }

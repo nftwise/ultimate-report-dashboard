@@ -31,9 +31,18 @@ async function main() {
 
     console.log(`[sync-fb-ads] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
-    const accessToken = process.env.FB_ADS_ACCESS_TOKEN;
+    // Read token from env first, fallback to Supabase (updated by refresh-fb-token.ts monthly)
+    let accessToken = process.env.FB_ADS_ACCESS_TOKEN;
     if (!accessToken) {
-      throw new Error('Missing FB_ADS_ACCESS_TOKEN');
+      const { data: tokenRow } = await supabaseAdmin
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'fb_ads_access_token')
+        .single();
+      accessToken = tokenRow?.value || null;
+    }
+    if (!accessToken) {
+      throw new Error('Missing FB_ADS_ACCESS_TOKEN (not in env or system_settings)');
     }
 
     const { data: rawClients, error: clientsError } = await supabaseAdmin

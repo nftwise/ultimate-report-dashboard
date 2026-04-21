@@ -9,6 +9,8 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      secrets: write   # needed to update FB_ADS_ACCESS_TOKEN secret
 
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +22,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Refresh FB Ads Token
+      - name: Refresh FB token
         run: npx tsx --tsconfig scripts/tsconfig.json scripts/refresh-fb-token.ts
         env:
           FB_APP_ID: ${{ secrets.FB_APP_ID }}
@@ -30,3 +32,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Auto-update GitHub Secret with new token
+        run: |
+          NEW_TOKEN=$(cat /tmp/fb_new_token.txt)
+          echo "$NEW_TOKEN" | gh secret set FB_ADS_ACCESS_TOKEN --repo ${{ github.repository }}
+          echo "✅ FB_ADS_ACCESS_TOKEN GitHub Secret updated automatically"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
