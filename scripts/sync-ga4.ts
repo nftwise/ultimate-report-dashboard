@@ -29,7 +29,7 @@ async function main() {
 
     console.log(`[sync-ga4] Starting for ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY_B64 ? Buffer.from(process.env.GOOGLE_PRIVATE_KEY_B64, 'base64').toString('utf8') : process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
     if (!privateKey || !clientEmail) {
       throw new Error('Missing service account credentials');

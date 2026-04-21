@@ -38,7 +38,7 @@ async function main() {
     console.log(`[sync-ads] Starting for ${datesToSync.length} days: ${datesToSync[datesToSync.length - 1]} → ${targetDate}${clientIdParam ? ` (client: ${clientIdParam})` : ''}`);
 
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY_B64 ? Buffer.from(process.env.GOOGLE_PRIVATE_KEY_B64, 'base64').toString('utf8') : process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
     const mccId = process.env.GOOGLE_ADS_MCC_ID;
 
