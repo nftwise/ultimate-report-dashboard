@@ -15,8 +15,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = 'https://tupedninjtaarmdwppgy.supabase.co';
 const SUPABASE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGVkbmluanRhYXJtZHdwcGd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNjMwNTQsImV4cCI6MjA3NjczOTA1NH0.tGme0vdFQRBfQU5CPIHLrBsw3r_mi_PfkrFGar3wXT4';
-const BASE_URL =
-  process.env.VERCEL_URL || 'https://ultimate-report-dashboard.vercel.app';
+// BASE_URL removed — ci-gate now queries Supabase directly (no Vercel dependency)
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -437,23 +436,20 @@ async function checkGBPSummaryConsistency() {
 // ─── Group D — API Health ─────────────────────────────────────────────────
 
 async function checkSyncStatus() {
-  const url = `${BASE_URL}/api/cron/sync-status`;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(9000) });
-    if (!res.ok) {
-      return { passed: false, detail: `HTTP ${res.status} from ${url}` };
-    }
-    const json = await res.json();
-    const hasField = 'allHealthy' in json;
-    return {
-      passed: hasField,
-      detail: hasField
-        ? `allHealthy=${json.allHealthy}`
-        : `Missing allHealthy field in response`,
-    };
-  } catch (err) {
-    return { passed: false, detail: `Fetch failed: ${err.message}` };
-  }
+  // Direct Supabase query — no Vercel API call needed
+  const { data, error } = await supabase
+    .from('cron_status')
+    .select('job_name, last_run_at, last_status')
+    .order('last_run_at', { ascending: false })
+    .limit(10);
+  if (error) return { passed: false, detail: `cron_status query failed: ${error.message}` };
+  const hasRows = data && data.length > 0;
+  return {
+    passed: hasRows,
+    detail: hasRows
+      ? `${data.length} cron jobs tracked, latest: ${data[0]?.job_name} @ ${data[0]?.last_run_at}`
+      : 'No cron_status rows found',
+  };
 }
 
 async function checkRollupEndpoint() {

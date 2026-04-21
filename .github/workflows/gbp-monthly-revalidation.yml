@@ -2,9 +2,7 @@ name: GBP Monthly Re-validation
 
 on:
   schedule:
-    # Run on 2nd of each month at 12:00 UTC
-    # Re-fetches previous 3 months with accurate range queries
-    - cron: '0 12 2 * *'
+    - cron: '0 12 2 * *'   # 2nd of each month at 12:00 UTC
   workflow_dispatch:
     inputs:
       months_back:
@@ -19,35 +17,20 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Re-validate previous 3 months
-        run: |
-          echo "→ GBP Monthly Re-validation (range query accuracy fix)"
+      - uses: actions/checkout@v4
 
-          # Calculate months to re-validate
-          MONTHS_BACK="${{ github.event.inputs.months_back || '3' }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-          for i in $(seq 1 $MONTHS_BACK); do
-            # Get start/end of month i months ago
-            START=$(date -d "-${i} month" +"%Y-%m-01" 2>/dev/null || date -v-${i}m +"%Y-%m-01")
-            # Last day of that month
-            END=$(date -d "${START} +1 month -1 day" +"%Y-%m-%d" 2>/dev/null || \
-                  python3 -c "from datetime import date,timedelta; d=date.fromisoformat('${START}'); m=d.month%12+1; y=d.year+(d.month//12); print(date(y,m,1)-timedelta(days=1))")
+      - run: npm ci
 
-            echo "→ Re-validating ${START} → ${END}"
-            RESULT=$(curl -f -s -X GET \
-              "${{ secrets.VERCEL_URL }}/api/admin/gbp-rebackfill?start=${START}&end=${END}" \
-              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-              -m 300 || echo '{"success":false,"error":"request failed"}')
-
-            echo "$RESULT" | python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-rows=d.get('totalRows',0)
-errs=len(d.get('errors') or [])
-print(f'  rows={rows} errors={errs} ok={d.get(\"success\",False)}')
-" 2>/dev/null || echo "  parse error: $RESULT"
-
-            sleep 5
-          done
-
-          echo "→ GBP re-validation complete"
+      - name: Re-validate GBP
+        run: npx tsx --tsconfig scripts/tsconfig.json scripts/gbp-monthly-revalidation.ts --months ${{ github.event.inputs.months_back || '3' }}
+        env:
+          MONTHS_BACK: ${{ github.event.inputs.months_back || '3' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -25,9 +25,6 @@ jobs:
         run: npm ci
 
       - name: Run CI Gate
-        env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node scripts/ci-gate.mjs
 
       - name: Notify Telegram on failure
