@@ -9,9 +9,6 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      secrets: write   # needed to update FB_ADS_ACCESS_TOKEN secret
-
     steps:
       - uses: actions/checkout@v4
 
