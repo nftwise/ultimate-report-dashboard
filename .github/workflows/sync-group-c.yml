@@ -45,6 +45,22 @@ jobs:
         run: npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --group C
       - name: Run Rollup
         run: npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --group C
+      - name: Verify data written
+        run: |
+          TARGET="${DATE:-$(TZ=America/Los_Angeles date -d yesterday +%Y-%m-%d)}"
+          echo "→ Verifying client_metrics_summary for $TARGET (Group C)..."
+          IDS=$(curl -s "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/clients?sync_group=eq.C&is_active=eq.true&select=id" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" | jq -r '[.[].id] | join(",")')
+          COUNT=$(curl -s "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/client_metrics_summary?client_id=in.(${IDS})&date=eq.${TARGET}&period_type=eq.daily&select=client_id" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" | jq 'length')
+          echo "→ Records: $COUNT"
+          if [ "$COUNT" -eq "0" ]; then
+            echo "❌ No records for $TARGET — sync may have run without writing data"
+            exit 1
+          fi
+          echo "✅ $COUNT clients verified for $TARGET"
       - name: Alert on failure
         if: failure()
         run: |
