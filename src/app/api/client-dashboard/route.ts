@@ -44,6 +44,15 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Client role: early ownership check before any DB work to avoid 404 vs 403 oracle
+    const sessionClientSlug = (session.user as any)?.clientSlug as string | undefined;
+    if (sessionRole === 'client') {
+      const ownsThisClient = clientId === sessionClientId || clientId === sessionClientSlug;
+      if (!ownsThisClient) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
     console.log(`⚡ [Client Dashboard] Fetching for ${clientId}: ${startDate} to ${endDate}`);
 
     // Step 1: Get client info (support both UUID and slug)
@@ -80,11 +89,6 @@ export async function GET(request: NextRequest) {
     }
 
     const clientUUID = client.id;
-
-    // Client role can only view their own data
-    if (sessionRole === 'client' && sessionClientId !== clientUUID) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
 
     // Calculate previous period dates first
     const periodLength = Math.ceil(
