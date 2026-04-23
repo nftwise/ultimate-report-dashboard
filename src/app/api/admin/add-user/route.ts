@@ -170,37 +170,40 @@ export async function DELETE(request: NextRequest) {
 
 /**
  * GET /api/admin/add-user
- * List all users (admin only)
+ * List all users. Admin sees full list + login_logs. Team sees user list only (no login history).
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  if (!session || role !== 'admin') {
+  if (!session || (role !== 'admin' && role !== 'team')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const [{ data: users, error }, { data: loginLogs }] = await Promise.all([
-      supabaseAdmin
-        .from('users')
-        .select('id, email, role, client_id, is_active, created_at, last_login')
-        .order('created_at', { ascending: false }),
-      supabaseAdmin
-        .from('login_logs')
-        .select('user_id, logged_at')
-        .gte('logged_at', sixMonthsAgo.toISOString())
-        .order('logged_at', { ascending: false })
-        .limit(5000),
-    ]);
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('id, email, role, client_id, is_active, created_at, last_login')
+      .order('created_at', { ascending: false });
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, users, loginLogs: loginLogs || [] });
+    // Login history is sensitive — only admin can see all users' activity
+    let loginLogs: { user_id: string; logged_at: string }[] = [];
+    if (role === 'admin') {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const { data: logs } = await supabaseAdmin
+        .from('login_logs')
+        .select('user_id, logged_at')
+        .gte('logged_at', sixMonthsAgo.toISOString())
+        .order('logged_at', { ascending: false })
+        .limit(5000);
+      loginLogs = logs || [];
+    }
+
+    return NextResponse.json({ success: true, users, loginLogs });
 
   } catch (error: any) {
     console.error('Error listing users:', error);
