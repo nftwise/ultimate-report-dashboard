@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
 /**
@@ -14,6 +16,13 @@ import { supabaseAdmin } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  const sessionRole = (session.user as any)?.role as string;
+  const sessionClientId = (session.user as any)?.clientId as string | undefined;
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -71,6 +80,11 @@ export async function GET(request: NextRequest) {
     }
 
     const clientUUID = client.id;
+
+    // Client role can only view their own data
+    if (sessionRole === 'client' && sessionClientId !== clientUUID) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
     // Calculate previous period dates first
     const periodLength = Math.ceil(
