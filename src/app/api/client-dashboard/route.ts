@@ -90,6 +90,11 @@ export async function GET(request: NextRequest) {
 
     const clientUUID = client.id;
 
+    // Post-lookup UUID guard: catches stale slug after admin reassignment (JWT caches slug for 90d)
+    if (sessionRole === 'client' && clientUUID !== sessionClientId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     // Calculate previous period dates first
     const periodLength = Math.ceil(
       (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
