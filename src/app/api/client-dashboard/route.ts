@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
 /**
@@ -14,6 +16,13 @@ import { supabaseAdmin } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  const sessionRole = (session.user as any)?.role as string;
+  const sessionClientId = (session.user as any)?.clientId as string | undefined;
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -33,6 +42,15 @@ export async function GET(request: NextRequest) {
         success: false,
         error: 'startDate and endDate parameters are required'
       }, { status: 400 });
+    }
+
+    // Client role: early ownership check before any DB work to avoid 404 vs 403 oracle
+    const sessionClientSlug = (session.user as any)?.clientSlug as string | undefined;
+    if (sessionRole === 'client') {
+      const ownsThisClient = clientId === sessionClientId || clientId === sessionClientSlug;
+      if (!ownsThisClient) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     console.log(`⚡ [Client Dashboard] Fetching for ${clientId}: ${startDate} to ${endDate}`);

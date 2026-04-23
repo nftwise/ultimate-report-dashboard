@@ -170,13 +170,13 @@ export async function DELETE(request: NextRequest) {
 
 /**
  * GET /api/admin/add-user
- * List all users (admin + team can view)
+ * List all users (admin only)
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  if (!session || role === 'client') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session || role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
