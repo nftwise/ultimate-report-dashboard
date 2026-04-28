@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Header } from './neural/Header'
-import { StatCard, Card } from './neural/Card'
-import { Grid, Container } from './neural/Grid'
-import { Badge } from './neural/Badge'
-import { Loading } from './neural/Loading'
+import { Header } from '@/components/neural/Header'
+import { StatCard, Card } from '@/components/neural/Card'
+import { Grid, Container } from '@/components/neural/Grid'
+import { Badge } from '@/components/neural/Badge'
+import { Loading } from '@/components/neural/Loading'
 import { TrendingUp, DollarSign, Users, Search, Target, LayoutGrid, Table as TableIcon } from 'lucide-react'
-import { formatNumber, formatCurrency } from '@/lib/utils/format-utils'
+import { formatNumber, formatCurrency } from '@/lib/format-utils'
 
 interface ClientData {
   id: string

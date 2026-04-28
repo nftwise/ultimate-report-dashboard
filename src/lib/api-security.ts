@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { rateLimiters, getClientIp } from '@/lib/utils/rate-limit';
-import { isValidDate, isValidUUID, sanitizeString } from '@/lib/utils/validation';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
+import { isValidDate, isValidUUID, sanitizeString } from '@/lib/validation';
 
 /**
  * Apply rate limiting to API route

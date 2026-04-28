@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/db/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import { stlDecomposition, isSeasonalAnomaly } from '@/lib/analytics/seasonal-decomposition'
 import { compareAgainstCohort } from '@/lib/analytics/cohort-benchmarking'
 import { calculateMahalanobisDistance } from '@/lib/analytics/multivariate-detection'

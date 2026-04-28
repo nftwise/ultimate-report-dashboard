@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Header } from './neural/Header'
-import { StatCard, Card } from './neural/Card'
-import { Grid, Container } from './neural/Grid'
-import { Badge } from './neural/Badge'
-import { Tabs } from './neural/Tabs'
-import { Sidebar } from './neural/Sidebar'
-import { SegmentedBar, ProgressBar } from './neural/Chart'
-import { Loading } from './neural/Loading'
+import { Header } from '@/components/neural/Header'
+import { StatCard, Card } from '@/components/neural/Card'
+import { Grid, Container } from '@/components/neural/Grid'
+import { Badge } from '@/components/neural/Badge'
+import { Tabs } from '@/components/neural/Tabs'
+import { Sidebar } from '@/components/neural/Sidebar'
+import { SegmentedBar, ProgressBar } from '@/components/neural/Chart'
+import { Loading } from '@/components/neural/Loading'
 import {
   TrendingUp,
   Phone,
@@ -38,7 +38,7 @@ import {
   ThumbsUp,
   Facebook
 } from 'lucide-react'
-import { formatNumber, formatCurrency } from '@/lib/utils/format-utils'
+import { formatNumber, formatCurrency } from '@/lib/format-utils'
 
 interface NeuralDashboardProps {
   user: {
