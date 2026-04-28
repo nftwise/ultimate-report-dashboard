@@ -325,7 +325,7 @@ async function fetchSearchTerms(apiUrl: string, headers: Record<string, string>,
     FROM search_term_view
     WHERE segments.date = '${gaqlDate}'
       AND campaign.status != 'REMOVED'
-      AND (metrics.conversions > 0 OR metrics.clicks >= 3)
+      AND metrics.impressions > 0
   `;
 
   const rows = await executeGAQL(apiUrl, headers, query);

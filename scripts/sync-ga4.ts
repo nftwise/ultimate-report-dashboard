@@ -330,10 +330,10 @@ async function fetchGA4LandingPages(token: string, propertyId: string, date: str
       sessions,
       total_users: parseInt(row.metricValues[1].value) || 0,
       new_users: parseInt(row.metricValues[2].value) || 0,
-      avg_session_duration: parseFloat(row.metricValues[3].value) || 0,
-      bounce_rate: parseFloat(row.metricValues[4].value) || 0,
+      avg_session_duration: Math.min(parseFloat(row.metricValues[3].value) || 0, 86400),
+      bounce_rate: Math.min(parseFloat(row.metricValues[4].value) || 0, 1),
       conversions,
-      conversion_rate: sessions > 0 ? Math.round((conversions / sessions) * 10000) / 100 : 0,
+      conversion_rate: sessions > 0 ? Math.min(Math.round((conversions / sessions) * 10000) / 100, 9999) : 0,
     };
   });
 }
