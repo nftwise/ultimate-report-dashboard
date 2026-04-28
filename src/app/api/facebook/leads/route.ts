@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { appendLead, ensureWorksheet, initializeHeaders, parseGoogleServiceKey } from '@/lib/google-sheets';
 import { getStateFromPhone } from '@/lib/area-codes';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 /**

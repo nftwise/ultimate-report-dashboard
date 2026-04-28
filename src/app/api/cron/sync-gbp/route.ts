@@ -4,6 +4,8 @@ import { fetchGBPRangePerDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils'
 import { GBPTokenManager } from '@/lib/gbp-token-manager';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 300;
 
 const BATCH_SIZE = 3;

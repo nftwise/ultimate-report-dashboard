@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/onboard-fb
  * Connect a client's FB Ad Account and trigger 30-day backfill.

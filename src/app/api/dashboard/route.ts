@@ -10,6 +10,8 @@ import { parallelApiCalls } from '@/lib/performance-cache';
 import { fastCache, getParallelFast } from '@/lib/fast-cache';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 // Fast timeout for API calls (fail fast, don't block UI)
 const API_TIMEOUT = 8000; // 8 seconds max per API
 

@@ -6,6 +6,8 @@ import { JWT } from 'google-auth-library';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic'
+
 interface Client {
   id: string;
   companyName: string;

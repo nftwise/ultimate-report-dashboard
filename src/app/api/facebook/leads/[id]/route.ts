@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { updateLeadByPhone, parseGoogleServiceKey } from '@/lib/google-sheets';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 /**

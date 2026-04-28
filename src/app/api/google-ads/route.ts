@@ -8,6 +8,8 @@ import { getCachedOrFetch, generateCacheKey } from '@/lib/smart-cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

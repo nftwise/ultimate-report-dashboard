@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { parseTwilioWebhook, generateTwiMLResponse, normalizePhoneNumber } from '@/lib/twilio';
 import { sendTelegramMessage } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 /**

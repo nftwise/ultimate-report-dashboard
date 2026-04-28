@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GBPTokenManager } from '@/lib/gbp-token-manager';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/gbp-reauth
  * Simple OAuth for agency GBP - stores token in Supabase (works on Vercel)

@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/user/change-password
  * Allows the currently logged-in user to change their own password.

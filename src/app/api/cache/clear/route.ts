@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cache } from '@/lib/cache';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Clear all cached data
  * Useful when you update client data or need fresh API results

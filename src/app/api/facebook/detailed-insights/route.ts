@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';
 
 export async function GET(request: NextRequest) {

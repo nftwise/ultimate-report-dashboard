@@ -4,6 +4,8 @@ import { GoogleAdsServiceAccountConnector } from '@/lib/google-ads-service-accou
 import { TimeRange } from '@/types';
 import { getClientConfig } from '@/lib/server-utils';
 
+export const dynamic = 'force-dynamic'
+
 interface Client {
   id: string;
   companyName: string;

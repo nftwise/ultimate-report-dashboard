@@ -5,6 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/google-business-profile
  * Fetch Google Business Profile performance metrics

@@ -4,6 +4,8 @@ import { sendSMS } from '@/lib/twilio';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { appendLead, ensureWorksheet, initializeHeaders, parseGoogleServiceKey } from '@/lib/google-sheets';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 const SOURCE_LABEL: Record<string, string> = {

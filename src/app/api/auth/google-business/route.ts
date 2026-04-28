@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/google-business
  * Initiates OAuth2 flow for Google Business Profile

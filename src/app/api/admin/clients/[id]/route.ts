@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 // Fields that belong to service_configs, not clients
 const SERVICE_CONFIG_FIELDS = ['ga_property_id', 'gads_customer_id', 'gsc_site_url', 'callrail_account_id'];
 

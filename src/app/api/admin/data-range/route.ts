@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/data-range
  * Check what date range has data in client_metrics_summary

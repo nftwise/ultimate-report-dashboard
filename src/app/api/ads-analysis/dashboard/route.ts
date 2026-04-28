@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/ads-analysis/dashboard?clientId=xxx&startDate=xxx&endDate=xxx
  * Fetch ads analysis dashboard data for a client

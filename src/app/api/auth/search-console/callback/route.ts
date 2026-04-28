@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/search-console/callback
  * Handles OAuth2 callback from Google
@@ -78,8 +80,8 @@ export async function GET(request: NextRequest) {
     if (userEmail) {
       try {
         const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
+          process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+          process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
         );
 
         const { error: updateError } = await supabase

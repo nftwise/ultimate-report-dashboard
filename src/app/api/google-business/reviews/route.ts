@@ -5,6 +5,8 @@ import path from 'path';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/google-business/reviews
  * Fetch reviews for a location

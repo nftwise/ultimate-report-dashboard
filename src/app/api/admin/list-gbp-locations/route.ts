@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/list-gbp-locations
  * List ALL GBP locations accessible by the OAuth token

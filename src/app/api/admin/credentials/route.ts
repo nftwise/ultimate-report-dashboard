@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { encryptPassword } from '@/lib/telegram-bot';
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/credentials?clientId=xxx
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);

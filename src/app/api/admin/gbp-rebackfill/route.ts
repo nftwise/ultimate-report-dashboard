@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { fetchGBPRangePerDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 300;
 
 /**

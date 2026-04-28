@@ -8,8 +8,8 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import { fmtNum, fmtCurrency } from '@/lib/format';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 );
 
 // ── Contact info for upsell page ──────────────────────────────────────────

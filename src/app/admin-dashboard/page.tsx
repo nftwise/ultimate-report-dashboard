@@ -74,8 +74,8 @@ export default function AdminDashboardPage() {
   // On mount: use last available data date (not today) as the "to" anchor
   useEffect(() => {
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
     );
     supabase.from('client_metrics_summary')
       .select('date')
@@ -105,8 +105,8 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
       const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
       );
       const dateFromStr = dateRange.from ? toLocalDateStr(dateRange.from) : '';
       const dateToStr = dateRange.to ? toLocalDateStr(dateRange.to) : '';
@@ -251,8 +251,8 @@ export default function AdminDashboardPage() {
   const fetchAlerts = async () => {
     try {
       const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
       );
       // Dynamic completeCutoff: latest date where GBP data is confirmed complete.
       // Both windows are anchored to this date → data integrity guaranteed.

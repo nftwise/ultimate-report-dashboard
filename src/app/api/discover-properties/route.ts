@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/discover-properties
  * Auto-discover GA4 properties, Google Ads accounts, and Search Console sites

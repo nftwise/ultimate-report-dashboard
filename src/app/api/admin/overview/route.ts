@@ -5,6 +5,8 @@ import { GoogleAnalyticsConnector } from '@/lib/google-analytics'
 import { JWT } from 'google-auth-library'
 import { fastCache } from '@/lib/fast-cache'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/overview
  * OPTIMIZED endpoint for admin dashboard - fetches all client data in parallel batches

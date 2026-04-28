@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 300;
 
 const BATCH_SIZE = 3;

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleOAuthManager } from '@/lib/google-oauth';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/google-oauth
  * Initiates OAuth2 flow for Google Business Profile

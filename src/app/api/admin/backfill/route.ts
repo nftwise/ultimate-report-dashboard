@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/backfill
  * Backfill historical data for a date range

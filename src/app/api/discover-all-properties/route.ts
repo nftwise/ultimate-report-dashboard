@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/discover-all-properties
  * Auto-discover GA4 properties and GSC sites for ALL clients

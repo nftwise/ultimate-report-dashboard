@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/facebook/demo-data
  * Returns anonymized FB campaign data from the client with the most leads this month.

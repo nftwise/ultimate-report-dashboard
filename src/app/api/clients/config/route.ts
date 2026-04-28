@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getClientConfig } from '@/lib/server-utils';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Get client configuration (non-sensitive fields only)
  * Used by dashboard to check which services are active

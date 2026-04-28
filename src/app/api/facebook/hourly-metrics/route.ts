@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/facebook/hourly-metrics
  * Fetches hourly breakdown from Facebook Ads API for a client.

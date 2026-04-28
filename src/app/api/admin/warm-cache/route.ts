@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fastCache } from '@/lib/fast-cache'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/warm-cache
  * Background cache pre-warming endpoint

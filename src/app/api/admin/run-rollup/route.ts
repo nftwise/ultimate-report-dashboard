@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAndSendAlerts, saveCronStatus } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic'
+
 // Allow up to 300s — 60 days × 25 clients needs extended duration
 export const maxDuration = 300;
 

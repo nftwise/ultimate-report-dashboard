@@ -3,6 +3,8 @@ import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleBusinessProfileConnector } from '@/lib/google-business-profile';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/google-business/callback
  * Handles OAuth2 callback from Google
@@ -65,8 +67,8 @@ export async function GET(request: NextRequest) {
     // Save agency master token to Supabase
     try {
       const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
       );
 
       const { error: tokenError } = await supabase
@@ -119,8 +121,8 @@ export async function GET(request: NextRequest) {
     // Update service_configs with connected email and location
     try {
       const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
       );
 
       const updateData: Record<string, string | null> = {};

@@ -6,8 +6,8 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { Facebook, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 );
 
 interface ClientOption {

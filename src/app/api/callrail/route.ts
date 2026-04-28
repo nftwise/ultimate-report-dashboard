@@ -5,6 +5,8 @@ import { getTimeRangeDates } from '@/lib/utils';
 import { getClientConfig } from '@/lib/server-utils';
 import { ApiResponse } from '@/types';
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

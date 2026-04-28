@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/facebook/ads-metrics
  * Returns FB Ads campaign metrics grouped by campaign_name for a given date range.

@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizePhoneNumber } from '@/lib/twilio';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';

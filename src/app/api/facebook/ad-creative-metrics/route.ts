@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/facebook/ad-creative-metrics
  * Returns FB campaign metrics grouped by campaign_name with spend distribution.

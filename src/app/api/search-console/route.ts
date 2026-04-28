@@ -5,6 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 interface ClientConfig {
   id: string;
   searchConsoleSiteUrl: string;

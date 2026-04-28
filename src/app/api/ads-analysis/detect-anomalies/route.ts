@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/ads-analysis/detect-anomalies?clientId=xxx&metric=clicks&lookbackDays=30&sensitivity=medium
  * Detect anomalies in campaign metrics using multiple statistical methods

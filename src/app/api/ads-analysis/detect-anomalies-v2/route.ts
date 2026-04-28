@@ -5,6 +5,8 @@ import { compareAgainstCohort } from '@/lib/analytics/cohort-benchmarking'
 import { calculateMahalanobisDistance } from '@/lib/analytics/multivariate-detection'
 import { getAdaptiveThresholds } from '@/lib/analytics/adaptive-thresholds'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const clientId = request.nextUrl.searchParams.get('clientId')

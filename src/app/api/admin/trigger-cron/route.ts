@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 const ALLOWED_ENDPOINTS = [
   '/api/cron/sync-ga4',
   '/api/cron/sync-gsc',

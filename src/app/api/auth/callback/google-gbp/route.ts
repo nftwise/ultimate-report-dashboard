@@ -3,6 +3,8 @@ import { GoogleOAuthManager } from '@/lib/google-oauth';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/callback/google-gbp
  * OAuth2 callback handler for Google Business Profile

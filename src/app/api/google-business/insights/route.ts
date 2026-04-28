@@ -5,6 +5,8 @@ import path from 'path';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/google-business/insights
  * Try to fetch insights data including call metrics using My Business API v4
