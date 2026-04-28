@@ -51,3 +51,4 @@ gemini/
 cron-deploy/
 .env.prod
 .env.vercel
+.claude/worktrees/
