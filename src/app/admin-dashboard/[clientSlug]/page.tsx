@@ -378,7 +378,7 @@ export default function ClientDetailPage() {
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="overview" />
 
       {/* Sticky date bar */}
-      <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+      <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-2 md:gap-3 px-4 md:px-8 py-3 overflow-x-auto" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {dailyData.length > 0 && (
             <span style={{ fontSize: '11px', color: '#9ca3af' }}>
@@ -417,7 +417,7 @@ export default function ClientDetailPage() {
         <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
       </div>
 
-      <div className="flex-1 p-8">
+      <div className="flex-1 p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
 
           {/* Error banner */}
@@ -590,7 +590,7 @@ export default function ClientDetailPage() {
                     <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>How Patients Find You on Google</h3>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     {[
                       { label: 'Shown on Google', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
                       { label: 'Clicked Your Link', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },

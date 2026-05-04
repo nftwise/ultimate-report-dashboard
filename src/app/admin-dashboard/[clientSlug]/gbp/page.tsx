@@ -362,7 +362,7 @@ export default function GBPPage() {
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="gbp" />
       <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
 
-      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="px-4 md:px-6" style={{ maxWidth: '1400px', margin: '0 auto', paddingTop: '24px', paddingBottom: '24px' }}>
 
         {/* Error banner */}
         {fetchError && (
@@ -384,7 +384,7 @@ export default function GBPPage() {
         )}
 
         {/* ── Date Controls (sticky, same as other tabs) ────────────────── */}
-        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3"
+        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3 overflow-x-auto"
           style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {actionsChart.length > 0 && (
             <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
@@ -459,7 +459,7 @@ export default function GBPPage() {
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
             {/* Profile Views — line */}
             <div style={bigCard}>
               <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Trend</p>
@@ -548,7 +548,7 @@ export default function GBPPage() {
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', minWidth: '260px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', minWidth: '0', width: '100%' }}>
                       {[
                         { label: 'Share of Actions', val: `${callsPct}%`, color: '#10b981' },
                         { label: 'Avg / Day', val: periodDays > 0 ? (pCalls / periodDays).toFixed(1) : '0', color: '#10b981' },
@@ -564,7 +564,7 @@ export default function GBPPage() {
                 </div>
 
                 {/* ── SECTION 3: Views · Clicks · Directions ──────────────── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                   {[
                     { label: 'Profile Views', val: pViews, mom: momViews, color: '#9db5a0', sub: `Avg ${periodDays > 0 ? Math.round(pViews / periodDays) : 0}/day` },
                     { label: 'Website Clicks', val: pClicks, mom: momClicks, color: '#d9a854', sub: `${clicksPct}% of actions` },
@@ -580,7 +580,7 @@ export default function GBPPage() {
                 </div>
 
                 {/* ── SECTION 4: Action Breakdown + Reviews ───────────────── */}
-                <div style={{ display: 'grid', gridTemplateColumns: latestReviews > 0 || latestRating > 0 ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: latestReviews > 0 || latestRating > 0 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: '20px', marginBottom: '24px' }}>
                   {/* Action breakdown */}
                   <div style={bigCard}>
                     <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Customer Actions</p>

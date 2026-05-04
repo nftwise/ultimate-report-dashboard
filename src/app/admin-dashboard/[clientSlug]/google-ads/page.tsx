@@ -240,7 +240,7 @@ function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
 
-      <div style={{ padding: '24px', maxWidth: '780px', margin: '0 auto' }}>
+      <div className="px-4 md:px-6" style={{ maxWidth: '780px', margin: '0 auto', paddingTop: '24px', paddingBottom: '24px' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#2c2419', margin: '0 0 6px' }}>
@@ -260,7 +260,7 @@ function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px', margin: '0 0 16px' }}>
             {month} — Our clients are getting
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
             {[
               { value: '24+', label: 'New Leads / Clinic' },
               { value: '$78', label: 'Avg Cost / Lead' },
@@ -353,7 +353,7 @@ function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any
                 ];
                 return (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                       {kpis.map(({ label, value }) => (
                         <div key={label} style={{ background: 'white', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(44,36,25,0.08)' }}>
                           <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
@@ -791,7 +791,7 @@ export default function GoogleAdsPage() {
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client?.name} clientCity={client?.city} activeTab="google-ads" />
 
-      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="px-4 md:px-6" style={{ maxWidth: '1400px', margin: '0 auto', paddingTop: '24px', paddingBottom: '24px' }}>
         {/* Error banner */}
         {fetchError && (
           <div style={{
@@ -812,7 +812,7 @@ export default function GoogleAdsPage() {
         )}
 
         {/* Date Controls */}
-        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-3 mb-6 px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3 overflow-x-auto" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {lastDataDate && (
             <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
               Data through {new Date(lastDataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
