@@ -278,6 +278,60 @@ export default function SEOPage() {
   const keywordsNetChange = keywordMovement.improved - keywordMovement.declined;
   const hasAds = (client as any).services?.googleAds !== false;
 
+  // ── Tooltip state ────────────────────────────────────────────────────────
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+  const InfoIcon = ({ id, text }: { id: string; text: string }) => (
+    <span
+      style={{ position: 'relative', display: 'inline-block', marginLeft: '4px', cursor: 'help', color: '#9ca3af', fontSize: '11px' }}
+      onMouseEnter={() => setActiveTooltip(id)}
+      onMouseLeave={() => setActiveTooltip(null)}
+    >
+      ℹ
+      {activeTooltip === id && (
+        <span style={{ position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)', background: '#2c2419', color: '#fff', fontSize: '11px', padding: '6px 10px', borderRadius: '6px', whiteSpace: 'normal', zIndex: 100, maxWidth: '220px', lineHeight: '1.4', pointerEvents: 'none' }}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+
+  // ── Seasonality context ──────────────────────────────────────────────────
+  const currentMonth = dateRange.to.getMonth() + 1; // 1–12
+  const seasonalityNote = currentMonth <= 2
+    ? 'Jan–Feb typically see lower traffic post-holiday. Compare to last year for context.'
+    : currentMonth <= 4
+    ? 'Spring uptick expected. Declines now may indicate an issue.'
+    : currentMonth <= 8
+    ? 'Summer months vary — some chiropractic practices see higher demand.'
+    : 'Fall/winter recovery period. Q4 often strong for chiropractic.';
+
+  // ── CSV Export ───────────────────────────────────────────────────────────
+  const handleKeywordExport = () => {
+    if (!topKeywords || topKeywords.length === 0) return;
+    const dateStr = dateRange.to.toISOString().split('T')[0];
+    const filename = `keywords-${clientSlug}-${dateStr}.csv`;
+    const header = 'Keyword,Current Position,Previous Position,Change,Clicks,Impressions,CTR';
+    const rows = topKeywords.map((kw: any) => {
+      const keyword = `"${(kw.query || kw.keyword || '').replace(/"/g, '""')}"`;
+      const currPos = kw.position ?? kw.current_position ?? '';
+      const prevPos = kw.prev_position ?? kw.previous_position ?? '';
+      const change = (currPos !== '' && prevPos !== '') ? (Number(prevPos) - Number(currPos)).toFixed(1) : '';
+      const clicks = kw.clicks ?? '';
+      const impressions = kw.impressions ?? '';
+      const ctr = kw.ctr !== undefined ? (kw.ctr * 100).toFixed(2) + '%' : '';
+      return [keyword, currPos, prevPos, change, clicks, impressions, ctr].join(',');
+    });
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ── MoM ──────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
   const prevPeriodEnd = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
@@ -295,11 +349,18 @@ export default function SEOPage() {
   const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits);
 
   const momBadge = (mom: { pct: number | null; label: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-      <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct === null ? '#9ca3af' : mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
-        {mom.pct === null ? '—' : `${mom.pct >= 0 ? '+' : ''}${mom.pct.toFixed(1)}%`}
-      </span>
-      <span style={{ fontSize: '9px', color: '#9ca3af' }}>vs {mom.label}</span>
+    <div style={{ marginTop: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct === null ? '#9ca3af' : mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
+          {mom.pct === null ? '—' : `${mom.pct >= 0 ? '+' : ''}${mom.pct.toFixed(1)}%`}
+        </span>
+        <span style={{ fontSize: '9px', color: '#9ca3af' }}>vs {mom.label}</span>
+      </div>
+      {mom.pct !== null && (
+        <p style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic', marginTop: '4px', margin: '4px 0 0 0' }}>
+          📅 {seasonalityNote}
+        </p>
+      )}
     </div>
   );
 
@@ -441,12 +502,14 @@ export default function SEOPage() {
             <SEOTrendChart data={dailyData} height={360} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(44,36,25,0.08)' }}>
               {[
-                { label: 'Times Shown on Google', value: fmtNum(totalImpressions), color: '#c4704f', sub: 'Search impressions' },
-                { label: 'Times Clicked', value: fmtNum(totalClicks), color: '#10b981', sub: 'From search results' },
-                { label: 'Click Rate', value: avgCtr, color: '#d9a854', sub: avgCtrNum > 5 ? 'Excellent' : avgCtrNum > 2 ? 'Good' : avgCtrNum === 0 ? '—' : 'Needs work' },
+                { label: 'Times Shown on Google', value: fmtNum(totalImpressions), color: '#c4704f', sub: 'Search impressions', tipId: 'impressions', tip: 'How many times your site appeared in Google Search results, whether clicked or not.' },
+                { label: 'Times Clicked', value: fmtNum(totalClicks), color: '#10b981', sub: 'From search results', tipId: null, tip: null },
+                { label: 'Click Rate (CTR)', value: avgCtr, color: '#d9a854', sub: avgCtrNum > 5 ? 'Excellent' : avgCtrNum > 2 ? 'Good' : avgCtrNum === 0 ? '—' : 'Needs work', tipId: 'ctr_trend', tip: '% of Google Search impressions that resulted in a click to your website. Source: Google Search Console.' },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: 600, margin: '0 0 8px 0', textTransform: 'uppercase' }}>{s.label}</p>
+                  <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: 600, margin: '0 0 8px 0', textTransform: 'uppercase' }}>
+                    {s.label}{s.tipId && s.tip && <InfoIcon id={s.tipId} text={s.tip} />}
+                  </p>
                   <p style={{ fontSize: '24px', fontWeight: 700, color: s.color, margin: '0 0 4px 0' }}>{s.value}</p>
                   <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>{s.sub}</p>
                 </div>
@@ -508,7 +571,17 @@ export default function SEOPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
             {/* Rankings */}
             <div style={card}>
-              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Google Rankings</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: 0 }}>Google Rankings</p>
+                {topKeywords && topKeywords.length > 0 && (
+                  <button
+                    onClick={handleKeywordExport}
+                    style={{ fontSize: '12px', padding: '4px 12px', border: '1px solid rgba(44,36,25,0.2)', borderRadius: '6px', background: 'transparent', cursor: 'pointer', color: '#5c5850' }}
+                  >
+                    Export CSV
+                  </button>
+                )}
+              </div>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Where Your Keywords Rank</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                 {[
@@ -526,7 +599,7 @@ export default function SEOPage() {
               {/* Avg position with context */}
               <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '12px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>Average Position</p>
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>Average Position<InfoIcon id="avg_position" text="Your average ranking position in Google Search results across all tracked keywords. Lower is better (1 = top result)." /></p>
                   <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Lower = closer to #1 on Google</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -567,7 +640,7 @@ export default function SEOPage() {
                 <p style={{ fontSize: '10px', fontWeight: 600, color: '#5c5850', margin: '0 0 12px 0', textTransform: 'uppercase' }}>Visitor Engagement</p>
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '11px', color: '#5c5850' }}>Engagement Rate</span>
+                    <span style={{ fontSize: '11px', color: '#5c5850' }}>Engagement Rate<InfoIcon id="engagement_rate" text="% of sessions where users actively interacted (scrolled, clicked, or spent >10s). Source: Google Analytics 4." /></span>
                     <div style={{ textAlign: 'right' }}>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981' }}>{avgEngagementRate}%</span>
                       <span style={{ fontSize: '9px', color: '#9ca3af', marginLeft: '6px' }}>
@@ -583,7 +656,7 @@ export default function SEOPage() {
                 {avgCtrNum > 0 && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Click Rate (CTR)</span>
+                      <span style={{ fontSize: '11px', color: '#5c5850' }}>Click Rate (CTR)<InfoIcon id="ctr" text="% of Google Search impressions that resulted in a click to your website. Source: Google Search Console." /></span>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: avgCtrNum > 5 ? '#10b981' : avgCtrNum > 2 ? '#d9a854' : '#ef4444' }}>{avgCtr}</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
