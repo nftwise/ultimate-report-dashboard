@@ -166,7 +166,7 @@ export default function ChatWidget({ role }: ChatWidgetProps) {
               fontSize: '16px',
             }}>🤖</div>
             <div>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#fff' }}>WiseCRM Assistant</p>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#fff' }}>Data11.ai Assistant</p>
               <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>Ask about client data</p>
             </div>
           </div>

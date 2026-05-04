@@ -234,11 +234,39 @@ export default function ClientDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchDailyMetrics(); }, [client, dateRange.from, dateRange.to]);
 
-  if (loading || !client) {
+  if (loading) {
     return (
       <AdminLayout>
         <div className="min-h-screen flex items-center justify-center">
           <p style={{ color: '#2c2419' }}>Loading...</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // After loading completes but no client matched the slug → 404 state.
+  if (!client) {
+    return (
+      <AdminLayout>
+        <div className="min-h-screen flex flex-col items-center justify-center" style={{ padding: '40px 20px' }}>
+          <div style={{ maxWidth: 480, textAlign: 'center' }}>
+            <div style={{ fontSize: 56, fontFamily: FF.serif, fontWeight: 500, color: C2.coral, lineHeight: 1, marginBottom: 12 }}>
+              404
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 600, color: C2.choc, marginBottom: 8 }}>
+              Client not found
+            </h1>
+            <p style={{ color: C2.text2, fontSize: 14, marginBottom: 20 }}>
+              No active client matches the slug <code style={{ background: 'rgba(44,36,25,0.06)', padding: '2px 6px', borderRadius: 4, fontFamily: FF.mono }}>{clientSlug}</code>.
+              It may have been renamed or deactivated.
+            </p>
+            <button
+              onClick={() => router.push('/admin-dashboard')}
+              style={{ background: C2.coral, color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              ← Back to dashboard
+            </button>
+          </div>
         </div>
       </AdminLayout>
     );
@@ -268,9 +296,12 @@ export default function ClientDetailPage() {
   const trafficReferral = dailyData.reduce((s: number, d: any) => s + (d.traffic_referral || 0), 0);
   const totalTraffic = trafficOrganic + trafficPaid + trafficDirect + trafficReferral + trafficAi;
 
-  const hasAds = client.services?.googleAds !== false;
-  const hasSeo = client.services?.seo !== false;
-  const hasGbp = client.services?.googleLocalService !== false;
+  // Default-deny: only show service section when explicitly configured.
+  // `!== false` would treat undefined as "yes", showing GBP for clients
+  // who haven't set it up yet.
+  const hasAds = client.services?.googleAds === true;
+  const hasSeo = client.services?.seo === true;
+  const hasGbp = client.services?.googleLocalService === true;
 
   // ── MoM ───────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
@@ -366,7 +397,7 @@ export default function ClientDetailPage() {
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {dailyData.length > 0 && (
             <span style={{ fontSize: 11, color: C2.muted, fontFamily: FF.mono }}>
-              Data through {new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Data through {new Date(dailyData[dailyData.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
           {lastRefreshed && <span style={{ fontSize: 11, color: C2.emerald }}>· Updated just now</span>}
@@ -416,7 +447,7 @@ export default function ClientDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: C2.text2 }}>
             <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: C2.emerald, animation: 'pdot 2s infinite', flexShrink: 0 }} />
             {dailyData.length > 0
-              ? `Data through ${new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${client.city || ''}`
+              ? `Data through ${new Date(dailyData[dailyData.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${client.city || ''}`
               : 'Loading data…'}
           </div>
         </div>

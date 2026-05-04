@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     // ── Trigger refetch (fire-and-forget) ──
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_APP_URL || 'https://ultimate-report-dashboard.vercel.app';
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://data11.ai';
     const headers = { 'Authorization': `Bearer ${cronSecret || ''}` };
 
     for (const { clientId, sources } of refetchNeeded) {

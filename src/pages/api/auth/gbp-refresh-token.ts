@@ -2,7 +2,7 @@
  * API Route: Refresh GBP OAuth token on Vercel
  * This creates a new token that matches the NEW OAuth credentials
  *
- * Usage: https://ultimate-report-dashboard.vercel.app/api/auth/gbp-refresh-token
+ * Usage: https://data11.ai/api/auth/gbp-refresh-token
  */
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';

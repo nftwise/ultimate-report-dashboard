@@ -169,7 +169,7 @@ function ElegantDash() {
           {['#ef4444','#f59e0b','#22c55e'].map(c => <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c, display: 'inline-block', opacity: 0.7 }} />)}
         </div>
         <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 7, padding: '4px 14px', fontFamily: mono, fontSize: 11, color: 'rgba(245,241,237,0.38)', letterSpacing: '0.02em' }}>
-          app.wisecrm.io / dashboard
+          app.data11.ai / dashboard
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px', background: 'rgba(16,185,129,0.18)', borderRadius: 100 }}>
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.emerald, display: 'inline-block', animation: 'pulse 2s infinite' }} />
@@ -369,7 +369,7 @@ export default function Home() {
                 ))}
               </div>
               <div style={{ fontFamily: inter, fontSize: 12, color: C.textSecond, lineHeight: 1.4 }}>
-                <strong style={{ color: C.chocolate, fontWeight: 600 }}>100+ chiropractic practices</strong> trust WiseCRM<br />
+                <strong style={{ color: C.chocolate, fontWeight: 600 }}>100+ chiropractic practices</strong> trust Data11.ai<br />
                 Real data from Google and Meta every morning
               </div>
             </div>
@@ -441,7 +441,7 @@ export default function Home() {
             Know exactly what your marketing is doing.<br /><span style={{ fontStyle: 'italic', color: C.coral, fontWeight: 400 }}>Every single day.</span>
           </h2>
           <p style={{ fontFamily: inter, fontSize: 17, lineHeight: 1.6, color: C.textSecond, maxWidth: 600, marginBottom: 60 }}>
-            You hired MyChiropractice to grow your practice. WiseCRM gives you real-time visibility into every campaign we run for you, updated automatically each morning from official APIs.
+            You hired MyChiropractice to grow your practice. Data11.ai gives you real-time visibility into every campaign we run for you, updated automatically each morning from official APIs.
           </p>
 
           <div className="two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 80, alignItems: 'center' }}>
@@ -457,7 +457,7 @@ export default function Home() {
             <Reveal delay={0.2}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderRadius: 20, overflow: 'hidden', boxShadow: '0 4px 20px rgba(44,36,25,0.06)', border: `1px solid ${C.borderSoft}`, background: 'white' }}>
                 <div className="compare-col-before" style={{ padding: '28px 24px', background: 'rgba(44,36,25,0.04)', borderRight: `1px dashed ${C.borderMed}` }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.textSecond, marginBottom: 18, fontWeight: 600 }}>Before WiseCRM</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.textSecond, marginBottom: 18, fontWeight: 600 }}>Before Data11.ai</div>
                   {['Waiting on monthly PDF','No idea where leads came from','Asking your agency every week','Guessing if ad spend works','Data stuck inside agency tools','Google only keeps 1–3 years of data','No one analyzing data at night'].map(t => (
                     <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 0', fontFamily: inter, fontSize: 13, color: C.chocolate, borderBottom: `1px solid ${C.borderSoft}` }}>
                       <span style={{ width: 17, height: 17, borderRadius: '50%', background: 'rgba(196,112,79,0.15)', color: C.coral, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✕</span>
@@ -466,7 +466,7 @@ export default function Home() {
                   ))}
                 </div>
                 <div className="compare-col-after" style={{ padding: '28px 24px', background: 'linear-gradient(180deg, rgba(157,181,160,0.1), rgba(16,185,129,0.05))' }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.emerald, marginBottom: 18, fontWeight: 600 }}>With WiseCRM</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.emerald, marginBottom: 18, fontWeight: 600 }}>With Data11.ai</div>
                   {[
                     { label: 'See results every morning', soon: false },
                     { label: 'Know exactly which channel drove leads', soon: false },
@@ -547,7 +547,7 @@ export default function Home() {
             See exactly where each<br />new patient <span style={{ fontStyle: 'italic', color: C.coral }}>came from.</span>
           </h2>
           <p style={{ fontFamily: inter, fontSize: 17, lineHeight: 1.6, color: C.textSecond, maxWidth: 600, marginBottom: 60 }}>
-            Was it Google Ads? Your organic SEO? Your Google Business listing? WiseCRM shows you the exact breakdown every month.
+            Was it Google Ads? Your organic SEO? Your Google Business listing? Data11.ai shows you the exact breakdown every month.
           </p>
 
           <div className="attr-grid two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
@@ -649,7 +649,7 @@ export default function Home() {
               The tool we knew<br />you <span style={{ fontStyle: 'italic', color: C.gold }}>needed.</span>
             </h2>
             <blockquote style={{ fontFamily: fraunces, fontStyle: 'italic', fontWeight: 300, fontSize: 'clamp(16px,1.8vw,20px)', lineHeight: 1.65, color: 'rgba(245,241,237,0.82)', marginBottom: 40, maxWidth: 700, marginLeft: 'auto', marginRight: 'auto', paddingLeft: 0, border: 'none' }}>
-              We built MyChiropractice into an agency running 100+ clients worldwide. Every morning we were managing campaigns across dozens of tabs with no single source of truth. WiseCRM was the tool our clients deserved. Now every practice we work with gets full visibility into what we are doing for them every day.
+              We built MyChiropractice into an agency running 100+ clients worldwide. Every morning we were managing campaigns across dozens of tabs with no single source of truth. Data11.ai was the tool our clients deserved. Now every practice we work with gets full visibility into what we are doing for them every day.
             </blockquote>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <div style={{ display: 'flex' }}>
@@ -728,7 +728,7 @@ export default function Home() {
 
       {/* ══════════ FOOTER */}
       <footer style={{ padding: '36px 40px', background: C.chocolate, color: 'rgba(245,241,237,0.5)', textAlign: 'center', fontFamily: inter, fontSize: 12, borderTop: '1px solid rgba(245,241,237,0.06)' }}>
-        © 2026 <strong style={{ color: C.gold, fontWeight: 500 }}>WiseCRM</strong> · A product of MyChiropractice · Kevin &amp; Ardavan Javid
+        © 2026 <strong style={{ color: C.gold, fontWeight: 500 }}>Data11.ai</strong> · A product of MyChiropractice · Kevin &amp; Ardavan Javid
       </footer>
     </div>
   );

@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
   }
 
-  // Fetch current password hash
+  // Fetch current password hash + version
   const { data: user, error: fetchError } = await supabaseAdmin
     .from('users')
-    .select('password_hash')
+    .select('password_hash, password_version')
     .eq('id', userId)
     .single();
 
@@ -56,11 +56,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
   }
 
-  // Hash new password and update
+  // Hash new password and update.
+  // Bump password_version atomically with the hash change so any JWT
+  // minted before this point (on other devices) is invalidated by the
+  // NextAuth session callback on its next request — see issue #5.
   const newHash = await bcrypt.hash(newPassword, 12);
+  const currentVersion = typeof user.password_version === 'number' ? user.password_version : 1;
   const { error: updateError } = await supabaseAdmin
     .from('users')
-    .update({ password_hash: newHash })
+    .update({
+      password_hash: newHash,
+      password_version: currentVersion + 1,
+    })
     .eq('id', userId);
 
   if (updateError) {

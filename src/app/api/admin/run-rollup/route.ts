@@ -106,8 +106,27 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
 
     const allMetricsToSave: any[] = [];
 
+    // Timeout guard: Vercel maxDuration=300s. If we approach 240s, break out of the
+    // date loop and return partial=true so the caller knows. Subsequent cron runs will
+    // re-process the skipped dates (rollup already re-processes a 60-day window).
+    const TIMEOUT_THRESHOLD_MS = 240_000;
+    let partial = false;
+    let datesProcessed = 0;
+    let datesSkipped = 0;
+
     // Process each date sequentially (batched clients within each date)
     for (const targetDate of datesToProcess) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > TIMEOUT_THRESHOLD_MS) {
+        const remaining = datesToProcess.length - datesProcessed;
+        datesSkipped = remaining;
+        partial = true;
+        console.warn(
+          `[Rollup] Approaching timeout (${elapsed}ms elapsed) — skipping remaining ${remaining} client-date pairs (${remaining} dates × ${clients.length} clients). Next cron run will catch up.`
+        );
+        break;
+      }
+
       // Previous day for keyword comparison
       const previousDate = new Date(targetDate + 'T12:00:00Z');
       previousDate.setDate(previousDate.getDate() - 1);
@@ -132,6 +151,8 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
         const nonGhostResults = batchResults.filter((row: any) => row !== null);
         allMetricsToSave.push(...nonGhostResults);
       }
+
+      datesProcessed++;
     }
 
     // Upsert in batches of 300 to prevent payload size limit
@@ -166,7 +187,9 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
     return NextResponse.json({
       success: true,
       dates: { from: oldestDate, to: latestDate },
-      datesProcessed: datesToProcess.length,
+      datesProcessed,
+      datesSkipped,
+      partial,
       processed: allMetricsToSave.length,
       duration,
     });
@@ -435,6 +458,25 @@ async function processClient(
     if (localChiroQueries.length > 0) {
       const totalPosition = localChiroQueries.reduce((sum: number, q: any) => sum + (q.position || 0), 0);
       googleRank = Math.round((totalPosition / localChiroQueries.length) * 10) / 10;
+    }
+
+    // Fallback: if local-chiro filter yielded no match, compute google_rank from
+    // the top 10 queries (by clicks) where clicks > 0. This guarantees a non-null
+    // value whenever the client has any GSC click data and prevents the UI from
+    // displaying "—" indefinitely.
+    if (googleRank === null) {
+      const queriesWithClicks = gscQueriesData
+        .filter((q: any) => (q.clicks || 0) > 0 && (q.position || 0) > 0)
+        .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
+        .slice(0, 10);
+
+      if (queriesWithClicks.length > 0) {
+        const totalPosition = queriesWithClicks.reduce(
+          (sum: number, q: any) => sum + (q.position || 0),
+          0
+        );
+        googleRank = Math.round((totalPosition / queriesWithClicks.length) * 10) / 10;
+      }
     }
 
     // Branded vs non-branded (computed from stored subset — top 50 + city queries)

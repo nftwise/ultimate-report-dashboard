@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   }).join('\n');
 
   // ── 5. System prompt — strict: only marketing data for these clients ───────
-  const systemPrompt = `You are WiseCRM Assistant — a marketing performance analyst for a chiropractic marketing agency. You help admin and team members understand client performance and make decisions.
+  const systemPrompt = `You are Data11.ai Assistant — a marketing performance analyst for a chiropractic marketing agency. You help admin and team members understand client performance and make decisions.
 
 RULES:
 1. Answer questions about client marketing data, dashboard usage, marketing strategy, and agency operations.
@@ -167,7 +167,7 @@ Use only this data. Do not invent figures.`;
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://data11.ai',
-        'X-Title': 'WiseCRM Admin Chat',
+        'X-Title': 'Data11.ai Admin Chat',
       },
       body: JSON.stringify({ model, messages: msgs, max_tokens: 600, temperature: 0.2, stream: false }),
     });

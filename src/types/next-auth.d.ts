@@ -21,6 +21,7 @@ declare module 'next-auth' {
     clientName: string | null
     clientSlug: string | null
     accessToken?: string
+    passwordVersion?: number
   }
 }
 
@@ -32,5 +33,6 @@ declare module 'next-auth/jwt' {
     clientName: string | null
     clientSlug: string | null
     accessToken?: string
+    passwordVersion?: number
   }
 }
