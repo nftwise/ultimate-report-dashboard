@@ -142,7 +142,11 @@ Only use this data. Do not invent figures.`;
     },
     body: JSON.stringify({
       model: 'google/gemma-3-27b-it:free',
-      messages: [{ role: 'system', content: systemPrompt }, ...chatMessages],
+      messages: [
+        { role: 'user', content: `[INSTRUCTIONS]\n${systemPrompt}\n[/INSTRUCTIONS]\nAcknowledge these instructions briefly.` },
+        { role: 'assistant', content: 'Understood. I will only answer questions about the client marketing data provided. How can I help?' },
+        ...chatMessages,
+      ],
       max_tokens: 600,
       temperature: 0.2,
       stream: false,
