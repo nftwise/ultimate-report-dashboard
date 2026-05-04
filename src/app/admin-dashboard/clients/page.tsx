@@ -614,7 +614,7 @@ export default function ClientsManagementPage() {
                                 <ChevronDown size={12} style={{ transform: expandedRows.has(client.id) ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
                               </button>
                               {isAdmin && (<>
-                                <button onClick={() => openEditModal(client)}
+                                <button onClick={() => router.push(`/admin-dashboard/clients/${client.id}/edit`)}
                                   style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.15)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
                                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
