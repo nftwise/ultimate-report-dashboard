@@ -363,11 +363,6 @@ export default function GeoPage() {
 
   const hasData = aiDaily.length > 0 || aiPages.length > 0 || aiQueries.length > 0;
 
-  // Show upsell for client role when no data (admin/team keeps import flow)
-  if (!loading && !hasData && !canImport) {
-    return <GeoUpsellPage clientSlug={clientSlug} client={client} />;
-  }
-
   // ── KPIs ───────────────────────────────────────────────────────────────────
   const totalCitations = filteredDaily.reduce((s, r) => s + r.citations, 0);
   const avgCitationsPerDay = filteredDaily.length > 0
@@ -376,6 +371,7 @@ export default function GeoPage() {
   const peakDay = filteredDaily.reduce((best, r) => r.citations > best.citations ? r : best, { citations: 0, date: '' });
 
   // ── MoM comparison (only for 30D / 90D) ────────────────────────────────────
+  // IMPORTANT: useMemo must be called before any conditional return (Rules of Hooks)
   const momCitations = useMemo(() => {
     if (selectedDays === 0 || aiDaily.length === 0) return null;
     const cutoff = new Date(lastDataDate!);
@@ -397,6 +393,12 @@ export default function GeoPage() {
   }, [aiDaily, selectedDays, totalCitations, lastDataDate]);
 
   const periodSubLabel = selectedDays === 0 ? 'all time' : `last ${filteredDaily.length} days`;
+
+  // Show upsell for client role when no data (admin/team keeps import flow)
+  // Placed AFTER all useMemo calls to comply with Rules of Hooks
+  if (!loading && !hasData && !canImport) {
+    return <GeoUpsellPage clientSlug={clientSlug} client={client} />;
+  }
 
   // ── Parse helpers ──────────────────────────────────────────────────────────
   function parseDailyCitations(raw: string) {
