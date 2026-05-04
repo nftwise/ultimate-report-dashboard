@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
@@ -35,6 +35,23 @@
   /* Fonts */
   --font-outfit: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-inter: "Inter", sans-serif;
+  --font-fraunces: "Fraunces", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, monospace;
+
+  /* Design system extras */
+  --coral-deep: #a85a3d;
+  --cream-deep: #ede8e3;
+  --paper: #faf7f2;
+  --paper-warm: #f9f5ee;
+  --text-muted: #9ca3af;
+  --border-soft: rgba(44,36,25,0.08);
+  --border-medium: rgba(44,36,25,0.14);
+  --shadow-card: 0 4px 20px rgba(44,36,25,0.06);
+  --shadow-deep: 0 20px 60px rgba(44,36,25,0.18);
+  --trend-up-bg: rgba(157,181,160,0.18);
+  --trend-up-fg: #4a6b4e;
+  --trend-down-bg: rgba(196,112,79,0.15);
+  --trend-down-fg: #8a4a2e;
 
   /* Spacing & Sizes */
   --space-section: 160px;

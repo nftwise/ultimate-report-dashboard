@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
+import dynamic from 'next/dynamic';
+
+const ChatWidget = dynamic(() => import('@/components/portal/ChatWidget'), { ssr: false });
 import {
   LayoutDashboard,
   Users,
@@ -451,6 +454,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="md:hidden h-14" />
         {children}
       </main>
+
+      {/* AI Chat — admin/team only */}
+      <ChatWidget role={userRole} />
     </div>
   );
 }
