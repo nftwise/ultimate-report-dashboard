@@ -14,44 +14,35 @@ import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 
 import { Users, Globe, DollarSign, Target, Phone, FileText, Settings, BarChart2, RefreshCw } from 'lucide-react';
 
 const ChartSkeleton = () => (
-  <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
+  <div style={{ height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
-    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
     Loading chart…
   </div>
 );
 
 const SkeletonCard = () => (
-  <div style={{
-    background: 'rgba(255,255,255,0.9)',
-    backdropFilter: 'blur(10px)',
-    borderRadius: '16px',
-    padding: '24px',
-    border: '1px solid rgba(44,36,25,0.1)',
-    boxShadow: '0 4px 20px rgba(44,36,25,0.08)',
-    animation: 'pulse 1.5s infinite',
-  }}>
-    <div style={{ height: '12px', width: '60%', background: '#e5e7eb', borderRadius: '4px', marginBottom: '12px' }} />
-    <div style={{ height: '10px', width: '80%', background: '#f3f4f6', borderRadius: '4px', marginBottom: '16px' }} />
-    <div style={{ height: '32px', width: '50%', background: '#e5e7eb', borderRadius: '4px' }} />
+  <div style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderRadius: 16, padding: 20, border: '1px solid rgba(44,36,25,0.08)', animation: 'pulse 1.5s infinite' }}>
+    <div style={{ height: 8, width: '40%', background: '#e5e7eb', borderRadius: 4, marginBottom: 10 }} />
+    <div style={{ height: 7, width: '70%', background: '#f3f4f6', borderRadius: 4, marginBottom: 14 }} />
+    <div style={{ height: 28, width: '45%', background: '#e5e7eb', borderRadius: 4 }} />
   </div>
 );
 
 function EmptyState({ source, hasConfig }: { source: string; hasConfig: boolean }) {
   if (!hasConfig) return (
     <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-      <Settings size={32} style={{ marginBottom: '12px', opacity: 0.5, display: 'block', margin: '0 auto 12px' }} />
-      <p style={{ margin: '0 0 4px', fontSize: '14px' }}>{source} is not connected yet.</p>
-      <p style={{ fontSize: '12px', margin: 0 }}>Contact admin to configure this integration.</p>
+      <Settings size={28} style={{ opacity: 0.4, display: 'block', margin: '0 auto 10px' }} />
+      <p style={{ margin: '0 0 4px', fontSize: 14 }}>{source} is not connected yet.</p>
+      <p style={{ fontSize: 12, margin: 0 }}>Contact admin to configure this integration.</p>
     </div>
   );
   return (
     <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-      <BarChart2 size={32} style={{ marginBottom: '12px', opacity: 0.5, display: 'block', margin: '0 auto 12px' }} />
-      <p style={{ margin: '0 0 4px', fontSize: '14px' }}>No data for this period.</p>
-      <p style={{ fontSize: '12px', margin: 0 }}>Try selecting a different date range.</p>
+      <BarChart2 size={28} style={{ opacity: 0.4, display: 'block', margin: '0 auto 10px' }} />
+      <p style={{ margin: '0 0 4px', fontSize: 14 }}>No data for this period.</p>
+      <p style={{ fontSize: 12, margin: 0 }}>Try selecting a different date range.</p>
     </div>
   );
 }
@@ -59,19 +50,20 @@ function EmptyState({ source, hasConfig }: { source: string; hasConfig: boolean 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false, loading: ChartSkeleton });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false, loading: ChartSkeleton });
 
-// ── Design tokens ─────────────────────────────────────────────────────────
+// ── Design tokens ──────────────────────────────────────────────────────────
 const FF = { serif: "'Fraunces', Georgia, serif", outfit: "'Outfit', sans-serif", mono: "'JetBrains Mono', monospace", sans: "'Inter', sans-serif" };
 const C2 = {
   choc: '#2c2419', coral: '#c4704f', gold: '#d9a854', sage: '#9db5a0', emerald: '#10b981',
-  cream: '#f5f1ed', text2: '#5c5850', muted: '#9ca3af',
+  text2: '#5c5850', muted: '#9ca3af',
   borderSoft: 'rgba(44,36,25,0.08)', borderMed: 'rgba(44,36,25,0.14)',
   upBg: 'rgba(157,181,160,0.18)', upFg: '#4a6b4e', downBg: 'rgba(196,112,79,0.15)', downFg: '#8a4a2e', neutBg: 'rgba(92,88,80,0.1)', neutFg: '#5c5850',
 };
+const CARD = { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 16, boxShadow: '0 4px 20px rgba(44,36,25,0.06)' };
 
 function SectionHead({ title, italic: it, meta }: { title: string; italic: string; meta?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, margin: '28px 0 14px' }}>
-      <h3 style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 22, color: C2.choc, letterSpacing: '-0.01em', margin: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, margin: '26px 0 13px' }}>
+      <h3 style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 21, color: C2.choc, letterSpacing: '-0.01em', margin: 0 }}>
         {title} <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 400 }}>{it}</em>
       </h3>
       {meta && <span style={{ fontSize: 11, color: C2.muted, fontFamily: FF.mono, letterSpacing: '0.05em', flexShrink: 0 }}>{meta}</span>}
@@ -108,7 +100,6 @@ interface ClientMetrics {
     googleLocalService: boolean;
   };
 }
-
 
 interface DailyMetrics {
   date: string;
@@ -152,21 +143,17 @@ export default function ClientDetailPage() {
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90 | null>(30);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
-    const from = new Date(to);
-    from.setDate(from.getDate() - 30);
+    const from = new Date(to); from.setDate(from.getDate() - 30);
     return { from, to };
   });
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  // FIX #10: fetch latest GBP rating independently of date range
   const [latestGbpRating, setLatestGbpRating] = useState(0);
-
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
     const to = lastAvailableDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
-    const from = new Date(to);
-    from.setDate(from.getDate() - days);
+    const from = new Date(to); from.setDate(from.getDate() - days);
     setDateRange({ from, to });
   };
 
@@ -194,8 +181,6 @@ export default function ClientDetailPage() {
     if (clientSlug) fetchClient();
   }, [clientSlug]);
 
-
-  // Anchor date range to last available data date (same as admin page)
   useEffect(() => {
     if (!client) return;
     supabase.from('client_metrics_summary')
@@ -211,27 +196,17 @@ export default function ClientDetailPage() {
       });
   }, [client]);
 
-  // FIX #10: fetch latest GBP rating once per client, independent of date range
   useEffect(() => {
     if (!client) return;
     supabase.from('gbp_location_daily_metrics')
-      .select('average_rating')
-      .eq('client_id', client.id)
-      .gt('average_rating', 0)
-      .order('date', { ascending: false })
-      .limit(1)
-      .single()
+      .select('average_rating').eq('client_id', client.id).gt('average_rating', 0)
+      .order('date', { ascending: false }).limit(1).single()
       .then(({ data }) => {
         if (data && (data as any).average_rating > 0) setLatestGbpRating((data as any).average_rating);
         else {
           supabase.from('client_metrics_summary')
-            .select('gbp_rating_avg')
-            .eq('client_id', client.id)
-            .eq('period_type', 'daily')
-            .gt('gbp_rating_avg', 0)
-            .order('date', { ascending: false })
-            .limit(1)
-            .single()
+            .select('gbp_rating_avg').eq('client_id', client.id).eq('period_type', 'daily')
+            .gt('gbp_rating_avg', 0).order('date', { ascending: false }).limit(1).single()
             .then(({ data: s }) => { if (s && (s as any).gbp_rating_avg > 0) setLatestGbpRating((s as any).gbp_rating_avg); });
         }
       });
@@ -251,41 +226,29 @@ export default function ClientDetailPage() {
           seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid,
           traffic_direct, traffic_referral, traffic_ai, ads_impressions, ads_clicks,
           ads_ctr, ad_spend, cpl, budget_utilization`)
-        .eq('client_id', client.id)
-        .eq('period_type', 'daily')
-        .gte('date', dateFromISO)
-        .lte('date', dateToISO)
+        .eq('client_id', client.id).eq('period_type', 'daily')
+        .gte('date', dateFromISO).lte('date', dateToISO)
         .order('date', { ascending: true });
 
       if (metricsError) { setDailyData([]); return; }
 
-      // Map summary columns to DailyMetrics fields
       const merged = (metricsData || []).map((metric: any) => ({
         ...metric,
         gbp_profile_views:      metric.gbp_profile_views  ?? 0,
         gbp_website_clicks:     metric.gbp_website_clicks ?? 0,
-        gbp_direction_requests: metric.gbp_directions     ?? 0, // column rename
+        gbp_direction_requests: metric.gbp_directions     ?? 0,
       }));
       setDailyData(merged as DailyMetrics[]);
       setFetchError(null);
       setLastRefreshed(new Date());
 
-      // Fetch manual form fills for the selected date range (verified, spam-filtered)
-      const dateFromISO2 = toLocalDateStr(dateRange.from);
-      const dateToISO2 = toLocalDateStr(dateRange.to);
-      const fromYM = dateFromISO2.slice(0, 7); // YYYY-MM
-      const toYM = dateToISO2.slice(0, 7);
+      const fromYM = dateFromISO.slice(0, 7);
+      const toYM = dateToISO.slice(0, 7);
       const { data: manualFills } = await supabase
-        .from('manual_form_fills')
-        .select('year_month, form_fills')
-        .eq('client_id', client.id)
-        .gte('year_month', fromYM)
-        .lte('year_month', toYM);
-      setManualFormFills(
-        (manualFills || []).reduce((s: number, r: any) => s + (r.form_fills || 0), 0)
-      );
+        .from('manual_form_fills').select('year_month, form_fills')
+        .eq('client_id', client.id).gte('year_month', fromYM).lte('year_month', toYM);
+      setManualFormFills((manualFills || []).reduce((s: number, r: any) => s + (r.form_fills || 0), 0));
 
-      // Previous period for MoM
       const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
       const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
       const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
@@ -296,18 +259,17 @@ export default function ClientDetailPage() {
           .eq('client_id', client.id).eq('period_type', 'daily')
           .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
         supabase.from('gbp_location_daily_metrics')
-          .select('phone_calls')
-          .eq('client_id', client.id)
+          .select('phone_calls').eq('client_id', client.id)
           .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
       ]);
 
       setPrevData({
-        leads: prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
-        sessions: prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
-        adSpend: prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
-        adsCv: prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
+        leads:     prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
+        sessions:  prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
+        adSpend:   prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
+        adsCv:     prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
         seoClicks: prevMetrics?.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0) || 0,
-        gbpCalls: prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
+        gbpCalls:  prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
           || prevMetrics?.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) || 0,
         formFills: prevMetrics?.reduce((s: number, d: any) => s + (d.form_fills || 0), 0) || 0,
       });
@@ -333,603 +295,509 @@ export default function ClientDetailPage() {
     );
   }
 
-  // ── Aggregates ────────────────────────────────────────────────────────────
-  // Individual channel metrics computed first so totalLeads = their exact sum (no mismatch)
-  const totalFormFills = dailyData.reduce((s: number, d: any) => s + (d.form_fills || 0), 0);
-  const totalGbpCalls = dailyData.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0);
+  // ── Aggregates ─────────────────────────────────────────────────────────────
+  const totalFormFills    = dailyData.reduce((s: number, d: any) => s + (d.form_fills || 0), 0);
+  const totalGbpCalls     = dailyData.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0);
   const totalGbpWebsiteClicks = dailyData.reduce((s: number, d: any) => s + (d.gbp_website_clicks || 0), 0);
-  const totalGbpDirections = dailyData.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0);
-  const totalAdsConversions = dailyData.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0);
-  // Total Leads = sum of active channels → always matches Lead Sources breakdown
-  // Use manual (verified) form fills when available; fall back to GA4 auto-tracked
+  const totalGbpDirections    = dailyData.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0);
+  const totalAdsConversions   = dailyData.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0);
   const verifiedFormFills = manualFormFills > 0 ? manualFormFills : totalFormFills;
-  const totalLeads = verifiedFormFills + totalAdsConversions + totalGbpCalls;
-  const adSpend = dailyData.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0);
-  const costPerLead = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
-  const sessions = dailyData.reduce((s: number, d: any) => s + (d.sessions || 0), 0);
+  const totalLeads   = verifiedFormFills + totalAdsConversions + totalGbpCalls;
+  const adSpend      = dailyData.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0);
+  const costPerLead  = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
+  const sessions     = dailyData.reduce((s: number, d: any) => s + (d.sessions || 0), 0);
   const seoImpressions = dailyData.reduce((s: number, d: any) => s + (d.seo_impressions || 0), 0);
-  const seoClicks = dailyData.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0);
-  const seoCtr = seoImpressions > 0 ? ((seoClicks / seoImpressions) * 100).toFixed(2) : '0.00';
-  const adsClicks = dailyData.reduce((s: number, d: any) => s + (d.ads_clicks || 0), 0);
+  const seoClicks    = dailyData.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0);
+  const seoCtr       = seoImpressions > 0 ? ((seoClicks / seoImpressions) * 100).toFixed(2) : '0.00';
+  const adsClicks    = dailyData.reduce((s: number, d: any) => s + (d.ads_clicks || 0), 0);
   const adsImpressions = dailyData.reduce((s: number, d: any) => s + (d.ads_impressions || 0), 0);
-  const adsCtr = adsImpressions > 0 ? ((adsClicks / adsImpressions) * 100).toFixed(2) : '0.00';
+  const adsCtr       = adsImpressions > 0 ? ((adsClicks / adsImpressions) * 100).toFixed(2) : '0.00';
   const trafficOrganic = dailyData.reduce((s: number, d: any) => s + (d.traffic_organic || 0), 0);
-  const trafficPaid = dailyData.reduce((s: number, d: any) => s + (d.traffic_paid || 0), 0);
+  const trafficAi    = dailyData.reduce((s: number, d: any) => s + (d.traffic_ai || 0), 0);
+  const trafficPaid  = dailyData.reduce((s: number, d: any) => s + (d.traffic_paid || 0), 0);
   const trafficDirect = dailyData.reduce((s: number, d: any) => s + (d.traffic_direct || 0), 0);
-  const trafficAi = dailyData.reduce((s: number, d: any) => s + (d.traffic_ai || 0), 0);
   const trafficReferral = dailyData.reduce((s: number, d: any) => s + (d.traffic_referral || 0), 0);
   const totalTraffic = trafficOrganic + trafficPaid + trafficDirect + trafficReferral + trafficAi;
 
-  const hasAds = client.services?.googleAds === true;
-  const hasSeo = client.services?.seo === true;
-  const hasGbp = client.services?.googleLocalService === true;
+  const hasAds = client.services?.googleAds !== false;
+  const hasSeo = client.services?.seo !== false;
+  const hasGbp = client.services?.googleLocalService !== false;
 
-  // ── MoM ──────────────────────────────────────────────────────────────────
+  // ── MoM ───────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
   const calcMoM = (curr: number, prev: number, invert = false) => {
     if (prev === 0) return { pct: '—', type: 'neutral' as const };
     const raw = (curr - prev) / prev * 100;
     const isPos = raw > 0;
-    const isGood = invert ? !isPos : isPos;
     const type = Math.abs(raw) < 0.01 ? 'neutral' : (invert ? (raw < 0 ? 'up' : 'down') : (raw > 0 ? 'up' : 'down'));
     return { pct: isPos ? `+${raw.toFixed(1)}%` : `${raw.toFixed(1)}%`, type: type as 'up' | 'down' | 'neutral' };
   };
 
-  // Compute previous period label for display in MoM badges
-  const prevPeriodEnd = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
-  const prevPeriodStart = new Date(prevPeriodEnd); prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays);
+  const prevPeriodEnd   = new Date(dateRange.from); prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+  const prevPeriodStart = new Date(prevPeriodEnd);   prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays);
   const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
-  const prevCpl = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
-  const leadTrendData = calcMoM(totalLeads, prevData.leads);
+  const prevCpl          = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
+  const leadTrendData    = calcMoM(totalLeads, prevData.leads);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
   const adSpendTrendData = calcMoM(adSpend, prevData.adSpend, true);
-  const cplTrendData = calcMoM(costPerLead, prevCpl, true);
+  const cplTrendData     = calcMoM(costPerLead, prevCpl, true);
   const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
   const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills);
   const leadTrend = leadTrendData.pct;
   const isTrendUp = leadTrendData.type === 'up';
 
-  const trendBadge = (mom: ReturnType<typeof calcMoM>) => (
-    <div style={{ marginTop: '8px' }}>
-      <span className="text-xs font-semibold px-2 py-1 rounded" style={{
-        background: mom.type === 'up' ? COLORS.TREND_UP_BG : mom.type === 'down' ? COLORS.TREND_DOWN_BG : COLORS.TREND_NEUTRAL_BG,
-        color: mom.type === 'up' ? COLORS.TREND_UP_TEXT : mom.type === 'down' ? COLORS.TREND_DOWN_TEXT : COLORS.TREND_NEUTRAL_TEXT
-      }}>
-        {mom.pct}
-      </span>
-      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '3px' }}>vs {prevLabel}</div>
+  // ── KPI card helper ────────────────────────────────────────────────────────
+  const kpiCard = (accentColor: string, iconBg: string, iconFg: string, icon: React.ReactNode, label: string, desc: string, value: string, mom: ReturnType<typeof calcMoM>, compare: string, extra?: React.ReactNode) => (
+    <div className="kpi-card-wrap" style={{ ...CARD, padding: '18px 18px 16px', position: 'relative', overflow: 'hidden', transition: 'transform 200ms, box-shadow 200ms' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accentColor }} />
+      <div style={{ width: 30, height: 30, borderRadius: 8, background: iconBg, color: iconFg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C2.muted, marginBottom: 10, lineHeight: 1.4 }}>{desc}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' as const, marginBottom: 5 }}>
+        <span style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 34, lineHeight: 1, letterSpacing: '-0.025em', color: C2.choc }}>{value}</span>
+        <TrendBadge mom={mom} />
+      </div>
+      <div style={{ fontSize: 10, color: C2.muted, fontFamily: FF.mono }}>{compare}</div>
+      {extra}
     </div>
   );
+
+  // ── Channel detail cards ───────────────────────────────────────────────────
+  const channelDefs = [
+    ...(hasAds ? [{
+      title: 'Google Ads', accent: C2.coral,
+      iconBg: 'rgba(196,112,79,0.10)', iconFg: C2.coral,
+      metrics: [
+        { label: 'Inquiries', value: fmtNum(totalAdsConversions) },
+        { label: 'Ad Clicks', value: fmtNum(adsClicks) },
+        { label: 'Amount Spent', value: fmtCurrency(adSpend, 0) },
+        { label: 'Click Rate', value: `${adsCtr}%` },
+      ],
+    }] : []),
+    ...(hasSeo ? [{
+      title: 'Google Search (SEO)', accent: C2.sage,
+      iconBg: 'rgba(157,181,160,0.18)', iconFg: '#4a6b4e',
+      metrics: [
+        { label: 'Link Clicks', value: fmtNum(seoClicks) },
+        { label: 'Impressions', value: fmtNum(seoImpressions) },
+        { label: 'Click Rate', value: `${seoCtr}%` },
+        { label: 'Organic Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
+      ],
+    }] : []),
+    ...((hasGbp || totalGbpCalls > 0) ? [{
+      title: 'Google Business Profile', accent: C2.gold,
+      iconBg: 'rgba(217,168,84,0.18)', iconFg: '#8a6a2e',
+      metrics: [
+        { label: 'Phone Calls', value: fmtNum(totalGbpCalls) },
+        { label: 'Website Clicks', value: fmtNum(totalGbpWebsiteClicks) },
+        { label: 'Direction Requests', value: fmtNum(totalGbpDirections) },
+        { label: 'Star Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' },
+      ],
+    }] : []),
+  ];
+
+  // ── Donut chart data ───────────────────────────────────────────────────────
+  const donutChannels = [
+    ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: C2.coral }] : []),
+    ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFills > 0 ? 'verified fills' : 'form events', value: manualFormFills > 0 ? manualFormFills : totalFormFills, color: C2.sage }] : []),
+    ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: C2.gold }] : []),
+  ];
+  const donutTotal = donutChannels.reduce((s, c) => s + c.value, 0);
 
   return (
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={client.name} clientCity={client.city} activeTab="overview" />
 
-      {/* Sticky date bar */}
-      <div className="sticky top-14 md:top-0 z-30 flex flex-wrap items-center justify-end gap-2 md:gap-3 px-4 md:px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
-        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* ── Sticky filter bar ──────────────────────────────────────── */}
+      <div className="sticky top-14 md:top-0 z-30" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '9px 20px', background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {dailyData.length > 0 && (
-            <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+            <span style={{ fontSize: 11, color: C2.muted, fontFamily: FF.mono }}>
               Data through {new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
-          {lastRefreshed && (
-            <span style={{ fontSize: '11px', color: '#10b981' }}>· Updated just now</span>
-          )}
+          {lastRefreshed && <span style={{ fontSize: 11, color: C2.emerald }}>· Updated just now</span>}
         </div>
-        {/* Refresh button */}
-        <button
-          onClick={() => fetchDailyMetrics()}
-          disabled={chartLoading}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '5px',
-            background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.2)',
-            borderRadius: '20px', padding: '5px 12px', cursor: chartLoading ? 'not-allowed' : 'pointer',
-            fontSize: '12px', fontWeight: 600, color: '#c4704f', transition: 'all 150ms',
-          }}
-          onMouseEnter={e => { if (!chartLoading) { (e.currentTarget as HTMLElement).style.background = '#c4704f'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.08)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
-        >
-          <RefreshCw size={12} style={{ animation: chartLoading ? 'spin 1s linear infinite' : 'none' }} />
-          Refresh
+        <button onClick={() => fetchDailyMetrics()} disabled={chartLoading}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.2)', borderRadius: 20, padding: '5px 12px', cursor: chartLoading ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600, color: C2.coral }}
+          onMouseEnter={e => { if (!chartLoading) { (e.currentTarget as HTMLElement).style.background = C2.coral; (e.currentTarget as HTMLElement).style.color = '#fff'; }}}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.08)'; (e.currentTarget as HTMLElement).style.color = C2.coral; }}>
+          <RefreshCw size={11} style={{ animation: chartLoading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
         </button>
-        <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(44,36,25,0.05)' }}>
-          {[7, 30, 90].map((days) => (
-            <button key={days} onClick={() => handlePresetDays(days as 7 | 30 | 90)}
-              className="px-3 py-1 rounded-full text-xs font-semibold transition"
-              style={{ background: days === selectedDays ? '#fff' : 'transparent', color: days === selectedDays ? '#2c2419' : '#5c5850', cursor: 'pointer' }}>
-              {days}d
-            </button>
+        <div style={{ display: 'flex', gap: 2, background: 'rgba(44,36,25,0.05)', padding: 3, borderRadius: 999 }}>
+          {([7, 30, 90] as const).map(d => (
+            <button key={d} onClick={() => handlePresetDays(d)} style={{ padding: '5px 11px', borderRadius: 999, fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 150ms', background: d === selectedDays ? '#fff' : 'transparent', color: d === selectedDays ? C2.choc : C2.text2, boxShadow: d === selectedDays ? '0 1px 4px rgba(44,36,25,0.08)' : 'none' }}>{d}d</button>
           ))}
         </div>
         <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
       </div>
 
-      <div className="flex-1 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+      {/* ── Main content ────────────────────────────────────────────── */}
+      <div style={{ padding: '24px 28px 60px', maxWidth: 1400, margin: '0 auto' }}>
+        <style>{`
+          @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+          @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+          @keyframes pdot { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)} 70%{box-shadow:0 0 0 6px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
+          .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:6px; }
+          .main-2col { display:grid; grid-template-columns:1.618fr 1fr; gap:16px; align-items:start; margin-top:26px; }
+          .kpi-card-wrap:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(44,36,25,0.12),0 1px 4px rgba(44,36,25,0.05) !important; }
+          .tbl-row:hover { background:rgba(44,36,25,0.02) !important; }
+          @media(max-width:1100px){ .main-2col{grid-template-columns:1fr;} }
+          @media(max-width:860px){ .kpi-grid{grid-template-columns:1fr 1fr;} }
+          @media(max-width:560px){ .kpi-grid{grid-template-columns:1fr;} }
+          @media(max-width:600px){ .dash-pad{padding:16px 14px 48px !important;} }
+        `}</style>
 
-          {/* Error banner */}
-          {fetchError && (
-            <div style={{
-              background: 'rgba(196,112,79,0.1)',
-              border: '1px solid #c4704f',
-              borderRadius: '8px',
-              padding: '12px 16px',
-              marginBottom: '16px',
-              color: '#8a4a2e',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              ⚠️ {fetchError}
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                <button onClick={() => { setFetchError(null); fetchDailyMetrics(); }} style={{ background: '#c4704f', border: 'none', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', color: '#fff', fontSize: '12px', fontWeight: 600 }}>Retry</button>
-                <button onClick={() => setFetchError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: '16px' }}>✕</button>
-              </div>
+        {/* Page header */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C2.muted, fontFamily: FF.mono, marginBottom: 10, letterSpacing: '0.02em' }}>
+            Clients
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            {client.name}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            <span style={{ color: C2.choc, fontWeight: 600 }}>Overview</span>
+          </div>
+          <h1 style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 'clamp(24px, 3vw, 36px)', letterSpacing: '-0.025em', color: C2.choc, lineHeight: 1.05, margin: 0 }}>
+            Performance <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 300 }}>Dashboard</em>
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: C2.text2 }}>
+            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: C2.emerald, animation: 'pdot 2s infinite', flexShrink: 0 }} />
+            {dailyData.length > 0
+              ? `Data through ${new Date(dailyData[dailyData.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${client.city || ''}`
+              : 'Loading data…'}
+          </div>
+        </div>
+
+        {/* Error banner */}
+        {fetchError && (
+          <div style={{ background: 'rgba(196,112,79,0.1)', border: '1px solid #c4704f', borderRadius: 10, padding: '12px 16px', marginBottom: 20, color: '#8a4a2e', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+            ⚠️ {fetchError}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button onClick={() => { setFetchError(null); fetchDailyMetrics(); }} style={{ background: '#c4704f', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', color: '#fff', fontSize: 12, fontWeight: 600 }}>Retry</button>
+              <button onClick={() => setFetchError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a4a2e', fontSize: 16 }}>✕</button>
             </div>
-          )}
-
-          {/* Header */}
-          <div className="mb-8">
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>Performance Dashboard</span>
-            <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Marketing Overview</h1>
           </div>
+        )}
 
-          {/* KPI Cards — skeleton while loading, real data after */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
-            {chartLoading ? (
-              <>{[0,1,2,3].map(i => <SkeletonCard key={i} />)}</>
-            ) : (<>
-              {/* Patient Inquiries — always shown */}
-              <div className="rounded-2xl p-6" title="Total inquiries: phone calls + verified contact forms + Google Ads conversions" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <Users size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Patient Inquiries</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + verified forms + Google Ads</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalLeads)}</div>
-                {trendBadge(leadTrendData)}
-              </div>
+        {/* ── KPI section ───────────────────────────────────────────── */}
+        <SectionHead title="Marketing" italic="Overview" meta={`vs ${prevLabel}`} />
 
-              {/* Website Visitors — always shown */}
-              <div className="rounded-2xl p-6" title="Total website sessions from all traffic sources" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <Globe size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Website Visitors</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>People who visited your website</p>
-                <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(sessions)}</div>
-                {trendBadge(sessionsTrendData)}
-              </div>
+        <div className="kpi-grid">
+          {chartLoading ? (
+            <>{[0,1,2,3].map(i => <SkeletonCard key={i} />)}</>
+          ) : (<>
+            {/* Patient Inquiries */}
+            {kpiCard(C2.coral, 'rgba(196,112,79,0.10)', C2.coral, <Users size={15}/>,
+              'Patient Inquiries', 'Phone + forms + Google Ads',
+              fmtNum(totalLeads), leadTrendData, `vs ${fmtNum(prevData.leads)} prev period`)}
 
-              {/* Ad Spend — only if Ads service active */}
-              {hasAds ? (
-                <div className="rounded-2xl p-6" title="Total Google Ads spend for this period" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <DollarSign size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Ad Spend</p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Amount spent on Google Ads</p>
-                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtCurrency(adSpend, 0)}</div>
-                  {trendBadge(adSpendTrendData)}
-                </div>
-              ) : (
-                <div className="rounded-2xl p-6" title="Manually verified contact form submissions — spam filtered by staff" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <FileText size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Form Fills (Verified)</p>
-                  <p style={{ fontSize: '10px', color: '#10b981', marginBottom: '8px' }}>Manually verified, spam filtered</p>
-                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '4px' }}>{manualFormFills > 0 ? fmtNum(manualFormFills) : fmtNum(totalFormFills)}</div>
-                  {manualFormFills === 0 && totalFormFills > 0 && (
-                    <p style={{ fontSize: '9px', color: '#f59e0b', marginBottom: '4px' }}>⚠ Showing GA4 events — manual count not entered yet</p>
-                  )}
-                  {manualFormFills > 0 && totalFormFills > 0 && manualFormFills !== totalFormFills && (
-                    <p style={{ fontSize: '9px', color: '#9ca3af', marginBottom: '4px' }}>GA4 auto-tracked: {fmtNum(totalFormFills)} (includes bots)</p>
-                  )}
-                  {trendBadge(formFillsTrendData)}
-                </div>
-              )}
+            {/* Website Visitors */}
+            {kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <Globe size={15}/>,
+              'Website Visitors', 'All sessions from every source',
+              fmtNum(sessions), sessionsTrendData, `vs ${fmtNum(prevData.sessions)} prev period`)}
 
-              {/* CPL — only if Ads active, else GBP Calls */}
-              {hasAds ? (
-                <div className="rounded-2xl p-6" title="Average Google Ads cost per patient inquiry (conversions)" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <Target size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Cost Per Inquiry</p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Average ad cost per patient inquiry</p>
-                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
-                  {trendBadge(cplTrendData)}
-                </div>
-              ) : (hasGbp || totalGbpCalls > 0) ? (
-                <div className="rounded-2xl p-6" title="Phone call taps on your Google Business listing" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <Phone size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Google Phone Calls</p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Taps on your Google Business phone number</p>
-                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalGbpCalls)}</div>
-                  {trendBadge(gbpCallsTrendData)}
-                </div>
-              ) : null}
-            </>)}
-          </div>
+            {/* Ad Spend or Form Fills */}
+            {hasAds
+              ? kpiCard(C2.gold, 'rgba(217,168,84,0.18)', '#8a6a2e', <DollarSign size={15}/>,
+                  'Ad Spend', 'Spent on Google Ads this period',
+                  fmtCurrency(adSpend, 0), adSpendTrendData, `vs ${fmtCurrency(prevData.adSpend, 0)} prev period`)
+              : kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <FileText size={15}/>,
+                  'Form Fills', manualFormFills > 0 ? 'Verified · spam filtered' : 'GA4 events (manual not entered)',
+                  manualFormFills > 0 ? fmtNum(manualFormFills) : fmtNum(totalFormFills),
+                  formFillsTrendData, `vs ${fmtNum(prevData.formFills)} prev period`,
+                  manualFormFills === 0 && totalFormFills > 0 ? <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4 }}>⚠ Showing GA4 events</div> : null)
+            }
 
-          {/* Empty state when no data after loading */}
-          {!chartLoading && dailyData.length === 0 && (
+            {/* Cost Per Lead or GBP Calls */}
+            {hasAds
+              ? kpiCard(C2.choc, 'rgba(44,36,25,0.08)', C2.choc, <Target size={15}/>,
+                  'Cost Per Inquiry', 'Avg ad cost per patient inquiry',
+                  costPerLead > 0 ? fmtCurrency(costPerLead) : '—',
+                  cplTrendData, prevCpl > 0 ? `vs ${fmtCurrency(prevCpl)} prev period` : 'no prior data')
+              : (hasGbp || totalGbpCalls > 0)
+                ? kpiCard(C2.gold, 'rgba(217,168,84,0.18)', '#8a6a2e', <Phone size={15}/>,
+                    'Google Phone Calls', 'Taps on Google Business phone',
+                    fmtNum(totalGbpCalls), gbpCallsTrendData, `vs ${fmtNum(prevData.gbpCalls)} prev period`)
+                : null}
+          </>)}
+        </div>
+
+        {/* Empty state */}
+        {!chartLoading && dailyData.length === 0 && (
+          <div style={{ ...CARD, padding: 32, marginTop: 16 }}>
             <EmptyState source="Analytics" hasConfig={hasSeo || hasAds || hasGbp || totalGbpCalls > 0} />
-          )}
+          </div>
+        )}
 
-          {/* Full-width: Daily Traffic & Leads */}
-          <div className="rounded-2xl p-8 mb-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-            <div style={{ marginBottom: '24px' }}>
-              <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Day by Day</p>
-              <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Visitors & Inquiries Over Time</h3>
-            </div>
-            <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px' }}>
-              {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
-                <DailyTrafficLineChart data={dailyData} />
-              ) : (
-                <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                  <span style={{ fontSize: '13px' }}>No data for this date range</span>
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-6" style={{ marginTop: '20px' }}>
-              <div style={{ padding: '16px', background: 'rgba(157,181,160,0.08)', borderRadius: '12px', borderLeft: '3px solid #9db5a0' }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '6px' }}>Avg. Daily Visitors</p>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9db5a0' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
+        {/* ── Daily activity chart ─────────────────────────────────── */}
+        <SectionHead title="Daily" italic="Activity" />
+        <div style={{ ...CARD, padding: '18px 20px 20px' }}>
+          <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: 10, padding: '14px 14px 10px' }}>
+            {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
+              <DailyTrafficLineChart data={dailyData} />
+            ) : (
+              <div style={{ height: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: C2.muted }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span style={{ fontSize: 13 }}>No data for this date range</span>
               </div>
-              <div style={{ padding: '16px', background: 'rgba(217,168,84,0.08)', borderRadius: '12px', borderLeft: '3px solid #d9a854' }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '6px' }}>Avg. Daily Inquiries</p>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d9a854' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
-              </div>
+            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+            <div style={{ padding: '12px 14px', background: 'rgba(157,181,160,0.10)', borderRadius: 10, borderLeft: `3px solid ${C2.sage}` }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>Avg. Daily Visitors</div>
+              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.sage, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
+            </div>
+            <div style={{ padding: '12px 14px', background: 'rgba(217,168,84,0.10)', borderRadius: 10, borderLeft: `3px solid ${C2.gold}` }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>Avg. Daily Inquiries</div>
+              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.gold, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
             </div>
           </div>
+        </div>
 
-          {/* Main 2-column layout */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1.618fr_1fr] gap-8">
+        {/* ── 2-column: trends + sidebar ──────────────────────────── */}
+        <div className="main-2col">
 
-            {/* ── Left Column ─────────────────────────────────────────── */}
-            <div className="flex flex-col gap-8">
+          {/* LEFT: Monthly trend + SEO */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Performance Trend chart */}
-              <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Monthly Progress</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: isTrendUp ? '#9db5a0' : '#c4704f', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {leadTrendData.type === 'neutral' ? '—' : `${isTrendUp ? '↑' : '↓'} ${Math.abs(isNaN(parseFloat(leadTrend)) ? 0 : parseFloat(leadTrend))}%`}
-                    </div>
-                    <p className="text-xs font-semibold mt-1" style={{ color: '#5c5850' }}>Inquiries vs previous period</p>
+            {/* Monthly trend bar chart */}
+            <div style={{ ...CARD, padding: '18px 20px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.coral, fontFamily: FF.mono, marginBottom: 3 }}>Monthly Progress</div>
+                  <div style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 19, color: C2.choc, letterSpacing: '-0.01em' }}>
+                    Inquiries <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 400 }}>Trend</em>
                   </div>
                 </div>
-                <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: '12px', padding: '20px', marginTop: '24px' }}>
-                  {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
-                    <SixMonthBarChart data={dailyData} />
-                  ) : (
-                    <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af' }}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                      <span style={{ fontSize: '13px' }}>No data for this date range</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 26, color: isTrendUp ? '#4a6b4e' : C2.coral, letterSpacing: '-0.025em', lineHeight: 1 }}>
+                    {leadTrendData.type === 'neutral' ? '—' : `${isTrendUp ? '↑' : '↓'} ${Math.abs(isNaN(parseFloat(leadTrend)) ? 0 : parseFloat(leadTrend))}%`}
+                  </div>
+                  <div style={{ fontSize: 10, color: C2.muted, marginTop: 2 }}>vs previous period</div>
+                </div>
+              </div>
+              <div style={{ background: 'rgba(44,36,25,0.02)', borderRadius: 10, padding: 14 }}>
+                {chartLoading ? <ChartSkeleton /> : dailyData.length > 0 ? (
+                  <SixMonthBarChart data={dailyData} />
+                ) : (
+                  <div style={{ height: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: C2.muted }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.5}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <span style={{ fontSize: 13 }}>No data for this date range</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SEO Analytics */}
+            {hasSeo && (
+              <div style={{ ...CARD, padding: '18px 20px 20px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.sage, fontFamily: FF.mono, marginBottom: 3 }}>Google Traffic</div>
+                <div style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 19, color: C2.choc, letterSpacing: '-0.01em', marginBottom: 14 }}>
+                  How Patients <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 400 }}>Find You</em>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginBottom: 14 }}>
+                  {[
+                    { label: 'Shown on Google', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: C2.sage },
+                    { label: 'Clicked Your Link', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: C2.gold },
+                    { label: 'Click Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: C2.coral },
+                    { label: 'Search Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: C2.choc },
+                  ].map((m, i) => (
+                    <div key={i} style={{ padding: '12px 14px', background: 'rgba(44,36,25,0.02)', borderRadius: 10, borderLeft: `3px solid ${m.color}` }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 5 }}>{m.label}</div>
+                      <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 20, color: m.color, letterSpacing: '-0.02em' }}>{m.value}</div>
                     </div>
-                  )}
+                  ))}
+                </div>
+                {trafficAi > 0 && (
+                  <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg,rgba(44,36,25,0.04),rgba(44,36,25,0.02))', borderRadius: 10, border: '1px solid rgba(44,36,25,0.08)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: C2.choc }}>Visitors from AI Tools (ChatGPT, Perplexity, Claude)</div>
+                    <div style={{ display: 'flex', gap: 28 }}>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: C2.text2, fontFamily: FF.mono, letterSpacing: '0.1em', marginBottom: 3 }}>Sessions</div>
+                        <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 20, color: C2.coral }}>{fmtNum(trafficAi)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: C2.text2, fontFamily: FF.mono, letterSpacing: '0.1em', marginBottom: 3 }}>% of All Traffic</div>
+                        <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 20, color: C2.coral }}>{totalTraffic > 0 ? ((trafficAi / totalTraffic) * 100).toFixed(1) : '0'}%</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: Lead Sources donut + Channel cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Lead Sources Donut */}
+            <div style={{ ...CARD, padding: '18px 20px 20px' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.coral, fontFamily: FF.mono, marginBottom: 3 }}>Inquiry Sources</div>
+              <div style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 19, color: C2.choc, letterSpacing: '-0.01em', marginBottom: 14 }}>
+                Where Inquiries <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 400 }}>Come From</em>
+              </div>
+
+              {/* Donut chart */}
+              <div style={{ position: 'relative' }}>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={donutChannels.length > 0 && donutTotal > 0 ? donutChannels : [{ label: 'No data', sublabel: '', value: 1, color: 'rgba(44,36,25,0.08)' }]}
+                      cx="50%" cy="50%" innerRadius={52} outerRadius={80}
+                      paddingAngle={donutChannels.length > 1 ? 3 : 0}
+                      dataKey="value" strokeWidth={0}
+                    >
+                      {(donutChannels.length > 0 && donutTotal > 0 ? donutChannels : [{ color: 'rgba(44,36,25,0.08)' }]).map((e, i) => (
+                        <Cell key={i} fill={e.color} />
+                      ))}
+                    </Pie>
+                    {donutTotal > 0 && (
+                      <PieTooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 10, border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+                        formatter={(v: any, _: any, props: any) => [`${fmtNum(v)} (${Math.round((v / donutTotal) * 100)}%)`, props.payload?.label]}
+                      />
+                    )}
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 28, color: C2.choc, lineHeight: 1 }}>{fmtNum(donutTotal)}</div>
+                  <div style={{ fontSize: 9, color: C2.muted, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>total</div>
                 </div>
               </div>
 
-
-              {/* SEO Analytics */}
-              {hasSeo && (
-                <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <div className="mb-6">
-                    <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Google Traffic</p>
-                    <h3 className="text-2xl font-black mt-2" style={{ color: '#2c2419' }}>How Patients Find You on Google</h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    {[
-                      { label: 'Shown on Google', value: seoImpressions > 0 ? fmtNum(seoImpressions) : '—', color: '#9db5a0' },
-                      { label: 'Clicked Your Link', value: seoClicks > 0 ? fmtNum(seoClicks) : '—', color: '#d9a854' },
-                      { label: 'Click Rate', value: seoCtr !== '0.00' ? `${seoCtr}%` : '—', color: '#c4704f' },
-                      { label: 'Search Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—', color: '#2c2419' },
-                    ].map((m, i) => (
-                      <div key={i} style={{ padding: '16px', background: 'rgba(44,36,25,0.02)', borderRadius: '12px', textAlign: 'center', borderLeft: `3px solid ${m.color}` }}>
-                        <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '8px' }}>{m.label}</p>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: m.color }}>{m.value}</div>
+              {/* Legend */}
+              {donutTotal > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                  {donutChannels.map((ch, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(245,241,237,0.5)', borderRadius: 8, transition: 'background 150ms' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: ch.color, display: 'inline-block', flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: C2.choc }}>{ch.label}</div>
+                          <div style={{ fontSize: 10, color: C2.muted }}>{ch.sublabel}</div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* FIX #5: AI Traffic — only show if there is data */}
-                  {trafficAi > 0 && (
-                    <div style={{ padding: '20px', background: 'linear-gradient(135deg,rgba(44,36,25,0.05),rgba(44,36,25,0.02))', borderRadius: '12px', border: '1px solid rgba(44,36,25,0.08)' }}>
-                      <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2c2419' }}>
-                        Visitors From AI Tools (ChatGPT, Perplexity, Claude)
-                      </h4>
-                      <div style={{ display: 'flex', gap: '32px' }}>
-                        <div>
-                          <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Sessions</p>
-                          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#c4704f' }}>{fmtNum(trafficAi)}</div>
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>% of All Traffic</p>
-                          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#c4704f' }}>{totalTraffic > 0 ? ((trafficAi / totalTraffic) * 100).toFixed(1) : '0'}%</div>
-                        </div>
-                        <div style={{ alignSelf: 'flex-end' }}>
-                          <p style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Visitors referred by AI chat tools</p>
-                        </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: FF.outfit, fontWeight: 700, fontSize: 16, color: C2.choc }}>{fmtNum(ch.value)}</div>
+                        <div style={{ fontSize: 10, color: C2.muted, fontFamily: FF.mono }}>{Math.round((ch.value / Math.max(donutTotal, 1)) * 100)}%</div>
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
-            </div>
 
-            {/* ── Right Sidebar ────────────────────────────────────────── */}
-            <div className="flex flex-col gap-8">
-
-              {/* Lead Distribution — Donut Chart */}
-              <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em' }}>Inquiry Sources</p>
-                <h3 className="text-2xl font-black mt-2 mb-4" style={{ color: '#2c2419' }}>Where Inquiries Come From</h3>
-                {(() => {
-                  const channels = [
-                    ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: '#c4704f' }] : []),
-                    ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFills > 0 ? 'verified form fills' : 'form events (includes bots)', value: manualFormFills > 0 ? manualFormFills : totalFormFills, color: '#9db5a0' }] : []),
-                    ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: '#d9a854' }] : []),
-                  ];
-                  const total = channels.reduce((s, c) => s + c.value, 0);
-                  return (
-                    <>
-                      <div style={{ position: 'relative' }}>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <PieChart>
-                            <Pie
-                              data={channels.length > 0 && total > 0 ? channels : [{ label: 'No data', sublabel: '', value: 1, color: 'rgba(44,36,25,0.08)' }]}
-                              cx="50%" cy="50%"
-                              innerRadius={58} outerRadius={88}
-                              paddingAngle={channels.length > 1 ? 3 : 0}
-                              dataKey="value"
-                              strokeWidth={0}
-                            >
-                              {(channels.length > 0 && total > 0 ? channels : [{ color: 'rgba(44,36,25,0.08)' }]).map((entry, i) => (
-                                <Cell key={i} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            {total > 0 && (
-                              <PieTooltip
-                                contentStyle={{ fontSize: '12px', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                formatter={(v: any, _: any, props: any) => [`${fmtNum(v)} (${Math.round((v / total) * 100)}%)`, props.payload?.label]}
-                              />
-                            )}
-                          </PieChart>
-                        </ResponsiveContainer>
-                        {/* Center label */}
-                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{fmtNum(total)}</div>
-                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>total inquiries</div>
-                        </div>
-                      </div>
-                      {/* Legend */}
-                      {total > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                          {channels.map((ch, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, display: 'inline-block', flexShrink: 0 }} />
-                                <div>
-                                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419' }}>{ch.label}</span>
-                                  <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '6px' }}>{ch.sublabel}</span>
-                                </div>
-                              </div>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: '#2c2419' }}>
-                                {fmtNum(ch.value)} <span style={{ fontSize: '11px', fontWeight: 400, color: '#9ca3af' }}>({Math.round((ch.value / Math.max(total, 1)) * 100)}%)</span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Lead Source Change — MoM delta per channel */}
-                      {(() => {
-                        const sourceChannels = [
-                          ...((hasGbp || totalGbpCalls > 0) ? [{
-                            icon: '📞',
-                            label: 'GBP Calls',
-                            curr: totalGbpCalls,
-                            prev: prevData.gbpCalls,
-                          }] : []),
-                          ...(hasSeo ? [{
-                            icon: '📝',
-                            label: 'Form Fills',
-                            curr: verifiedFormFills,
-                            prev: prevData.formFills,
-                          }] : []),
-                          ...(hasAds ? [{
-                            icon: '📢',
-                            label: 'Google Ads',
-                            curr: totalAdsConversions,
-                            prev: prevData.adsCv,
-                          }] : []),
-                        ];
-                        if (sourceChannels.length === 0) return null;
+              {/* MoM per channel */}
+              {(() => {
+                const srcs = [
+                  ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'GBP Calls', curr: totalGbpCalls, prev: prevData.gbpCalls, color: C2.gold }] : []),
+                  ...(hasSeo ? [{ label: 'Form Fills', curr: verifiedFormFills, prev: prevData.formFills, color: C2.sage }] : []),
+                  ...(hasAds ? [{ label: 'Google Ads', curr: totalAdsConversions, prev: prevData.adsCv, color: C2.coral }] : []),
+                ];
+                if (srcs.length === 0) return null;
+                return (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 8 }}>vs Previous Period</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${srcs.length}, 1fr)`, gap: 6 }}>
+                      {srcs.map((sc, idx) => {
+                        const rawPct = sc.prev > 0 ? ((sc.curr - sc.prev) / sc.prev) * 100 : null;
+                        const isUp = rawPct !== null && rawPct > 0;
+                        const isDown = rawPct !== null && rawPct < 0;
+                        const deltaColor = isUp ? C2.emerald : isDown ? '#ef4444' : C2.muted;
                         return (
-                          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(44,36,25,0.08)' }}>
-                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', marginBottom: '10px' }}>
-                              Lead Source Change vs Previous Period
-                            </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${sourceChannels.length}, 1fr)`, gap: '8px' }}>
-                              {sourceChannels.map((sc, idx) => {
-                                const hasPrev = sc.prev > 0;
-                                const rawPct = hasPrev ? ((sc.curr - sc.prev) / sc.prev) * 100 : null;
-                                const isUp = rawPct !== null && rawPct > 0;
-                                const isDown = rawPct !== null && rawPct < 0;
-                                const deltaColor = isUp ? '#10b981' : isDown ? '#ef4444' : '#9ca3af';
-                                const deltaLabel = rawPct === null ? null : `${isUp ? '▲' : '▼'} ${isUp ? '+' : ''}${rawPct.toFixed(1)}%`;
-                                return (
-                                  <div key={idx} style={{
-                                    padding: '10px 8px',
-                                    background: 'rgba(44,36,25,0.02)',
-                                    borderRadius: '10px',
-                                    border: '1px solid rgba(44,36,25,0.06)',
-                                    textAlign: 'center',
-                                  }}>
-                                    <div style={{ fontSize: '15px', marginBottom: '2px' }}>{sc.icon}</div>
-                                    <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#5c5850', marginBottom: '4px' }}>{sc.label}</p>
-                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{fmtNum(sc.curr)}</div>
-                                    {deltaLabel ? (
-                                      <div style={{ fontSize: '11px', fontWeight: 700, color: deltaColor, marginTop: '3px' }}>{deltaLabel}</div>
-                                    ) : (
-                                      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '3px' }}>no prior data</div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                          <div key={idx} style={{ padding: '8px 6px', background: 'rgba(44,36,25,0.02)', borderRadius: 8, border: '1px solid rgba(44,36,25,0.06)', textAlign: 'center' }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: sc.color, margin: '0 auto 4px' }} />
+                            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>{sc.label}</div>
+                            <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 16, color: C2.choc, lineHeight: 1 }}>{fmtNum(sc.curr)}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: deltaColor, marginTop: 2 }}>
+                              {rawPct === null ? '—' : `${isUp ? '▲' : '▼'} ${isUp ? '+' : ''}${rawPct.toFixed(1)}%`}
                             </div>
                           </div>
                         );
-                      })()}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* FIX #4 & #8: Channel Details — remove Budget Used, fix Active/Inactive logic */}
-              {[
-                ...(hasAds ? [{
-                  title: 'Google Ads',
-                  active: hasAds,
-                  metrics: [
-                    { label: 'Patient Inquiries', value: fmtNum(totalAdsConversions) },
-                    { label: 'Ad Clicks', value: fmtNum(adsClicks) },
-                    { label: 'Amount Spent', value: fmtCurrency(adSpend, 0) },
-                    { label: 'Click Rate', value: `${adsCtr}%` },
-                  ]
-                }] : []),
-                ...(hasSeo ? [{
-                  title: 'Google Search',
-                  active: hasSeo,
-                  metrics: [
-                    { label: 'Clicked Your Link', value: fmtNum(seoClicks) },
-                    { label: 'Times Shown', value: fmtNum(seoImpressions) },
-                    { label: 'Click Rate', value: `${seoCtr}%` },
-                    { label: 'Free Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
-                  ]
-                }] : []),
-                ...((hasGbp || totalGbpCalls > 0) ? [{
-                  title: 'Google Business Profile',
-                  active: hasGbp || totalGbpCalls > 0,
-                  metrics: [
-                    { label: 'Phone Calls', value: fmtNum(totalGbpCalls) },
-                    { label: 'Website Clicks', value: fmtNum(totalGbpWebsiteClicks) },
-                    { label: 'Direction Requests', value: fmtNum(totalGbpDirections) },
-                    { label: 'Star Rating', value: latestGbpRating > 0 ? `★ ${latestGbpRating.toFixed(1)}` : '—' },
-                  ]
-                }] : []),
-              ].map((ch, i) => (
-                <div key={i} className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#5c5850' }}>{ch.title}</h4>
-                    <span style={{ background: 'rgba(157,181,160,0.1)', color: '#4a6b4e', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
-                      Active
-                    </span>
+                      })}
+                    </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    {ch.metrics.map((m, j) => (
-                      <div key={j} style={{ padding: '12px', background: 'rgba(44,36,25,0.02)', borderRadius: '8px' }}>
-                        <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', fontSize: '9px', letterSpacing: '0.1em', marginBottom: '4px' }}>{m.label}</p>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c2419' }}>{m.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
-          </div>
 
-          {/* Channel Efficiency — Cost/Lead comparison */}
-          {(hasAds || hasSeo || hasGbp || totalGbpCalls > 0) && (
-            <div className="rounded-2xl p-8 mt-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Budget Intelligence</p>
-                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Channel Efficiency</h3>
+            {/* Channel detail cards */}
+            {channelDefs.map((ch, i) => (
+              <div key={i} style={{ ...CARD, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: ch.accent }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 6, background: ch.iconBg, color: ch.iconFg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      {ch.accent === C2.coral && <><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></>}
+                      {ch.accent === C2.sage  && <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}
+                      {ch.accent === C2.gold  && <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}
+                    </svg>
+                  </div>
+                  <div style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 15, color: C2.choc, letterSpacing: '-0.01em', flex: 1 }}>{ch.title}</div>
+                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 7px', background: 'rgba(16,185,129,0.12)', color: C2.emerald, borderRadius: 999 }}>Active</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: C2.borderSoft, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C2.borderSoft}`, marginTop: 10 }}>
+                  {ch.metrics.map((m, j) => (
+                    <div key={j} style={{ background: 'rgba(245,241,237,0.5)', padding: '10px 12px' }}>
+                      <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>{m.label}</div>
+                      <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 18, color: C2.choc, lineHeight: 1, letterSpacing: '-0.02em' }}>{m.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Channel Efficiency Table ─────────────────────────────── */}
+        {(hasAds || hasSeo || hasGbp || totalGbpCalls > 0) && (
+          <>
+            <SectionHead title="Channel" italic="Efficiency" />
+            <div style={{ ...CARD, padding: '18px 20px 20px' }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
+                    <tr style={{ borderBottom: `1px solid ${C2.borderMed}`, background: 'rgba(245,241,237,0.4)' }}>
                       {['Channel', 'Leads', 'Est. Cost', 'Cost / Lead'].map((h, i) => (
-                        <th key={i} style={{
-                          padding: '10px 16px',
-                          textAlign: i === 0 ? 'left' : 'right',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.1em',
-                          color: '#5c5850',
-                        }}>{h}</th>
+                        <th key={i} style={{ padding: '10px 14px', textAlign: i === 0 ? 'left' : 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      ...(hasAds ? [{
-                        channel: 'Google Ads',
-                        dot: '#c4704f',
-                        leads: totalAdsConversions,
-                        cost: adSpend > 0 ? fmtCurrency(adSpend, 0) : '—',
-                        cpl: totalAdsConversions > 0 && adSpend > 0 ? fmtCurrency(adSpend / totalAdsConversions, 0) : '—',
-                        isCpl: totalAdsConversions > 0 && adSpend > 0,
-                      }] : []),
-                      ...(hasSeo ? [{
-                        channel: 'SEO / Organic',
-                        dot: '#9db5a0',
-                        leads: verifiedFormFills,
-                        cost: '—',
-                        cpl: '—',
-                        isCpl: false,
-                      }] : []),
-                      ...((hasGbp || totalGbpCalls > 0) ? [{
-                        channel: 'Google Business Profile',
-                        dot: '#d9a854',
-                        leads: totalGbpCalls,
-                        cost: '—',
-                        cpl: '—',
-                        isCpl: false,
-                      }] : []),
+                      ...(hasAds ? [{ channel: 'Google Ads', dot: C2.coral, leads: totalAdsConversions, cost: adSpend > 0 ? fmtCurrency(adSpend, 0) : '—', cpl: totalAdsConversions > 0 && adSpend > 0 ? fmtCurrency(adSpend / totalAdsConversions, 0) : '—', hasCpl: totalAdsConversions > 0 && adSpend > 0 }] : []),
+                      ...(hasSeo ? [{ channel: 'SEO / Organic', dot: C2.sage, leads: verifiedFormFills, cost: '—', cpl: '—', hasCpl: false }] : []),
+                      ...((hasGbp || totalGbpCalls > 0) ? [{ channel: 'Google Business Profile', dot: C2.gold, leads: totalGbpCalls, cost: '—', cpl: '—', hasCpl: false }] : []),
                     ].map((row, i, arr) => (
-                      <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid rgba(44,36,25,0.06)' : 'none', transition: 'background 150ms' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.02)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                      >
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: row.dot, flexShrink: 0, display: 'inline-block' }} />
-                            <span style={{ fontWeight: 600, color: '#2c2419' }}>{row.channel}</span>
+                      <tr key={i} className="tbl-row" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${C2.borderSoft}` : 'none', transition: 'background 150ms' }}>
+                        <td style={{ padding: '13px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.dot, flexShrink: 0, display: 'inline-block' }} />
+                            <span style={{ fontWeight: 600, color: C2.choc }}>{row.channel}</span>
                           </div>
                         </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: '#2c2419' }}>{fmtNum(row.leads)}</td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', color: row.cost === '—' ? '#9ca3af' : '#2c2419', fontWeight: row.cost === '—' ? 400 : 700 }}>{row.cost}</td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                          {row.isCpl ? (
-                            <span style={{
-                              background: 'rgba(196,112,79,0.08)',
-                              color: '#c4704f',
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              fontSize: '13px',
-                            }}>{row.cpl}</span>
-                          ) : (
-                            <span style={{ color: '#9ca3af' }}>—</span>
-                          )}
+                        <td style={{ padding: '13px 14px', textAlign: 'right', fontFamily: FF.mono, fontWeight: 600, color: C2.choc }}>{fmtNum(row.leads)}</td>
+                        <td style={{ padding: '13px 14px', textAlign: 'right', fontFamily: FF.mono, fontWeight: row.cost === '—' ? 400 : 600, color: row.cost === '—' ? C2.muted : C2.choc }}>{row.cost}</td>
+                        <td style={{ padding: '13px 14px', textAlign: 'right' }}>
+                          {row.hasCpl
+                            ? <span style={{ background: 'rgba(196,112,79,0.08)', color: C2.coral, fontWeight: 700, padding: '3px 9px', borderRadius: 6, fontSize: 13, fontFamily: FF.mono }}>{row.cpl}</span>
+                            : <span style={{ color: C2.muted }}>—</span>}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '16px', fontStyle: 'italic', borderTop: '1px solid rgba(44,36,25,0.06)', paddingTop: '12px' }}>
-                SEO and GBP have no direct cost shown here. They are funded through your monthly retainer.
+              <p style={{ fontSize: 11, color: C2.muted, marginTop: 14, fontStyle: 'italic', borderTop: `1px solid ${C2.borderSoft}`, paddingTop: 10 }}>
+                SEO and GBP have no direct cost shown here — they are funded through your monthly retainer.
               </p>
             </div>
-          )}
+          </>
+        )}
 
-        </div>
       </div>
     </AdminLayout>
   );
