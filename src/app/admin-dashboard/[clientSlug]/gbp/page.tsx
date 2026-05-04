@@ -441,7 +441,7 @@ export default function GBPPage() {
         </div>
 
         {/* ── Date Controls (sticky, same as other tabs) ────────────────── */}
-        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3 overflow-x-auto"
+        <div className="sticky top-14 md:top-0 z-30 flex flex-wrap items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3"
           style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {actionsChart.length > 0 && (
             <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>

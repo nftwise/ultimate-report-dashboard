@@ -44,13 +44,17 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
       const target = e.target as Node;
       const inButton   = buttonRef.current?.contains(target);
       const inDropdown = dropdownRef.current?.contains(target);
-      if (!inButton && !inDropdown) {
-        setOpen(false);
-        resetTemp();
-      }
+      if (!inButton && !inDropdown) { setOpen(false); resetTemp(); }
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Close on scroll — fixed-position dropdown drifts away from its trigger when page scrolls
+  useEffect(() => {
+    const handler = () => { setOpen(false); resetTemp(); };
+    if (open) window.addEventListener('scroll', handler, { passive: true, capture: true });
+    return () => window.removeEventListener('scroll', handler, { capture: true });
   }, [open]);
 
   const handleOpen = () => {

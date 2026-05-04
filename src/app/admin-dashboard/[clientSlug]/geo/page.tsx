@@ -1011,6 +1011,7 @@ export default function GeoPage() {
                   </div>
                 ) : (
                   <>
+                    <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
@@ -1038,6 +1039,7 @@ export default function GeoPage() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                     {aiQueries.length > 15 && (
                       <p style={{ fontSize: '11px', color: '#9ca3af', margin: '12px 0 0 0', textAlign: 'center' }}>
                         +{aiQueries.length - 15} more queries
@@ -1059,6 +1061,7 @@ export default function GeoPage() {
                   </div>
                 ) : (
                   <>
+                    <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
@@ -1089,6 +1092,7 @@ export default function GeoPage() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </>
                 )}
               </div>

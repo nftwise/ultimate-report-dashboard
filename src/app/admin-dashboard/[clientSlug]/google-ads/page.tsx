@@ -383,6 +383,7 @@ function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any
                       <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
                         <p style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', margin: 0 }}>Campaign Performance</p>
                       </div>
+                      <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                           <tr style={{ background: 'rgba(44,36,25,0.03)' }}>
@@ -403,6 +404,7 @@ function AdsUpsellPage({ clientSlug, client }: { clientSlug: string; client: any
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                     <div style={{ padding: '16px', background: 'rgba(196,112,79,0.06)', borderRadius: '10px', border: '1px solid rgba(196,112,79,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                       <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#2c2419' }}>Want results like this for your clinic?</p>
@@ -812,7 +814,7 @@ export default function GoogleAdsPage() {
         )}
 
         {/* Date Controls */}
-        <div className="sticky top-14 md:top-0 z-30 flex items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3 overflow-x-auto" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+        <div className="sticky top-14 md:top-0 z-30 flex flex-wrap items-center justify-end gap-2 md:gap-3 mb-6 px-4 md:px-8 py-3" style={{ background: 'rgba(245,241,237,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
           {lastDataDate && (
             <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: 'auto' }}>
               Data through {new Date(lastDataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
