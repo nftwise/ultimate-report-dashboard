@@ -133,9 +133,12 @@ Only use this data. Do not invent figures.`;
   }
 
   const MODELS = [
+    'openai/gpt-oss-120b:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
+    'inclusionai/ling-2.6-1t:free',
+    'openai/gpt-oss-20b:free',
     'google/gemma-4-31b-it:free',
     'google/gemma-3-27b-it:free',
-    'google/gemma-3-12b-it:free',
   ];
 
   let lastErr = '';
