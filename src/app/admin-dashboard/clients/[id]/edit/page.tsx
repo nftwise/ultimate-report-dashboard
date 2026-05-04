@@ -72,6 +72,7 @@ export default function EditClientPage({ params }: EditClientParams) {
     website_url: '',
     ads_budget_month: '',
     notes: '',
+    status: 'Working',
     is_active: true,
     has_seo: false,
     has_ads: false,
@@ -127,6 +128,7 @@ export default function EditClientPage({ params }: EditClientParams) {
         website_url: client.website_url || '',
         ads_budget_month: client.ads_budget_month != null ? String(client.ads_budget_month) : '',
         notes: client.notes || '',
+        status: client.status || 'Working',
         is_active: client.is_active !== false,
         has_seo: client.has_seo || false,
         has_ads: client.has_ads || false,
@@ -211,6 +213,7 @@ export default function EditClientPage({ params }: EditClientParams) {
           website_url: form.website_url.trim() || null,
           ads_budget_month: form.ads_budget_month ? Number(form.ads_budget_month) : null,
           notes: form.notes.trim() || null,
+          status: form.status,
           is_active: form.is_active,
           has_seo: form.has_seo,
           has_ads: form.has_ads,
@@ -368,40 +371,53 @@ export default function EditClientPage({ params }: EditClientParams) {
             <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '20px' }}>
               Status
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <button
-                type="button"
-                onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
-                style={{
-                  position: 'relative',
-                  width: '56px',
-                  height: '30px',
-                  borderRadius: '15px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: form.is_active ? '#10b981' : '#ef4444',
-                  transition: 'background 0.3s ease',
-                }}
-              >
-                <div style={{
-                  position: 'absolute',
-                  top: '3px',
-                  left: form.is_active ? '29px' : '3px',
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  background: '#fff',
-                  transition: 'left 0.3s ease',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                }} />
-              </button>
-              <span style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: form.is_active ? '#10b981' : '#ef4444',
-              }}>
-                {form.is_active ? 'Active' : 'Archived'}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' as const }}>
+              {/* Active toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+                  style={{
+                    position: 'relative',
+                    width: '56px',
+                    height: '30px',
+                    borderRadius: '15px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: form.is_active ? '#10b981' : '#ef4444',
+                    transition: 'background 0.3s ease',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: form.is_active ? '29px' : '3px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: '#fff',
+                    transition: 'left 0.3s ease',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </button>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: form.is_active ? '#10b981' : '#ef4444' }}>
+                  {form.is_active ? 'Active' : 'Archived'}
+                </span>
+              </div>
+
+              {/* Onboarding status */}
+              <div>
+                <label style={{ ...labelStyle, marginBottom: '4px' }}>Onboarding Status</label>
+                <select
+                  value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  style={{ ...inputStyle, width: 'auto', paddingRight: '32px' }}
+                >
+                  {['Onboarding', 'Working', 'Cancel', 'Cancelled'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
