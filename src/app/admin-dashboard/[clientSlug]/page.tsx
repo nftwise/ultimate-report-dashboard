@@ -505,7 +505,7 @@ export default function ClientDetailPage() {
                   <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{costPerLead > 0 ? fmtCurrency(costPerLead) : '—'}</div>
                   {trendBadge(cplTrendData)}
                 </div>
-              ) : hasGbp ? (
+              ) : (hasGbp || totalGbpCalls > 0) ? (
                 <div className="rounded-2xl p-6" title="Phone call taps on your Google Business listing" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                   <Phone size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Google Phone Calls</p>
@@ -519,7 +519,7 @@ export default function ClientDetailPage() {
 
           {/* Empty state when no data after loading */}
           {!chartLoading && dailyData.length === 0 && (
-            <EmptyState source="Analytics" hasConfig={hasSeo || hasAds || hasGbp} />
+            <EmptyState source="Analytics" hasConfig={hasSeo || hasAds || hasGbp || totalGbpCalls > 0} />
           )}
 
           {/* Full-width: Daily Traffic & Leads */}
@@ -640,7 +640,7 @@ export default function ClientDetailPage() {
                   const channels = [
                     ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: '#c4704f' }] : []),
                     ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFills > 0 ? 'verified form fills' : 'form events (includes bots)', value: manualFormFills > 0 ? manualFormFills : totalFormFills, color: '#9db5a0' }] : []),
-                    ...(hasGbp ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: '#d9a854' }] : []),
+                    ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: '#d9a854' }] : []),
                   ];
                   const total = channels.reduce((s, c) => s + c.value, 0);
                   return (
@@ -697,7 +697,7 @@ export default function ClientDetailPage() {
                       {/* Lead Source Change — MoM delta per channel */}
                       {(() => {
                         const sourceChannels = [
-                          ...(hasGbp ? [{
+                          ...((hasGbp || totalGbpCalls > 0) ? [{
                             icon: '📞',
                             label: 'GBP Calls',
                             curr: totalGbpCalls,
@@ -780,9 +780,9 @@ export default function ClientDetailPage() {
                     { label: 'Free Visitors', value: trafficOrganic > 0 ? fmtNum(trafficOrganic) : '—' },
                   ]
                 }] : []),
-                ...(hasGbp ? [{
+                ...((hasGbp || totalGbpCalls > 0) ? [{
                   title: 'Google Business Profile',
-                  active: hasGbp,
+                  active: hasGbp || totalGbpCalls > 0,
                   metrics: [
                     { label: 'Phone Calls', value: fmtNum(totalGbpCalls) },
                     { label: 'Website Clicks', value: fmtNum(totalGbpWebsiteClicks) },
@@ -812,7 +812,7 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Channel Efficiency — Cost/Lead comparison */}
-          {(hasAds || hasSeo || hasGbp) && (
+          {(hasAds || hasSeo || hasGbp || totalGbpCalls > 0) && (
             <div className="rounded-2xl p-8 mt-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
               <div style={{ marginBottom: '20px' }}>
                 <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Budget Intelligence</p>
@@ -853,7 +853,7 @@ export default function ClientDetailPage() {
                         cpl: '—',
                         isCpl: false,
                       }] : []),
-                      ...(hasGbp ? [{
+                      ...((hasGbp || totalGbpCalls > 0) ? [{
                         channel: 'Google Business Profile',
                         dot: '#d9a854',
                         leads: totalGbpCalls,
