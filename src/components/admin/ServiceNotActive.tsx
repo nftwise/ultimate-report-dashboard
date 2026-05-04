@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 
 interface ServiceNotActiveProps {
   serviceName: string;
@@ -51,26 +51,48 @@ export default function ServiceNotActive({ serviceName, description }: ServiceNo
         {description}
       </p>
 
-      <a
-        href="mailto:support@uplifteddigital.com"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '12px 24px',
-          borderRadius: '12px',
-          background: 'rgba(196,112,79,0.1)',
-          color: '#c4704f',
-          border: '1px solid rgba(196,112,79,0.2)',
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: 'pointer',
-          textDecoration: 'none',
-        }}
-      >
-        <Mail size={16} />
-        Contact Us to Get Started
-      </a>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+        <a
+          href="mailto:info@mychiropractice.com"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            background: 'rgba(196,112,79,0.1)',
+            color: '#c4704f',
+            border: '1px solid rgba(196,112,79,0.2)',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            textDecoration: 'none',
+          }}
+        >
+          <Mail size={16} />
+          info@mychiropractice.com
+        </a>
+        <a
+          href="tel:9493851450"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 24px',
+            borderRadius: '12px',
+            background: 'rgba(44,36,25,0.04)',
+            color: '#5c5850',
+            border: '1px solid rgba(44,36,25,0.1)',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            textDecoration: 'none',
+          }}
+        >
+          <Phone size={16} />
+          949-385-1450
+        </a>
+      </div>
     </div>
   );
 }

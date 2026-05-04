@@ -2,10 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
@@ -446,61 +442,6 @@ export default function GBPPage() {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
           <span style={{ fontWeight: 700 }}>ℹ️ Note:</span>
           Calls reflect customers who tapped your Call button on Google Maps or Search. Data updated daily.
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION 1 — MONTHLY TREND (FIXED 12 MONTHS, not date-range)
-            ═══════════════════════════════════════════════════════════════ */}
-        <div style={{ marginBottom: '40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: 0 }}>Monthly Performance</h2>
-            <span style={{ fontSize: '11px', color: '#9ca3af', background: 'rgba(44,36,25,0.06)', padding: '2px 10px', borderRadius: '100px', fontWeight: 500 }}>
-              {viewsChart.length > 0 ? `${viewsChart[0].month} – ${viewsChart[viewsChart.length - 1].month}` : 'Last 12 months'}
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            {/* Profile Views — line */}
-            <div style={bigCard}>
-              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Trend</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Views · Clicks · Directions</h3>
-              {monthlyLoading ? spinner(220) : (
-                <div style={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={viewsChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.08)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
-                      <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
-                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
-                      <Line type="monotone" dataKey="views" stroke="#9db5a0" strokeWidth={2.5} dot={{ r: 3, fill: '#9db5a0' }} name="Views" />
-                      <Line type="monotone" dataKey="clicks" stroke="#d9a854" strokeWidth={2} dot={{ r: 2, fill: '#d9a854' }} name="Web Clicks" />
-                      <Line type="monotone" dataKey="directions" stroke="#c4704f" strokeWidth={2} dot={{ r: 2, fill: '#c4704f' }} name="Directions" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-
-            {/* Calls · Clicks · Directions — stacked bar */}
-            <div style={bigCard}>
-              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Monthly Actions</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Phone Calls</h3>
-              {monthlyLoading ? spinner(220) : (
-                <div style={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={actionsChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(44,36,25,0.08)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#5c5850' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#5c5850' }} width={40} />
-                      <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '8px', fontSize: '11px' }} />
-                      <Bar dataKey="calls" name="Calls" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════
