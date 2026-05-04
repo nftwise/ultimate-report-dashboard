@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp, Trash2, KeyRound } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
@@ -544,9 +544,8 @@ export default function UsersPage() {
                         const colSpan = isAdmin ? 8 : 6;
 
                         return (
-                          <>
+                          <React.Fragment key={user.id}>
                             <tr
-                              key={user.id}
                               className={`users-row${isExpanded ? ' expanded' : ''}`}
                               onClick={() => setExpandedId(isExpanded ? null : user.id)}
                               style={{ opacity: user.is_active ? 1 : 0.55 }}
@@ -618,7 +617,7 @@ export default function UsersPage() {
 
                             {/* Expanded heatmap row */}
                             {isExpanded && (
-                              <tr key={`${user.id}-activity`}>
+                              <tr>
                                 <td colSpan={colSpan} style={{
                                   padding: 0,
                                   background: 'rgba(90,155,118,0.03)',
@@ -661,7 +660,7 @@ export default function UsersPage() {
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </React.Fragment>
                         );
                       })}
                       {users.length === 0 && (

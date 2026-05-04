@@ -8,7 +8,7 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import { createClient } from '@supabase/supabase-js';
-import { fmtNum, fmtPct } from '@/lib/format';
+import { fmtNum, fmtPct, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface ClientMetrics {
@@ -116,8 +116,8 @@ export default function SEOPage() {
   // Fetch daily metrics
   useEffect(() => {
     if (!client) return;
-    const from = dateRange.from.toISOString().split('T')[0];
-    const to = dateRange.to.toISOString().split('T')[0];
+    const from = toLocalDateStr(dateRange.from);
+    const to = toLocalDateStr(dateRange.to);
     supabase
       .from('client_metrics_summary')
       .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, seo_impressions, seo_clicks, seo_ctr, google_rank, engagement_rate, conversion_rate, top_keywords')
@@ -128,7 +128,7 @@ export default function SEOPage() {
       .then(({ data, error }) => {
         if (error) {
           console.error('Error fetching SEO metrics:', error);
-          setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+          setFetchError('Unable to load data. Please try again.');
         } else {
           setDailyData((data || []) as DailyMetrics[]);
           setFetchError(null);
@@ -139,8 +139,8 @@ export default function SEOPage() {
   // Fetch keyword rankings + top keywords
   useEffect(() => {
     if (!client) return;
-    const from = dateRange.from.toISOString().split('T')[0];
-    const to = dateRange.to.toISOString().split('T')[0];
+    const from = toLocalDateStr(dateRange.from);
+    const to = toLocalDateStr(dateRange.to);
 
     supabase.from('client_metrics_summary')
       .select('top_keywords')
@@ -186,10 +186,10 @@ export default function SEOPage() {
     const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
     const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
     const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
-    const prevFromISO = prevFrom.toISOString().split('T')[0];
-    const prevToISO = prevTo.toISOString().split('T')[0];
-    const fromISO = dateRange.from.toISOString().split('T')[0];
-    const toISO = dateRange.to.toISOString().split('T')[0];
+    const prevFromISO = toLocalDateStr(prevFrom);
+    const prevToISO = toLocalDateStr(prevTo);
+    const fromISO = toLocalDateStr(dateRange.from);
+    const toISO = toLocalDateStr(dateRange.to);
 
     const avgPos = (rows: any[]) => {
       const map = new Map<string, number[]>();
@@ -277,7 +277,7 @@ export default function SEOPage() {
     ? rankDays.reduce((s, d: any) => s + (d.google_rank || 0), 0) / rankDays.length : 0;
 
   const keywordsNetChange = keywordMovement.improved - keywordMovement.declined;
-  const hasAds = (client as any).services?.googleAds !== false;
+  const hasAds = (client as any).services?.googleAds === true;
 
   const InfoIcon = ({ id, text }: { id: string; text: string }) => (
     <span
@@ -307,7 +307,7 @@ export default function SEOPage() {
   // ── CSV Export ───────────────────────────────────────────────────────────
   const handleKeywordExport = () => {
     if (!topKeywords || topKeywords.length === 0) return;
-    const dateStr = dateRange.to.toISOString().split('T')[0];
+    const dateStr = toLocalDateStr(dateRange.to);
     const filename = `keywords-${clientSlug}-${dateStr}.csv`;
     const header = 'Keyword,Current Position,Previous Position,Change,Clicks,Impressions,CTR';
     const rows = topKeywords.map((kw: any) => {

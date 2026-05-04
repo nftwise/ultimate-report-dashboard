@@ -3,12 +3,14 @@ import { NextResponse } from 'next/server'
 
 // Check if path is public (doesn't need auth).
 // NOTE: Facebook routes should be public by default.
-// Cron routes are NOT listed here — they handle their own auth via CRON_SECRET header.
+// Cron routes are NOT listed here — they validate CRON_SECRET internally but middleware
+// blocks unauthenticated requests to prevent probing.
 function isPublicPath(pathname: string): boolean {
   const publicPaths = [
     /^\/api\/facebook\//,
     /^\/api\/auth\//,
     /^\/api\/telegram\//,
+    /^\/api\/cron\//,        // Cron routes handle their own CRON_SECRET auth
     /^\/login/,
   ]
   return publicPaths.some(pattern => pattern.test(pathname))
@@ -19,8 +21,25 @@ export default withAuth(
     const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
 
-    // Don't process if already authenticated or on public path
+    // Don't process if on public path
     if (isPublicPath(pathname)) {
+      return NextResponse.next()
+    }
+
+    // ── API ROUTE PROTECTION ─────────────────────────────────────────────────
+    // /api/admin/* — require admin or team role
+    if (pathname.startsWith('/api/admin/')) {
+      if (!token || (token.role !== 'admin' && token.role !== 'team')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      return NextResponse.next()
+    }
+
+    // /api/ai/* — require any authenticated session
+    if (pathname.startsWith('/api/ai/')) {
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
       return NextResponse.next()
     }
 
@@ -56,5 +75,7 @@ export const config = {
   matcher: [
     '/admin-dashboard/:path*',
     '/portal/:path*',
+    '/api/admin/:path*',
+    '/api/ai/:path*',
   ],
 }

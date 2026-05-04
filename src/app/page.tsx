@@ -458,7 +458,7 @@ export default function Home() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderRadius: 20, overflow: 'hidden', boxShadow: '0 4px 20px rgba(44,36,25,0.06)', border: `1px solid ${C.borderSoft}`, background: 'white' }}>
                 <div className="compare-col-before" style={{ padding: '28px 24px', background: 'rgba(44,36,25,0.04)', borderRight: `1px dashed ${C.borderMed}` }}>
                   <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.textSecond, marginBottom: 18, fontWeight: 600 }}>Before WiseCRM</div>
-                  {['Waiting on monthly PDF','No idea where leads came from','Asking your agency every week','Guessing if ad spend works','Data stuck inside agency tools'].map(t => (
+                  {['Waiting on monthly PDF','No idea where leads came from','Asking your agency every week','Guessing if ad spend works','Data stuck inside agency tools','Google only keeps 1–3 years of data','No one analyzing data at night'].map(t => (
                     <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 0', fontFamily: inter, fontSize: 13, color: C.chocolate, borderBottom: `1px solid ${C.borderSoft}` }}>
                       <span style={{ width: 17, height: 17, borderRadius: '50%', background: 'rgba(196,112,79,0.15)', color: C.coral, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✕</span>
                       {t}
@@ -467,10 +467,22 @@ export default function Home() {
                 </div>
                 <div className="compare-col-after" style={{ padding: '28px 24px', background: 'linear-gradient(180deg, rgba(157,181,160,0.1), rgba(16,185,129,0.05))' }}>
                   <div style={{ fontFamily: mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.emerald, marginBottom: 18, fontWeight: 600 }}>With WiseCRM</div>
-                  {['See results every morning','Know exactly which channel drove leads','Full visibility into campaigns','Real numbers from Google and Meta','Your data, always on'].map(t => (
-                    <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 0', fontFamily: inter, fontSize: 13, color: C.chocolate, borderBottom: `1px solid ${C.borderSoft}` }}>
+                  {[
+                    { label: 'See results every morning', soon: false },
+                    { label: 'Know exactly which channel drove leads', soon: false },
+                    { label: 'Full visibility into campaigns', soon: false },
+                    { label: 'Real numbers from Google and Meta', soon: false },
+                    { label: 'Your data stored forever', soon: false },
+                    { label: 'AI analysis running 24/7', soon: false },
+                    { label: 'Request a task — team delivers in hours', soon: true },
+                    { label: 'AI assistant built-in', soon: true },
+                  ].map(({ label, soon }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 0', fontFamily: inter, fontSize: 13, color: C.chocolate, borderBottom: `1px solid ${C.borderSoft}` }}>
                       <span style={{ width: 17, height: 17, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', color: C.emerald, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-                      {t}
+                      <span style={{ flex: 1 }}>
+                        {label}
+                        {soon && <span style={{ marginLeft: 7, fontSize: 9, fontFamily: mono, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(217,168,84,0.2)', color: C.gold, padding: '2px 6px', borderRadius: 4 }}>upcoming</span>}
+                      </span>
                     </div>
                   ))}
                 </div>

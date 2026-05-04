@@ -59,6 +59,34 @@ function EmptyState({ source, hasConfig }: { source: string; hasConfig: boolean 
 const SixMonthBarChart = dynamic(() => import('@/components/admin/SixMonthBarChart'), { ssr: false, loading: ChartSkeleton });
 const DailyTrafficLineChart = dynamic(() => import('@/components/admin/DailyTrafficLineChart'), { ssr: false, loading: ChartSkeleton });
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+const FF = { serif: "'Fraunces', Georgia, serif", outfit: "'Outfit', sans-serif", mono: "'JetBrains Mono', monospace", sans: "'Inter', sans-serif" };
+const C2 = {
+  choc: '#2c2419', coral: '#c4704f', gold: '#d9a854', sage: '#9db5a0', emerald: '#10b981',
+  cream: '#f5f1ed', text2: '#5c5850', muted: '#9ca3af',
+  borderSoft: 'rgba(44,36,25,0.08)', borderMed: 'rgba(44,36,25,0.14)',
+  upBg: 'rgba(157,181,160,0.18)', upFg: '#4a6b4e', downBg: 'rgba(196,112,79,0.15)', downFg: '#8a4a2e', neutBg: 'rgba(92,88,80,0.1)', neutFg: '#5c5850',
+};
+
+function SectionHead({ title, italic: it, meta }: { title: string; italic: string; meta?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, margin: '28px 0 14px' }}>
+      <h3 style={{ fontFamily: FF.serif, fontWeight: 500, fontSize: 22, color: C2.choc, letterSpacing: '-0.01em', margin: 0 }}>
+        {title} <em style={{ fontStyle: 'italic', color: C2.coral, fontWeight: 400 }}>{it}</em>
+      </h3>
+      {meta && <span style={{ fontSize: 11, color: C2.muted, fontFamily: FF.mono, letterSpacing: '0.05em', flexShrink: 0 }}>{meta}</span>}
+    </div>
+  );
+}
+
+function TrendBadge({ mom }: { mom: { pct: string; type: 'up'|'down'|'neutral' } }) {
+  if (mom.pct === '—') return <span style={{ fontSize: 11, color: C2.muted }}>—</span>;
+  const bg = mom.type === 'up' ? C2.upBg : mom.type === 'down' ? C2.downBg : C2.neutBg;
+  const fg = mom.type === 'up' ? C2.upFg : mom.type === 'down' ? C2.downFg : C2.neutFg;
+  const arrow = mom.type === 'up' ? '▲' : mom.type === 'down' ? '▼' : '●';
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: bg, color: fg }}>{arrow} {mom.pct}</span>;
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
@@ -285,7 +313,7 @@ export default function ClientDetailPage() {
       });
     } catch (error) {
       console.error('[Client Details] Error:', error);
-      setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+      setFetchError('Unable to load data. Please try again.');
       setDailyData([]);
     } finally {
       setChartLoading(false);
@@ -297,9 +325,11 @@ export default function ClientDetailPage() {
 
   if (loading || !client) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f1ed 0, #ede8e3 100%)' }}>
-        <p style={{ color: '#2c2419' }}>Loading...</p>
-      </div>
+      <AdminLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <p style={{ color: '#2c2419' }}>Loading...</p>
+        </div>
+      </AdminLayout>
     );
   }
 
@@ -330,9 +360,9 @@ export default function ClientDetailPage() {
   const trafficReferral = dailyData.reduce((s: number, d: any) => s + (d.traffic_referral || 0), 0);
   const totalTraffic = trafficOrganic + trafficPaid + trafficDirect + trafficReferral + trafficAi;
 
-  const hasAds = client.services?.googleAds !== false;
-  const hasSeo = client.services?.seo !== false;
-  const hasGbp = client.services?.googleLocalService !== false;
+  const hasAds = client.services?.googleAds === true;
+  const hasSeo = client.services?.seo === true;
+  const hasGbp = client.services?.googleLocalService === true;
 
   // ── MoM ──────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);

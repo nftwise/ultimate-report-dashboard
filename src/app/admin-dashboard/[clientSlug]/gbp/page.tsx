@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
@@ -77,6 +78,8 @@ const calcChange = (curr: number, prev: number) => {
 export default function GBPPage() {
   const params = useParams();
   const clientSlug = params?.clientSlug as string;
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || '';
 
   const [client, setClient] = useState<ClientInfo | null>(null);
   const [locationName, setLocationName] = useState('');
@@ -242,15 +245,15 @@ export default function GBPPage() {
     if (!client) return;
     setPeriodLoading(true);
     const effectiveTo = dateRange.to > yesterday() ? yesterday() : dateRange.to;
-    const fromISO = dateRange.from.toISOString().split('T')[0];
-    const toISO = effectiveTo.toISOString().split('T')[0];
+    const fromISO = toLocalDateStr(dateRange.from);
+    const toISO = toLocalDateStr(effectiveTo);
     const days = Math.round((effectiveTo.getTime() - dateRange.from.getTime()) / 86400000);
     setPeriodDays(days);
 
     const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
     const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days);
-    const prevFromISO = prevFrom.toISOString().split('T')[0];
-    const prevToISO = prevTo.toISOString().split('T')[0];
+    const prevFromISO = toLocalDateStr(prevFrom);
+    const prevToISO = toLocalDateStr(prevTo);
 
     Promise.all([
       // current period — summary only (verified accurate)
@@ -264,7 +267,7 @@ export default function GBPPage() {
     ]).then(([{ data: sum, error: sumErr }, { data: pSum }]) => {
       if (sumErr) {
         console.error('Error fetching GBP period data:', sumErr);
-        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+        setFetchError('Unable to load data. Please try again.');
         setPeriodLoading(false);
         return;
       }
@@ -479,7 +482,12 @@ export default function GBPPage() {
             return (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '16px', padding: '10px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#b91c1c' }}>
                 <span style={{ flexShrink: 0, fontWeight: 700 }}>❌</span>
-                <span>GBP data hasn&apos;t updated in <strong>{daysOld} days</strong> (last: {formattedDate}). Sync may be broken — check cron status.</span>
+                <span>
+                  {userRole === 'admin' || userRole === 'team'
+                    ? <>GBP data hasn&apos;t updated in <strong>{daysOld} days</strong> (last: {formattedDate}). Sync may be broken — check cron status.</>
+                    : <>Data may be temporarily delayed. Our team has been notified.</>
+                  }
+                </span>
               </div>
             );
           }

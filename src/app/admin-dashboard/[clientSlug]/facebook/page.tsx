@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
@@ -399,11 +400,12 @@ function FBUpsellPage({ clientSlug, clientData }: {
   );
 }
 
-// Default date range: last 30 days
+// Default date range: last 30 days ending yesterday (consistent with other pages)
 function getDefaultDates() {
-  const now = new Date();
-  const to = now.toISOString().split('T')[0];
-  const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const to = yesterday.toISOString().split('T')[0];
+  const from = new Date(yesterday.getTime() - 30 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0];
   return { from, to };
@@ -430,6 +432,8 @@ const sectionHeader: React.CSSProperties = {
 export default function FacebookPage() {
   const params = useParams();
   const clientSlug = (params?.clientSlug as string) ?? '';
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || '';
 
   const { from: defaultFrom, to: defaultTo } = getDefaultDates();
 
@@ -1495,7 +1499,8 @@ export default function FacebookPage() {
           )}
         </div>
 
-        {/* ═══ SECTION 2: LEAD CRM ═══ */}
+        {/* ═══ SECTION 2: LEAD CRM (admin/team only) ═══ */}
+        {userRole === 'admin' || userRole === 'team' ? (
         <div style={sectionCard}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={sectionHeader}>Lead Management</h3>
@@ -1651,6 +1656,11 @@ export default function FacebookPage() {
             </div>
           )}
         </div>
+        ) : (
+          <div style={{ ...sectionCard, textAlign: 'center', padding: '32px' }}>
+            <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Lead management is available for your agency team.</p>
+          </div>
+        )}
 
         {/* Follow-up Sequences section removed */}
       </div>

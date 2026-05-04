@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const dateParam = request.nextUrl.searchParams.get('date');
+    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+    }
     const clientIdParam = request.nextUrl.searchParams.get('clientId');
 
     // Build list of dates to sync.
@@ -307,7 +310,7 @@ async function fetchAdGroupMetrics(apiUrl: string, headers: Record<string, strin
       impressions: parseInt(m.impressions || '0'),
       clicks: parseInt(m.clicks || '0'),
       cost: Math.round(costMicros / 10000) / 100,
-      conversions: parseInt(m.conversions || '0'),
+      conversions: parseFloat(m.conversions || '0'),
       ctr: Math.round(parseFloat(m.ctr || '0') * 10000) / 100,
       cpc: Math.round(parseFloat(m.averageCpc || m.average_cpc || '0') / 10000) / 100,
       cpa: parseFloat(m.conversions || '0') > 0 ? Math.round(costMicros / parseFloat(m.conversions || '1') / 10000) / 100 : 0,

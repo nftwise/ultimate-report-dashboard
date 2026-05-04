@@ -116,7 +116,7 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
       // After login, redirect based on role
       if (url.includes('/api/auth/signin')) {
-        return baseUrl + '/dashboard'
+        return baseUrl + '/admin-dashboard'
       }
       return url.startsWith(baseUrl) ? url : baseUrl
     }
@@ -129,7 +129,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 90 * 24 * 60 * 60, // 90 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   secret: process.env.NEXTAUTH_SECRET,

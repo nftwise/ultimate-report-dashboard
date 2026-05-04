@@ -441,6 +441,7 @@ export default function GoogleAdsPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
+  const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
     const from = new Date(to);
@@ -450,7 +451,7 @@ export default function GoogleAdsPage() {
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
-    const to = new Date(); to.setDate(to.getDate() - 1);
+    const to = lastAvailableDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const from = new Date(to);
     from.setDate(from.getDate() - days);
     setDateRange({ from, to });
@@ -485,6 +486,22 @@ export default function GoogleAdsPage() {
       fetchClient();
     }
   }, [clientSlug]);
+
+  // Anchor date range to last available data date (same as overview page)
+  useEffect(() => {
+    if (!client) return;
+    supabase.from('ads_campaign_metrics')
+      .select('date').eq('client_id', client.id)
+      .order('date', { ascending: false }).limit(1).single()
+      .then(({ data }) => {
+        if (data?.date) {
+          const to = new Date(data.date + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+      });
+  }, [client]);
 
   // Fetch daily metrics from ads_campaign_metrics + conversions (Google Ads API)
   useEffect(() => {
@@ -563,7 +580,7 @@ export default function GoogleAdsPage() {
         setFetchError(null);
       } catch (error) {
         console.error('Error fetching metrics:', error);
-        setFetchError('Không thể tải dữ liệu. Vui lòng thử lại.');
+        setFetchError('Unable to load data. Please try again.');
       } finally {
         setChartLoading(false);
       }
@@ -719,13 +736,15 @@ export default function GoogleAdsPage() {
 
   if (loading || !client) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading...</p>
+      <AdminLayout>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 40, height: 40, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+            <p style={{ color: '#2c2419', opacity: 0.6 }}>Loading...</p>
+          </div>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
         </div>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
+      </AdminLayout>
     );
   }
 

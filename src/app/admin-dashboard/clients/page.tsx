@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react';
@@ -571,9 +571,9 @@ export default function ClientsManagementPage() {
                     const isCancelledStart = !client.is_active && (!prevClient || prevClient.is_active);
 
                     return (
-                      <>
+                      <React.Fragment key={client.id}>
                         {isCancelledStart && (
-                          <tr key={`divider-${client.id}`} style={{ pointerEvents: 'none' }}>
+                          <tr style={{ pointerEvents: 'none' }}>
                             <td colSpan={isAdmin ? 7 : 6} style={{ padding: '6px 12px', background: '#faf7f4', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
                               <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>
                                 — Cancelled / Inactive —
@@ -581,7 +581,7 @@ export default function ClientsManagementPage() {
                             </td>
                           </tr>
                         )}
-                        <tr key={client.id}
+                        <tr
                           onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
                           style={{ opacity: client.is_active ? 1 : 0.6, background: !client.is_active ? 'rgba(239,68,68,0.04)' : undefined }}
                         >
@@ -677,7 +677,7 @@ export default function ClientsManagementPage() {
                         </tr>
                         {/* Accordion: Notes + Form Fills */}
                         {expandedRows.has(client.id) && (
-                          <tr key={`expand-${client.id}`} style={{ background: 'rgba(196,112,79,0.02)' }}>
+                          <tr style={{ background: 'rgba(196,112,79,0.02)' }}>
                             <td colSpan={7} style={{ padding: '12px 16px 16px 16px', borderBottom: '2px solid rgba(196,112,79,0.15)' }} onClick={e => e.stopPropagation()}>
                               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                                 {/* Notes */}
@@ -725,7 +725,7 @@ export default function ClientsManagementPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

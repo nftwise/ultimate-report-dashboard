@@ -314,7 +314,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Nav items */}
         <nav style={{ flex: 1, padding: '0 8px' }}>
-          {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+          {NAV_ITEMS.filter(({ label }) => {
+            if (isClient && (label === 'Clients' || label === 'Users')) return false;
+            return true;
+          }).map(({ label, href, icon: Icon }) => {
             const active = isActive(href);
             return (
               <button

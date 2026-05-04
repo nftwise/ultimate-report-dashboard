@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAndSendAlerts, saveCronStatus } from '@/lib/telegram';
 
@@ -35,8 +37,18 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { date, clientId, group, secret } = body;
 
-  if (secret && secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ success: false, error: 'Invalid secret' }, { status: 401 });
+  if (secret) {
+    // If secret is provided, it must match CRON_SECRET
+    if (secret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ success: false, error: 'Invalid secret' }, { status: 401 });
+    }
+  } else {
+    // If no secret provided, require an authenticated admin/team session
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (!session || (role !== 'admin' && role !== 'team')) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   return runRollup(date, clientId, group);
@@ -122,13 +134,17 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
       }
     }
 
-    // Upsert all rows at once
-    const { error: upsertError } = await supabaseAdmin
-      .from('client_metrics_summary')
-      .upsert(allMetricsToSave, { onConflict: 'client_id,date,period_type' });
+    // Upsert in batches of 300 to prevent payload size limit
+    const UPSERT_BATCH_SIZE = 300;
+    for (let i = 0; i < allMetricsToSave.length; i += UPSERT_BATCH_SIZE) {
+      const chunk = allMetricsToSave.slice(i, i + UPSERT_BATCH_SIZE);
+      const { error: upsertError } = await supabaseAdmin
+        .from('client_metrics_summary')
+        .upsert(chunk, { onConflict: 'client_id,date,period_type' });
 
-    if (upsertError) {
-      throw new Error(`Failed to save: ${upsertError.message}`);
+      if (upsertError) {
+        throw new Error(`Failed to save batch ${Math.floor(i / UPSERT_BATCH_SIZE) + 1}: ${upsertError.message}`);
+      }
     }
 
     const duration = Date.now() - startTime;
