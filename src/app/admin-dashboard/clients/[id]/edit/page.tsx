@@ -519,6 +519,53 @@ export default function EditClientPage({ params }: EditClientParams) {
           </button>
         </form>
 
+        {/* Backfill Section */}
+        <div style={{ ...sectionStyle, marginTop: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <Database style={{ width: 14, height: 14, color: '#c4704f' }} />
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', margin: 0 }}>
+              Backfill Historical Data
+            </p>
+          </div>
+          <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '16px' }}>
+            Run after adding new Integration IDs to populate historical data. Keep this tab open while running.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: '#5c5850', fontWeight: 600 }}>Days:</label>
+            {[30, 60, 90].map(d => (
+              <button key={d} type="button" onClick={() => setBackfillDays(d)}
+                style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  background: backfillDays === d ? '#c4704f' : 'transparent',
+                  color: backfillDays === d ? '#fff' : '#5c5850',
+                  borderColor: backfillDays === d ? '#c4704f' : 'rgba(44,36,25,0.2)',
+                }}>
+                {d}d
+              </button>
+            ))}
+          </div>
+
+          {backfill.running ? (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#5c5850', marginBottom: '6px' }}>
+                <span>Day {backfill.currentDay} / {backfill.totalDays} — {backfill.currentService}</span>
+                <span>{backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%</span>
+              </div>
+              <div style={{ height: '6px', background: 'rgba(44,36,25,0.1)', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${backfill.totalDays > 0 ? Math.round((backfill.currentDay / backfill.totalDays) * 100) : 0}%`, background: '#c4704f', borderRadius: '99px', transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          ) : backfill.done ? (
+            <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#059669' }}>
+              Backfill complete — {backfill.errors.length > 0 ? `${backfill.errors.length} errors` : 'all data synced'}
+            </div>
+          ) : (
+            <button type="button" onClick={runBackfill}
+              style={{ width: '100%', padding: '10px', background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.3)', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#c4704f', cursor: 'pointer' }}>
+              Backfill {backfillDays} Days
+            </button>
+          )}
+        </div>
+
         {/* Danger Zone */}
         <div style={{ ...sectionStyle, marginTop: '32px', borderColor: 'rgba(239,68,68,0.2)' }}>
           <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#dc2626', marginBottom: '8px' }}>
