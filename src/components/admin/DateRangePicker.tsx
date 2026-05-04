@@ -25,7 +25,9 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
   const [calMonth, setCalMonth]       = useState(() => new Date(dateRange.to));
   const [startDate, setStartDate]     = useState<Date | null>(null);
   const [hoverDate, setHoverDate]     = useState<Date | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
   const wrapperRef                    = useRef<HTMLDivElement>(null);
+  const buttonRef                     = useRef<HTMLButtonElement>(null);
 
   // yesterday = max selectable date
   const yesterday = startOfDay(new Date());
@@ -47,6 +49,11 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
   const handleOpen = () => {
     setCalMonth(new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), 1));
     resetTemp();
+    // Calculate fixed position from button's viewport coordinates to escape overflow clipping
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
     setOpen(true);
   };
 
@@ -171,6 +178,7 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
 
       {/* Trigger button */}
       <button
+        ref={buttonRef}
         onClick={open ? () => { setOpen(false); resetTemp(); } : handleOpen}
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
@@ -187,10 +195,10 @@ export default function DateRangePicker({ dateRange, onDateRangeChange }: DateRa
         {open && <X size={12} style={{ marginLeft: '2px', opacity: 0.7 }} />}
       </button>
 
-      {/* Dropdown */}
-      {open && (
+      {/* Dropdown — position: fixed to escape overflow:hidden/auto clipping */}
+      {open && dropdownPos && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          position: 'fixed', top: dropdownPos.top, right: dropdownPos.right,
           background: '#fff', borderRadius: '14px', padding: '16px',
           width: '310px', zIndex: Z_INDEX.DROPDOWN,
           boxShadow: '0 8px 32px rgba(44,36,25,0.14), 0 1px 4px rgba(44,36,25,0.06)',

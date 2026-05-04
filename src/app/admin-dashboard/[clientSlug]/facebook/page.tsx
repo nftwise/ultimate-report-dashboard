@@ -13,9 +13,9 @@ const supabase = createClient(
 );
 
 // ── Contact info for upsell page ──────────────────────────────────────────
-const CONTACT_PHONE     = '(714) 555-0199';       // TODO: update
-const CONTACT_PHONE_TEL = '+17145550199';          // TODO: update
-const CONTACT_EMAIL     = 'hello@wiseclinics.com'; // TODO: update
+const CONTACT_PHONE     = '949-385-1450';
+const CONTACT_PHONE_TEL = '+19493851450';
+const CONTACT_EMAIL     = 'info@mychiropractice.com';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Line, ComposedChart,

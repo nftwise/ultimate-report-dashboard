@@ -45,9 +45,9 @@ const PRESETS = [30, 90, 0] as const; // 0 = All time
 type Preset = typeof PRESETS[number];
 
 // ── Contact info ─────────────────────────────────────────────────────────
-const CONTACT_PHONE_GEO     = '(714) 555-0199';
-const CONTACT_PHONE_TEL_GEO = '+17145550199';
-const CONTACT_EMAIL_GEO     = 'hello@wiseclinics.com';
+const CONTACT_PHONE_GEO     = '949-385-1450';
+const CONTACT_PHONE_TEL_GEO = '+19493851450';
+const CONTACT_EMAIL_GEO     = 'info@mychiropractice.com';
 
 // ── Synthetic demo data (GEO/AI) ─────────────────────────────────────────
 const GEO_FOMO_SEED = [48,62,55,78,65,71,58,82,68,90,62,75,55,95,72,80,85,68,88,102,78,88,65,92,78,88,72,95,82,78,75];

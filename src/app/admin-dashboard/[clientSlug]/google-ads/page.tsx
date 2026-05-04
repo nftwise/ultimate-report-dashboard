@@ -179,9 +179,9 @@ const supabase = createClient(
 );
 
 // ── Contact info ─────────────────────────────────────────────────────────
-const CONTACT_PHONE     = '(714) 555-0199';
-const CONTACT_PHONE_TEL = '+17145550199';
-const CONTACT_EMAIL     = 'hello@wiseclinics.com';
+const CONTACT_PHONE     = '949-385-1450';
+const CONTACT_PHONE_TEL = '+19493851450';
+const CONTACT_EMAIL     = 'info@mychiropractice.com';
 
 // ── Synthetic demo data ───────────────────────────────────────────────────
 const ADS_FOMO_SEED = [16,22,18,28,21,24,19,26,23,27,20,25,18,29,22,24,26,21,28,30,23,25,19,27,24,26,22,28,25,24,23];
