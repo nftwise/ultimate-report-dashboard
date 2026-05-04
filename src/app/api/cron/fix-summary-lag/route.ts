@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -35,8 +36,7 @@ export async function GET(request: NextRequest) {
   // GBP lag worst-case: 30 days. Ads retroactive adjustments: up to 60 days.
   // Stale data outside 10 days would never be patched with the old window.
   const datesToPatch: string[] = dateParam ? [dateParam] : (() => {
-    const now = new Date();
-    const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const caToday = toCaliforniaDate();
     const dates: string[] = [];
     for (let i = 1; i <= 60; i++) {
       const d = new Date(caToday);
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
     .select('client_id, date, top_keywords_count, total_impressions, total_clicks')
     .gte('date', startDate)
     .lte('date', endDate)
-    .or('top_keywords_count.gt.0,total_impressions.gt.0,total_clicks.gt.0');
+    .or('top_keywords_count.gt.0,total_impressions.gt.0,total_clicks.gt.0')
+    .limit(10000);
 
   if (gscData && gscData.length > 0) {
     // Get current summary rows for these clients/dates
@@ -71,7 +72,8 @@ export async function GET(request: NextRequest) {
       .select('client_id, date, top_keywords, seo_impressions, seo_clicks')
       .eq('period_type', 'daily')
       .gte('date', startDate)
-      .lte('date', endDate);
+      .lte('date', endDate)
+      .limit(10000);
 
     const summaryMap = new Map(
       (summaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])
@@ -120,7 +122,8 @@ export async function GET(request: NextRequest) {
     .from('gbp_location_daily_metrics')
     .select('client_id, date, phone_calls, views, website_clicks, direction_requests')
     .gte('date', startDate)
-    .lte('date', endDate);
+    .lte('date', endDate)
+    .limit(10000);
 
   if (gbpData && gbpData.length > 0) {
     // Aggregate by client_id + date
@@ -141,7 +144,8 @@ export async function GET(request: NextRequest) {
       .select('client_id, date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
       .eq('period_type', 'daily')
       .gte('date', startDate)
-      .lte('date', endDate);
+      .lte('date', endDate)
+      .limit(10000);
 
     const gbpSummaryMap = new Map(
       (gbpSummaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])
@@ -154,12 +158,13 @@ export async function GET(request: NextRequest) {
       const summary = gbpSummaryMap.get(key);
       if (!summary) continue;
 
-      // Patch each GBP column independently — a column that already has a non-zero value
-      // should not be overwritten, but other stale-zero columns still need patching.
-      const needsViews = (summary.gbp_profile_views === 0 || summary.gbp_profile_views === null) && agg.views > 0;
-      const needsCalls = (summary.gbp_calls         === 0 || summary.gbp_calls         === null) && agg.calls > 0;
-      const needsWeb   = (summary.gbp_website_clicks === 0 || summary.gbp_website_clicks === null) && agg.web > 0;
-      const needsDirs  = (summary.gbp_directions     === 0 || summary.gbp_directions     === null) && agg.dirs > 0;
+      // Patch each GBP column independently — update when summary is zero/null OR when
+      // the source value is greater (GBP API retroactively finalizes data, so later
+      // fetches can return higher numbers than earlier ones).
+      const needsViews = agg.views > 0 && (summary.gbp_profile_views === 0 || summary.gbp_profile_views === null || agg.views > summary.gbp_profile_views);
+      const needsCalls = agg.calls > 0 && (summary.gbp_calls         === 0 || summary.gbp_calls         === null || agg.calls > summary.gbp_calls);
+      const needsWeb   = agg.web   > 0 && (summary.gbp_website_clicks === 0 || summary.gbp_website_clicks === null || agg.web > summary.gbp_website_clicks);
+      const needsDirs  = agg.dirs  > 0 && (summary.gbp_directions     === 0 || summary.gbp_directions     === null || agg.dirs > summary.gbp_directions);
 
       if (!needsViews && !needsCalls && !needsWeb && !needsDirs) continue;
 
@@ -191,7 +196,8 @@ export async function GET(request: NextRequest) {
     .from('ga4_sessions')
     .select('client_id, date, sessions, total_users, new_users, device, source_medium')
     .gte('date', startDate)
-    .lte('date', endDate);
+    .lte('date', endDate)
+    .limit(10000);
 
   if (ga4SessionsRaw && ga4SessionsRaw.length > 0) {
     // Aggregate by client_id + date
@@ -218,7 +224,8 @@ export async function GET(request: NextRequest) {
       .select('client_id, date, sessions, users')
       .eq('period_type', 'daily')
       .gte('date', startDate)
-      .lte('date', endDate);
+      .lte('date', endDate)
+      .limit(10000);
 
     const ga4SummaryMap = new Map(
       (ga4SummaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])
@@ -262,7 +269,8 @@ export async function GET(request: NextRequest) {
     .from('ads_campaign_metrics')
     .select('client_id, date, impressions, clicks, cost, conversions, search_impression_share, search_lost_is_budget, quality_score')
     .gte('date', startDate)
-    .lte('date', endDate);
+    .lte('date', endDate)
+    .limit(10000);
 
   if (adsCampaignRaw && adsCampaignRaw.length > 0) {
     // Aggregate by client_id + date
@@ -293,7 +301,8 @@ export async function GET(request: NextRequest) {
       .select('client_id, date, ad_spend, google_ads_conversions, ads_impressions, ads_clicks, ads_impression_share, ads_search_lost_budget, ads_quality_score')
       .eq('period_type', 'daily')
       .gte('date', startDate)
-      .lte('date', endDate);
+      .lte('date', endDate)
+      .limit(10000);
 
     const adsSummaryMap = new Map(
       (adsSummaryRows || []).map(r => [`${r.client_id}:${r.date}`, r])

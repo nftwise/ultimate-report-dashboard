@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,7 @@ export async function GET(request: NextRequest) {
     // whose rollup ran before GSC data was ready automatically gets backfilled.
     const dateParam = request.nextUrl.searchParams.get('date');
     const datesToSync: string[] = dateParam ? [dateParam] : (() => {
-      const now = new Date();
-      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const caToday = toCaliforniaDate();
       const dates: string[] = [];
       for (let i = 3; i <= 12; i++) {
         const d = new Date(caToday);
@@ -220,7 +220,7 @@ async function fetchGSCData(token: string, siteUrl: string, date: string, dimens
         endDate: date,
         dimensions,
         rowLimit,
-        dataState: 'final',
+        dataState: 'all',
       }),
       signal: controller.signal,
     }

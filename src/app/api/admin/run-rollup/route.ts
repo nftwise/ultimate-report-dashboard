@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAndSendAlerts, saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -68,8 +69,7 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
     // and Google Ads retroactive attribution adjustments (up to 60d).
     // Manual fixes for any date in the past 60 days will be re-applied correctly.
     const datesToProcess: string[] = date ? [date] : (() => {
-      const now = new Date();
-      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const caToday = toCaliforniaDate();
       const dates: string[] = [];
       for (let i = 1; i <= 60; i++) {
         const d = new Date(caToday);
@@ -557,7 +557,7 @@ async function processClient(
   // =====================================================
   // COMPUTED METRICS
   // =====================================================
-  const totalLeads = googleAdsConversions + gbpCalls; // form_fills excluded — unreliable event naming
+  const totalLeads = googleAdsConversions + gbpCalls + formFills;
   const cpl = totalLeads > 0
     ? Math.round((adSpend / totalLeads) * 100) / 100
     : 0;
@@ -576,10 +576,9 @@ async function processClient(
   if (gbpReviewsNew > 0) healthScore += 5;
   healthScore = Math.min(100, healthScore);
 
-  // Budget utilization
-  const dayOfMonth = new Date(targetDate).getDate();
-  const expectedSpendRate = dayOfMonth / 30;
-  const budgetUtilization = Math.round(expectedSpendRate * 100);
+  // Budget utilization — set to 0; the old calendar-based formula (dayOfMonth/30)
+  // was meaningless without actual budget data from the client.
+  const budgetUtilization = 0;
 
   return {
     client_id: clientId,

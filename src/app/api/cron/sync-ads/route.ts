@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     // ?date=YYYY-MM-DD → single specific date (manual override)
     // default → last 7 days to catch retroactive conversion updates
     const caDateStr = (d: Date) => {
-      const ca = new Date(d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const ca = toCaliforniaDate(d);
       return `${ca.getFullYear()}-${String(ca.getMonth() + 1).padStart(2, '0')}-${String(ca.getDate()).padStart(2, '0')}`;
     };
     const datesToSync: string[] = dateParam ? [dateParam] : (() => {

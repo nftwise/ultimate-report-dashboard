@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { JWT } from 'google-auth-library';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +30,7 @@ export async function GET(request: NextRequest) {
     const dateParam = request.nextUrl.searchParams.get('date');
     const targetDate = dateParam || (() => {
       // Use California timezone for "yesterday" calculation
-      const now = new Date();
-      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const caToday = toCaliforniaDate();
       caToday.setDate(caToday.getDate() - 1);
       return `${caToday.getFullYear()}-${String(caToday.getMonth() + 1).padStart(2, '0')}-${String(caToday.getDate()).padStart(2, '0')}`;
     })();

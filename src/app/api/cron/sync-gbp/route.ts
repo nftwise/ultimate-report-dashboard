@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { fetchGBPRangePerDay, transformGBPMetrics } from '@/lib/gbp-fetch-utils';
 import { GBPTokenManager } from '@/lib/gbp-token-manager';
 import { sendCronFailureAlert, saveCronStatus } from '@/lib/telegram';
+import { toCaliforniaDate } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic'
 
@@ -34,8 +35,7 @@ export async function GET(request: NextRequest) {
     //  - Single-day suppression from old code gets overwritten by accurate range-query data
     //  - 3 full calendar months are always fresh, eliminating stale historical zeros
     const datesToSync: string[] = dateParam ? [dateParam] : (() => {
-      const now = new Date();
-      const caToday = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const caToday = toCaliforniaDate();
       const dates: string[] = [];
       for (let i = 1; i <= 90; i++) {
         const d = new Date(caToday);
@@ -184,14 +184,20 @@ export async function GET(request: NextRequest) {
           if (!reviewsAccessToken) throw new Error('No GBP access token for reviews');
           const reviewData = await fetchLocationReviews(reviewsAccessToken, gbpAccountId, location.gbp_location_id);
           if (reviewData) {
+            // Use upsert instead of update — the row for mostRecentDate may not
+            // exist yet if the metrics sync skipped it (e.g. API returned no data).
             await supabaseAdmin
               .from('gbp_location_daily_metrics')
-              .update({
+              .upsert({
+                location_id: location.id,
+                client_id: location.client_id,
+                date: mostRecentDate,
                 total_reviews: reviewData.totalReviewCount,
                 average_rating: reviewData.averageRating,
-              })
-              .eq('location_id', location.id)
-              .eq('date', mostRecentDate);
+              }, {
+                onConflict: 'location_id,date',
+                ignoreDuplicates: false,
+              });
             reviewsSynced++;
           }
         } catch (err: any) {

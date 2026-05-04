@@ -173,7 +173,13 @@ Use only this data. Do not invent figures.`;
     });
 
     if (orRes.ok) {
-      data = await orRes.json();
+      try {
+        data = await orRes.json();
+      } catch (parseErr: any) {
+        console.error(`OpenRouter ${model} JSON parse error:`, parseErr.message);
+        lastErr = `JSON parse error: ${parseErr.message}`;
+        continue;
+      }
       break;
     }
     lastErr = await orRes.text();

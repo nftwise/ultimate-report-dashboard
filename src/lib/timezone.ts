@@ -205,3 +205,27 @@ export function getLastUSBusinessDay(): string {
 
   return date;
 }
+
+/**
+ * Reliable California Date from Intl.DateTimeFormat parts.
+ * Replaces the fragile `new Date(now.toLocaleString('en-US', { timeZone }))` pattern
+ * which can produce incorrect results depending on the runtime locale/parser.
+ */
+export function toCaliforniaDate(date: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
+  return new Date(+get('year'), +get('month') - 1, +get('day'), +get('hour'), +get('minute'), +get('second'));
+}
+
+/**
+ * Returns California date as "YYYY-MM-DD" string.
+ */
+export function toCaliforniaDateStr(date: Date = new Date()): string {
+  const d = toCaliforniaDate(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

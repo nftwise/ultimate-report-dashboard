@@ -132,6 +132,10 @@ export async function fetchGBPRange(
  * Fetch GBP metrics for a single day (for daily cron)
  * Still uses date range but with same start/end date
  *
+ * @deprecated Use `fetchGBPRangePerDay` instead. Single-day queries (start===end)
+ * can return suppressed/incomplete data from the GBP API. Range queries return
+ * complete finalized data and are also more efficient (7 API calls total vs 7 per day).
+ *
  * @param locationId Raw location ID
  * @param date "2026-02-01"
  * @returns Metrics for that single day
