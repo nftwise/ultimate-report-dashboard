@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -133,6 +134,22 @@ export default function ChatWidget({ role }: ChatWidgetProps) {
             .chat-input:focus { outline: none; }
             .chat-send:hover { background: #c4704f !important; }
             .chat-suggest:hover { background: rgba(196,112,79,0.12) !important; }
+            .chat-md p { margin: 0 0 8px; }
+            .chat-md p:last-child { margin-bottom: 0; }
+            .chat-md strong { color: #2c2419; font-weight: 700; }
+            .chat-md em { color: #c4704f; font-style: italic; }
+            .chat-md ul, .chat-md ol { margin: 4px 0 8px; padding-left: 18px; }
+            .chat-md li { margin-bottom: 3px; }
+            .chat-md li::marker { color: #c4704f; }
+            .chat-md h1,.chat-md h2,.chat-md h3 { font-size: 13px; font-weight: 700; margin: 8px 0 4px; color: #2c2419; }
+            .chat-md h3 { color: #c4704f; }
+            .chat-md code { background: rgba(196,112,79,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+            .chat-md table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+            .chat-md th { background: rgba(196,112,79,0.12); padding: 5px 8px; text-align: left; font-weight: 600; border-bottom: 2px solid rgba(196,112,79,0.3); }
+            .chat-md td { padding: 4px 8px; border-bottom: 1px solid rgba(44,36,25,0.08); }
+            .chat-md tr:hover td { background: rgba(196,112,79,0.05); }
+            .chat-md blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid #c4704f; background: rgba(196,112,79,0.05); }
+            .chat-md hr { border: none; border-top: 1px solid rgba(44,36,25,0.1); margin: 8px 0; }
           `}</style>
 
           {/* Header */}
@@ -179,11 +196,11 @@ export default function ChatWidget({ role }: ChatWidgetProps) {
 
             {/* Message bubbles */}
             {messages.map((m, i) => (
-              <div key={i} className={m.role === 'user' ? 'chat-msg-user' : 'chat-msg-ai'} style={{
+              <div key={i} className={m.role === 'user' ? 'chat-msg-user' : 'chat-msg-ai chat-md'} style={{
                 padding: '10px 14px', fontSize: '13px', lineHeight: 1.5,
                 maxWidth: '85%', wordBreak: 'break-word',
               }}>
-                {m.content}
+                {m.role === 'user' ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
               </div>
             ))}
 
