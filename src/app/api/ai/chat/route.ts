@@ -154,8 +154,9 @@ Only use this data. Do not invent figures.`;
   });
 
   if (!orRes.ok) {
-    console.error('OpenRouter error:', await orRes.text());
-    return NextResponse.json({ error: 'AI service temporarily unavailable. Please try again.' }, { status: 502 });
+    const errText = await orRes.text();
+    console.error('OpenRouter error:', errText);
+    return NextResponse.json({ error: `AI error (${orRes.status}): ${errText.slice(0, 200)}` }, { status: 502 });
   }
 
   const data = await orRes.json();
