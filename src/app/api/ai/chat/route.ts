@@ -175,7 +175,6 @@ Only use this data. Do not invent figures.`;
     return NextResponse.json({ error: 'All AI models temporarily unavailable. Please try again later.' }, { status: 502 });
   }
 
-  const data = await orRes.json();
   const reply = data.choices?.[0]?.message?.content;
 
   if (!reply) {
