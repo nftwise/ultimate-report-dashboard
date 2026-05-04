@@ -63,9 +63,11 @@ async function check(num, label, fn) {
 // ─── Group A — Data Freshness ─────────────────────────────────────────────
 
 async function checkGA4Freshness() {
+  // Use client_metrics_summary (smaller, indexed) to avoid timeout on ga4_sessions
   const { data, error } = await supabase
-    .from('ga4_sessions')
+    .from('client_metrics_summary')
     .select('date')
+    .eq('period_type', 'daily')
     .order('date', { ascending: false })
     .limit(1);
   if (error) return { passed: false, detail: error.message };
@@ -436,19 +438,22 @@ async function checkGBPSummaryConsistency() {
 // ─── Group D — API Health ─────────────────────────────────────────────────
 
 async function checkSyncStatus() {
-  // Direct Supabase query — no Vercel API call needed
+  // Cron status is stored in system_settings as key-value pairs (key like cron_status_sync_ga4)
   const { data, error } = await supabase
-    .from('cron_status')
-    .select('job_name, last_run_at, last_status')
-    .order('last_run_at', { ascending: false })
-    .limit(10);
+    .from('system_settings')
+    .select('key, value')
+    .like('key', 'cron_status_%');
   if (error) return { passed: false, detail: `cron_status query failed: ${error.message}` };
   const hasRows = data && data.length > 0;
+  if (!hasRows) return { passed: false, detail: 'No cron_status entries in system_settings' };
+  const parsed = data.map(row => {
+    try { return { key: row.key, ...JSON.parse(row.value) }; } catch { return { key: row.key }; }
+  });
+  const latest = parsed.sort((a, b) => (b.lastRun || '').localeCompare(a.lastRun || ''))[0];
+  const allHealthy = parsed.every(r => r.status === 'success' || r.status === 'partial');
   return {
-    passed: hasRows,
-    detail: hasRows
-      ? `${data.length} cron jobs tracked, latest: ${data[0]?.job_name} @ ${data[0]?.last_run_at}`
-      : 'No cron_status rows found',
+    passed: allHealthy,
+    detail: `${parsed.length} cron jobs tracked, latest: ${latest?.key} @ ${latest?.lastRun?.slice(0, 10)}`,
   };
 }
 
