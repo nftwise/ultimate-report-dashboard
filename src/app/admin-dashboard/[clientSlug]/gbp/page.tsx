@@ -410,6 +410,38 @@ export default function GBPPage() {
           <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>{locationName || 'Local visibility and customer engagement metrics'}</p>
         </div>
 
+        {/* GBP data freshness banner */}
+        {lastGbpDataDate && (() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const lastDate = new Date(lastGbpDataDate + 'T12:00:00');
+          const daysOld = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+          const formattedDate = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+          if (daysOld > 7) {
+            return (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '16px', padding: '10px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#b91c1c' }}>
+                <span style={{ flexShrink: 0, fontWeight: 700 }}>❌</span>
+                <span>GBP data hasn&apos;t updated in <strong>{daysOld} days</strong> (last: {formattedDate}). Sync may be broken — check cron status.</span>
+              </div>
+            );
+          }
+          if (daysOld >= 4) {
+            return (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '16px', padding: '10px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.35)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
+                <span style={{ flexShrink: 0, fontWeight: 700 }}>⚠</span>
+                <span>GBP data is <strong>{daysOld} days old</strong> (through {formattedDate}). This is normal — Google Business Profile API has up to 7-day delay.</span>
+              </div>
+            );
+          }
+          // 1–3 days old: subtle gray note
+          return (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '16px', padding: '6px 12px', background: 'rgba(44,36,25,0.04)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: '8px', fontSize: '11px', color: '#9ca3af' }}>
+              Data through {formattedDate} · GBP typically has 1–3 day lag
+            </div>
+          );
+        })()}
+
         {/* GBP data note */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '8px 14px', background: 'rgba(217,168,84,0.08)', border: '1px solid rgba(217,168,84,0.25)', borderRadius: '8px', fontSize: '12px', color: '#92702a' }}>
           <span style={{ fontWeight: 700 }}>ℹ️ Note:</span>

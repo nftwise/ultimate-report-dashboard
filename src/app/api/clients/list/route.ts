@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
           contact_email,
           notes,
           is_active,
+          ads_budget_month,
           service_configs (
             ga_property_id,
             gads_customer_id,
@@ -147,6 +148,7 @@ export async function GET(request: NextRequest) {
         contact_email: client.contact_email,
         notes: client.notes || null,
         is_active: client.is_active,
+        ads_budget_month: client.ads_budget_month ?? null,
         total_leads: clientMetrics.total_leads,
         seo_form_submits: clientMetrics.seo_form_submits,
         gbp_calls: clientMetrics.gbp_calls,

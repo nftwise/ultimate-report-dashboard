@@ -18,6 +18,7 @@ interface ClientMetrics {
   name: string;
   slug: string;
   city: string;
+  ads_budget_month?: string | null;
 }
 
 interface DailyMetrics {
@@ -925,6 +926,78 @@ export default function GoogleAdsPage() {
                 </div>
               </div>
             )}
+
+            {/* Budget Status Card */}
+            {(() => {
+              const rawBudget = (client as any).ads_budget_month;
+              const budget = rawBudget !== null && rawBudget !== undefined && rawBudget !== '' ? parseFloat(rawBudget) : NaN;
+              const hasBudget = !isNaN(budget) && budget > 0;
+
+              if (!hasBudget) {
+                return (
+                  <div style={{
+                    background: 'rgba(217,168,84,0.08)',
+                    border: '1px solid rgba(217,168,84,0.35)',
+                    borderRadius: '12px',
+                    padding: '14px 18px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '13px',
+                    color: '#92702a',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>⚠</span>
+                    <span>No monthly budget set — add one in client settings to track spend efficiency</span>
+                  </div>
+                );
+              }
+
+              const spentPct = budget > 0 ? (totalSpend / budget) * 100 : 0;
+              const barColor = spentPct > 110 ? '#ef4444' : spentPct > 90 ? '#d9a854' : '#10b981';
+              const borderColor = spentPct > 110 ? 'rgba(239,68,68,0.3)' : spentPct > 90 ? 'rgba(217,168,84,0.3)' : 'rgba(16,185,129,0.2)';
+
+              const daysInRange = Math.max(1, Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)));
+              const dailySpend = totalSpend / daysInRange;
+
+              const warnings: string[] = [];
+              if (budget < 500 && totalSpend > 100) {
+                warnings.push(`Budget may be set incorrectly ($${budget.toFixed(0)} budget but spending $${dailySpend.toFixed(0)}/day)`);
+              }
+              if (budget > 50000) {
+                warnings.push('Unusually high budget — please verify');
+              }
+
+              return (
+                <div style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '24px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850' }}>Budget Status</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: barColor }}>
+                      ${totalSpend.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / ${budget.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} budget ({spentPct.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', background: 'rgba(44,36,25,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                    <div style={{ width: `${Math.min(spentPct, 100)}%`, height: '100%', background: barColor, borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                  </div>
+                  {spentPct > 110 && (
+                    <div style={{ fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>❌ Over budget by {(spentPct - 100).toFixed(1)}% — review spend immediately</div>
+                  )}
+                  {spentPct > 90 && spentPct <= 110 && (
+                    <div style={{ fontSize: '12px', color: '#92702a' }}>⚠ Approaching or at budget limit</div>
+                  )}
+                  {warnings.map((w, i) => (
+                    <div key={i} style={{ fontSize: '12px', color: '#92702a', marginTop: '4px' }}>⚠ {w}</div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Section 2: Executive Summary */}
             <ExecutiveSummaryCards
