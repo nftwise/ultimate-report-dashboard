@@ -72,6 +72,7 @@ export default function SEOPage() {
   const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number }>({ improved: 0, declined: 0 });
   const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number; organicVisits: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
   const [realConversions, setRealConversions] = useState<number>(0);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -277,9 +278,6 @@ export default function SEOPage() {
 
   const keywordsNetChange = keywordMovement.improved - keywordMovement.declined;
   const hasAds = (client as any).services?.googleAds !== false;
-
-  // ── Tooltip state ────────────────────────────────────────────────────────
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   const InfoIcon = ({ id, text }: { id: string; text: string }) => (
     <span
