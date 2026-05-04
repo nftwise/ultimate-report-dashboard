@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Database, KeyRound, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Database } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const inputStyle = {
@@ -56,14 +56,6 @@ export default function EditClientPage({ params }: EditClientParams) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [hasGbp, setHasGbp] = useState(false);
-
-  // Credentials
-  interface Credential { id: string; label: string; username: string; url: string | null; notes: string | null; created_at: string; }
-  const [credentials, setCredentials] = useState<Credential[]>([]);
-  const [credForm, setCredForm] = useState({ label: '', username: '', password: '', url: '', notes: '' });
-  const [credAdding, setCredAdding] = useState(false);
-  const [credSaving, setCredSaving] = useState(false);
-  const [credError, setCredError] = useState<string | null>(null);
 
   const [backfillDays, setBackfillDays] = useState(90);
   const [backfill, setBackfill] = useState<{
@@ -125,11 +117,6 @@ export default function EditClientPage({ params }: EditClientParams) {
         .eq('is_active', true)
         .maybeSingle();
       setHasGbp(!!gbpRow);
-
-      // Load credentials
-      fetch(`/api/admin/credentials?clientId=${id}`)
-        .then(r => r.json())
-        .then(d => { if (d.credentials) setCredentials(d.credentials); });
 
       setForm({
         name: client.name || '',
@@ -490,124 +477,6 @@ export default function EditClientPage({ params }: EditClientParams) {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Section: Credentials */}
-          <div style={sectionStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <KeyRound style={{ width: 14, height: 14, color: '#c4704f' }} />
-                <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', margin: 0 }}>
-                  Credentials
-                </p>
-              </div>
-              {!credAdding && (
-                <button
-                  type="button"
-                  onClick={() => { setCredAdding(true); setCredError(null); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600', color: '#c4704f', background: 'rgba(196,112,79,0.08)', border: '1px solid rgba(196,112,79,0.25)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer' }}
-                >
-                  <Plus style={{ width: 12, height: 12 }} />
-                  Add
-                </button>
-              )}
-            </div>
-
-            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: credentials.length > 0 || credAdding ? '16px' : '0' }}>
-              Stored encrypted. Bot sends a one-time link to reveal.
-            </p>
-
-            {/* Existing credentials list */}
-            {credentials.map(cred => (
-              <div key={cred.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(44,36,25,0.04)', borderRadius: '8px', marginBottom: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#2c2419' }}>{cred.label}</div>
-                  <div style={{ fontSize: '12px', color: '#8a7f74' }}>{cred.username}{cred.url ? ` — ${cred.url}` : ''}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!confirm(`Delete "${cred.label}"?`)) return;
-                    await fetch(`/api/admin/credentials?id=${cred.id}`, { method: 'DELETE' });
-                    setCredentials(prev => prev.filter(c => c.id !== cred.id));
-                  }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px', opacity: 0.6 }}
-                  title="Delete"
-                >
-                  <Trash2 style={{ width: 14, height: 14 }} />
-                </button>
-              </div>
-            ))}
-
-            {/* Add form */}
-            {credAdding && (
-              <div style={{ background: 'rgba(196,112,79,0.04)', border: '1px solid rgba(196,112,79,0.15)', borderRadius: '10px', padding: '16px', marginTop: '8px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={labelStyle}>Label *</label>
-                    <input type="text" placeholder="e.g. Google Ads Login" value={credForm.label} onChange={e => setCredForm(f => ({ ...f, label: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Username / Email *</label>
-                    <input type="text" value={credForm.username} onChange={e => setCredForm(f => ({ ...f, username: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Password *</label>
-                    <input type="password" value={credForm.password} onChange={e => setCredForm(f => ({ ...f, password: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Login URL</label>
-                    <input type="text" placeholder="https://..." value={credForm.url} onChange={e => setCredForm(f => ({ ...f, url: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Notes</label>
-                    <input type="text" placeholder="2FA on phone, etc." value={credForm.notes} onChange={e => setCredForm(f => ({ ...f, notes: e.target.value }))} style={inputStyle} />
-                  </div>
-                </div>
-                {credError && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '8px' }}>{credError}</p>}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <button
-                    type="button"
-                    disabled={credSaving || !credForm.label || !credForm.username || !credForm.password}
-                    onClick={async () => {
-                      if (!credForm.label || !credForm.username || !credForm.password) {
-                        setCredError('Label, username and password are required.');
-                        return;
-                      }
-                      setCredSaving(true);
-                      setCredError(null);
-                      try {
-                        const res = await fetch('/api/admin/credentials', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ client_id: clientId, ...credForm }),
-                        });
-                        const d = await res.json();
-                        if (!res.ok) throw new Error(d.error);
-                        setCredentials(prev => [...prev, d.credential]);
-                        setCredForm({ label: '', username: '', password: '', url: '', notes: '' });
-                        setCredAdding(false);
-                      } catch (err: any) {
-                        setCredError(err.message || 'Failed to save');
-                      } finally {
-                        setCredSaving(false);
-                      }
-                    }}
-                    style={{ padding: '8px 16px', background: '#c4704f', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: credSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    {credSaving && <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />}
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setCredAdding(false); setCredError(null); setCredForm({ label: '', username: '', password: '', url: '', notes: '' }); }}
-                    style={{ padding: '8px 16px', background: 'transparent', color: '#8a7f74', border: '1px solid rgba(44,36,25,0.15)', borderRadius: '7px', fontSize: '13px', cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Error */}
