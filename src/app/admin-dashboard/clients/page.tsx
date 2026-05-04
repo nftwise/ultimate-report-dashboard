@@ -408,6 +408,27 @@ export default function ClientsManagementPage() {
     return { bg: '#f0fdf4', color: '#059669' };
   };
 
+  function calcHealthScore(client: Client): { grade: string; score: number; bg: string } {
+    if (!client.is_active) return { grade: 'Inactive', score: 0, bg: '#6b7280' };
+
+    let score = 100;
+    if (!client.has_gbp) score -= 20;
+    const sync = syncAge(client.id);
+    if (!sync || sync.days > 3) score -= 15;
+    if (client.has_ads && !client.ads_budget_month) score -= 10;
+    if (client.status === 'Onboarding') score -= 5;
+
+    let grade: string;
+    let bg: string;
+    if (score >= 90) { grade = 'A'; bg = '#10b981'; }
+    else if (score >= 75) { grade = 'B'; bg = '#3b82f6'; }
+    else if (score >= 60) { grade = 'C'; bg = '#d9a854'; }
+    else if (score >= 40) { grade = 'D'; bg = '#f97316'; }
+    else { grade = 'F'; bg = '#ef4444'; }
+
+    return { grade, score, bg };
+  }
+
   return (
     <AdminLayout>
       {/* Sticky header */}
@@ -517,12 +538,13 @@ export default function ClientsManagementPage() {
             .clients-table tbody tr:last-child td { border-bottom: none; }
             .clients-table tbody tr { cursor: pointer; transition: background 140ms; }
             .clients-table tbody tr:hover td { background: rgba(196,112,79,0.04); }
-            .clients-table .col-name  { width: 25%; }
-            .clients-table .col-city  { width: 13%; }
-            .clients-table .col-svc   { width: 11%; }
-            .clients-table .col-status{ width: 12%; }
-            .clients-table .col-email { width: 18%; }
-            .clients-table .col-acts  { width: 21%; }
+            .clients-table .col-name  { width: 23%; }
+            .clients-table .col-city  { width: 12%; }
+            .clients-table .col-svc   { width: 10%; }
+            .clients-table .col-status{ width: 11%; }
+            .clients-table .col-health{ width: 9%; }
+            .clients-table .col-email { width: 16%; }
+            .clients-table .col-acts  { width: 19%; }
             .sep { border-right: 1px solid rgba(44,36,25,0.07); }
           `}</style>
 
@@ -537,6 +559,7 @@ export default function ClientsManagementPage() {
                     <th className="col-city sep" style={{ textAlign: 'left' }}>City</th>
                     <th className="col-svc sep" style={{ textAlign: 'center' }}>Services</th>
                     <th className="col-status sep" style={{ textAlign: 'center' }}>Status</th>
+                    <th className="col-health sep" style={{ textAlign: 'center' }}>Health</th>
                     <th className="col-email sep" style={{ textAlign: 'left' }}>Contact</th>
                     <th className="col-acts" style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
@@ -551,7 +574,7 @@ export default function ClientsManagementPage() {
                       <>
                         {isCancelledStart && (
                           <tr key={`divider-${client.id}`} style={{ pointerEvents: 'none' }}>
-                            <td colSpan={isAdmin ? 6 : 5} style={{ padding: '6px 12px', background: '#faf7f4', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+                            <td colSpan={isAdmin ? 7 : 6} style={{ padding: '6px 12px', background: '#faf7f4', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
                               <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af' }}>
                                 — Cancelled / Inactive —
                               </span>
@@ -560,7 +583,7 @@ export default function ClientsManagementPage() {
                         )}
                         <tr key={client.id}
                           onClick={() => router.push(`/admin-dashboard/${client.slug}`)}
-                          style={{ opacity: client.is_active ? 1 : 0.6 }}
+                          style={{ opacity: client.is_active ? 1 : 0.6, background: !client.is_active ? 'rgba(239,68,68,0.04)' : undefined }}
                         >
                           <td className="col-name">
                             <div style={{ fontWeight: 600, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</div>
@@ -593,6 +616,18 @@ export default function ClientsManagementPage() {
                               );
                             })()}
                           </td>
+                          <td className="col-health sep" style={{ textAlign: 'center' }}>
+                            {(() => {
+                              const h = calcHealthScore(client);
+                              return (
+                                <span
+                                  title={h.grade === 'Inactive' ? 'Inactive client' : `Health score: ${h.score}/100`}
+                                  style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', color: '#fff', background: h.bg, display: 'inline-block', letterSpacing: '0.02em' }}>
+                                  {h.grade}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="col-email sep" style={{ color: '#5c5850', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {client.contact_email || <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
@@ -615,11 +650,12 @@ export default function ClientsManagementPage() {
                               </button>
                               {isAdmin && (<>
                                 <button onClick={() => router.push(`/admin-dashboard/clients/${client.id}/edit`)}
-                                  style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
+                                  style={{ padding: '5px 7px', borderRadius: '6px', color: client.is_active ? '#5c5850' : '#9ca3af', background: client.is_active ? 'rgba(44,36,25,0.06)' : 'rgba(44,36,25,0.04)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 600 }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(196,112,79,0.15)'; (e.currentTarget as HTMLElement).style.color = '#c4704f'; }}
-                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.06)'; (e.currentTarget as HTMLElement).style.color = '#5c5850'; }}
-                                  title="Edit">
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = client.is_active ? 'rgba(44,36,25,0.06)' : 'rgba(44,36,25,0.04)'; (e.currentTarget as HTMLElement).style.color = client.is_active ? '#5c5850' : '#9ca3af'; }}
+                                  title={client.is_active ? 'Edit client' : 'CANCELLED — read only'}>
                                   <Edit2 size={13} />
+                                  {!client.is_active && <span>View</span>}
                                 </button>
                                 <button onClick={() => openBackfillModal(client)}
                                   style={{ padding: '5px', borderRadius: '6px', color: '#5c5850', background: 'rgba(44,36,25,0.06)', border: 'none', cursor: 'pointer' }}
@@ -642,7 +678,7 @@ export default function ClientsManagementPage() {
                         {/* Accordion: Notes + Form Fills */}
                         {expandedRows.has(client.id) && (
                           <tr key={`expand-${client.id}`} style={{ background: 'rgba(196,112,79,0.02)' }}>
-                            <td colSpan={6} style={{ padding: '12px 16px 16px 16px', borderBottom: '2px solid rgba(196,112,79,0.15)' }} onClick={e => e.stopPropagation()}>
+                            <td colSpan={7} style={{ padding: '12px 16px 16px 16px', borderBottom: '2px solid rgba(196,112,79,0.15)' }} onClick={e => e.stopPropagation()}>
                               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                                 {/* Notes */}
                                 <div style={{ flex: '1 1 220px' }}>

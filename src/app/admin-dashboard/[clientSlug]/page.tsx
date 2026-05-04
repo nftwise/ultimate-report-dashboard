@@ -693,6 +693,66 @@ export default function ClientDetailPage() {
                           ))}
                         </div>
                       )}
+
+                      {/* Lead Source Change — MoM delta per channel */}
+                      {(() => {
+                        const sourceChannels = [
+                          ...(hasGbp ? [{
+                            icon: '📞',
+                            label: 'GBP Calls',
+                            curr: totalGbpCalls,
+                            prev: prevData.gbpCalls,
+                          }] : []),
+                          ...(hasSeo ? [{
+                            icon: '📝',
+                            label: 'Form Fills',
+                            curr: verifiedFormFills,
+                            prev: prevData.formFills,
+                          }] : []),
+                          ...(hasAds ? [{
+                            icon: '📢',
+                            label: 'Google Ads',
+                            curr: totalAdsConversions,
+                            prev: prevData.adsCv,
+                          }] : []),
+                        ];
+                        if (sourceChannels.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(44,36,25,0.08)' }}>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', marginBottom: '10px' }}>
+                              Lead Source Change vs Previous Period
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${sourceChannels.length}, 1fr)`, gap: '8px' }}>
+                              {sourceChannels.map((sc, idx) => {
+                                const hasPrev = sc.prev > 0;
+                                const rawPct = hasPrev ? ((sc.curr - sc.prev) / sc.prev) * 100 : null;
+                                const isUp = rawPct !== null && rawPct > 0;
+                                const isDown = rawPct !== null && rawPct < 0;
+                                const deltaColor = isUp ? '#10b981' : isDown ? '#ef4444' : '#9ca3af';
+                                const deltaLabel = rawPct === null ? null : `${isUp ? '▲' : '▼'} ${isUp ? '+' : ''}${rawPct.toFixed(1)}%`;
+                                return (
+                                  <div key={idx} style={{
+                                    padding: '10px 8px',
+                                    background: 'rgba(44,36,25,0.02)',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(44,36,25,0.06)',
+                                    textAlign: 'center',
+                                  }}>
+                                    <div style={{ fontSize: '15px', marginBottom: '2px' }}>{sc.icon}</div>
+                                    <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#5c5850', marginBottom: '4px' }}>{sc.label}</p>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{fmtNum(sc.curr)}</div>
+                                    {deltaLabel ? (
+                                      <div style={{ fontSize: '11px', fontWeight: 700, color: deltaColor, marginTop: '3px' }}>{deltaLabel}</div>
+                                    ) : (
+                                      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '3px' }}>no prior data</div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </>
                   );
                 })()}
@@ -750,6 +810,95 @@ export default function ClientDetailPage() {
               ))}
             </div>
           </div>
+
+          {/* Channel Efficiency — Cost/Lead comparison */}
+          {(hasAds || hasSeo || hasGbp) && (
+            <div className="rounded-2xl p-8 mt-8" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <p className="text-xs font-bold uppercase" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Budget Intelligence</p>
+                <h3 className="text-2xl font-black" style={{ color: '#2c2419' }}>Channel Efficiency</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid rgba(44,36,25,0.1)' }}>
+                      {['Channel', 'Leads', 'Est. Cost', 'Cost / Lead'].map((h, i) => (
+                        <th key={i} style={{
+                          padding: '10px 16px',
+                          textAlign: i === 0 ? 'left' : 'right',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.1em',
+                          color: '#5c5850',
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ...(hasAds ? [{
+                        channel: 'Google Ads',
+                        dot: '#c4704f',
+                        leads: totalAdsConversions,
+                        cost: adSpend > 0 ? fmtCurrency(adSpend, 0) : '—',
+                        cpl: totalAdsConversions > 0 && adSpend > 0 ? fmtCurrency(adSpend / totalAdsConversions, 0) : '—',
+                        isCpl: totalAdsConversions > 0 && adSpend > 0,
+                      }] : []),
+                      ...(hasSeo ? [{
+                        channel: 'SEO / Organic',
+                        dot: '#9db5a0',
+                        leads: verifiedFormFills,
+                        cost: '—',
+                        cpl: '—',
+                        isCpl: false,
+                      }] : []),
+                      ...(hasGbp ? [{
+                        channel: 'Google Business Profile',
+                        dot: '#d9a854',
+                        leads: totalGbpCalls,
+                        cost: '—',
+                        cpl: '—',
+                        isCpl: false,
+                      }] : []),
+                    ].map((row, i, arr) => (
+                      <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid rgba(44,36,25,0.06)' : 'none', transition: 'background 150ms' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(44,36,25,0.02)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: row.dot, flexShrink: 0, display: 'inline-block' }} />
+                            <span style={{ fontWeight: 600, color: '#2c2419' }}>{row.channel}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: '#2c2419' }}>{fmtNum(row.leads)}</td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', color: row.cost === '—' ? '#9ca3af' : '#2c2419', fontWeight: row.cost === '—' ? 400 : 700 }}>{row.cost}</td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                          {row.isCpl ? (
+                            <span style={{
+                              background: 'rgba(196,112,79,0.08)',
+                              color: '#c4704f',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                            }}>{row.cpl}</span>
+                          ) : (
+                            <span style={{ color: '#9ca3af' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '16px', fontStyle: 'italic', borderTop: '1px solid rgba(44,36,25,0.06)', paddingTop: '12px' }}>
+                SEO and GBP have no direct cost shown here. They are funded through your monthly retainer.
+              </p>
+            </div>
+          )}
+
         </div>
       </div>
     </AdminLayout>
