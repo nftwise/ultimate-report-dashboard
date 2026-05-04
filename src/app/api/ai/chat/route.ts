@@ -141,7 +141,7 @@ Only use this data. Do not invent figures.`;
       'X-Title': 'WiseCRM Admin Chat',
     },
     body: JSON.stringify({
-      model: 'qwen/qwen3-235b-a22b:free',
+      model: 'google/gemma-3-27b-it:free',
       messages: [{ role: 'system', content: systemPrompt }, ...chatMessages],
       max_tokens: 600,
       temperature: 0.2,
