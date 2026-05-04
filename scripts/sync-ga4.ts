@@ -172,12 +172,12 @@ async function main() {
       sendCronFailureAlert('sync-ga4', targetDate, errors).catch(() => {});
     }
 
-    saveCronStatus(supabaseAdmin, 'sync_ga4', {
+    await saveCronStatus(supabaseAdmin, 'sync_ga4', {
       clients: clientsWithGA.length,
       records: totalEvents + totalSessions + totalConversions + totalLandingPages,
       errors,
       duration,
-    }).catch(() => {});
+    });
 
     const result = {
       success: true,

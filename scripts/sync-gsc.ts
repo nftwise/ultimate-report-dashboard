@@ -153,7 +153,7 @@ async function main() {
       sendCronFailureAlert('sync-gsc', targetDate, errors).catch(() => {});
     }
 
-    saveCronStatus(supabaseAdmin, 'sync_gsc', {
+    await saveCronStatus(supabaseAdmin, 'sync_gsc', {
       clients: clientsWithGSC.length,
       records: totalQueries,
       errors,

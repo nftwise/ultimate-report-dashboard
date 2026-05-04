@@ -91,7 +91,7 @@ async function runRollup(date?: string, clientId?: string, group?: string) {
       console.error('[Rollup] Alert check failed:', err)
     );
 
-    saveCronStatus(supabaseAdmin, 'run_rollup', {
+    await saveCronStatus(supabaseAdmin, 'run_rollup', {
       clients: clients.length,
       records: allMetricsToSave.length,
       errors: [],

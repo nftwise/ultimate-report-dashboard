@@ -169,12 +169,12 @@ async function main() {
       sendCronFailureAlert('sync-ads', targetDate, errors).catch(() => {});
     }
 
-    saveCronStatus(supabaseAdmin, 'sync_ads', {
+    await saveCronStatus(supabaseAdmin, 'sync_ads', {
       clients: clientsWithAds.length,
       records: totalCampaigns + totalAdGroups + totalConversions + totalSearchTerms,
       errors,
       duration,
-    }).catch(() => {});
+    });
 
     const result = {
       success: true,

@@ -172,7 +172,7 @@ async function main() {
       sendCronFailureAlert('sync-gbp', targetDate, errors).catch(() => {});
     }
 
-    saveCronStatus(supabaseAdmin, 'sync_gbp', {
+    await saveCronStatus(supabaseAdmin, 'sync_gbp', {
       clients: validLocations.length,
       records: synced,
       errors,
