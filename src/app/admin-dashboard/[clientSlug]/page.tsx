@@ -117,6 +117,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientMetrics | null>(null);
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number; formFills: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0, formFills: 0 });
+  const [manualFormFills, setManualFormFills] = useState(0);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -241,6 +242,21 @@ export default function ClientDetailPage() {
       setFetchError(null);
       setLastRefreshed(new Date());
 
+      // Fetch manual form fills for the selected date range (verified, spam-filtered)
+      const dateFromISO2 = toLocalDateStr(dateRange.from);
+      const dateToISO2 = toLocalDateStr(dateRange.to);
+      const fromYM = dateFromISO2.slice(0, 7); // YYYY-MM
+      const toYM = dateToISO2.slice(0, 7);
+      const { data: manualFills } = await supabase
+        .from('manual_form_fills')
+        .select('year_month, form_fills')
+        .eq('client_id', client.id)
+        .gte('year_month', fromYM)
+        .lte('year_month', toYM);
+      setManualFormFills(
+        (manualFills || []).reduce((s: number, r: any) => s + (r.form_fills || 0), 0)
+      );
+
       // Previous period for MoM
       const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
       const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
@@ -295,7 +311,9 @@ export default function ClientDetailPage() {
   const totalGbpDirections = dailyData.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions = dailyData.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0);
   // Total Leads = sum of active channels → always matches Lead Sources breakdown
-  const totalLeads = totalFormFills + totalAdsConversions + totalGbpCalls;
+  // Use manual (verified) form fills when available; fall back to GA4 auto-tracked
+  const verifiedFormFills = manualFormFills > 0 ? manualFormFills : totalFormFills;
+  const totalLeads = verifiedFormFills + totalAdsConversions + totalGbpCalls;
   const adSpend = dailyData.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0);
   const costPerLead = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
   const sessions = dailyData.reduce((s: number, d: any) => s + (d.sessions || 0), 0);
@@ -436,10 +454,10 @@ export default function ClientDetailPage() {
               <>{[0,1,2,3].map(i => <SkeletonCard key={i} />)}</>
             ) : (<>
               {/* Patient Inquiries — always shown */}
-              <div className="rounded-2xl p-6" title="Total inquiries: phone calls + contact forms + Google Ads conversions" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+              <div className="rounded-2xl p-6" title="Total inquiries: phone calls + verified contact forms + Google Ads conversions" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                 <Users size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Patient Inquiries</p>
-                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + forms + Google Ads</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Phone calls + verified forms + Google Ads</p>
                 <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalLeads)}</div>
                 {trendBadge(leadTrendData)}
               </div>
@@ -463,11 +481,17 @@ export default function ClientDetailPage() {
                   {trendBadge(adSpendTrendData)}
                 </div>
               ) : (
-                <div className="rounded-2xl p-6" title="Contact form submissions on your website" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
+                <div className="rounded-2xl p-6" title="Manually verified contact form submissions — spam filtered by staff" style={{ position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' }}>
                   <FileText size={40} style={{ position: 'absolute', top: '16px', right: '16px', color: '#2c2419', opacity: 0.06 }} />
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Contact Forms</p>
-                  <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '8px' }}>Forms submitted on your website</p>
-                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '8px' }}>{fmtNum(totalFormFills)}</div>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.1em', marginBottom: '4px' }}>Form Fills (Verified)</p>
+                  <p style={{ fontSize: '10px', color: '#10b981', marginBottom: '8px' }}>Manually verified, spam filtered</p>
+                  <div className="text-3xl font-black" style={{ color: '#2c2419', marginBottom: '4px' }}>{manualFormFills > 0 ? fmtNum(manualFormFills) : fmtNum(totalFormFills)}</div>
+                  {manualFormFills === 0 && totalFormFills > 0 && (
+                    <p style={{ fontSize: '9px', color: '#f59e0b', marginBottom: '4px' }}>⚠ Showing GA4 events — manual count not entered yet</p>
+                  )}
+                  {manualFormFills > 0 && totalFormFills > 0 && manualFormFills !== totalFormFills && (
+                    <p style={{ fontSize: '9px', color: '#9ca3af', marginBottom: '4px' }}>GA4 auto-tracked: {fmtNum(totalFormFills)} (includes bots)</p>
+                  )}
                   {trendBadge(formFillsTrendData)}
                 </div>
               )}
@@ -615,7 +639,7 @@ export default function ClientDetailPage() {
                 {(() => {
                   const channels = [
                     ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: '#c4704f' }] : []),
-                    ...(hasSeo ? [{ label: 'Website Forms', sublabel: 'contact forms', value: totalFormFills, color: '#9db5a0' }] : []),
+                    ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFills > 0 ? 'verified form fills' : 'form events (includes bots)', value: manualFormFills > 0 ? manualFormFills : totalFormFills, color: '#9db5a0' }] : []),
                     ...(hasGbp ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: '#d9a854' }] : []),
                   ];
                   const total = channels.reduce((s, c) => s + c.value, 0);
