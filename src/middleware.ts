@@ -44,7 +44,16 @@ export default withAuth(
     }
 
     // ── CLIENT ROLE ──────────────────────────────────────────────────────────
-    if (token?.role === 'client' && token?.clientSlug) {
+    if (token?.role === 'client') {
+      // Misconfigured client user (no client_id assigned) — block entirely.
+      // Without a clientSlug we cannot scope their access, so they must be
+      // bounced back to login until an admin assigns a client.
+      if (!token?.clientSlug) {
+        const url = new URL('/login', req.url)
+        url.searchParams.set('error', 'no-client-assigned')
+        return NextResponse.redirect(url)
+      }
+
       const allowedPortal = `/portal/${token.clientSlug}`
 
       // Block clients from /admin-dashboard entirely → send to their portal

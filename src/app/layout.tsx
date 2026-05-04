@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ultimate Analytics Dashboard",
-  description: "Comprehensive marketing analytics dashboard with Google Analytics, Google Ads, and CallRail integration",
+  title: "Data11.ai",
+  description: "Data11.ai — unified marketing analytics across Google Analytics, Google Ads, Search Console, GBP, and Facebook Ads.",
+  openGraph: {
+    title: "Data11.ai",
+    description: "Data11.ai — unified marketing analytics across Google Analytics, Google Ads, Search Console, GBP, and Facebook Ads.",
+    siteName: "Data11.ai",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

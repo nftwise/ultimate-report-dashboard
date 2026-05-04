@@ -1,14 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Facebook, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 interface ClientOption {
   id: string;
@@ -40,36 +34,12 @@ export default function OnboardFBPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all clients
-      const { data: allClients } = await supabase
-        .from('clients')
-        .select('id, name, city')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-
-      setClients(allClients || []);
-
-      // Fetch connected clients (those with fb_ad_account_id set)
-      const { data: configData } = await supabase
-        .from('clients')
-        .select('id, name, city, service_configs(fb_ad_account_id)')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-
-      const connected: ConnectedClient[] = [];
-      (configData || []).forEach((c: any) => {
-        const cfg = Array.isArray(c.service_configs) ? c.service_configs[0] : c.service_configs;
-        if (cfg?.fb_ad_account_id) {
-          connected.push({
-            id: c.id,
-            name: c.name,
-            city: c.city || '',
-            fb_ad_account_id: cfg.fb_ad_account_id,
-          });
-        }
-      });
-
-      setConnectedClients(connected);
+      const res = await fetch('/api/admin/onboard-fb-data');
+      const payload = await res.json();
+      if (payload?.success) {
+        setClients(payload.clients || []);
+        setConnectedClients(payload.connected || []);
+      }
     } finally {
       setLoading(false);
     }

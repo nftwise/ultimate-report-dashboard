@@ -271,7 +271,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <Menu size={20} />
         </button>
         <span style={{ fontSize: '18px', fontWeight: 800, color: '#2c2419', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
-          Wise<span style={{ color: '#c4704f' }}>CRM</span>
+          Data<span style={{ color: '#c4704f' }}>11.ai</span>
         </span>
       </div>
 
@@ -308,7 +308,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             fontFamily: '"Outfit", sans-serif',
             letterSpacing: '-0.02em',
           }}>
-            Wise<span style={{ color: '#c4704f' }}>CRM</span>
+            Data<span style={{ color: '#c4704f' }}>11.ai</span>
           </span>
         </div>
 

@@ -3,15 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { fmtNum, fmtCurrency } from '@/lib/format';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 // ── Contact info for upsell page ──────────────────────────────────────────
 const CONTACT_PHONE     = '949-385-1450';

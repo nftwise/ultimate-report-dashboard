@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Search, AlertTriangle, TrendingDown, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@supabase/supabase-js';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
@@ -73,24 +72,17 @@ export default function AdminDashboardPage() {
 
   // On mount: use last available data date (not today) as the "to" anchor
   useEffect(() => {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-    );
-    supabase.from('client_metrics_summary')
-      .select('date')
-      .eq('period_type', 'daily')
-      .order('date', { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data?.date) {
-          const to = new Date(data.date + 'T12:00:00');
+    fetch('/api/admin/home-data')
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data?.success && data.lastAvailableDate) {
+          const to = new Date(data.lastAvailableDate + 'T12:00:00');
           const from = new Date(to);
           from.setDate(from.getDate() - 30);
           setDateRange({ from, to });
         }
-      });
+      })
+      .catch(err => console.error('[Admin home bootstrap]', err));
   }, []);
 
   useEffect(() => {
@@ -104,114 +96,49 @@ export default function AdminDashboardPage() {
     try {
       setLoading(true);
       setError(null);
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-      );
       const dateFromStr = dateRange.from ? toLocalDateStr(dateRange.from) : '';
       const dateToStr = dateRange.to ? toLocalDateStr(dateRange.to) : '';
 
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select(`id, name, slug, city, contact_email, is_active, owner, has_ads, has_seo,
-          service_configs (ga_property_id, gads_customer_id, gsc_site_url, callrail_account_id)`)
-        .order('name', { ascending: true });
+      const res = await fetch(`/api/admin/home-data?from=${dateFromStr}&to=${dateToStr}`);
+      const payload = await res.json();
+      if (!payload?.success) {
+        throw new Error(payload?.error || 'Failed to fetch home data');
+      }
 
-      if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
-
-      const { data: gbpRows } = await supabase.from('gbp_locations').select('client_id').eq('is_active', true);
-      const gbpSet = new Set<string>((gbpRows || []).map((r: any) => r.client_id));
+      const clientsData = payload.clients || [];
+      const gbpSet = new Set<string>(payload.gbpClientIds || []);
       setGbpClientSet(gbpSet);
-
-      // Dynamic cutoff: latest date where GBP calls are confirmed in the DB.
-      // This ensures trend only uses dates with complete API data (GBP lags 5-7d).
-      const { data: latestGbpRow } = await supabase
-        .from('client_metrics_summary')
-        .select('date')
-        .eq('period_type', 'daily')
-        .gt('gbp_calls', 0)
-        .order('date', { ascending: false })
-        .limit(1)
-        .single();
-      const completeCutoff = latestGbpRow?.date || dateToStr;
-
-      // Calculate previous period (same length, immediately before dateFrom)
-      const periodMs = dateRange.to.getTime() - dateRange.from.getTime() + 86400000;
-      const prevTo   = new Date(dateRange.from.getTime() - 86400000);
-      const prevFrom = new Date(prevTo.getTime() - periodMs + 86400000);
-      const prevFromStr = prevFrom.toISOString().split('T')[0];
-      const prevToStr   = prevTo.toISOString().split('T')[0];
-
-      // Form fills: pick N last COMPLETE months relative to toDate.
-      // "Complete" = month whose last day has already passed (≤ toDate).
-      // 7D / 30D  → numMonths = 1 (e.g. toDate=Mar 15 → Feb)
-      // 90D       → numMonths = 3 (e.g. toDate=Mar 15 → Dec, Jan, Feb)
-      const toDate = new Date(dateToStr + 'T00:00:00');
-      const periodDays = Math.round((toDate.getTime() - new Date(dateFromStr + 'T00:00:00').getTime()) / 86400000);
-      const numFillMonths = periodDays > 35 ? 3 : 1;
-      const rangeMonths: string[] = [];
-      let cY = toDate.getFullYear(), cM = toDate.getMonth() + 1; // 1-based
-      let iter = 0;
-      while (rangeMonths.length < numFillMonths && iter < 24) {
-        const lastDay = new Date(cY, cM, 0); // day-0 of next month = last day of cM
-        if (lastDay <= toDate) rangeMonths.unshift(`${cY}-${String(cM).padStart(2, '0')}`);
-        cM--; if (cM < 1) { cM = 12; cY--; }
-        iter++;
-      }
-      // Fallback: current month is in progress and nothing complete yet
-      if (rangeMonths.length === 0) {
-        rangeMonths.push(`${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}`);
-      }
-
-      const [metricsRes, formRes, prevMetricsRes, fillsRes] = await Promise.all([
-        supabase.from('client_metrics_summary')
-          .select('client_id, total_leads, google_ads_conversions, gbp_calls, ad_spend, top_keywords, date')
-          .gte('date', dateFromStr).lte('date', dateToStr).eq('period_type', 'daily'),
-        supabase.from('ga4_events')
-          .select('client_id, event_count')
-          .gte('date', dateFromStr).lte('date', dateToStr)
-          .ilike('event_name', '%success%'),
-        supabase.from('client_metrics_summary')
-          .select('client_id, total_leads')
-          .gte('date', prevFromStr).lte('date', prevToStr).eq('period_type', 'daily'),
-        supabase.from('manual_form_fills')
-          .select('client_id, year_month, form_fills')
-          .in('year_month', rangeMonths),
-      ]);
+      const completeCutoff = payload.completeCutoff || dateToStr;
 
       const prevMap: Record<string, number> = {};
-      (prevMetricsRes.data || []).forEach((m: any) => {
+      (payload.prevMetrics || []).forEach((m: any) => {
         prevMap[m.client_id] = (prevMap[m.client_id] || 0) + (m.total_leads || 0);
       });
 
       // Build manual_form_fills map: clientId → total for selected months
       const fillsMap: Record<string, number> = {};
-      (fillsRes.data || []).forEach((f: any) => {
+      (payload.manualFills || []).forEach((f: any) => {
         fillsMap[f.client_id] = (fillsMap[f.client_id] || 0) + (f.form_fills || 0);
       });
 
       const metricsMap: Record<string, any> = {};
       const init = () => ({ total_leads: 0, seo_form_submits: 0, gbp_calls: 0, ads_conversions: 0, ad_spend: 0, top_keywords: 0, latestKwDate: '', trendByDate: {} as Record<string, number> });
 
-      (metricsRes.data || []).forEach((m: any) => {
+      (payload.currMetrics || []).forEach((m: any) => {
         if (!metricsMap[m.client_id]) metricsMap[m.client_id] = init();
         metricsMap[m.client_id].total_leads += m.total_leads || 0;
         metricsMap[m.client_id].ads_conversions += m.google_ads_conversions || 0;
-        // Use gbp_calls from summary (same source as total_leads) so both are always consistent
         metricsMap[m.client_id].gbp_calls += m.gbp_calls || 0;
         metricsMap[m.client_id].ad_spend += m.ad_spend || 0;
-        // top_keywords: take from latest date that has a non-zero value (GSC lags 2-3 days)
         if ((m.top_keywords || 0) > 0 && (!metricsMap[m.client_id].latestKwDate || m.date >= metricsMap[m.client_id].latestKwDate)) {
           metricsMap[m.client_id].top_keywords = m.top_keywords;
           metricsMap[m.client_id].latestKwDate = m.date;
         }
-        // Trend: ads_conversions + gbp_calls only (no form_fills — unreliable event naming).
-        // Only include dates up to completeCutoff — ensures GBP API data is fully synced.
         if (m.date <= completeCutoff) {
           metricsMap[m.client_id].trendByDate[m.date] = (m.google_ads_conversions || 0) + (m.gbp_calls || 0);
         }
       });
-      (formRes.data || []).forEach((f: any) => {
+      (payload.formEvents || []).forEach((f: any) => {
         if (!metricsMap[f.client_id]) metricsMap[f.client_id] = init();
         metricsMap[f.client_id].seo_form_submits += f.event_count || 0;
       });
@@ -250,56 +177,24 @@ export default function AdminDashboardPage() {
 
   const fetchAlerts = async () => {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-      );
-      // Dynamic completeCutoff: latest date where GBP data is confirmed complete.
-      // Both windows are anchored to this date → data integrity guaranteed.
-      // Rollup now covers 20 days so prev7 (8-14d back from cutoff) always has fresh data.
-      const { data: latestGbpAlert } = await supabase
-        .from('client_metrics_summary')
-        .select('date')
-        .eq('period_type', 'daily')
-        .gt('gbp_calls', 0)
-        .order('date', { ascending: false })
-        .limit(1)
-        .single();
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const cutoff = latestGbpAlert?.date
-        ? new Date(latestGbpAlert.date + 'T12:00:00Z')
-        : (() => { const d = new Date(dateRange.to); d.setDate(d.getDate() - 7); return d; })();
-      const cur7End = latestGbpAlert?.date || fmt(cutoff);
-      const cur7Start = new Date(cutoff); cur7Start.setDate(cutoff.getDate() - 6);
-      const prev7End = new Date(cutoff); prev7End.setDate(cutoff.getDate() - 7);
-      const prev7Start = new Date(cutoff); prev7Start.setDate(cutoff.getDate() - 13);
-
-      const [curRes, prevRes, clientsRes] = await Promise.all([
-        supabase.from('client_metrics_summary')
-          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
-          .gte('date', fmt(cur7Start)).lte('date', cur7End),
-        supabase.from('client_metrics_summary')
-          .select('client_id, google_ads_conversions, gbp_calls, sessions').eq('period_type', 'daily')
-          .gte('date', fmt(prev7Start)).lte('date', fmt(prev7End)),
-        supabase.from('clients').select('id, name').eq('is_active', true),
-      ]);
+      const res = await fetch('/api/admin/alerts-data');
+      const payload = await res.json();
+      if (!payload?.success) return;
 
       const agg = (rows: any[]) => {
         const m: Record<string, { leads: number; sessions: number }> = {};
         for (const r of rows || []) {
           if (!m[r.client_id]) m[r.client_id] = { leads: 0, sessions: 0 };
-          // Leads = ads conversions + GBP calls (form_fills excluded — unreliable event naming)
-          // Both sources are complete at completeCutoff by definition
           m[r.client_id].leads += (r.google_ads_conversions || 0) + (r.gbp_calls || 0);
           m[r.client_id].sessions += r.sessions || 0;
         }
         return m;
       };
 
-      const cur = agg(curRes.data || []);
-      const prev = agg(prevRes.data || []);
+      const cur = agg(payload.cur || []);
+      const prev = agg(payload.prev || []);
       const nameMap: Record<string, string> = {};
-      for (const c of clientsRes.data || []) nameMap[c.id] = c.name;
+      for (const c of payload.clients || []) nameMap[c.id] = c.name;
 
       const found: AlertItem[] = [];
       for (const [id, name] of Object.entries(nameMap)) {

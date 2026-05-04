@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
-import { createClient } from '@supabase/supabase-js';
 import { COLORS, MS_PER_DAY } from '@/lib/design-tokens';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
@@ -78,11 +77,6 @@ function TrendBadge({ mom }: { mom: { pct: string; type: 'up'|'down'|'neutral' }
   const arrow = mom.type === 'up' ? '▲' : mom.type === 'down' ? '▼' : '●';
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: bg, color: fg }}>{arrow} {mom.pct}</span>;
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 interface ClientMetrics {
   id: string;
@@ -181,35 +175,22 @@ export default function ClientDetailPage() {
     if (clientSlug) fetchClient();
   }, [clientSlug]);
 
+  // Bootstrap: fetch lastAvailableDate + latestGbpRating in a single API call
   useEffect(() => {
     if (!client) return;
-    supabase.from('client_metrics_summary')
-      .select('date').eq('client_id', client.id).eq('period_type', 'daily')
-      .order('date', { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        if (data?.date) {
-          const to = new Date(data.date + 'T12:00:00');
+    fetch(`/api/portal/overview?clientId=${encodeURIComponent(client.id)}`)
+      .then(r => r.json())
+      .then((data: any) => {
+        if (!data?.success) return;
+        if (data.lastAvailableDate) {
+          const to = new Date(data.lastAvailableDate + 'T12:00:00');
           setLastAvailableDate(to);
           const from = new Date(to); from.setDate(from.getDate() - 30);
           setDateRange({ from, to });
         }
-      });
-  }, [client]);
-
-  useEffect(() => {
-    if (!client) return;
-    supabase.from('gbp_location_daily_metrics')
-      .select('average_rating').eq('client_id', client.id).gt('average_rating', 0)
-      .order('date', { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        if (data && (data as any).average_rating > 0) setLatestGbpRating((data as any).average_rating);
-        else {
-          supabase.from('client_metrics_summary')
-            .select('gbp_rating_avg').eq('client_id', client.id).eq('period_type', 'daily')
-            .gt('gbp_rating_avg', 0).order('date', { ascending: false }).limit(1).single()
-            .then(({ data: s }) => { if (s && (s as any).gbp_rating_avg > 0) setLatestGbpRating((s as any).gbp_rating_avg); });
-        }
-      });
+        if (data.latestGbpRating > 0) setLatestGbpRating(data.latestGbpRating);
+      })
+      .catch(err => console.error('[Overview bootstrap]', err));
   }, [client]);
 
   const fetchDailyMetrics = async () => {
@@ -219,63 +200,31 @@ export default function ClientDetailPage() {
       const dateFromISO = toLocalDateStr(dateRange.from);
       const dateToISO = toLocalDateStr(dateRange.to);
 
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('client_metrics_summary')
-        .select(`date, total_leads, form_fills, gbp_calls, gbp_profile_views,
-          gbp_website_clicks, gbp_directions, google_ads_conversions, sessions,
-          seo_impressions, seo_clicks, seo_ctr, traffic_organic, traffic_paid,
-          traffic_direct, traffic_referral, traffic_ai, ads_impressions, ads_clicks,
-          ads_ctr, ad_spend, cpl, budget_utilization`)
-        .eq('client_id', client.id).eq('period_type', 'daily')
-        .gte('date', dateFromISO).lte('date', dateToISO)
-        .order('date', { ascending: true });
+      const url = `/api/portal/overview?clientId=${encodeURIComponent(client.id)}&from=${dateFromISO}&to=${dateToISO}`;
+      const res = await fetch(url);
+      const payload = await res.json();
 
-      if (metricsError) { setDailyData([]); return; }
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.error || 'Failed to load data');
+      }
 
-      const merged = (metricsData || []).map((metric: any) => ({
-        ...metric,
-        gbp_profile_views:      metric.gbp_profile_views  ?? 0,
-        gbp_website_clicks:     metric.gbp_website_clicks ?? 0,
-        gbp_direction_requests: metric.gbp_directions     ?? 0,
-      }));
-      setDailyData(merged as DailyMetrics[]);
-      setFetchError(null);
-      setLastRefreshed(new Date());
-
-      const fromYM = dateFromISO.slice(0, 7);
-      const toYM = dateToISO.slice(0, 7);
-      const { data: manualFills } = await supabase
-        .from('manual_form_fills').select('year_month, form_fills')
-        .eq('client_id', client.id).gte('year_month', fromYM).lte('year_month', toYM);
-      setManualFormFills((manualFills || []).reduce((s: number, r: any) => s + (r.form_fills || 0), 0));
-
-      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
-      const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
-      const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
-
-      const [{ data: prevMetrics }, { data: prevGbp }] = await Promise.all([
-        supabase.from('client_metrics_summary')
-          .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls, form_fills')
-          .eq('client_id', client.id).eq('period_type', 'daily')
-          .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
-        supabase.from('gbp_location_daily_metrics')
-          .select('phone_calls').eq('client_id', client.id)
-          .gte('date', prevFrom.toISOString().split('T')[0]).lte('date', prevTo.toISOString().split('T')[0]),
-      ]);
-
+      setDailyData((payload.daily || []) as DailyMetrics[]);
+      setManualFormFills(payload.manualFormFills || 0);
       setPrevData({
-        leads:     prevMetrics?.reduce((s: number, d: any) => s + (d.total_leads || 0), 0) || 0,
-        sessions:  prevMetrics?.reduce((s: number, d: any) => s + (d.sessions || 0), 0) || 0,
-        adSpend:   prevMetrics?.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0) || 0,
-        adsCv:     prevMetrics?.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0) || 0,
-        seoClicks: prevMetrics?.reduce((s: number, d: any) => s + (d.seo_clicks || 0), 0) || 0,
-        gbpCalls:  prevGbp?.reduce((s: number, d: any) => s + (d.phone_calls || 0), 0)
-          || prevMetrics?.reduce((s: number, d: any) => s + (d.gbp_calls || 0), 0) || 0,
-        formFills: prevMetrics?.reduce((s: number, d: any) => s + (d.form_fills || 0), 0) || 0,
+        leads:     payload.prevPeriod?.leads     || 0,
+        sessions:  payload.prevPeriod?.sessions  || 0,
+        adSpend:   payload.prevPeriod?.adSpend   || 0,
+        adsCv:     payload.prevPeriod?.adsCv     || 0,
+        seoClicks: payload.prevPeriod?.seoClicks || 0,
+        gbpCalls:  payload.prevPeriod?.gbpCalls  || 0,
+        formFills: payload.prevPeriod?.formFills || 0,
       });
-    } catch (error) {
+      setFetchError(null);
+      // Only mark refreshed when we actually got rows back
+      if ((payload.daily || []).length > 0) setLastRefreshed(new Date());
+    } catch (error: any) {
       console.error('[Client Details] Error:', error);
-      setFetchError('Unable to load data. Please try again.');
+      setFetchError(error?.message || 'Unable to load data. Please try again.');
       setDailyData([]);
     } finally {
       setChartLoading(false);

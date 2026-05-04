@@ -4,12 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { UserPlus, Loader2, ToggleLeft, ToggleRight, Users, ChevronDown, ChevronUp, Trash2, KeyRound } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 interface User {
   id: string;
@@ -236,14 +230,15 @@ export default function UsersPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, { data: clientsData }] = await Promise.all([
+      const [usersRes, clientsRes] = await Promise.all([
         fetch('/api/admin/add-user'),
-        supabase.from('clients').select('id, name, slug').eq('is_active', true).order('name'),
+        fetch('/api/admin/users-data'),
       ]);
 
       const usersData = await usersRes.json();
       if (usersData.success) setUsers(usersData.users || []);
-      setClients(clientsData || []);
+      const clientsData = await clientsRes.json();
+      setClients(clientsData?.success ? (clientsData.clients || []) : []);
 
       // login_logs returned by same API (uses service role key — anon key blocked by RLS)
       const logsData: Array<{ user_id: string; logged_at: string }> = usersData.loginLogs || [];

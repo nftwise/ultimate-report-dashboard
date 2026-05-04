@@ -9,7 +9,6 @@ import ExecutiveSummaryCards from '@/components/admin/ExecutiveSummaryCards';
 import SpendVsLeadsComboChart from '@/components/admin/SpendVsLeadsComboChart';
 import TopConvertingSearchTerms from '@/components/admin/TopConvertingSearchTerms';
 import AdGroupPerformanceTable from '@/components/admin/AdGroupPerformanceTable';
-import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -172,11 +171,6 @@ function aggregateAdGroups(data: any[], campaignNameMap: Map<string, string> = n
     cpl: entry.conversions > 0 ? entry.cost / entry.conversions : 0
   }));
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 // ── Contact info ─────────────────────────────────────────────────────────
 const CONTACT_PHONE     = '949-385-1450';
@@ -487,251 +481,66 @@ export default function GoogleAdsPage() {
     }
   }, [clientSlug]);
 
-  // Anchor date range to last available data date (same as overview page)
+  // Bootstrap: anchor date range to last ads data date
   useEffect(() => {
     if (!client) return;
-    supabase.from('ads_campaign_metrics')
-      .select('date').eq('client_id', client.id)
-      .order('date', { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        if (data?.date) {
-          const to = new Date(data.date + 'T12:00:00');
-          setLastAvailableDate(to);
-          const from = new Date(to); from.setDate(from.getDate() - 30);
-          setDateRange({ from, to });
-        }
-      });
+    fetch(`/api/portal/google-ads?clientId=${encodeURIComponent(client.id)}`)
+      .then(r => r.json())
+      .then((data: any) => {
+        if (!data?.success || !data.lastAvailableDate) return;
+        const to = new Date(data.lastAvailableDate + 'T12:00:00');
+        setLastAvailableDate(to);
+        const from = new Date(to); from.setDate(from.getDate() - 30);
+        setDateRange({ from, to });
+      })
+      .catch(err => console.error('[Ads bootstrap]', err));
   }, [client]);
 
-  // Fetch daily metrics from ads_campaign_metrics + conversions (Google Ads API)
+  // Single fetch covers daily metrics, campaigns, ad groups, search terms,
+  // conversion breakdown, total conversions, and previous period.
   useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!client) return;
+    if (!client) return;
+    setChartLoading(true);
+    const dateFromISO = toLocalDateStr(dateRange.from);
+    const dateToISO = toLocalDateStr(dateRange.to);
 
-      setChartLoading(true);
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        const dateToISO = toLocalDateStr(dateRange.to);
-
-        // Fetch campaign metrics data (includes conversions — source of truth)
-        const [{ data: campaignMetricsData }, { data: summaryData }] = await Promise.all([
-          supabase
-            .from('ads_campaign_metrics')
-            .select('date, impressions, clicks, cost, conversions')
-            .eq('client_id', client.id)
-            .gte('date', dateFromISO)
-            .lte('date', dateToISO)
-            .order('date', { ascending: true }),
-          // Fetch device split + total_leads from client_metrics_summary
-          supabase
-            .from('client_metrics_summary')
-            .select('date, sessions_mobile, sessions_desktop, total_leads')
-            .eq('client_id', client.id)
-            .eq('period_type', 'daily')
-            .gte('date', dateFromISO)
-            .lte('date', dateToISO),
-        ]);
-
-        // Build device + leads lookup by date
-        const deviceByDate = new Map<string, { sessions_mobile: number; sessions_desktop: number; total_leads: number }>();
-        (summaryData || []).forEach((row: any) => {
-          deviceByDate.set(row.date, {
-            sessions_mobile:  row.sessions_mobile  || 0,
-            sessions_desktop: row.sessions_desktop || 0,
-            total_leads:      row.total_leads      || 0,
-          });
-        });
-
-        // Aggregate by date
-        const dateMap = new Map();
-        (campaignMetricsData || []).forEach(row => {
-          const date = row.date;
-          if (!dateMap.has(date)) {
-            const device = deviceByDate.get(date) || { sessions_mobile: 0, sessions_desktop: 0, total_leads: 0 };
-            dateMap.set(date, {
-              date,
-              ads_impressions: 0,
-              ads_clicks: 0,
-              ads_ctr: 0,
-              ad_spend: 0,
-              cpl: 0,
-              google_ads_conversions: 0,
-              total_leads:      device.total_leads,
-              sessions_mobile:  device.sessions_mobile,
-              sessions_desktop: device.sessions_desktop,
-            });
-          }
-          const entry = dateMap.get(date);
-          entry.ads_impressions += row.impressions || 0;
-          entry.ads_clicks += row.clicks || 0;
-          entry.ad_spend += row.cost || 0;
-          entry.google_ads_conversions += row.conversions || 0;
-        });
-
-        const aggregated = Array.from(dateMap.values());
-
-        // Calculate CTR and CPL for each day
-        aggregated.forEach(d => {
-          d.ads_ctr = d.ads_impressions > 0 ? (d.ads_clicks / d.ads_impressions) * 100 : 0;
-          d.cpl = d.google_ads_conversions > 0 ? d.ad_spend / d.google_ads_conversions : 0;
-        });
-
-        setDailyData(aggregated as DailyMetrics[]);
-        setFetchError(null);
-      } catch (error) {
-        console.error('Error fetching metrics:', error);
-        setFetchError('Unable to load data. Please try again.');
-      } finally {
-        setChartLoading(false);
-      }
-    };
-
-    fetchMetrics();
-  }, [client, dateRange]);
-
-  // Fetch converting search terms
-  useEffect(() => {
-    const fetchTerms = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        const dateToISO = toLocalDateStr(dateRange.to);
-
-        const { data } = await supabase
-          .from('campaign_search_terms')
-          .select('search_term, impressions, clicks, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-
-        if (data) {
-          const aggregated = aggregateConvertingTerms(data);
-          setConvertingTerms(aggregated);
+    fetch(`/api/portal/google-ads?clientId=${encodeURIComponent(client.id)}&from=${dateFromISO}&to=${dateToISO}`)
+      .then(r => r.json())
+      .then((payload: any) => {
+        if (!payload?.success) {
+          setFetchError(payload?.error || 'Unable to load data. Please try again.');
+          setDailyData([]);
+          setCampaigns([]); setAdGroups([]); setConvertingTerms([]);
+          setConversionActionsData([]); setFormConversions(0);
+          return;
         }
-      } catch (error) {
-        console.error('Error fetching search terms:', error);
-        setConvertingTerms([]);
-      }
-    };
+        setFetchError(null);
 
-    fetchTerms();
-  }, [client, dateRange]);
+        setDailyData((payload.daily || []) as DailyMetrics[]);
 
-  // Fetch campaigns + ad groups together so we can pass campaign names to ad group aggregation
-  useEffect(() => {
-    const fetchCampaignsAndAdGroups = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        const dateToISO = toLocalDateStr(dateRange.to);
-
-        // ads_campaign_metrics has campaign_name; ads_ad_group_metrics does not
-        const [{ data: campData }, { data: adGroupData }] = await Promise.all([
-          supabase
-            .from('ads_campaign_metrics')
-            .select('campaign_id, campaign_name, cost, conversions')
-            .eq('client_id', client.id)
-            .gte('date', dateFromISO)
-            .lte('date', dateToISO),
-          supabase
-            .from('ads_ad_group_metrics')
-            .select('campaign_id, ad_group_id, ad_group_name, impressions, clicks, cost, conversions')
-            .eq('client_id', client.id)
-            .gte('date', dateFromISO)
-            .lte('date', dateToISO),
-        ]);
-
-        // Build campaign_id → campaign_name map from campaign-level data
         const campaignNameMap = new Map<string, string>();
-        (campData || []).forEach((row: any) => {
+        (payload.campaigns || []).forEach((row: any) => {
           if (row.campaign_name) campaignNameMap.set(row.campaign_id, row.campaign_name);
         });
+        setCampaigns(aggregateCampaigns(payload.campaigns || []));
+        setAdGroups(aggregateAdGroups(payload.adGroups || [], campaignNameMap));
+        setConvertingTerms(aggregateConvertingTerms(payload.searchTerms || []));
+        setConversionActionsData(payload.conversionActions || []);
+        setFormConversions(payload.totalConversions || 0);
 
-        if (campData) setCampaigns(aggregateCampaigns(campData));
-        if (adGroupData) setAdGroups(aggregateAdGroups(adGroupData, campaignNameMap));
-      } catch (error) {
-        console.error('Error fetching campaigns/ad groups:', error);
-        setCampaigns([]);
-        setAdGroups([]);
-      }
-    };
-
-    fetchCampaignsAndAdGroups();
-  }, [client, dateRange]);
-
-  // Fetch conversions total from ads_campaign_metrics (correct, not action-level)
-  // Keep campaign_conversion_actions only for the breakdown pie chart
-  useEffect(() => {
-    const fetchConversions = async () => {
-      if (!client) return;
-
-      try {
-        const dateFromISO = toLocalDateStr(dateRange.from);
-        const dateToISO = toLocalDateStr(dateRange.to);
-
-        // Total conversions from campaign-level metrics (matches Google Ads UI)
-        const { data: metricsConvData } = await supabase
-          .from('ads_campaign_metrics')
-          .select('conversions')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-        const totalConversions = Math.round((metricsConvData || []).reduce((sum: number, r: any) => sum + (r.conversions || 0), 0));
-        setFormConversions(totalConversions);
-
-        // Keep campaign_conversion_actions only for breakdown chart (action type breakdown)
-        const { data: actionsData } = await supabase
-          .from('campaign_conversion_actions')
-          .select('conversions, conversion_action_name')
-          .eq('client_id', client.id)
-          .gte('date', dateFromISO)
-          .lte('date', dateToISO);
-        setConversionActionsData(actionsData || []);
-      } catch (error) {
-        console.error('Error fetching conversions:', error);
-        setFormConversions(0);
-      }
-    };
-
-    fetchConversions();
-  }, [client, dateRange]);
-
-  // Fetch previous period data for MoM comparison
-  useEffect(() => {
-    const fetchPrevPeriod = async () => {
-      if (!client) return;
-
-      const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
-      const prevTo = new Date(dateRange.from);
-      prevTo.setDate(prevTo.getDate() - 1);
-      const prevFrom = new Date(prevTo);
-      prevFrom.setDate(prevFrom.getDate() - periodDays);
-
-      const prevFromISO = toLocalDateStr(prevFrom);
-      const prevToISO = toLocalDateStr(prevTo);
-
-      try {
-        const { data: campaignResData } = await supabase
-          .from('ads_campaign_metrics')
-          .select('impressions, clicks, cost, conversions')
-          .eq('client_id', client.id)
-          .gte('date', prevFromISO)
-          .lte('date', prevToISO);
-
-        const prevSpend = (campaignResData || []).reduce((s, r) => s + (r.cost || 0), 0);
-        const prevClicks = (campaignResData || []).reduce((s, r) => s + (r.clicks || 0), 0);
-        const prevImpressions = (campaignResData || []).reduce((s, r) => s + (r.impressions || 0), 0);
-        const prevConversions = (campaignResData || []).reduce((s, r) => s + (r.conversions || 0), 0);
-
-        setPrevPeriodData({ spend: prevSpend, conversions: prevConversions, clicks: prevClicks, impressions: prevImpressions });
-      } catch (error) {
-        console.error('Error fetching previous period:', error);
-      }
-    };
-
-    fetchPrevPeriod();
+        const pp = payload.prevPeriod || {};
+        setPrevPeriodData({
+          spend:       pp.spend       || 0,
+          conversions: pp.conversions || 0,
+          clicks:      pp.clicks      || 0,
+          impressions: pp.impressions || 0,
+        });
+      })
+      .catch(err => {
+        console.error('[Ads fetch]', err);
+        setFetchError('Unable to load data. Please try again.');
+      })
+      .finally(() => setChartLoading(false));
   }, [client, dateRange]);
 
   if (loading || !client) {

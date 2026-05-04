@@ -7,7 +7,6 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import SEOTrendChart from '@/components/admin/SEOTrendChart';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
-import { createClient } from '@supabase/supabase-js';
 import { fmtNum, fmtPct, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -44,11 +43,6 @@ interface DailyMetrics {
   google_rank?: number;
   top_keywords?: any;
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 export default function SEOPage() {
   const params = useParams();
@@ -97,139 +91,48 @@ export default function SEOPage() {
       .catch(() => setLoading(false));
   }, [clientSlug]);
 
-  // Anchor date range to last available data date
+  // Bootstrap: anchor date range to the last available data date
   useEffect(() => {
     if (!client) return;
-    supabase.from('client_metrics_summary')
-      .select('date').eq('client_id', client.id).eq('period_type', 'daily')
-      .order('date', { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        if (data?.date) {
-          const to = new Date(data.date + 'T12:00:00');
-          setLastAvailableDate(to);
-          const from = new Date(to); from.setDate(from.getDate() - 30);
-          setDateRange({ from, to });
-        }
-      });
+    fetch(`/api/portal/seo?clientId=${encodeURIComponent(client.id)}`)
+      .then(r => r.json())
+      .then((data: any) => {
+        if (!data?.success || !data.lastAvailableDate) return;
+        const to = new Date(data.lastAvailableDate + 'T12:00:00');
+        setLastAvailableDate(to);
+        const from = new Date(to); from.setDate(from.getDate() - 30);
+        setDateRange({ from, to });
+      })
+      .catch(err => console.error('[SEO bootstrap]', err));
   }, [client]);
 
-  // Fetch daily metrics
+  // Fetch full SEO payload (metrics + keywords + prev period + real conversions)
   useEffect(() => {
     if (!client) return;
-    const from = toLocalDateStr(dateRange.from);
-    const to = toLocalDateStr(dateRange.to);
-    supabase
-      .from('client_metrics_summary')
-      .select('date, sessions, users, new_users, returning_users, sessions_desktop, sessions_mobile, blog_sessions, traffic_organic, traffic_paid, traffic_direct, traffic_referral, traffic_ai, seo_impressions, seo_clicks, seo_ctr, google_rank, engagement_rate, conversion_rate, top_keywords')
-      .eq('client_id', client.id)
-      .eq('period_type', 'daily')
-      .gte('date', from).lte('date', to)
-      .order('date', { ascending: true })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Error fetching SEO metrics:', error);
-          setFetchError('Unable to load data. Please try again.');
-        } else {
-          setDailyData((data || []) as DailyMetrics[]);
-          setFetchError(null);
-        }
-      });
-  }, [client, dateRange]);
-
-  // Fetch keyword rankings + top keywords
-  useEffect(() => {
-    if (!client) return;
-    const from = toLocalDateStr(dateRange.from);
-    const to = toLocalDateStr(dateRange.to);
-
-    supabase.from('client_metrics_summary')
-      .select('top_keywords')
-      .eq('client_id', client.id).eq('period_type', 'daily')
-      .gte('date', from).lte('date', to)
-      .order('date', { ascending: false }).limit(1)
-      .then(({ data }) => { if (data?.[0]?.top_keywords) setTopKeywords(data[0].top_keywords); });
-
-    const fetchRankings = async () => {
-      const { data: gscDailySummary } = await supabase.from('gsc_daily_summary')
-        .select('top_keywords_count').eq('client_id', client.id)
-        .gte('date', from).lte('date', to).order('date', { ascending: false }).limit(1);
-      const accurateTop10 = gscDailySummary?.[0]?.top_keywords_count || 0;
-
-      const { data: gscData } = await supabase.from('gsc_queries')
-        .select('query, position').eq('client_id', client.id)
-        .gte('date', from).lte('date', to).order('date', { ascending: false });
-
-      if (gscData && gscData.length > 0) {
-        const best = new Map<string, number>();
-        for (const row of gscData) {
-          const q = (row.query || '').toLowerCase();
-          const pos = row.position || 999;
-          if (!best.has(q) || pos < best.get(q)!) best.set(q, pos);
-        }
-        let top5 = 0, top10 = 0, top11to20 = 0;
-        for (const pos of best.values()) {
-          if (pos <= 5) top5++;
-          if (pos <= 10) top10++;
-          else if (pos <= 20) top11to20++;
-        }
-        setKeywordRankBuckets({ top5, top10: accurateTop10 || top10, top11to20 });
-      } else {
-        setKeywordRankBuckets({ top5: 0, top10: accurateTop10, top11to20: 0 });
-      }
-    };
-    fetchRankings();
-  }, [client, dateRange]);
-
-  // Fetch prev period + keyword movement + real conversions
-  useEffect(() => {
-    if (!client) return;
-    const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
-    const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
-    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - periodDays);
-    const prevFromISO = toLocalDateStr(prevFrom);
-    const prevToISO = toLocalDateStr(prevTo);
     const fromISO = toLocalDateStr(dateRange.from);
     const toISO = toLocalDateStr(dateRange.to);
 
-    const avgPos = (rows: any[]) => {
-      const map = new Map<string, number[]>();
-      for (const r of rows || []) {
-        const q = (r.query || '').toLowerCase();
-        if (!map.has(q)) map.set(q, []);
-        map.get(q)!.push(r.position || 999);
-      }
-      const result = new Map<string, number>();
-      for (const [q, positions] of map) result.set(q, positions.reduce((a, b) => a + b, 0) / positions.length);
-      return result;
-    };
-
-    Promise.all([
-      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', prevFromISO).lte('date', prevToISO).order('date', { ascending: false }),
-      supabase.from('gsc_queries').select('query, position').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).order('date', { ascending: false }),
-      supabase.from('client_metrics_summary').select('sessions, users, seo_impressions, seo_clicks, traffic_organic').eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
-      supabase.from('ga4_events').select('event_count').eq('client_id', client.id).gte('date', fromISO).lte('date', toISO).in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']),
-    ]).then(([{ data: prevKW }, { data: currKW }, { data: prevMetrics }, { data: convData }]) => {
-      const prevAvg = avgPos(prevKW || []);
-      const currAvg = avgPos(currKW || []);
-      let improved = 0, declined = 0;
-      for (const [query, currPos] of currAvg) {
-        const prevPos = prevAvg.get(query);
-        if (prevPos !== undefined) {
-          if (prevPos > currPos + 0.5) improved++;
-          else if (currPos > prevPos + 0.5) declined++;
+    fetch(`/api/portal/seo?clientId=${encodeURIComponent(client.id)}&from=${fromISO}&to=${toISO}`)
+      .then(r => r.json())
+      .then((payload: any) => {
+        if (!payload?.success) {
+          setFetchError(payload?.error || 'Unable to load data. Please try again.');
+          setDailyData([]);
+          return;
         }
-      }
-      setKeywordMovement({ improved, declined });
-
-      const prevSessions = (prevMetrics || []).reduce((s, d) => s + (d.sessions || 0), 0);
-      const prevUsers = (prevMetrics || []).reduce((s, d) => s + (d.users || 0), 0);
-      const prevSeoClicks = (prevMetrics || []).reduce((s, d) => s + (d.seo_clicks || 0), 0);
-      const prevOrganicVisits = (prevMetrics || []).reduce((s, d) => s + ((d as any).traffic_organic || 0), 0);
-      const prevTotalImpressions = (prevMetrics || []).reduce((s, d) => s + ((d as any).seo_impressions || 0), 0);
-      const prevCtr = prevTotalImpressions > 0 ? (prevSeoClicks / prevTotalImpressions) * 100 : 0;
-      setPrevPeriodMetrics({ sessions: prevSessions, users: prevUsers, ctr: prevCtr, seoClicks: prevSeoClicks, organicVisits: prevOrganicVisits });
-      setRealConversions((convData || []).reduce((s: number, d: any) => s + (d.event_count || 0), 0));
-    });
+        setDailyData((payload.daily || []) as DailyMetrics[]);
+        if (payload.topKeywords) setTopKeywords(payload.topKeywords);
+        setKeywordRankBuckets(payload.keywordRankBuckets || { top5: 0, top10: 0, top11to20: 0 });
+        setKeywordMovement(payload.keywordMovement || { improved: 0, declined: 0 });
+        setPrevPeriodMetrics(payload.prevPeriod || { sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
+        setRealConversions(payload.realConversions || 0);
+        setFetchError(null);
+      })
+      .catch(err => {
+        console.error('[SEO fetch]', err);
+        setFetchError('Unable to load data. Please try again.');
+        setDailyData([]);
+      });
   }, [client, dateRange]);
 
   if (loading || !client) {

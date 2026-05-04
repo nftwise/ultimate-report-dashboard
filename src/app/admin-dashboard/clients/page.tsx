@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { Users, Plus, Edit2, XCircle, CheckCircle, Search, X, TrendingDown, Database, Loader2, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSession } from 'next-auth/react';
@@ -215,60 +214,18 @@ export default function ClientsManagementPage() {
     setModalStep('done');
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-  );
-
   useEffect(() => { fetchClients(); }, []);
 
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('clients')
-        .select('id, name, slug, city, contact_name, contact_email, website_url, is_active, has_seo, has_ads, notes, ads_budget_month, status, industry, owner')
-        .order('name', { ascending: true });
-      if (fetchError) throw new Error(fetchError.message);
-      // Note: setClients called below after deriving has_gbp
+      const res = await fetch('/api/admin/clients-management');
+      const payload = await res.json();
+      if (!payload?.success) throw new Error(payload?.error || 'Failed to load clients');
 
-      // Fetch last sync date per client (last 60 days)
-      const since = new Date(); since.setDate(since.getDate() - 60);
-      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,'0')}-${String(since.getDate()).padStart(2,'0')}`;
-      const { data: syncData } = await supabase
-        .from('client_metrics_summary')
-        .select('client_id, date')
-        .eq('period_type', 'daily')
-        .gte('date', sinceStr)
-        .order('date', { ascending: false });
-      if (syncData) {
-        const map: Record<string, string> = {};
-        for (const row of syncData) {
-          if (!map[row.client_id]) map[row.client_id] = row.date;
-        }
-        setLastSync(map);
-      }
-
-      // Derive has_gbp from gbp_locations table (column doesn't exist on clients)
-      const { data: gbpLocs } = await supabase
-        .from('gbp_locations')
-        .select('client_id')
-        .eq('is_active', true);
-      const gbpSet = new Set((gbpLocs || []).map((l: any) => l.client_id));
-      setClients((data || []).map((c: any) => ({ ...c, has_gbp: gbpSet.has(c.id) })));
-
-      // Fetch all manual form fills
-      const { data: fillsData } = await supabase
-        .from('manual_form_fills')
-        .select('client_id, year_month, form_fills');
-      if (fillsData) {
-        const fm: Record<string, Record<string, string>> = {};
-        for (const row of fillsData) {
-          if (!fm[row.client_id]) fm[row.client_id] = {};
-          fm[row.client_id][row.year_month] = String(row.form_fills);
-        }
-        setFillsMap(fm);
-      }
+      setClients(payload.clients || []);
+      setLastSync(payload.lastSync || {});
+      setFillsMap(payload.fillsMap || {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {

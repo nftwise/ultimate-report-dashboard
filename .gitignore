@@ -52,3 +52,4 @@ cron-deploy/
 .env.prod
 .env.vercel
 .claude/worktrees/
+.claude/memory/

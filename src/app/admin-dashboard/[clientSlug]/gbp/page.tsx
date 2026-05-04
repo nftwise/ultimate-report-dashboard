@@ -7,7 +7,6 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import ServiceNotActive from '@/components/admin/ServiceNotActive';
 import DateRangePicker from '@/components/admin/DateRangePicker';
-import { createClient } from '@supabase/supabase-js';
 import { fmtNum, toLocalDateStr } from '@/lib/format';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -21,11 +20,6 @@ interface ClientInfo {
   city: string;
   services?: { googleLocalService?: boolean };
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -141,106 +135,35 @@ export default function GBPPage() {
       });
   }, [clientSlug]);
 
-  // ── fetch location name + anchor date range to last data date ────────────
-  useEffect(() => {
-    if (!client) return;
-    supabase.from('gbp_locations').select('location_name').eq('client_id', client.id).single()
-      .then(({ data }) => { if (data) setLocationName(data.location_name); });
-
-    // Anchor date range to last available data date (same as admin page)
-    supabase.from('client_metrics_summary')
-      .select('date')
-      .eq('client_id', client.id)
-      .eq('period_type', 'daily')
-      .order('date', { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data?.date) {
-          const to = new Date(data.date + 'T12:00:00');
-          setLastAvailableDate(to);
-          const from = new Date(to);
-          from.setDate(from.getDate() - 30);
-          setDateRange({ from, to });
-        }
-      });
-  }, [client]);
-
-  // ── fetch latest reviews/rating (once per client, independent of date range) ──
-  useEffect(() => {
-    if (!client) return;
-    // Try gbp_location_daily_metrics first (most accurate)
-    supabase.from('gbp_location_daily_metrics')
-      .select('total_reviews, average_rating')
-      .eq('client_id', client.id)
-      .gt('total_reviews', 0)
-      .order('date', { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data: det }) => {
-        if (det && (det as any).total_reviews > 0) {
-          setLatestReviews((det as any).total_reviews);
-          setLatestRating((det as any).average_rating ?? 0);
-        } else {
-          // Fallback to client_metrics_summary
-          supabase.from('client_metrics_summary')
-            .select('gbp_reviews_count, gbp_rating_avg')
-            .eq('client_id', client.id)
-            .eq('period_type', 'daily')
-            .gt('gbp_reviews_count', 0)
-            .order('date', { ascending: false })
-            .limit(1)
-            .single()
-            .then(({ data: sum }) => {
-              if (sum && (sum as any).gbp_reviews_count > 0) {
-                setLatestReviews((sum as any).gbp_reviews_count);
-                setLatestRating((sum as any).gbp_rating_avg ?? 0);
-              }
-            });
-        }
-      });
-  }, [client]);
-
-  // ── fetch 12-month data (once per client) ─────────────────────────────────
+  // ── bootstrap: locationName + lastAvailableDate + reviews + 12-month chart ──
   useEffect(() => {
     if (!client) return;
     setMonthlyLoading(true);
-    const current12 = buildLast12Months();
-    const prior12 = buildPrior12Months(current12);
-    const overallFrom = prior12[0].from;
-    const overallTo = current12[11].to;
-
-    supabase.from('client_metrics_summary')
-      .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
-      .eq('client_id', client.id).eq('period_type', 'daily')
-      .gte('date', overallFrom).lte('date', overallTo)
-      .then(({ data: sum }) => {
-        const buckets = new Map<string, { views: number; calls: number; clicks: number; directions: number }>();
-        current12.forEach(m => buckets.set(m.key, { views: 0, calls: 0, clicks: 0, directions: 0 }));
-
-        for (const r of (sum || [])) {
-          const mk = (r as any).date.slice(0, 7);
-          if (!buckets.has(mk)) continue;
-          const b = buckets.get(mk)!;
-          b.views += (r as any).gbp_profile_views || 0;
-          b.calls += (r as any).gbp_calls || 0;
-          b.clicks += (r as any).gbp_website_clicks || 0;
-          b.directions += (r as any).gbp_directions || 0;
+    fetch(`/api/portal/gbp?clientId=${encodeURIComponent(client.id)}`)
+      .then(r => r.json())
+      .then((data: any) => {
+        if (!data?.success) return;
+        if (data.locationName) setLocationName(data.locationName);
+        if (data.lastAvailableDate) {
+          const to = new Date(data.lastAvailableDate + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
         }
-
-        setViewsChart(current12.map(m => {
-          const b = buckets.get(m.key)!;
-          return { month: m.label, views: b.views, clicks: b.clicks, directions: b.directions };
-        }));
-        setActionsChart(current12.map(m => {
-          const b = buckets.get(m.key)!;
-          return { month: m.label, calls: b.calls };
-        }));
-        setMonthlyLoading(false);
-      });
+        if (data.latestReviews > 0) {
+          setLatestReviews(data.latestReviews);
+          setLatestRating(data.latestRating ?? 0);
+        }
+        if (data.monthlyData) {
+          setViewsChart(data.monthlyData.views || []);
+          setActionsChart(data.monthlyData.actions || []);
+        }
+      })
+      .catch(err => console.error('[GBP bootstrap]', err))
+      .finally(() => setMonthlyLoading(false));
   }, [client]);
 
-  // ── fetch period data (re-runs on date change) ────────────────────────────
+  // ── period data (re-runs on date change) ──────────────────────────────────
   useEffect(() => {
     if (!client) return;
     setPeriodLoading(true);
@@ -250,61 +173,36 @@ export default function GBPPage() {
     const days = Math.round((effectiveTo.getTime() - dateRange.from.getTime()) / 86400000);
     setPeriodDays(days);
 
-    const prevTo = new Date(dateRange.from); prevTo.setDate(prevTo.getDate() - 1);
-    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days);
-    const prevFromISO = toLocalDateStr(prevFrom);
-    const prevToISO = toLocalDateStr(prevTo);
+    fetch(`/api/portal/gbp?clientId=${encodeURIComponent(client.id)}&from=${fromISO}&to=${toISO}`)
+      .then(r => r.json())
+      .then((payload: any) => {
+        if (!payload?.success) {
+          setFetchError(payload?.error || 'Unable to load data. Please try again.');
+          setPeriodLoading(false);
+          return;
+        }
+        setFetchError(null);
+        const p = payload.period || {};
+        setPViews(p.views || 0);
+        setPCalls(p.calls || 0);
+        setPClicks(p.clicks || 0);
+        setPDir(p.directions || 0);
+        setPActions(p.actions || 0);
+        setPNewReviews(p.newReviews || 0);
+        setPeriodDataCount(p.dataRows || 0);
+        if (payload.lastGbpDataDate) setLastGbpDataDate(payload.lastGbpDataDate);
 
-    Promise.all([
-      // current period — summary only (verified accurate)
-      supabase.from('client_metrics_summary')
-        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions, gbp_reviews_new')
-        .eq('client_id', client.id).eq('period_type', 'daily').gte('date', fromISO).lte('date', toISO),
-      // previous period — summary only
-      supabase.from('client_metrics_summary')
-        .select('date, gbp_profile_views, gbp_calls, gbp_website_clicks, gbp_directions')
-        .eq('client_id', client.id).eq('period_type', 'daily').gte('date', prevFromISO).lte('date', prevToISO),
-    ]).then(([{ data: sum, error: sumErr }, { data: pSum }]) => {
-      if (sumErr) {
-        console.error('Error fetching GBP period data:', sumErr);
+        const pp = payload.prevPeriod || {};
+        setPrevpViews(pp.views || 0);
+        setPrevpCalls(pp.calls || 0);
+        setPrevpClicks(pp.clicks || 0);
+        setPrevpDir(pp.directions || 0);
+      })
+      .catch(err => {
+        console.error('[GBP period]', err);
         setFetchError('Unable to load data. Please try again.');
-        setPeriodLoading(false);
-        return;
-      }
-      setFetchError(null);
-
-      const allDates = ((sum || []) as any[]).map((r: any) => r.date).sort();
-      if (allDates.length > 0) setLastGbpDataDate(allDates[allDates.length - 1]);
-
-      let totViews = 0, totCalls = 0, totClicks = 0, totDir = 0, totNewRev = 0, dataRows = 0;
-      for (const r of (sum || []) as any[]) {
-        const v = r.gbp_profile_views || 0;
-        const c = r.gbp_calls || 0;
-        const cl = r.gbp_website_clicks || 0;
-        const dir = r.gbp_directions || 0;
-        if (v === 0 && c === 0 && cl === 0 && dir === 0) continue;
-        totViews += v; totCalls += c; totClicks += cl; totDir += dir;
-        totNewRev += r.gbp_reviews_new || 0;
-        dataRows++;
-      }
-
-      setPViews(totViews); setPCalls(totCalls); setPClicks(totClicks); setPDir(totDir);
-      setPActions(totCalls + totClicks + totDir); setPNewReviews(totNewRev);
-      setPeriodDataCount(dataRows);
-
-      // previous period
-      let pv = 0, pc = 0, pcl = 0, pd = 0;
-      for (const r of (pSum || []) as any[]) {
-        const pViews = r.gbp_profile_views || 0;
-        const pCalls = r.gbp_calls || 0;
-        const pClicks = r.gbp_website_clicks || 0;
-        const pDirs = r.gbp_directions || 0;
-        if (pViews === 0 && pCalls === 0 && pClicks === 0 && pDirs === 0) continue;
-        pv += pViews; pc += pCalls; pcl += pClicks; pd += pDirs;
-      }
-      setPrevpViews(pv); setPrevpCalls(pc); setPrevpClicks(pcl); setPrevpDir(pd);
-      setPeriodLoading(false);
-    });
+      })
+      .finally(() => setPeriodLoading(false));
   }, [client, dateRange]);
 
   // ── guards ────────────────────────────────────────────────────────────────

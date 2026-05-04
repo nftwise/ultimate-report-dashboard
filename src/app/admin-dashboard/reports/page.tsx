@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import DateRangePicker from '@/components/admin/DateRangePicker';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
@@ -15,11 +14,6 @@ import {
   Users, Phone, DollarSign, MousePointer, Trophy, AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 interface ClientRow {
   id: string;
@@ -97,50 +91,16 @@ export default function AgencyReportsPage() {
     const dateTo = toLocalDateStr(range.to);
     setLoading(true);
     try {
-      // Fetch all active clients
-      const { data: clientsData } = await supabase
-        .from('clients')
-        .select('id, name, slug, city, is_active')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-
-      if (!clientsData) return;
-
-      // Calculate previous period range (same length, before dateFrom)
-      const from = new Date(dateFrom + 'T12:00:00');
-      const to = new Date(dateTo + 'T12:00:00');
-      const periodMs = to.getTime() - from.getTime() + 86400000;
-      const prevTo = new Date(from.getTime() - 86400000);
-      const prevFrom = new Date(prevTo.getTime() - periodMs + 86400000);
-      const prevFromStr = toLocalDateStr(prevFrom);
-      const prevToStr = toLocalDateStr(prevTo);
-
-      // Fetch current period metrics
-      const { data: currMetrics } = await supabase
-        .from('client_metrics_summary')
-        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions, fb_spend, fb_leads')
-        .gte('date', dateFrom)
-        .lte('date', dateTo)
-        .eq('period_type', 'daily');
-
-      // Fetch previous period metrics
-      const { data: prevMetrics } = await supabase
-        .from('client_metrics_summary')
-        .select('client_id, total_leads, gbp_calls, sessions, ad_spend, google_ads_conversions, fb_spend, fb_leads')
-        .gte('date', prevFromStr)
-        .lte('date', prevToStr)
-        .eq('period_type', 'daily');
-
-      // Fetch 90-day trend for chart
-      const trendFrom = new Date();
-      trendFrom.setDate(trendFrom.getDate() - 90);
-      const { data: trendData } = await supabase
-        .from('client_metrics_summary')
-        .select('date, total_leads, gbp_calls, sessions')
-        .gte('date', toLocalDateStr(trendFrom))
-        .lte('date', dateTo)
-        .eq('period_type', 'daily')
-        .order('date', { ascending: true });
+      const res = await fetch(`/api/admin/reports-data?from=${dateFrom}&to=${dateTo}`);
+      const payload = await res.json();
+      if (!payload?.success) {
+        console.error('[Reports] fetch failed:', payload?.error);
+        return;
+      }
+      const clientsData = payload.clients || [];
+      const currMetrics = payload.currMetrics || [];
+      const prevMetrics = payload.prevMetrics || [];
+      const trendData = payload.trendData || [];
 
       // Aggregate current metrics by client
       const currMap: Record<string, { leads: number; gbp_calls: number; sessions: number; ad_spend: number; ads_conv: number; fb_spend: number; fb_leads: number }> = {};

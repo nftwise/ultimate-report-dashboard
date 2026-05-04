@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Database } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 
 const inputStyle = {
   width: '100%',
@@ -91,32 +90,17 @@ export default function EditClientPage({ params }: EditClientParams) {
 
   async function fetchClient(id: string) {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-      );
-
-      const { data: client, error: fetchError } = await supabase
-        .from('clients')
-        .select('*, service_configs(ga_property_id, gads_customer_id, gsc_site_url)')
-        .eq('id', id)
-        .single();
-
-      if (fetchError || !client) {
-        setError('Client not found');
+      const res = await fetch(`/api/admin/client-detail?id=${encodeURIComponent(id)}`);
+      const payload = await res.json();
+      if (!payload?.success || !payload.client) {
+        setError(payload?.error || 'Client not found');
         setLoading(false);
         return;
       }
 
-      const config = Array.isArray(client.service_configs) ? client.service_configs[0] : client.service_configs || {};
-
-      // Check GBP
-      const { data: gbpRow } = await supabase
-        .from('gbp_locations')
-        .select('id, gbp_location_id')
-        .eq('client_id', id)
-        .eq('is_active', true)
-        .maybeSingle();
+      const client = payload.client;
+      const config = payload.config || {};
+      const gbpRow = payload.gbp;
       setHasGbp(!!gbpRow);
 
       setForm({

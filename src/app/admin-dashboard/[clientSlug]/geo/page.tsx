@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ClientTabBar from '@/components/admin/ClientTabBar';
 import { fmtNum } from '@/lib/format';
@@ -11,11 +10,6 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Upload, Bot, FileSpreadsheet, Search, TrendingUp, Zap } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
 
 interface AiCitationDaily {
   date: string;
@@ -326,23 +320,16 @@ export default function GeoPage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const { data: clientData } = await supabase
-        .from('clients')
-        .select('id, name, slug, city')
-        .eq('slug', clientSlug)
-        .single();
-      if (!clientData) return;
-      setClient(clientData);
-
-      const [{ data: aiData }, { data: aiPageData }, { data: queryData }] = await Promise.all([
-        supabase.from('bing_ai_citations').select('date, citations, cited_pages').eq('client_id', clientData.id).order('date', { ascending: true }),
-        supabase.from('bing_ai_page_citations').select('page_url, citations').eq('client_id', clientData.id).order('citations', { ascending: false }).limit(20),
-        supabase.from('bing_ai_queries').select('query_text, citations, date').eq('client_id', clientData.id).order('citations', { ascending: false }).limit(50),
-      ]);
-
-      setAiDaily(aiData || []);
-      setAiPages(aiPageData || []);
-      setAiQueries(queryData || []);
+      const res = await fetch(`/api/portal/geo?clientSlug=${encodeURIComponent(clientSlug)}`);
+      const payload = await res.json();
+      if (!payload?.success) {
+        console.error('[GeoPage]', payload?.error);
+        return;
+      }
+      if (payload.client) setClient(payload.client);
+      setAiDaily(payload.aiDaily || []);
+      setAiPages(payload.aiPages || []);
+      setAiQueries(payload.aiQueries || []);
     } catch (err) {
       console.error('[GeoPage] Error:', err);
     } finally {

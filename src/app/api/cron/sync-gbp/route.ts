@@ -173,6 +173,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Reviews snapshot (once per location, update most-recent date row) ───
+    // new_reviews_today is computed from the delta vs the most recent prior row's
+    // total_reviews. This is the only reliable way to get per-day counts since the
+    // GBP Reviews API only exposes a cumulative total.
     const gbpAccountId = process.env.GBP_ACCOUNT_ID;
     const mostRecentDate = datesToSync[0]; // first in list = most recent
     if (gbpAccountId) {
@@ -184,6 +187,23 @@ export async function GET(request: NextRequest) {
           if (!reviewsAccessToken) throw new Error('No GBP access token for reviews');
           const reviewData = await fetchLocationReviews(reviewsAccessToken, gbpAccountId, location.gbp_location_id);
           if (reviewData) {
+            // Look up the most recent prior row with a real total_reviews value
+            // to compute today's new-review delta.
+            const { data: prior } = await supabaseAdmin
+              .from('gbp_location_daily_metrics')
+              .select('total_reviews')
+              .eq('location_id', location.id)
+              .lt('date', mostRecentDate)
+              .gt('total_reviews', 0)
+              .order('date', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const priorTotal = (prior as any)?.total_reviews ?? null;
+            const newReviewsToday = priorTotal === null
+              ? 0  // first sync ever — no baseline, can't infer new reviews
+              : Math.max(0, reviewData.totalReviewCount - priorTotal);
+
             // Use upsert instead of update — the row for mostRecentDate may not
             // exist yet if the metrics sync skipped it (e.g. API returned no data).
             await supabaseAdmin
@@ -194,6 +214,7 @@ export async function GET(request: NextRequest) {
                 date: mostRecentDate,
                 total_reviews: reviewData.totalReviewCount,
                 average_rating: reviewData.averageRating,
+                new_reviews_today: newReviewsToday,
               }, {
                 onConflict: 'location_id,date',
                 ignoreDuplicates: false,

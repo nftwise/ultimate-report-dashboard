@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Globe, Mail, Lock, AlertCircle } from 'lucide-react'
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const err = searchParams?.get('error')
+    if (err === 'no-client-assigned') {
+      setError('Your account is not linked to a client yet. Please contact your administrator.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +57,7 @@ export default function LoginPage() {
             <Globe className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Ultimate Report Dashboard
+            Data11.ai
           </h1>
           <p className="text-gray-600">
             Sign in to view your analytics

@@ -22,7 +22,7 @@ Edge cases:
 
 ## Project Overview
 
-**WiseCRM** — Multi-client marketing analytics dashboard for chiropractic practices (~19 active clients).
+**Data11.ai** — Multi-client marketing analytics dashboard for chiropractic practices (~19 active clients). (Formerly known internally as WiseCRM / Ultimate Report Dashboard.)
 
 **Tech Stack (verified):**
 - Next.js 15.5.9 (App Router) + React 19.1.0 + TypeScript 5.9.3
@@ -207,6 +207,40 @@ const userId = (session?.user as any)?.id;
 
 ---
 
+## RLS / Data Access (CRITICAL)
+
+The browser uses the Supabase **anon key** to query `client_metrics_summary` and other tables directly from page components. Without Row-Level Security configured, a client user could change `client_id` in a network request and read another clinic's data.
+
+**Setup (run once):**
+1. Open Supabase SQL editor → run `migrations/002_rls_policies.sql`
+2. Verify by hitting `GET /api/admin/verify-rls` (requires admin/team session) — expect `overall: "OK"`
+
+**Server vs browser:**
+- `supabaseAdmin` (service_role key) — used in `/api/*` routes, **bypasses RLS** ✅
+- `createClient(SUPABASE_URL, ANON_KEY)` (browser) — **subject to RLS** after migration
+
+**When adding a new sensitive table:** add it to both `migrations/002_rls_policies.sql` (enable RLS + deny anon) and `verify-rls/route.ts` (`SENSITIVE_TABLES` list).
+
+**Preferred pattern for new client-facing data:** create a server-side API route that calls `getServerSession()`, ensures the user can access the requested `clientId` (force `clientId = session.clientId` for client role), then queries with `supabaseAdmin`. Don't add new direct browser → Supabase calls.
+
+---
+
+## Role-Based UI Pattern
+
+Portal pages re-export admin pages 1:1 (e.g. `portal/[slug]/gbp/page.tsx` → `admin-dashboard/[slug]/gbp/page.tsx`). The shared page must hide admin-only UI based on session role. Existing pattern:
+
+```typescript
+const { data: session } = useSession();
+const userRole = (session?.user as any)?.role || '';
+const canImport = userRole === 'admin' || userRole === 'team';
+
+{canImport && <button onClick={triggerBackfill}>Backfill Data</button>}
+```
+
+When adding a new admin-only button, action, or section to a shared page (anything that lives under `admin-dashboard/[clientSlug]/*`): always wrap with a `userRole === 'admin' || userRole === 'team'` check, since clients see the same component via the portal re-export.
+
+---
+
 ## Design System
 
 - **Colors**: `#2c2419` (dark/text), `#c4704f` (accent/CTA), `#d9a854` (gold), `#9db5a0` (green), `#10b981` (success)
@@ -234,6 +268,8 @@ const userId = (session?.user as any)?.id;
 | `src/app/api/cron/sync-gbp/route.ts` | GBP daily sync (90-day window) |
 | `src/app/api/cron/sync-ads/route.ts` | Ads daily sync (7-day window for retroactive conversions) |
 | `src/app/api/cron/fix-summary-lag/route.ts` | Patches stale zeros in client_metrics_summary |
+| `src/app/api/admin/verify-rls/route.ts` | Probes anon key against sensitive tables |
+| `migrations/002_rls_policies.sql` | RLS policies (deny anon reads) |
 | `.github/workflows/` | All cron workflows (A/B/C groups + FB + CI gate) |
 
 ---
