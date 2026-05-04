@@ -8,6 +8,9 @@ export const dynamic = 'force-dynamic'
 // Fields that belong to service_configs, not clients
 const SERVICE_CONFIG_FIELDS = ['ga_property_id', 'gads_customer_id', 'gsc_site_url', 'callrail_account_id'];
 
+// Fields handled separately (not clients or service_configs table)
+const GBP_FIELDS = ['gbp_location_id'];
+
 // ---------------------------------------------------------------------------
 // Validation helpers (mirrors create-client validation)
 // ---------------------------------------------------------------------------
@@ -67,13 +70,16 @@ export async function PATCH(
     // Remove fields that shouldn't be updated directly
     const { id: _id, created_at, ...allFields } = body;
 
-    // Split into clients fields vs service_configs fields
+    // Split into clients fields vs service_configs fields vs gbp fields
     const serviceConfigUpdates: Record<string, string | null> = {};
     const clientUpdates: Record<string, unknown> = {};
+    let gbpLocationId: string | null | undefined = undefined;
 
     for (const [key, value] of Object.entries(allFields)) {
       if (SERVICE_CONFIG_FIELDS.includes(key)) {
         serviceConfigUpdates[key] = value as string | null;
+      } else if (GBP_FIELDS.includes(key)) {
+        if (key === 'gbp_location_id') gbpLocationId = value as string | null;
       } else {
         clientUpdates[key] = value;
       }
@@ -129,6 +135,31 @@ export async function PATCH(
 
       if (configError) {
         return NextResponse.json({ error: `service_configs update failed: ${configError.message}` }, { status: 500 });
+      }
+    }
+
+    // Handle GBP location upsert
+    if (gbpLocationId !== undefined) {
+      if (gbpLocationId) {
+        const locationId = gbpLocationId.replace('locations/', '');
+        const fullLocationId = `locations/${locationId}`;
+        const { data: existing } = await supabaseAdmin
+          .from('gbp_locations')
+          .select('id')
+          .eq('client_id', id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (existing) {
+          await supabaseAdmin
+            .from('gbp_locations')
+            .update({ gbp_location_id: fullLocationId })
+            .eq('id', existing.id);
+        } else {
+          await supabaseAdmin
+            .from('gbp_locations')
+            .insert({ client_id: id, gbp_location_id: fullLocationId, location_name: clientData?.name || '', is_active: true });
+        }
       }
     }
 

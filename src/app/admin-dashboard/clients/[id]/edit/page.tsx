@@ -86,6 +86,7 @@ export default function EditClientPage({ params }: EditClientParams) {
     ga4_property_id: '',
     google_ads_customer_id: '',
     gsc_site_url: '',
+    gbp_location_id: '',
   });
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export default function EditClientPage({ params }: EditClientParams) {
       // Check GBP
       const { data: gbpRow } = await supabase
         .from('gbp_locations')
-        .select('id')
+        .select('id, gbp_location_id')
         .eq('client_id', id)
         .eq('is_active', true)
         .maybeSingle();
@@ -145,6 +146,7 @@ export default function EditClientPage({ params }: EditClientParams) {
         ga4_property_id: config.ga_property_id || '',
         google_ads_customer_id: config.gads_customer_id || '',
         gsc_site_url: config.gsc_site_url || '',
+        gbp_location_id: gbpRow?.gbp_location_id?.replace('locations/', '') || '',
       });
       setLoading(false);
     } catch {
@@ -229,6 +231,7 @@ export default function EditClientPage({ params }: EditClientParams) {
           ga_property_id: form.ga4_property_id.trim() || null,
           gads_customer_id: form.google_ads_customer_id.trim() || null,
           gsc_site_url: form.gsc_site_url.trim() || null,
+          gbp_location_id: form.gbp_location_id.trim() || null,
         }),
       });
 
@@ -438,63 +441,55 @@ export default function EditClientPage({ params }: EditClientParams) {
             </div>
           </div>
 
-          {/* Section 4: Integration IDs (conditional) */}
-          {(form.has_seo || form.has_ads) && (
-            <div style={sectionStyle}>
-              <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '4px' }}>
-                Integration IDs
-              </p>
-              <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '20px' }}>These IDs connect to Google APIs</p>
+          {/* Section 4: Integration IDs — always visible */}
+          <div style={sectionStyle}>
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '4px' }}>
+              Integration IDs
+            </p>
+            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '20px' }}>Connect to Google APIs. Leave blank if not applicable.</p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {form.has_seo && (
-                  <div>
-                    <label style={labelStyle}>GA4 Property ID</label>
-                    <input
-                      type="text"
-                      value={form.ga4_property_id}
-                      onChange={e => setForm(f => ({ ...f, ga4_property_id: e.target.value }))}
-                      placeholder="properties/123456789"
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
-                {form.has_ads && (
-                  <div>
-                    <label style={labelStyle}>Google Ads Customer ID</label>
-                    <input
-                      type="text"
-                      value={form.google_ads_customer_id}
-                      onChange={e => setForm(f => ({ ...f, google_ads_customer_id: e.target.value }))}
-                      placeholder="123-456-7890"
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
-                {form.has_seo && (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>GSC Site URL</label>
-                    <input
-                      type="text"
-                      value={form.gsc_site_url}
-                      onChange={e => setForm(f => ({ ...f, gsc_site_url: e.target.value }))}
-                      placeholder="https://example.com"
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={labelStyle}>GA4 Property ID</label>
+                <input
+                  type="text"
+                  value={form.ga4_property_id}
+                  onChange={e => setForm(f => ({ ...f, ga4_property_id: e.target.value }))}
+                  placeholder="123456789"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Google Ads Customer ID</label>
+                <input
+                  type="text"
+                  value={form.google_ads_customer_id}
+                  onChange={e => setForm(f => ({ ...f, google_ads_customer_id: e.target.value }))}
+                  placeholder="123-456-7890"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>GSC Site URL</label>
+                <input
+                  type="text"
+                  value={form.gsc_site_url}
+                  onChange={e => setForm(f => ({ ...f, gsc_site_url: e.target.value }))}
+                  placeholder="https://example.com/"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>GBP Location ID</label>
+                <input
+                  type="text"
+                  value={form.gbp_location_id}
+                  onChange={e => setForm(f => ({ ...f, gbp_location_id: e.target.value }))}
+                  placeholder="1234567890"
+                  style={inputStyle}
+                />
               </div>
             </div>
-          )}
-
-          {/* Section 5: GBP note */}
-          <div style={sectionStyle}>
-            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c4704f', marginBottom: '8px' }}>
-              Google Business Profile
-            </p>
-            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
-              GBP locations are managed via the Cron Monitor.
-            </p>
           </div>
 
           {/* Section: Credentials */}
