@@ -347,18 +347,11 @@ export default function SEOPage() {
   const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits);
 
   const momBadge = (mom: { pct: number | null; label: string }) => (
-    <div style={{ marginTop: '6px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct === null ? '#9ca3af' : mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
-          {mom.pct === null ? '—' : `${mom.pct >= 0 ? '+' : ''}${mom.pct.toFixed(1)}%`}
-        </span>
-        <span style={{ fontSize: '9px', color: '#9ca3af' }}>vs {mom.label}</span>
-      </div>
-      {mom.pct !== null && (
-        <p style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic', marginTop: '4px', margin: '4px 0 0 0' }}>
-          📅 {seasonalityNote}
-        </p>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+      <span style={{ fontSize: '11px', fontWeight: 700, color: mom.pct === null ? '#9ca3af' : mom.pct >= 0 ? '#10b981' : '#ef4444' }}>
+        {mom.pct === null ? '—' : `${mom.pct >= 0 ? '+' : ''}${mom.pct.toFixed(1)}%`}
+      </span>
+      <span style={{ fontSize: '9px', color: '#9ca3af' }}>vs {mom.label}</span>
     </div>
   );
 
