@@ -132,31 +132,48 @@ Only use this data. Do not invent figures.`;
     return NextResponse.json({ error: 'AI service not configured.' }, { status: 503 });
   }
 
-  const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://data11.ai',
-      'X-Title': 'WiseCRM Admin Chat',
-    },
-    body: JSON.stringify({
-      model: 'google/gemma-3-27b-it:free',
-      messages: [
-        { role: 'user', content: `[INSTRUCTIONS]\n${systemPrompt}\n[/INSTRUCTIONS]\nAcknowledge these instructions briefly.` },
-        { role: 'assistant', content: 'Understood. I will only answer questions about the client marketing data provided. How can I help?' },
-        ...chatMessages,
-      ],
-      max_tokens: 600,
-      temperature: 0.2,
-      stream: false,
-    }),
-  });
+  const MODELS = [
+    'openai/gpt-oss-120b:free',
+    'minimax/minimax-m2.5:free',
+    'google/gemma-4-31b-it:free',
+    'google/gemma-3-27b-it:free',
+  ];
 
-  if (!orRes.ok) {
-    const errText = await orRes.text();
-    console.error('OpenRouter error:', errText);
-    return NextResponse.json({ error: `AI error (${orRes.status}): ${errText.slice(0, 200)}` }, { status: 502 });
+  let lastErr = '';
+  let data: any = null;
+
+  for (const model of MODELS) {
+    // Gemma models don't support system role — use user/assistant injection
+    const isGemma = model.includes('gemma');
+    const msgs = isGemma
+      ? [
+          { role: 'user', content: `[INSTRUCTIONS]\n${systemPrompt}\n[/INSTRUCTIONS]\nAcknowledge these instructions briefly.` },
+          { role: 'assistant', content: 'Understood. I will only answer questions about the client marketing data provided. How can I help?' },
+          ...chatMessages,
+        ]
+      : [{ role: 'system', content: systemPrompt }, ...chatMessages];
+
+    const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://data11.ai',
+        'X-Title': 'WiseCRM Admin Chat',
+      },
+      body: JSON.stringify({ model, messages: msgs, max_tokens: 600, temperature: 0.2, stream: false }),
+    });
+
+    if (orRes.ok) {
+      data = await orRes.json();
+      break;
+    }
+    lastErr = await orRes.text();
+    console.error(`OpenRouter ${model} failed:`, lastErr);
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: 'All AI models temporarily unavailable. Please try again later.' }, { status: 502 });
   }
 
   const data = await orRes.json();
