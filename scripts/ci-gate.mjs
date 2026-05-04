@@ -479,18 +479,18 @@ async function checkRollupEndpoint() {
 
 async function checkActiveClientsHaveData() {
   // Only check clients that have at least 1 data source configured
-  // (unconfigured new clients legitimately have no data yet)
+  // AND were created more than 30 days ago (new clients legitimately have no history yet)
   const since = daysAgo(30);
   const { data: activeClients, error: cErr } = await supabase
     .from('clients')
-    .select('id, name, has_seo, has_ads')
+    .select('id, name, has_seo, has_ads, created_at')
     .eq('is_active', true);
 
   if (cErr) return { passed: false, detail: cErr.message };
 
-  // Only care about clients that have a configured data source
+  // Only care about clients that have a configured data source AND are not brand new
   const configuredClients = (activeClients ?? []).filter(
-    (c) => c.has_seo || c.has_ads
+    (c) => (c.has_seo || c.has_ads) && c.created_at < since
   );
   if (!configuredClients.length) return { passed: true, detail: 'No configured active clients' };
 
