@@ -198,15 +198,18 @@ export default function ExecutiveSummaryCards({
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = '0 4px 20px rgba(44, 36, 25, 0.08)';
         }}>
-          <p style={{
-            fontSize: '10px',
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: '#5c5850',
-            margin: '0 0 12px 0'
-          }}>
-            Cost Per Lead
+          <p
+            title="Total ad spend ÷ number of patient leads generated. Does not include phone calls unless tracked via Google Ads call extensions."
+            style={{
+              fontSize: '10px',
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: '#5c5850',
+              margin: '0 0 12px 0',
+              cursor: 'help'
+            }}>
+            Cost Per Lead (CPL)
           </p>
           <div style={{
             fontSize: '32px',
@@ -222,7 +225,7 @@ export default function ExecutiveSummaryCards({
             color: '#9ca3af',
             margin: 0
           }}>
-            Spend per conversion
+            Spend per patient lead
           </p>
           {renderMoMBadge(momCpa)}
         </div>

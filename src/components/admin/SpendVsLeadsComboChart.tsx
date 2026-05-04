@@ -58,6 +58,20 @@ export default function SpendVsLeadsComboChart({
   const totalLeads = chartData.reduce((sum, d) => sum + d.total_leads, 0);
   const avgSpendPerLead = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : '0.00';
 
+  // Custom legend
+  const renderLegend = () => (
+    <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '12px', color: '#5c5850', marginBottom: '8px' }}>
+      <span>
+        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#9db5a0', marginRight: 4, verticalAlign: 'middle' }} />
+        Patient Leads
+      </span>
+      <span>
+        <span style={{ display: 'inline-block', width: 12, height: 3, background: '#c4704f', marginRight: 4, verticalAlign: 'middle', borderRadius: 2 }} />
+        Ad Spend ($)
+      </span>
+    </div>
+  );
+
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -80,7 +94,7 @@ export default function SpendVsLeadsComboChart({
               margin: '4px 0',
               fontWeight: '500'
             }}>
-              {entry.name}: {entry.value}
+              {entry.name === 'Ad Spend ($)' ? `Ad Spend ($): ${fmtCurrency(entry.value)}` : `Patient Leads: ${entry.value}`}
             </p>
           ))}
         </div>
@@ -238,7 +252,8 @@ export default function SpendVsLeadsComboChart({
               value: 'Leads',
               angle: -90,
               position: 'insideLeft',
-              style: { color: '#9db5a0', fontSize: '12px', fontWeight: '600' }
+              offset: 10,
+              style: { fill: '#9db5a0', fontSize: '12px', fontWeight: '600' }
             }}
           />
 
@@ -248,22 +263,17 @@ export default function SpendVsLeadsComboChart({
             stroke="#c4704f"
             style={{ fontSize: '12px' }}
             label={{
-              value: 'Ad Spend ($)',
+              value: 'Spend ($)',
               angle: 90,
               position: 'insideRight',
-              style: { color: '#c4704f', fontSize: '12px', fontWeight: '600' }
+              offset: 10,
+              style: { fill: '#c4704f', fontSize: '12px', fontWeight: '600' }
             }}
           />
 
           <Tooltip content={<CustomTooltip />} />
 
-          <Legend
-            wrapperStyle={{
-              paddingTop: '20px',
-              fontSize: '12px',
-              fontWeight: '600'
-            }}
-          />
+          <Legend content={renderLegend} verticalAlign="top" />
 
           {/* Bar for Leads */}
           <Bar

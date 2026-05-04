@@ -888,10 +888,10 @@ export default function GoogleAdsPage() {
                       <strong>{fmtNum(Math.round(totalConversions))} patient {totalConversions === 1 ? 'lead' : 'leads'}</strong>{' '}
                       at <strong>{fmtCurrency(parseFloat(cpa))} per lead</strong>.{' '}
                       {momCpa.type === 'up'
-                        ? `Cost per lead improved vs. ${prevLabel} — your campaigns are becoming more efficient.`
+                        ? `✅ Cost per lead (CPL) improved vs. ${prevLabel} — more efficient spend.`
                         : momCpa.type === 'down'
-                        ? `Cost per lead increased vs. ${prevLabel}. This may indicate more competitive auctions or lower-quality clicks.`
-                        : `Cost per lead is similar to ${prevLabel}.`}
+                        ? `⚠️ Cost per lead (CPL) increased vs. ${prevLabel} — review ad targeting or landing page quality.`
+                        : `Cost per lead (CPL) stable vs. ${prevLabel}.`}
                     </p>
                   </div>
                   {/* CTR/Click insight */}
@@ -1128,20 +1128,23 @@ export default function GoogleAdsPage() {
                     gap: '12px',
                     marginTop: '12px'
                   }}>
-                    {/* Cost Per Acquisition */}
+                    {/* Cost Per Lead (CPL) */}
                     <div style={{
                       background: 'rgba(16, 185, 129, 0.08)',
                       borderRadius: '8px',
                       padding: '12px',
                       borderLeft: '3px solid #10b981'
                     }}>
-                      <p style={{
-                        fontSize: '10px',
-                        color: '#5c5850',
-                        margin: '0 0 4px 0',
-                        fontWeight: '600'
-                      }}>
-                        Cost Per Lead
+                      <p
+                        title="Total ad spend ÷ number of patient leads generated. Does not include phone calls unless tracked via Google Ads call extensions."
+                        style={{
+                          fontSize: '10px',
+                          color: '#5c5850',
+                          margin: '0 0 4px 0',
+                          fontWeight: '600',
+                          cursor: 'help'
+                        }}>
+                        Cost Per Lead (CPL)
                       </p>
                       <p style={{
                         fontSize: '18px',
@@ -1289,7 +1292,7 @@ export default function GoogleAdsPage() {
                     lineHeight: '1.5'
                   }}>
                     {totalConversions > 0
-                      ? `${fmtNum(totalConversions)} conversions from ${fmtNum(totalClicks)} clicks (${ctr}% CTR). Average cost per conversion: ${fmtCurrency(parseFloat(cpa))}.`
+                      ? `${fmtNum(totalConversions)} leads from ${fmtNum(totalClicks)} clicks (${ctr}% CTR). Average cost per lead (CPL): ${fmtCurrency(parseFloat(cpa))}.`
                       : 'No conversion data available for this period.'}
                   </p>
                 </div>
