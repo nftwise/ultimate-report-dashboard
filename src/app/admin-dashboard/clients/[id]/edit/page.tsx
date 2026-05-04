@@ -226,7 +226,7 @@ export default function EditClientPage({ params }: EditClientParams) {
       if (!res.ok) throw new Error(data.error || 'Failed to update client');
 
       setSuccess(true);
-      setTimeout(() => router.push('/admin-dashboard'), 800);
+      setTimeout(() => router.push('/admin-dashboard/clients'), 800);
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
       setSubmitting(false);
@@ -250,7 +250,7 @@ export default function EditClientPage({ params }: EditClientParams) {
         borderBottom: '1px solid rgba(44, 36, 25, 0.1)',
       }}>
         <button
-          onClick={() => router.push('/admin-dashboard')}
+          onClick={() => router.push('/admin-dashboard/clients')}
           className="flex items-center gap-2 hover:opacity-70 transition"
           style={{ color: '#c4704f', fontWeight: 600, fontSize: '14px' }}
         >
