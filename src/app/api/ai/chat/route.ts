@@ -133,10 +133,9 @@ Only use this data. Do not invent figures.`;
   }
 
   const MODELS = [
-    'openai/gpt-oss-120b:free',
-    'minimax/minimax-m2.5:free',
     'google/gemma-4-31b-it:free',
     'google/gemma-3-27b-it:free',
+    'google/gemma-3-12b-it:free',
   ];
 
   let lastErr = '';
