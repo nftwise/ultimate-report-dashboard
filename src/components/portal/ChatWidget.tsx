@@ -114,8 +114,8 @@ export default function ChatWidget({ role }: ChatWidgetProps) {
       {open && (
         <div style={{
           position: 'fixed', bottom: '88px', right: '24px', zIndex: 9998,
-          width: 'min(360px, calc(100vw - 32px))',
-          height: 'min(520px, calc(100vh - 120px))',
+          width: 'min(480px, calc(100vw - 32px))',
+          height: 'min(640px, calc(100vh - 120px))',
           background: '#fff',
           borderRadius: '20px',
           boxShadow: '0 12px 48px rgba(44,36,25,0.18)',
