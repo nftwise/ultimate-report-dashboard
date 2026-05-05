@@ -88,6 +88,20 @@ async function assignSyncGroup(newClientId: string): Promise<string> {
 // Background backfill (fire-and-forget)
 // ---------------------------------------------------------------------------
 
+async function setBackfillStatus(
+  clientId: string,
+  status: 'in_progress' | 'completed' | 'failed',
+  extra?: Record<string, unknown>,
+) {
+  await supabaseAdmin.from('system_settings').upsert(
+    {
+      key: `backfill_status_${clientId}`,
+      value: { status, updatedAt: new Date().toISOString(), ...extra },
+    },
+    { onConflict: 'key' },
+  );
+}
+
 async function triggerInitialBackfill(
   clientId: string,
   clientName: string,
@@ -110,7 +124,10 @@ async function triggerInitialBackfill(
     `[backfill] Starting 90-day background backfill for ${clientName} (${clientId}), ${dates.length} days`,
   );
 
+  await setBackfillStatus(clientId, 'in_progress', { startedAt: new Date().toISOString(), totalDays: dates.length });
+
   let totalGbpRecords = 0;
+  let failedDate: string | null = null;
 
   for (const date of dates) {
     try {
@@ -146,6 +163,7 @@ async function triggerInitialBackfill(
       await new Promise((r) => setTimeout(r, 1000));
     } catch (err) {
       console.error(`[backfill] Error for ${clientName} on ${date}:`, err);
+      failedDate = date;
       // Continue to next date — don't abort
     }
   }
@@ -156,7 +174,14 @@ async function triggerInitialBackfill(
     );
   }
 
-  console.log(`[backfill] Completed 90-day backfill for ${clientName} (${clientId})`);
+  const completedAt = new Date().toISOString();
+  if (failedDate) {
+    await setBackfillStatus(clientId, 'failed', { completedAt, lastFailedDate: failedDate });
+    console.warn(`[backfill] Completed with errors for ${clientName} (${clientId}) — last failed date: ${failedDate}`);
+  } else {
+    await setBackfillStatus(clientId, 'completed', { completedAt });
+    console.log(`[backfill] Completed 90-day backfill for ${clientName} (${clientId})`);
+  }
 }
 
 // ---------------------------------------------------------------------------

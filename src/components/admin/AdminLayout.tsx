@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 
 const ChatWidget = dynamic(() => import('@/components/portal/ChatWidget'), { ssr: false });
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   LayoutDashboard,
   Users,
@@ -249,7 +250,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
           {/* Spacer for mobile fixed top bar */}
           <div className="md:hidden h-14" />
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
     );
@@ -456,7 +457,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
         {/* Spacer for mobile fixed top bar */}
         <div className="md:hidden h-14" />
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </main>
 
       {/* AI Chat — admin/team only */}

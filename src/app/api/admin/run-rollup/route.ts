@@ -352,14 +352,15 @@ async function processClient(
       trafficReferral += s;
     }
 
-    // AI traffic
+    // AI traffic — use exact platform names only; sm.includes('ai') is too broad
+    // and would false-positive on 'gmail', 'paid', etc.
     if (
-      sm.includes('ai') ||
       sm.includes('chatgpt') || sm.includes('openai') ||
       sm.includes('perplexity') ||
       sm.includes('claude') || sm.includes('anthropic') ||
       sm.includes('gemini') || sm.includes('bard') ||
-      sm.includes('copilot')
+      sm.includes('copilot') || sm.includes('you.com') ||
+      sm.includes('phind') || sm.includes('kagi')
     ) {
       trafficAi += s;
     }

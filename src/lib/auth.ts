@@ -5,6 +5,34 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { supabaseAdmin } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 
+// Simple per-instance rate limiter for login attempts.
+// Resets on cold start; not shared across Vercel instances, but stops
+// rapid brute-force on a single instance without needing Redis.
+const _loginFailures = new Map<string, { count: number; resetAt: number }>();
+const _RATE_LIMIT_MAX = 5;
+const _RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function _isRateLimited(email: string): boolean {
+  const now = Date.now();
+  const entry = _loginFailures.get(email);
+  if (!entry || now > entry.resetAt) return false;
+  return entry.count >= _RATE_LIMIT_MAX;
+}
+
+function _recordFailure(email: string): void {
+  const now = Date.now();
+  const entry = _loginFailures.get(email);
+  if (!entry || now > entry.resetAt) {
+    _loginFailures.set(email, { count: 1, resetAt: now + _RATE_LIMIT_WINDOW_MS });
+  } else {
+    entry.count++;
+  }
+}
+
+function _clearFailures(email: string): void {
+  _loginFailures.delete(email);
+}
+
 interface ClientData {
   id: string
   name: string
@@ -21,6 +49,11 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        if (_isRateLimited(credentials.email)) {
+          console.error('Login rate limit exceeded for:', credentials.email)
           return null
         }
 
@@ -54,8 +87,11 @@ export const authOptions: NextAuthOptions = {
 
         if (!isValidPassword) {
           console.error('Invalid password for:', credentials.email)
+          _recordFailure(credentials.email)
           return null
         }
+
+        _clearFailures(credentials.email)
 
         // Update last login
         await supabaseAdmin

@@ -126,6 +126,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Cannot deactivate your own account' }, { status: 400 });
     }
 
+    // Prevent deactivating the last active admin
+    if (is_active === false) {
+      const { data: targetUser } = await supabaseAdmin.from('users').select('role').eq('id', id).single();
+      if (targetUser?.role === 'admin') {
+        const { count } = await supabaseAdmin.from('users').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('is_active', true);
+        if ((count ?? 0) <= 1) {
+          return NextResponse.json({ success: false, error: 'Cannot deactivate the last admin account' }, { status: 400 });
+        }
+      }
+    }
+
     const updates: Record<string, unknown> = {};
     if (is_active !== undefined) updates.is_active = is_active;
     if (password) {
@@ -166,6 +177,15 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
+    }
+
+    // Prevent deleting the last active admin
+    const { data: targetUser } = await supabaseAdmin.from('users').select('role').eq('id', id).single();
+    if (targetUser?.role === 'admin') {
+      const { count } = await supabaseAdmin.from('users').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('is_active', true);
+      if ((count ?? 0) <= 1) {
+        return NextResponse.json({ success: false, error: 'Cannot delete the last admin account' }, { status: 400 });
+      }
     }
 
     const { error } = await supabaseAdmin.from('users').delete().eq('id', id);

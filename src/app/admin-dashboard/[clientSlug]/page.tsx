@@ -439,7 +439,7 @@ export default function ClientDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C2.muted, fontFamily: FF.mono, marginBottom: 10, letterSpacing: '0.02em' }}>
             Clients
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-            {client.name}
+            {client.name || 'Client'}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             <span style={{ color: C2.choc, fontWeight: 600 }}>Overview</span>
           </div>
