@@ -669,10 +669,14 @@ export default function GoogleAdsPage() {
 
         <div>
             {/* Section 1: Page Header */}
-            <div className="mb-12">
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>GOOGLE ADS ANALYTICS</span>
-              <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Performance Report</h1>
-              <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>Paid search performance — how your ad budget translates into patient leads</p>
+            <div className="mb-8">
+              <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#5c5850' }}>
+                {client?.name} / Google Ads
+              </span>
+              <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: '32px', color: '#2c2419', letterSpacing: '-0.02em', margin: '4px 0 2px', lineHeight: 1.15 }}>
+                Ad Performance <em style={{ fontStyle: 'italic', color: '#c4704f', fontWeight: 400 }}>report</em>
+              </h1>
+              <p className="text-sm" style={{ color: '#9ca3af' }}>Paid search performance — how your ad budget translates into patient leads</p>
             </div>
 
             {/* Section 6: Key Insights */}

@@ -252,8 +252,9 @@ export default function GBPPage() {
     </div>
   );
 
-  const card = { background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '16px', padding: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' };
-  const bigCard = { ...card, borderRadius: '24px', padding: '24px' };
+  const FF = { serif: "'Fraunces', Georgia, serif", outfit: "'Outfit', sans-serif", mono: "'JetBrains Mono', monospace" };
+  const card = { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 16, padding: '20px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' };
+  const bigCard = { ...card, padding: '24px' };
   const spinner = (h = 240) => (
     <div style={{ height: h, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 28, height: 28, border: '3px solid #f3f3f3', borderTop: '3px solid #c4704f', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
@@ -362,10 +363,14 @@ export default function GBPPage() {
         </div>
 
         {/* ── Page Header ───────────────────────────────────────────────── */}
-        <div className="mb-12">
-          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>LOCAL SEO</span>
-          <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Google Business Profile</h1>
-          <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>{locationName || 'Local visibility and customer engagement metrics'}</p>
+        <div className="mb-8">
+          <span style={{ fontSize: '11px', fontFamily: FF.mono, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#5c5850' }}>
+            {client.name} / Google Business Profile
+          </span>
+          <h1 style={{ fontFamily: FF.serif, fontWeight: 600, fontSize: '32px', color: '#2c2419', letterSpacing: '-0.02em', margin: '4px 0 2px', lineHeight: 1.15 }}>
+            Local Visibility <em style={{ fontStyle: 'italic', color: '#c4704f', fontWeight: 400 }}>& engagement</em>
+          </h1>
+          <p className="text-sm" style={{ color: '#9ca3af' }}>{locationName || 'Google Maps · Search · Calls · Directions'}</p>
         </div>
 
         {/* GBP data freshness banner */}
@@ -447,7 +452,7 @@ export default function GBPPage() {
                         <span title="Times customers tapped the call button — includes unanswered calls" style={{ fontSize: '11px', color: '#9ca3af', cursor: 'help' }}>ⓘ</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
-                        <span style={{ fontSize: '56px', fontWeight: 900, color: '#10b981', lineHeight: 1, letterSpacing: '-0.02em' }}>{fmtNum(pCalls)}</span>
+                        <span style={{ fontSize: '56px', fontWeight: 900, color: '#10b981', lineHeight: 1, letterSpacing: '-0.02em', fontFamily: FF.outfit }}>{fmtNum(pCalls)}</span>
                         <div>
                           {momBadge(momCalls, `vs prev ${periodDays}d`)}
                           <p style={{ fontSize: '11px', color: '#5c5850', margin: '6px 0 0' }}>
@@ -478,9 +483,10 @@ export default function GBPPage() {
                     { label: 'Website Clicks', val: pClicks, mom: momClicks, color: '#d9a854', sub: `${clicksPct}% of actions` },
                     { label: 'Directions', val: pDir, mom: momDir, color: '#c4704f', sub: `${dirPct}% of actions` },
                   ].map(item => (
-                    <div key={item.label} style={card}>
-                      <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: 600, margin: '0 0 8px 0', textTransform: 'uppercase' }}>{item.label}</p>
-                      <p style={{ fontSize: '32px', fontWeight: 700, color: item.color, margin: '0 0 6px 0' }}>{fmtNum(item.val)}</p>
+                    <div key={item.label} style={{ ...card, position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: item.color }} />
+                      <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: 700, margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.10em', fontFamily: FF.mono }}>{item.label}</p>
+                      <p style={{ fontSize: '30px', fontWeight: 800, color: item.color, margin: '0 0 6px 0', fontFamily: FF.outfit, lineHeight: 1.1 }}>{fmtNum(item.val)}</p>
                       {momBadge(item.mom, `vs prev ${periodDays}d`)}
                       <p style={{ fontSize: '10px', color: '#9ca3af', margin: '6px 0 0 0' }}>{item.sub}</p>
                     </div>

@@ -269,8 +269,9 @@ export default function SEOPage() {
     ...(totalTrafficAI > 0 ? [{ name: 'AI Assistants', value: totalTrafficAI, color: '#6b5b95' }] : []),
   ].filter(s => s.value > 0);
 
-  const card = { background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.1)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.08)' };
-  const miniCard = { ...card, borderRadius: '16px', padding: '20px' };
+  const FF = { serif: "'Fraunces', Georgia, serif", outfit: "'Outfit', sans-serif", mono: "'JetBrains Mono', monospace" };
+  const card = { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 16, padding: '24px', boxShadow: '0 4px 20px rgba(44,36,25,0.06)' };
+  const miniCard = { ...card, padding: '18px 18px 16px', position: 'relative' as const, overflow: 'hidden' };
 
   return (
     <AdminLayout>
@@ -318,9 +319,13 @@ export default function SEOPage() {
 
           {/* Header */}
           <div className="mb-10">
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5c5850', letterSpacing: '0.15em' }}>SEO PERFORMANCE</span>
-            <h1 className="text-4xl font-black mt-2" style={{ color: '#2c2419', letterSpacing: '-0.02em' }}>Search Performance</h1>
-            <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>How often patients find you on Google — and what they do next</p>
+            <span style={{ fontSize: '11px', fontFamily: FF.mono, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#5c5850' }}>
+              {client.name} / SEO
+            </span>
+            <h1 style={{ fontFamily: FF.serif, fontWeight: 600, fontSize: '32px', color: '#2c2419', letterSpacing: '-0.02em', margin: '4px 0 2px', lineHeight: 1.15 }}>
+              Search Performance <em style={{ fontStyle: 'italic', color: '#c4704f', fontWeight: 400 }}>overview</em>
+            </h1>
+            <p className="text-sm" style={{ color: '#9ca3af' }}>How often patients find you on Google — and what they do next</p>
           </div>
 
           {/* ── KPI Cards ──────────────────────────────────────────────── */}
@@ -356,9 +361,10 @@ export default function SEOPage() {
               },
             ].map((kpi, i) => (
               <div key={i} style={miniCard}>
-                <p style={{ fontSize: '11px', color: '#5c5850', fontWeight: 600, margin: '0 0 2px 0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{kpi.label}</p>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: kpi.color }} />
+                <p style={{ fontSize: '10px', color: '#5c5850', fontWeight: 700, margin: '0 0 2px 0', textTransform: 'uppercase', letterSpacing: '0.10em', fontFamily: FF.mono }}>{kpi.label}</p>
                 <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0 0 10px 0' }}>{kpi.sub}</p>
-                <p style={{ fontSize: '32px', fontWeight: 700, color: kpi.color, margin: 0 }}>{kpi.value}</p>
+                <p style={{ fontSize: '30px', fontWeight: 800, color: kpi.color, margin: 0, fontFamily: FF.outfit, lineHeight: 1.1 }}>{kpi.value}</p>
                 {momBadge(kpi.mom)}
               </div>
             ))}

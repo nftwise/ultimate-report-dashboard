@@ -618,11 +618,11 @@ export default function GeoPage() {
         {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#7c3aed', margin: '0 0 6px 0' }}>
-              GEO / AI VISIBILITY
-            </p>
-            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#2c2419', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
-              AI Search Visibility
+            <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#7c3aed' }}>
+              {client?.name ?? clientSlug} / GEO · AI
+            </span>
+            <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: '32px', color: '#2c2419', letterSpacing: '-0.02em', margin: '4px 0 2px', lineHeight: 1.15 }}>
+              AI Search Visibility <em style={{ fontStyle: 'italic', color: '#7c3aed', fontWeight: 400 }}>tracking</em>
             </h1>
             <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
               How often AI assistants like Copilot, ChatGPT, and Perplexity cite your website
@@ -881,32 +881,35 @@ export default function GeoPage() {
               ].map(card => (
                 <div key={card.label}
                   style={{
-                    background: 'rgba(255,255,255,0.9)',
+                    background: 'rgba(255,255,255,0.92)',
                     backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(44,36,25,0.1)',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    boxShadow: '0 4px 20px rgba(44,36,25,0.08)',
+                    border: '1px solid rgba(44,36,25,0.08)',
+                    borderRadius: 16,
+                    padding: '18px 18px 16px',
+                    boxShadow: '0 4px 20px rgba(44,36,25,0.06)',
+                    position: 'relative',
+                    overflow: 'hidden',
                     transition: 'all 0.2s ease',
                     cursor: 'default',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(44,36,25,0.12)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(44,36,25,0.08)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(44,36,25,0.06)'; }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: 0 }}>{card.label}</p>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7c3aed' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#5c5850', margin: 0, fontFamily: "'JetBrains Mono', monospace" }}>{card.label}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {card.allTime && (
                         <span style={{ fontSize: '9px', fontWeight: 600, color: '#9ca3af', background: 'rgba(44,36,25,0.06)', borderRadius: '4px', padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           All time
                         </span>
                       )}
-                      <div style={{ width: 32, height: 32, borderRadius: '10px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {card.icon}
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 800, color: '#7c3aed', marginBottom: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ fontSize: '30px', fontWeight: 800, color: '#7c3aed', marginBottom: '6px', letterSpacing: '-0.02em', fontFamily: "'Outfit', sans-serif", lineHeight: 1.1 }}>
                     {card.value}
                   </div>
                   <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{card.sub}</p>
