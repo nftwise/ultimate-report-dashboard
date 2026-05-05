@@ -53,7 +53,7 @@ export default function ServiceNotActive({ serviceName, description }: ServiceNo
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
         <a
-          href="mailto:info@mychiropractice.com"
+          href="mailto:info@data11.ai"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -70,7 +70,7 @@ export default function ServiceNotActive({ serviceName, description }: ServiceNo
           }}
         >
           <Mail size={16} />
-          info@mychiropractice.com
+          info@data11.ai
         </a>
         <a
           href="tel:9493851450"

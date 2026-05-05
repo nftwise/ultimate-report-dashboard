@@ -302,8 +302,7 @@ export default function Home() {
       {/* ══════════ NAV */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, padding: '18px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(245,241,237,0.88)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: `1px solid ${C.borderSoft}` }}>
         <span style={{ fontFamily: outfit, fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: C.chocolate, display: 'flex', alignItems: 'center' }}>
-          Wise<span style={{ color: C.coral }}>CRM</span>
-          <span style={{ width: 6, height: 6, background: C.coral, borderRadius: '50%', marginLeft: 4, marginBottom: 4, alignSelf: 'flex-end', display: 'inline-block' }} />
+          Data<span style={{ color: C.coral }}>11.ai</span>
         </span>
         <div className="nav-links-desktop" style={{ display: 'flex', alignItems: 'center', gap: 36 }}>
           {[['#results','Your Results'],['#attribution','Attribution'],['#about','About Us'],['#trust','Security']].map(([href, label]) => (
@@ -324,7 +323,7 @@ export default function Home() {
 
       {/* ══════════ HERO */}
       <section className="hero-section-pad" style={{ position: 'relative', zIndex: 2, padding: '140px 40px 80px', background: 'radial-gradient(ellipse at 75% 10%, rgba(217,168,84,0.16), transparent 50%), radial-gradient(ellipse at 10% 80%, rgba(196,112,79,0.1), transparent 55%), linear-gradient(180deg, #f9f5ee 0%, #f5f1ed 100%)', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', fontFamily: fraunces, fontWeight: 300, fontSize: 'clamp(320px,50vw,720px)', color: C.chocolate, opacity: 0.02, lineHeight: 0.8, bottom: -120, right: -80, pointerEvents: 'none', zIndex: 1 }}>W</div>
+        <div aria-hidden style={{ position: 'absolute', fontFamily: fraunces, fontWeight: 300, fontSize: 'clamp(320px,50vw,720px)', color: C.chocolate, opacity: 0.02, lineHeight: 0.8, bottom: -120, right: -80, pointerEvents: 'none', zIndex: 1 }}>D</div>
 
         <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 72, alignItems: 'center', maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 2 }}>
 

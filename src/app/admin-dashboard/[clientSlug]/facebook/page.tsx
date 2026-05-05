@@ -10,7 +10,7 @@ import { fmtNum, fmtCurrency } from '@/lib/format';
 // ── Contact info for upsell page ──────────────────────────────────────────
 const CONTACT_PHONE     = '949-385-1450';
 const CONTACT_PHONE_TEL = '+19493851450';
-const CONTACT_EMAIL     = 'info@mychiropractice.com';
+const CONTACT_EMAIL     = 'info@data11.ai';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Line, ComposedChart,
