@@ -142,6 +142,7 @@ export default function ClientDetailPage() {
   });
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
   const [latestGbpRating, setLatestGbpRating] = useState(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
@@ -189,8 +190,9 @@ export default function ClientDetailPage() {
           setDateRange({ from, to });
         }
         if (data.latestGbpRating > 0) setLatestGbpRating(data.latestGbpRating);
+        setBootstrapDone(true);
       })
-      .catch(err => console.error('[Overview bootstrap]', err));
+      .catch(err => { console.error('[Overview bootstrap]', err); setBootstrapDone(true); });
   }, [client]);
 
   const fetchDailyMetrics = async () => {
@@ -232,7 +234,7 @@ export default function ClientDetailPage() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchDailyMetrics(); }, [client, dateRange.from, dateRange.to]);
+  useEffect(() => { if (!bootstrapDone) return; fetchDailyMetrics(); }, [client, dateRange.from, dateRange.to, bootstrapDone]);
 
   if (loading) {
     return (

@@ -102,6 +102,7 @@ export default function GBPPage() {
   const [viewsChart, setViewsChart] = useState<{ month: string; views: number; clicks: number; directions: number }[]>([]);
   const [actionsChart, setActionsChart] = useState<{ month: string; calls: number }[]>([]);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
 
   // ── period data (DYNAMIC — from date picker) ──────────────────────────────
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -142,30 +143,32 @@ export default function GBPPage() {
     fetch(`/api/portal/gbp?clientId=${encodeURIComponent(client.id)}`)
       .then(r => r.json())
       .then((data: any) => {
-        if (!data?.success) return;
-        if (data.locationName) setLocationName(data.locationName);
-        if (data.lastAvailableDate) {
-          const to = new Date(data.lastAvailableDate + 'T12:00:00');
-          setLastAvailableDate(to);
-          const from = new Date(to); from.setDate(from.getDate() - 30);
-          setDateRange({ from, to });
+        if (data?.success) {
+          if (data.locationName) setLocationName(data.locationName);
+          if (data.lastAvailableDate) {
+            const to = new Date(data.lastAvailableDate + 'T12:00:00');
+            setLastAvailableDate(to);
+            const from = new Date(to); from.setDate(from.getDate() - 30);
+            setDateRange({ from, to });
+          }
+          if (data.latestReviews > 0) {
+            setLatestReviews(data.latestReviews);
+            setLatestRating(data.latestRating ?? 0);
+          }
+          if (data.monthlyData) {
+            setViewsChart(data.monthlyData.views || []);
+            setActionsChart(data.monthlyData.actions || []);
+          }
         }
-        if (data.latestReviews > 0) {
-          setLatestReviews(data.latestReviews);
-          setLatestRating(data.latestRating ?? 0);
-        }
-        if (data.monthlyData) {
-          setViewsChart(data.monthlyData.views || []);
-          setActionsChart(data.monthlyData.actions || []);
-        }
+        setBootstrapDone(true);
       })
-      .catch(err => console.error('[GBP bootstrap]', err))
+      .catch(err => { console.error('[GBP bootstrap]', err); setBootstrapDone(true); })
       .finally(() => setMonthlyLoading(false));
   }, [client]);
 
   // ── period data (re-runs on date change) ──────────────────────────────────
   useEffect(() => {
-    if (!client) return;
+    if (!client || !bootstrapDone) return;
     setPeriodLoading(true);
     const effectiveTo = dateRange.to > yesterday() ? yesterday() : dateRange.to;
     const fromISO = toLocalDateStr(dateRange.from);
@@ -203,7 +206,7 @@ export default function GBPPage() {
         setFetchError('Unable to load data. Please try again.');
       })
       .finally(() => setPeriodLoading(false));
-  }, [client, dateRange]);
+  }, [client, dateRange, bootstrapDone]);
 
   // ── guards ────────────────────────────────────────────────────────────────
   if (loading || !client) {

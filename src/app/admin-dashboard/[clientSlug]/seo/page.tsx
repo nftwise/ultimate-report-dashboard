@@ -59,6 +59,7 @@ export default function SEOPage() {
     return { from, to };
   });
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
@@ -97,18 +98,20 @@ export default function SEOPage() {
     fetch(`/api/portal/seo?clientId=${encodeURIComponent(client.id)}`)
       .then(r => r.json())
       .then((data: any) => {
-        if (!data?.success || !data.lastAvailableDate) return;
-        const to = new Date(data.lastAvailableDate + 'T12:00:00');
-        setLastAvailableDate(to);
-        const from = new Date(to); from.setDate(from.getDate() - 30);
-        setDateRange({ from, to });
+        if (data?.success && data.lastAvailableDate) {
+          const to = new Date(data.lastAvailableDate + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+        setBootstrapDone(true);
       })
-      .catch(err => console.error('[SEO bootstrap]', err));
+      .catch(err => { console.error('[SEO bootstrap]', err); setBootstrapDone(true); });
   }, [client]);
 
   // Fetch full SEO payload (metrics + keywords + prev period + real conversions)
   useEffect(() => {
-    if (!client) return;
+    if (!client || !bootstrapDone) return;
     const fromISO = toLocalDateStr(dateRange.from);
     const toISO = toLocalDateStr(dateRange.to);
 

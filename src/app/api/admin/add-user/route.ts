@@ -121,6 +121,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
     }
 
+    // Prevent admins from deactivating their own account
+    if (is_active === false && id === (session?.user as any)?.id) {
+      return NextResponse.json({ success: false, error: 'Cannot deactivate your own account' }, { status: 400 });
+    }
+
     const updates: Record<string, unknown> = {};
     if (is_active !== undefined) updates.is_active = is_active;
     if (password) {

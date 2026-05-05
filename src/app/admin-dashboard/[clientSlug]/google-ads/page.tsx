@@ -436,6 +436,7 @@ export default function GoogleAdsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(30);
   const [lastAvailableDate, setLastAvailableDate] = useState<Date | null>(null);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date(); to.setDate(to.getDate() - 1);
     const from = new Date(to);
@@ -487,19 +488,21 @@ export default function GoogleAdsPage() {
     fetch(`/api/portal/google-ads?clientId=${encodeURIComponent(client.id)}`)
       .then(r => r.json())
       .then((data: any) => {
-        if (!data?.success || !data.lastAvailableDate) return;
-        const to = new Date(data.lastAvailableDate + 'T12:00:00');
-        setLastAvailableDate(to);
-        const from = new Date(to); from.setDate(from.getDate() - 30);
-        setDateRange({ from, to });
+        if (data?.success && data.lastAvailableDate) {
+          const to = new Date(data.lastAvailableDate + 'T12:00:00');
+          setLastAvailableDate(to);
+          const from = new Date(to); from.setDate(from.getDate() - 30);
+          setDateRange({ from, to });
+        }
+        setBootstrapDone(true);
       })
-      .catch(err => console.error('[Ads bootstrap]', err));
+      .catch(err => { console.error('[Ads bootstrap]', err); setBootstrapDone(true); });
   }, [client]);
 
   // Single fetch covers daily metrics, campaigns, ad groups, search terms,
   // conversion breakdown, total conversions, and previous period.
   useEffect(() => {
-    if (!client) return;
+    if (!client || !bootstrapDone) return;
     setChartLoading(true);
     const dateFromISO = toLocalDateStr(dateRange.from);
     const dateToISO = toLocalDateStr(dateRange.to);
@@ -541,7 +544,7 @@ export default function GoogleAdsPage() {
         setFetchError('Unable to load data. Please try again.');
       })
       .finally(() => setChartLoading(false));
-  }, [client, dateRange]);
+  }, [client, dateRange, bootstrapDone]);
 
   if (loading || !client) {
     return (
