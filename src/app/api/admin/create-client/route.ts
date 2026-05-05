@@ -139,7 +139,7 @@ async function triggerInitialBackfill(
       await fetch(`${baseUrl}/api/admin/run-rollup`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ date, clientId }),
+        body: JSON.stringify({ date, clientId, secret }),
       });
 
       // 1 second delay to avoid overwhelming APIs

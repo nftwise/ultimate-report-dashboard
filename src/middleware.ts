@@ -31,6 +31,16 @@ export default withAuth(
       return NextResponse.next()
     }
 
+    // ── CRON_SECRET bypass — allows server-to-server internal calls ──────────
+    // trigger-cron and create-client call /api/admin/run-rollup with this header.
+    // withAuth can't distinguish CRON_SECRET from a JWT, so we check it here
+    // after authorized() has already passed for CRON_SECRET requests.
+    const authHeader = req.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET
+    if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+      return NextResponse.next()
+    }
+
     // ── API ROUTE PROTECTION ─────────────────────────────────────────────────
     // /api/admin/* — require admin or team role
     if (pathname.startsWith('/api/admin/')) {
@@ -82,7 +92,19 @@ export default withAuth(
 
     return NextResponse.next()
   },
-  { pages: { signIn: '/login' } }
+  {
+    callbacks: {
+      // Allow through if: (1) valid JWT session, or (2) CRON_SECRET bearer token
+      // for server-to-server internal calls (trigger-cron → run-rollup, etc.)
+      authorized: ({ req, token }) => {
+        if (token) return true
+        const cronSecret = process.env.CRON_SECRET
+        if (cronSecret && req.headers.get('authorization') === `Bearer ${cronSecret}`) return true
+        return false
+      },
+    },
+    pages: { signIn: '/login' },
+  }
 )
 
 export const config = {
