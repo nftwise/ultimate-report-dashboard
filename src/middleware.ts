@@ -2,12 +2,17 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
 // Check if path is public (doesn't need auth).
-// NOTE: Facebook routes should be public by default.
 // Cron routes are NOT listed here — they validate CRON_SECRET internally but middleware
 // blocks unauthenticated requests to prevent probing.
 function isPublicPath(pathname: string): boolean {
   const publicPaths = [
-    /^\/api\/facebook\//,
+    // Facebook/Twilio webhooks must stay public — external services call them
+    /^\/api\/facebook\/webhook/,
+    /^\/api\/facebook\/sms\/webhook/,
+    /^\/api\/facebook\/voice\/webhook/,
+    /^\/api\/facebook\/voice\/status/,
+    /^\/api\/facebook\/demo-data/,
+    /^\/api\/facebook\/auto-notify/,  // Supabase DB webhook — has own x-webhook-secret
     /^\/api\/auth\//,
     /^\/api\/telegram\//,
     /^\/api\/cron\//,        // Cron routes handle their own CRON_SECRET auth
@@ -86,5 +91,6 @@ export const config = {
     '/portal/:path*',
     '/api/admin/:path*',
     '/api/ai/:path*',
+    '/api/facebook/:path*',
   ],
 }
