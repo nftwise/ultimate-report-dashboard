@@ -124,7 +124,12 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, unknown> = {};
     if (is_active !== undefined) updates.is_active = is_active;
     if (password) {
-      updates.password_hash = await bcrypt.hash(password, 10);
+      updates.password_hash = await bcrypt.hash(password, 12);
+      // Bump password_version so any JWT minted before this reset is invalidated
+      // by the NextAuth session callback on the user's next request.
+      const { data: row } = await supabaseAdmin.from('users').select('password_version').eq('id', id).single();
+      const currentVersion = typeof (row as any)?.password_version === 'number' ? (row as any).password_version : 1;
+      updates.password_version = currentVersion + 1;
     }
 
     if (Object.keys(updates).length === 0) {
