@@ -12,9 +12,13 @@ on:
         required: true
         default: '2026-04-20'
       group:
-        description: 'Sync group (A, B, C, or all)'
+        description: 'Sync group (A, B, C, or all). Ignored if client_id is set.'
         required: false
         default: 'all'
+      client_id:
+        description: 'Single client UUID to backfill (optional). If set, only this client is synced.'
+        required: false
+        default: ''
 
 env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -32,9 +36,43 @@ env:
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
 jobs:
+  backfill-single-client:
+    name: Backfill Single Client
+    if: ${{ github.event.inputs.client_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Backfill Single Client
+        run: |
+          CLIENT_ID="${{ github.event.inputs.client_id }}"
+          d="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          echo "→ Backfilling client $CLIENT_ID from $d to $END"
+          while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
+            echo "=== $d ==="
+            CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --clientId "$CLIENT_ID" --date "$d" || true
+            CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --clientId "$CLIENT_ID" --date "$d" || true
+            CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --clientId "$CLIENT_ID" --date "$d" || true
+            CLIENT_ID=$CLIENT_ID npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --clientId "$CLIENT_ID" --date "$d" || true
+            d=$(date -d "$d + 1 day" +%Y-%m-%d)
+          done
+          echo "✅ Done backfilling $CLIENT_ID"
+      - name: Alert on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"❌ <b>Backfill Single Client FAILED</b>\nClient: ${{ github.event.inputs.client_id }}\nRange: ${{ github.event.inputs.start_date }} → ${{ github.event.inputs.end_date }}\",\"parse_mode\":\"HTML\"}"
+
   backfill-group-a:
     name: Backfill Group A
-    if: ${{ github.event.inputs.group == 'A' || github.event.inputs.group == 'all' }}
+    if: ${{ github.event.inputs.client_id == '' && (github.event.inputs.group == 'A' || github.event.inputs.group == 'all') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -66,7 +104,7 @@ jobs:
 
   backfill-group-b:
     name: Backfill Group B
-    if: ${{ github.event.inputs.group == 'B' || github.event.inputs.group == 'all' }}
+    if: ${{ github.event.inputs.client_id == '' && (github.event.inputs.group == 'B' || github.event.inputs.group == 'all') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -98,7 +136,7 @@ jobs:
 
   backfill-group-c:
     name: Backfill Group C
-    if: ${{ github.event.inputs.group == 'C' || github.event.inputs.group == 'all' }}
+    if: ${{ github.event.inputs.client_id == '' && (github.event.inputs.group == 'C' || github.event.inputs.group == 'all') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -130,7 +168,7 @@ jobs:
 
   backfill-fb:
     name: Backfill Facebook Ads
-    if: ${{ github.event.inputs.group == 'all' }}
+    if: ${{ github.event.inputs.client_id == '' && github.event.inputs.group == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
