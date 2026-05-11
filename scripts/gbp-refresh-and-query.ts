@@ -42,18 +42,18 @@ async function refreshToken(): Promise<string> {
 }
 
 async function fetchPhoneCalls(token: string, locationId: string, startDate: string, endDate: string): Promise<Record<string, number>> {
-  const url = `https://businessprofileperformance.googleapis.com/v1/${locationId}:fetchMultiDailyMetricTimeSeries`;
-  const params = new URLSearchParams({
-    "dailyMetrics": "CALL_CLICKS",
-    "dailyRange.start_date.year":  startDate.split('-')[0],
-    "dailyRange.start_date.month": String(parseInt(startDate.split('-')[1])),
-    "dailyRange.start_date.day":   String(parseInt(startDate.split('-')[2])),
-    "dailyRange.end_date.year":    endDate.split('-')[0],
-    "dailyRange.end_date.month":   String(parseInt(endDate.split('-')[1])),
-    "dailyRange.end_date.day":     String(parseInt(endDate.split('-')[2])),
-  });
+  const [sY, sM, sD] = startDate.split('-').map(Number);
+  const [eY, eM, eD] = endDate.split('-').map(Number);
+  const url = new URL(`https://businessprofileperformance.googleapis.com/v1/${locationId}:getDailyMetricsTimeSeries`);
+  url.searchParams.set('dailyMetric', 'CALL_CLICKS');
+  url.searchParams.set('dailyRange.start_date.year', String(sY));
+  url.searchParams.set('dailyRange.start_date.month', String(sM));
+  url.searchParams.set('dailyRange.start_date.day', String(sD));
+  url.searchParams.set('dailyRange.end_date.year', String(eY));
+  url.searchParams.set('dailyRange.end_date.month', String(eM));
+  url.searchParams.set('dailyRange.end_date.day', String(eD));
 
-  const res = await fetch(`${url}?${params}`, {
+  const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -62,8 +62,8 @@ async function fetchPhoneCalls(token: string, locationId: string, startDate: str
   }
   const json = await res.json();
   const result: Record<string, number> = {};
-  const series = json.multiDailyMetricTimeSeries?.[0]?.dailyMetricTimeSeries?.[0]?.timeSeries?.datedValues || [];
-  for (const item of series) {
+  const datedValues = json.timeSeries?.datedValues || [];
+  for (const item of datedValues) {
     const d = item.date;
     const dateStr = `${d.year}-${String(d.month).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
     result[dateStr] = parseInt(item.value || '0', 10);
