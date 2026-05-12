@@ -546,15 +546,19 @@ async function checkActiveClientsHaveDataSource() {
 // ─── Main runner ──────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n${BOLD}[CI GATE] Running 17 checks...${RESET}\n`);
+  const skipFreshness = process.env.CI_SKIP_FRESHNESS === 'true';
+  const totalChecks = skipFreshness ? 10 : 17;
+  console.log(`\n${BOLD}[CI GATE] Running ${totalChecks} checks...${skipFreshness ? ' (freshness checks skipped on push)' : ''}${RESET}\n`);
 
-  // Group A
-  console.log(`${BOLD}Group A — Data Freshness${RESET}`);
-  await check(1, 'GA4 data < 3 days old', checkGA4Freshness);
-  await check(2, 'GSC data < 5 days old', checkGSCFreshness);
-  await check(3, 'Ads data < 3 days old', checkAdsFreshness);
-  await check(4, 'GBP data < 5 days old', checkGBPFreshness);
-  await check(5, 'client_metrics_summary has rows in last 4 days', checkSummaryYesterday);
+  // Group A — skipped on push, only run on schedule
+  console.log(`${BOLD}Group A — Data Freshness${skipFreshness ? ' (skipped)' : ''}${RESET}`);
+  if (!skipFreshness) {
+    await check(1, 'GA4 data < 3 days old', checkGA4Freshness);
+    await check(2, 'GSC data < 5 days old', checkGSCFreshness);
+    await check(3, 'Ads data < 3 days old', checkAdsFreshness);
+    await check(4, 'GBP data < 5 days old', checkGBPFreshness);
+    await check(5, 'client_metrics_summary has rows in last 4 days', checkSummaryYesterday);
+  }
 
   // Group B
   console.log(`\n${BOLD}Group B — Data Integrity${RESET}`);
@@ -570,10 +574,12 @@ async function main() {
   await check(12, 'Ads spend: CorePosture raw ≈ summary (tolerance 1%)', checkAdsSummaryConsistency);
   await check(13, 'GBP calls: raw ≈ summary (tolerance 1%)', checkGBPSummaryConsistency);
 
-  // Group D
-  console.log(`\n${BOLD}Group D — API Health${RESET}`);
-  await check(14, 'GET /api/cron/sync-status → 200 + allHealthy field', checkSyncStatus);
-  await check(15, 'client_metrics_summary has rollup data for 2026-03-15', checkRollupEndpoint);
+  // Group D — skipped on push
+  console.log(`\n${BOLD}Group D — API Health${skipFreshness ? ' (skipped)' : ''}${RESET}`);
+  if (!skipFreshness) {
+    await check(14, 'GET /api/cron/sync-status → 200 + allHealthy field', checkSyncStatus);
+    await check(15, 'client_metrics_summary has rollup data for 2026-03-15', checkRollupEndpoint);
+  }
 
   // Group E
   console.log(`\n${BOLD}Group E — Active Clients${RESET}`);
