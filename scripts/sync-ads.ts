@@ -72,7 +72,8 @@ async function main() {
     if (clientIdParam) {
       clientsWithAds = clientsWithAds.filter((c: any) => c.id === clientIdParam);
       if (clientsWithAds.length === 0) {
-        throw new Error(`Client ${clientIdParam} not found or has no Ads config`);
+        console.log(`[sync-ads] Client ${clientIdParam} has no Ads config — skipping`);
+        process.exit(0);
       }
     }
 
