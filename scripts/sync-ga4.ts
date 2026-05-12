@@ -65,7 +65,8 @@ async function main() {
     if (clientIdParam) {
       clientsWithGA = clientsWithGA.filter((c: any) => c.id === clientIdParam);
       if (clientsWithGA.length === 0) {
-        throw new Error(`Client ${clientIdParam} not found or has no GA4 config`);
+        console.log(`[sync-ga4] Client ${clientIdParam} has no GA4 config — skipping`);
+        process.exit(0);
       }
     } else if (groupParam) {
       const { data: groupClients } = await supabaseAdmin

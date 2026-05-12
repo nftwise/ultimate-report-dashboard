@@ -65,7 +65,8 @@ async function main() {
     if (clientIdParam) {
       clientsWithGSC = clientsWithGSC.filter((c: any) => c.id === clientIdParam);
       if (clientsWithGSC.length === 0) {
-        throw new Error(`Client ${clientIdParam} not found or has no GSC config`);
+        console.log(`[sync-gsc] Client ${clientIdParam} has no GSC config — skipping`);
+        process.exit(0);
       }
     }
 

@@ -74,7 +74,8 @@ async function main() {
     if (clientIdParam) {
       validLocations = validLocations.filter(l => l.client_id === clientIdParam);
       if (validLocations.length === 0) {
-        throw new Error(`Client ${clientIdParam} not found or has no GBP location`);
+        console.log(`[sync-gbp] Client ${clientIdParam} has no GBP location configured — skipping`);
+        process.exit(0);
       }
     }
     console.log(`[sync-gbp] Processing ${validLocations.length} locations`);
