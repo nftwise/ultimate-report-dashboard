@@ -57,6 +57,7 @@ jobs:
           while [[ "$d" < "$END" ]] || [[ "$d" == "$END" ]]; do
             echo "=== $d ==="
             CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ga4.ts --clientId "$CLIENT_ID" --date "$d" || true
+            CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-ads.ts --clientId "$CLIENT_ID" --date "$d" || true
             CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gsc.ts --clientId "$CLIENT_ID" --date "$d" || true
             CLIENT_ID=$CLIENT_ID DATE=$d npx tsx --tsconfig scripts/tsconfig.json scripts/sync-gbp.ts --clientId "$CLIENT_ID" --date "$d" || true
             CLIENT_ID=$CLIENT_ID npx tsx --tsconfig scripts/tsconfig.json scripts/run-rollup.ts --clientId "$CLIENT_ID" --date "$d" || true
