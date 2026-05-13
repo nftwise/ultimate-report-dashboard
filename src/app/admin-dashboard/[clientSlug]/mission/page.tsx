@@ -129,6 +129,8 @@ function normalizeActor(actor?: string): string {
   if (!actor) return 'Hermes';
   const aiNames = ['Queen Bee', 'Ad Bee', 'SEO Bee', 'Recon Bee', 'AI Queen Bee', 'AI Performance Tracker', 'AI Search Term Classifier', 'AI Creative Writer'];
   if (aiNames.some(a => actor.includes(a))) return 'Hermes';
+  if (actor.includes('clickcease')) return 'ClickCease (IP Shield)';
+  if (actor.includes('@')) return actor.split('@')[0]; // email → username only
   return actor;
 }
 
@@ -346,7 +348,10 @@ function TimelineFeed({ events, isClientRole, totalCount }: { events: MissionEve
     );
   }
 
-  const sorted = [...events].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+  const now_ts = Date.now();
+  const sorted = [...events]
+    .filter(ev => new Date(ev.occurred_at).getTime() <= now_ts)
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
   const groups: { divider: string; events: MissionEvent[] }[] = [];
   let currentDivider = '';
   for (const ev of sorted) {
@@ -383,12 +388,27 @@ function TimelineFeed({ events, isClientRole, totalCount }: { events: MissionEve
           detail: d?.new_value?.headline || d?.headline || undefined,
         };
       }
-      case 'ai_decision_logged':
+      case 'ai_decision_logged': {
+        const flag = d?.flag || ev.title;
+        // action_taken: "20 changes by seo@..., vinh@...: CREATE AD_GROUP..."
+        const rawAction = d?.action_taken as string | undefined;
+        let actionLine: string | undefined;
+        if (rawAction) {
+          // Extract "N changes by X, Y" prefix
+          const m = rawAction.match(/^(\d+)\s+changes?\s+by\s+([\w@.,\s]+?):/i);
+          if (m) {
+            const who = m[2].split(',').map((s: string) => s.trim().split('@')[0]).join(', ');
+            actionLine = `✓ ${m[1]} changes applied by ${who}`;
+          } else {
+            actionLine = truncateText(rawAction, 80);
+          }
+        }
         return {
           icon: '💡',
-          main: d?.flag || ev.title,
-          detail: d?.diagnosis || d?.action || ev.description || undefined,
+          main: flag,
+          detail: actionLine || d?.diagnosis || ev.description || undefined,
         };
+      }
       case 'ai_change':
         return {
           icon: '⚡',
@@ -674,7 +694,7 @@ function CompetitorRadar({ compDiscovered, compAdEvents, clientName }: {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)', animation: 'pulse-ring-red 2s infinite' }} />
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Competitor Radar</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#2c2419', fontFamily: "'Fraunces', Georgia, serif" }}>Competitor Radar</span>
         <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>Area: {clientName}</span>
       </div>
@@ -722,6 +742,8 @@ function CompetitorRadar({ compDiscovered, compAdEvents, clientName }: {
 }
 
 /* ─── Competitive Intelligence Table ────────── */
+const FF = { serif: "'Fraunces', Georgia, serif", sans: "'Outfit', system-ui, sans-serif", mono: "'JetBrains Mono', monospace" };
+
 function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
   compDiscovered: MissionEvent[];
   compAdEvents: MissionEvent[];
@@ -729,115 +751,158 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
 }) {
   if (compDiscovered.length === 0) return null;
 
-  const adsRunningCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
-
+  // Match competitor_discovered → competitor_new_ad by domain/name
   function getMatchedAdEvent(ev: MissionEvent): MissionEvent | undefined {
     const d = ev.data as any;
     const targetKeys = [d?.competitor_domain, d?.domain, d?.name, ev.title]
-      .filter(Boolean)
-      .map(v => String(v).toLowerCase());
-
+      .filter(Boolean).map(v => String(v).toLowerCase());
     return compAdEvents.find(ce => {
       const cd = ce.data as any;
-      const sourceKeys = [cd?.competitor_domain, cd?.domain, cd?.name, ce.title, ce.description]
-        .filter(Boolean)
-        .map(v => String(v).toLowerCase());
-      return targetKeys.some(target => sourceKeys.some(source => source.includes(target) || target.includes(source)));
+      const sourceKeys = [cd?.competitor_domain, cd?.domain, cd?.name, ce.title]
+        .filter(Boolean).map(v => String(v).toLowerCase());
+      return targetKeys.some(t => sourceKeys.some(s => s.includes(t) || t.includes(s)));
     });
   }
 
-  function getAdSnippet(ev?: MissionEvent): string {
-    if (!ev) return '';
-    const d = ev.data as any;
-    const raw = d?.new_value?.headline || d?.headline || ev.description || ev.title || '';
-    return truncateText(String(raw), 40);
+  function isRunningAds(adEv?: MissionEvent): boolean {
+    if (!adEv) return false;
+    const d = adEv.data as any;
+    return !!(d?.new_value?.is_running_ads || (d?.new_value?.ad_count > 0) || d?.ad_text?.active_ad_count > 0);
   }
 
-  function getAdActivity(ev: MissionEvent): { label: string; color: string; bg: string } {
-    const d = ev.data as any;
-    const adEv = getMatchedAdEvent(ev);
-    if (!adEv) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
-    const isRunning = (adEv.data as any)?.new_value?.is_running_ads;
-    const adCount   = (adEv.data as any)?.new_value?.ad_count || 0;
-    if (!isRunning) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
-    if (adCount > 0) return { label: `🔥 ${adCount} ads`, color: '#ef4444', bg: '#fef2f2' };
-    if (adCount >= 2) return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
-    return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
-  }
+  // Sort: running ads first
+  const sorted = [...compDiscovered].sort((a, b) => {
+    return (isRunningAds(getMatchedAdEvent(b)) ? 1 : 0) - (isRunningAds(getMatchedAdEvent(a)) ? 1 : 0);
+  });
+
+  // Separate: running vs not
+  const running  = sorted.filter(ev => isRunningAds(getMatchedAdEvent(ev)));
+  const watching = sorted.filter(ev => !isRunningAds(getMatchedAdEvent(ev)));
 
   return (
-    <div style={{
-      background: '#fff',
-      borderRadius: 14,
-      border: '1px solid rgba(44,36,25,0.08)',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      marginBottom: 20,
-      overflow: 'hidden',
-    }}>
+    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 20, overflow: 'hidden' }}>
+      {/* Header */}
       <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(44,36,25,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 14 }}>📊</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Competitive Intelligence</span>
+        <span style={{ fontSize: 14 }}>🕵️</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419', fontFamily: FF.serif }}>Competitive Intelligence</span>
         <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{compDiscovered.length} TRACKED</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af' }}>
+          🔥 {running.length} running ads · {watching.length} watching
+        </span>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: '#fafaf9' }}>
-              {['Business', '⭐ Rating', 'Reviews', 'Ad Activity'].map(h => (
-                <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid rgba(44,36,25,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {/* YOU row */}
-            <tr style={{ background: 'rgba(196,112,79,0.04)', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
-              <td style={{ padding: '10px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>⭐</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#c4704f' }}>★ YOU ({clientName})</span>
-                </div>
-              </td>
-              <td style={{ padding: '10px 14px', color: '#d9a854', fontWeight: 700 }}>—</td>
-              <td style={{ padding: '10px 14px', color: '#2c2419', fontWeight: 700 }}>—</td>
-              <td style={{ padding: '10px 14px' }}>
-                <span style={{ fontSize: 10, background: '#ecfdf5', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>Your campaigns</span>
-              </td>
-            </tr>
-            {/* Competitor rows */}
-            {compDiscovered.slice(0, 10).map((ev, i) => {
-              const d = ev.data as any;
-              const act = getAdActivity(ev);
-              const rating = d?.rating || d?.google_rating;
-              const reviews = d?.review_count || d?.reviews;
-              const adEv = getMatchedAdEvent(ev);
-              const adSnippet = getAdSnippet(adEv);
-              const showAdSnippet = !rating && !reviews && adSnippet;
-              return (
-                <tr key={ev.id ?? i} style={{ borderBottom: '1px solid rgba(44,36,25,0.04)' }}>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419' }}>{d?.name || ev.title}</div>
-                    {d?.domain && <div style={{ fontSize: 10, color: '#9ca3af' }}>{d.domain}</div>}
-                  </td>
-                  <td style={{ padding: '10px 14px', color: '#d9a854', fontWeight: 600 }}>
-                    {rating ? `${rating} ★` : showAdSnippet ? <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>{`'${adSnippet}'`}</span> : '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px', color: '#6b7280' }}>
-                    {reviews ? reviews.toLocaleString() : showAdSnippet ? <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>{`'${adSnippet}'`}</span> : '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <span style={{ fontSize: 10, background: act.bg, color: act.color, borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>{act.label}</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div style={{ padding: '14px 18px' }}>
+
+        {/* ── Running ads section ── */}
+        {running.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, fontFamily: FF.mono }}>
+              🔥 Active Competitors ({running.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              {running.slice(0, 8).map((ev, i) => {
+                const d = ev.data as any;
+                const adEv = getMatchedAdEvent(ev);
+                const ad = adEv?.data as any;
+                const adText = ad?.ad_text;
+                const adCount = ad?.new_value?.ad_count || adText?.active_ad_count || 0;
+                const headlines = (adText?.headlines as string[] | undefined)?.filter(Boolean).slice(0, 2) ?? [];
+                const desc = (adText?.descriptions as string[] | undefined)?.find(s => s && !s.includes('★') && s.length > 20);
+                const ctas = (adText?.ctas as string[] | undefined)?.filter(Boolean).slice(0, 4) ?? [];
+                const offers = (adText?.offers as string[] | undefined)?.filter(Boolean).slice(0, 2) ?? [];
+                const name = d?.name || ev.title;
+                const domain = d?.domain || ad?.competitor_domain || '';
+
+                return (
+                  <div key={ev.id ?? i} style={{ border: '1px solid rgba(239,68,68,0.15)', borderRadius: 10, overflow: 'hidden', background: 'rgba(239,68,68,0.015)' }}>
+                    {/* Competitor header row */}
+                    <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.05)', borderBottom: '1px solid rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', fontFamily: FF.sans }}>{name}</div>
+                        {domain && <div style={{ fontSize: 10, color: '#9ca3af' }}>{domain}</div>}
+                      </div>
+                      <span style={{ fontSize: 10, background: '#fef2f2', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '2px 8px', fontWeight: 700, flexShrink: 0 }}>
+                        🔥 {adCount} ads
+                      </span>
+                    </div>
+
+                    {/* Ad content */}
+                    {(headlines.length > 0 || desc || offers.length > 0) ? (
+                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {/* Headlines */}
+                        {headlines.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4, fontFamily: FF.mono }}>Top headlines</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {headlines.map((h, hi) => (
+                                <div key={hi} style={{ fontSize: 11, color: '#1a56db', fontWeight: 600, lineHeight: 1.4 }}>"{h}"</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Description */}
+                        {desc && (
+                          <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.5, borderLeft: '2px solid rgba(239,68,68,0.2)', paddingLeft: 8 }}>
+                            {truncateText(desc, 120)}
+                          </div>
+                        )}
+                        {/* Offers */}
+                        {offers.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {offers.map((o, oi) => (
+                              <span key={oi} style={{ fontSize: 10, background: '#fffbeb', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                                🏷 {o}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {/* CTAs */}
+                        {ctas.length > 0 && (
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: FF.mono, alignSelf: 'center' }}>CTAs:</span>
+                            {ctas.map((c, ci) => (
+                              <span key={ci} style={{ fontSize: 10, background: '#f3f4f6', color: '#6b7280', borderRadius: 5, padding: '1px 6px' }}>{c}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '8px 14px', fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>
+                        Running ads · ad text not yet extracted (will update on next scan)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── Watching section (no ads) — compact list ── */}
+        {watching.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, fontFamily: FF.mono }}>
+              👁 Watching — no ads ({watching.length})
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              {watching.slice(0, 12).map((ev, i) => {
+                const d = ev.data as any;
+                return (
+                  <div key={ev.id ?? i} style={{ padding: '7px 10px', background: '#fafaf9', borderRadius: 8, border: '1px solid rgba(44,36,25,0.05)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#4b5563', lineHeight: 1.3 }}>{d?.name || ev.title}</div>
+                    {d?.domain && <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{d.domain}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
       </div>
 
       <div style={{ padding: '10px 18px', background: '#fafaf9', borderTop: '1px solid rgba(44,36,25,0.06)' }}>
-        <span style={{ fontSize: 11, color: '#6b7280' }}>
-          💡 Insight: <strong>{adsRunningCount}</strong> competitor{adsRunningCount !== 1 ? 's' : ''} running ads in your area
+        <span style={{ fontSize: 11, color: '#6b7280', fontFamily: FF.sans }}>
+          💡 Hermes scans competitor ads daily — ad text extracted via Google Ads Transparency
         </span>
       </div>
     </div>
@@ -848,9 +913,17 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
 function WeatherDemandBar({ events, city, compact }: { events: MissionEvent[]; city?: string; compact?: boolean }) {
   const weatherEv = events.find(e => e.event_type === 'weather_signal') || events.find(e => e.event_type === 'local_events_radar');
   const d = weatherEv?.data as any;
-  const forecast = (d?.forecast ?? d?.forecast_7d ?? d?.daily) as Array<{ date?: string; day?: string; high?: number; low?: number; temp_high?: number; temp_low?: number; max_temp?: number; min_temp?: number; condition?: string; icon?: string }> | undefined;
-  const currentTemp = d?.temperature ?? d?.current?.temp ?? d?.temp;
-  const currentCondition = d?.condition ?? d?.current?.condition;
+  // Support both old flat shape and new nested shape: { current: { temp_f, description }, forecast_7d: [...] }
+  const forecast = (d?.forecast_7d ?? d?.forecast ?? d?.daily) as Array<{
+    date?: string; day?: string;
+    temp_max_f?: number; temp_min_f?: number;
+    high?: number; low?: number; temp_high?: number; temp_low?: number; max_temp?: number; min_temp?: number;
+    weather_description?: string; condition?: string; icon?: string;
+  }> | undefined;
+  const currentTemp = d?.current?.temp_f
+    ?? (d?.current?.temp_c != null ? Math.round(d.current.temp_c * 9/5 + 32) : null)
+    ?? d?.temperature ?? d?.temp;
+  const currentCondition = d?.current?.description ?? d?.condition ?? d?.current?.condition;
   const insight = d?.ai_insight || d?.insight || 'Stable weather → consistent foot traffic';
   const tempLabel = currentTemp != null && currentTemp !== '' ? `${Math.round(Number(currentTemp))}°F` : '';
 
@@ -894,9 +967,9 @@ function WeatherDemandBar({ events, city, compact }: { events: MissionEvent[]; c
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6, marginBottom: compact ? 10 : 12 }}>
             {forecast.slice(0, 7).map((day, i) => {
               const dateLabel = day.day || (day.date ? new Date(day.date).toLocaleDateString([], { weekday: 'short' }) : `Day ${i + 1}`);
-              const high = day.high ?? day.temp_high ?? day.max_temp;
-              const low = day.low ?? day.temp_low ?? day.min_temp;
-              const condition = day.condition || '';
+              const high = day.temp_max_f ?? day.high ?? day.temp_high ?? day.max_temp;
+              const low  = day.temp_min_f ?? day.low  ?? day.temp_low  ?? day.min_temp;
+              const condition = day.weather_description ?? day.condition ?? '';
               const icon = day.icon || weatherEmojiForCondition(condition);
               return (
                 <div key={i} style={{ textAlign: 'center', background: compact ? '#f7f4ee' : '#f9f7f4', borderRadius: 8, padding: compact ? '7px 4px' : '8px 4px' }}>
@@ -928,23 +1001,31 @@ function TeamActivityMap({ events }: { events: MissionEvent[] }) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const monthEvents = events.filter(e => e.occurred_at >= monthStart);
+  const allTimeEvents = events;
 
-  const hermesCount = monthEvents.filter(e =>
-    normalizeActor(e.actor) === 'Hermes' || e.source === 'hermes_cron'
-  ).length;
+  const hermesMonth  = monthEvents.filter(e => e.source === 'hermes_cron' || e.source === 'sheets_sync').length;
+  const hermesAll    = allTimeEvents.filter(e => e.source === 'hermes_cron' || e.source === 'sheets_sync').length;
 
-  const memberCounts = TEAM_MEMBERS.map(m => {
-    const real = monthEvents.filter(e => e.actor && e.actor.includes(m.actorKey)).length;
-    return { ...m, count: real > 0 ? real : teamSeed(m.actorKey) };
-  });
+  const staffMonth   = monthEvents.filter(e => e.source === 'staff').length;
+  const staffAll     = allTimeEvents.filter(e => e.source === 'staff').length;
 
-  const allEntries = [
-    { name: 'Hermes AI', role: 'AI Agent', icon: '🤖', color: '#10b981', count: hermesCount },
-    ...memberCounts,
+  const clientMonth  = monthEvents.filter(e => e.source === 'client_portal').length;
+  const clientAll    = allTimeEvents.filter(e => e.source === 'client_portal').length;
+
+  // Unique staff actors (real humans, not Hermes/ClickCease)
+  const staffActors = [...new Set(
+    allTimeEvents
+      .filter(e => e.source === 'staff' && e.actor && !e.actor.includes('clickcease'))
+      .map(e => normalizeActor(e.actor))
+  )];
+
+  const entries = [
+    { name: 'Hermes AI',        icon: '🤖', color: '#10b981', month: hermesMonth,  all: hermesAll,  label: 'AI agent — nightly runs' },
+    { name: 'Team changes',     icon: '🔧', color: '#3b82f6', month: staffMonth,   all: staffAll,   label: staffActors.length ? `Via: ${staffActors.slice(0,3).join(', ')}` : 'Manual Google Ads edits' },
+    { name: 'Client requests',  icon: '📋', color: '#c4704f', month: clientMonth,  all: clientAll,  label: 'Tasks submitted via portal' },
   ];
 
-  const maxCount = Math.max(...allEntries.map(e => e.count), 1);
-  const total = allEntries.reduce((s, e) => s + e.count, 0);
+  const maxMonth = Math.max(...entries.map(e => e.month), 1);
 
   return (
     <div style={{
@@ -952,40 +1033,36 @@ function TeamActivityMap({ events }: { events: MissionEvent[] }) {
       borderRadius: 14,
       border: '1px solid rgba(44,36,25,0.08)',
       boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      padding: '18px 20px',
+      padding: '14px 18px',
       marginBottom: 20,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span style={{ fontSize: 14 }}>👥</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Team Activity</span>
-        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>This month</span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 13 }}>👥</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: '#2c2419', fontFamily: FF.serif }}>Activity Breakdown</span>
+        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>This month</span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: '#c4704f' }}>{hermesMonth + staffMonth + clientMonth} actions</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {allEntries.map(({ name, role, icon, color, count }) => {
-          const pct = Math.round((count / maxCount) * 100);
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        {entries.map(({ name, icon, color, month, all, label }) => {
+          const pct = Math.round((month / maxMonth) * 100);
           return (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>{icon}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</span>
-                  <span style={{ fontSize: 10, color, fontWeight: 800 }}>{count}</span>
-                </div>
-                <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}aa)`, borderRadius: 4, transition: 'width 600ms ease' }} />
-                </div>
-                <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>{role}</div>
+            <div key={name} style={{ background: '#fafaf9', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(44,36,25,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 14 }}>{icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</span>
               </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1 }}>{month}</span>
+                <span style={{ fontSize: 10, color: '#9ca3af' }}>/ {all} total</span>
+              </div>
+              <div style={{ height: 3, background: '#ede9e3', borderRadius: 3, overflow: 'hidden', marginBottom: 5 }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 600ms ease' }} />
+              </div>
+              <div style={{ fontSize: 9, color: '#9ca3af', lineHeight: 1.4 }}>{label}</div>
             </div>
           );
         })}
-        {/* Total line */}
-        <div style={{ borderTop: '1px solid rgba(44,36,25,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>TOTAL</span>
-          <span style={{ fontSize: 13, fontWeight: 900, color: '#c4704f' }}>{total}</span>
-        </div>
       </div>
     </div>
   );
@@ -1091,7 +1168,7 @@ function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
       <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(44,36,25,0.06)', background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 14 }}>💡</span>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Pending Decisions</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#2c2419', fontFamily: "'Fraunces', Georgia, serif" }}>Pending Decisions</div>
           <div style={{ fontSize: 10, color: '#9ca3af' }}>Awaiting your review</div>
         </div>
         <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
@@ -1103,66 +1180,94 @@ function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
           const sev = SEV[ev.severity] || SEV.info;
           const resp = responses[ev.id];
 
+          // Parse action_taken field
+          const rawAction = d?.action_taken as string | undefined;
+          let actionDone: { who: string; count: string } | null = null;
+          if (rawAction) {
+            const m = rawAction.match(/^(\d+)\s+changes?\s+by\s+([\w@.,\s]+?):/i);
+            if (m) {
+              const who = m[2].split(',').map((s: string) => s.trim().split('@')[0]).join(', ');
+              actionDone = { count: m[1], who };
+            }
+          }
+
           return (
             <div key={ev.id ?? i} style={{
               padding: '14px 18px',
               borderBottom: i < Math.min(aiDecisions.length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none',
+              background: actionDone ? 'rgba(16,185,129,0.02)' : 'transparent',
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                 {/* Severity dot */}
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: sev.color, marginTop: 3, flexShrink: 0, boxShadow: `0 0 0 3px ${sev.color}22` }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: actionDone ? '#10b981' : sev.color, marginTop: 3, flexShrink: 0, boxShadow: `0 0 0 3px ${actionDone ? '#10b981' : sev.color}22` }} />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 3 }}>
                     {d?.flag || ev.title}
                   </div>
                   {d?.diagnosis && (
-                    <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5, marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5, marginBottom: 5 }}>
                       {d.diagnosis}
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>
-                    {fmtTimestamp(ev.occurred_at)} · Hermes AI
-                  </div>
 
-                  {/* Action buttons or toast */}
-                  {resp ? (
+                  {/* Team action done — real data */}
+                  {actionDone && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       background: '#ecfdf5', color: '#10b981',
-                      border: '1px solid rgba(16,185,129,0.25)',
-                      borderRadius: 8, padding: '6px 12px',
-                      fontSize: 11, fontWeight: 700,
+                      border: '1px solid rgba(16,185,129,0.2)',
+                      borderRadius: 8, padding: '5px 10px',
+                      fontSize: 11, fontWeight: 700, marginBottom: 5,
                     }}>
-                      ✓ Response logged — {resp}
+                      ✓ {actionDone.count} changes applied by {actionDone.who}
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {[
-                        { label: 'Approve', color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.25)' },
-                        { label: 'Reject',  color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.25)' },
-                        { label: 'Discuss', color: '#3b82f6', bg: '#eff6ff', border: 'rgba(59,130,246,0.25)' },
-                      ].map(({ label, color, bg, border }) => (
-                        <button
-                          key={label}
-                          onClick={() => handleAction(ev.id, label)}
-                          style={{
-                            fontSize: 10, fontWeight: 700, color,
-                            background: bg, border: `1px solid ${border}`,
-                            borderRadius: 7, padding: '5px 12px',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                  )}
+
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: actionDone ? 0 : 8 }}>
+                    {fmtTimestamp(ev.occurred_at)} · Hermes AI
+                  </div>
+
+                  {/* Action buttons — only show if team hasn't already acted */}
+                  {!actionDone && (
+                    resp ? (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: '#ecfdf5', color: '#10b981',
+                        border: '1px solid rgba(16,185,129,0.25)',
+                        borderRadius: 8, padding: '6px 12px',
+                        fontSize: 11, fontWeight: 700,
+                      }}>
+                        ✓ Response logged — {resp}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[
+                          { label: 'Approve', color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.25)' },
+                          { label: 'Reject',  color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.25)' },
+                          { label: 'Discuss', color: '#3b82f6', bg: '#eff6ff', border: 'rgba(59,130,246,0.25)' },
+                        ].map(({ label, color, bg, border }) => (
+                          <button
+                            key={label}
+                            onClick={() => handleAction(ev.id, label)}
+                            style={{
+                              fontSize: 10, fontWeight: 700, color,
+                              background: bg, border: `1px solid ${border}`,
+                              borderRadius: 7, padding: '5px 12px',
+                              cursor: 'pointer', transition: 'all 150ms',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
-                <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: sev.bg, color: sev.color, fontWeight: 800, flexShrink: 0 }}>{sev.label}</span>
+                <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: actionDone ? '#ecfdf5' : sev.bg, color: actionDone ? '#10b981' : sev.color, fontWeight: 800, flexShrink: 0 }}>{actionDone ? 'Done' : sev.label}</span>
               </div>
             </div>
           );
@@ -1283,10 +1388,10 @@ export default function MissionPage() {
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Hermes AI — Online</span>
                 <span style={{ fontSize: 9, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
               </div>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', lineHeight: 1.2 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 6px', lineHeight: 1.2, fontFamily: "'Fraunces', Georgia, serif" }}>
                 Mission Control · {data.client.name}
               </h1>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 16px', lineHeight: 1.5, maxWidth: 560 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 16px', lineHeight: 1.5, maxWidth: 560, fontFamily: "'Outfit', system-ui, sans-serif" }}>
                 Your AI marketing agent, working autonomously every night.
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -1340,8 +1445,8 @@ export default function MissionPage() {
             }}>
               <div style={{ position: 'absolute', top: 0, right: 0, width: 60, height: 60, background: bg, borderRadius: '0 14px 0 60px', opacity: 0.8 }} />
               <div style={{ fontSize: 22, marginBottom: 8, position: 'relative' }}>{icon}</div>
-              <div style={{ fontSize: 34, fontWeight: 900, color: '#2c2419', lineHeight: 1, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+              <div style={{ fontSize: 34, fontWeight: 900, color: '#2c2419', lineHeight: 1, marginBottom: 4, fontFamily: "'Outfit', system-ui, sans-serif" }}>{value}</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: "'Outfit', system-ui, sans-serif" }}>{label}</div>
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${color}, transparent)`, opacity: 0.4 }} />
             </div>
           ))}
@@ -1379,6 +1484,7 @@ export default function MissionPage() {
                   fontSize: 11, fontWeight: active ? 700 : 500,
                   padding: '11px 12px 9px', cursor: 'pointer', transition: 'all 200ms',
                   display: 'flex', alignItems: 'center', gap: 5,
+                  fontFamily: "'Outfit', system-ui, sans-serif",
                 }}>
                   <span>{tab.icon}</span>
                   <span>{tab.label}</span>
@@ -1399,79 +1505,79 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* ── 6. Intelligence Row: Radar | Signals | Breakdown ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 280px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
-          {/* Radar + Schedule */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{
-              background: 'linear-gradient(135deg, #0f1a12, #1a2e1e)',
-              border: '1px solid rgba(16,185,129,0.25)',
-              borderRadius: 14,
-              padding: 14,
-              boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)', animation: 'pulse-ring 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1.2px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>SCANNING</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <RadarCanvas />
-              </div>
-              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {RADAR_BLIPS.map(blip => {
-                  const active = allEvents.some(ev => blip.matches(ev));
+        {/* ── 6. Signals + Schedule Row (Weather | Local Events | Schedule) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 260px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
+          <WeatherDemandBar events={allEvents} city={data.client.city} compact />
+          <LocalEventsRadar events={allEvents} city={data.client.city} compact />
+          <HermesSchedule nextActions={data.nextActions} />
+        </div>
+
+        {/* ── 7. Intelligence Row: Signal Breakdown | SCANNING ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
+          {/* Signal Breakdown */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: FF.mono }}>Signal Breakdown</div>
+            {breakdown.length === 0 ? (
+              <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {breakdown.map(([type, count], index) => {
+                  const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
+                  const pct = Math.round((count / allEvents.length) * 100);
                   return (
-                    <div key={blip.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#d1fae5', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.3 }}>
-                      <span style={{ color: blip.color, fontSize: 11, lineHeight: 1 }}>●</span>
-                      <span style={{ flex: 1 }}>{blip.label}</span>
-                      {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: blip.color, boxShadow: `0 0 0 3px ${blip.color}22`, animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />}
+                    <div key={type} style={{ borderLeft: `3px solid ${cfg.color}`, paddingLeft: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 }}>
+                        <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                          <span>{cfg.icon}</span>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cfg.label}</span>
+                          {index < 2 && <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, animation: 'pulse-ring 1.6s infinite', flexShrink: 0 }} />}
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6, flexShrink: 0 }}>{count}</span>
+                      </div>
+                      <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
+                      </div>
                     </div>
                   );
                 })}
               </div>
-              <div style={{ marginTop: 10, fontSize: 9, color: '#10b981', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: '0.3px' }}>
-                Active scan: {allEvents.length} signals logged
-              </div>
+            )}
+          </div>
+
+          {/* SCANNING Radar */}
+          <div style={{
+            background: 'linear-gradient(135deg, #0f1a12, #1a2e1e)',
+            border: '1px solid rgba(16,185,129,0.25)',
+            borderRadius: 14,
+            padding: 16,
+            boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)', animation: 'pulse-ring 2s infinite' }} />
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1.2px', fontFamily: FF.mono }}>SCANNING</span>
             </div>
-            <HermesSchedule nextActions={data.nextActions} />
-          </div>
-
-          {/* Signals stacked */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <WeatherDemandBar events={allEvents} city={data.client.city} compact />
-            <LocalEventsRadar events={allEvents} city={data.client.city} compact />
-          </div>
-
-          {/* Work breakdown */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Signal Breakdown</div>
-            {breakdown.length === 0 ? (
-              <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
-            ) : (
-              breakdown.map(([type, count], index) => {
-                const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
-                const pct = Math.round((count / allEvents.length) * 100);
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <RadarCanvas />
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {RADAR_BLIPS.map(blip => {
+                const active = allEvents.some(ev => blip.matches(ev));
                 return (
-                  <div key={type} style={{ marginBottom: 12, borderLeft: `3px solid ${cfg.color}`, paddingLeft: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 }}>
-                      <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                        <span>{cfg.icon}</span>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cfg.label}</span>
-                        {index < 2 && <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, boxShadow: '0 0 0 3px rgba(255,255,255,0.65)', animation: 'pulse-ring 1.6s infinite', flexShrink: 0 }} />}
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6, flexShrink: 0 }}>{count}</span>
-                    </div>
-                    <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
-                    </div>
+                  <div key={blip.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#d1fae5', fontFamily: FF.mono, lineHeight: 1.3 }}>
+                    <span style={{ color: blip.color, fontSize: 11, lineHeight: 1 }}>●</span>
+                    <span style={{ flex: 1 }}>{blip.label}</span>
+                    {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: blip.color, boxShadow: `0 0 0 3px ${blip.color}22`, animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />}
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 9, color: '#10b981', fontFamily: FF.mono, letterSpacing: '0.3px' }}>
+              Active scan: {allEvents.length} signals logged
+            </div>
           </div>
         </div>
 
-        {/* ── 8. Team Activity Map ── */}
+        {/* ── 8. Team Activity (compact) ── */}
         <TeamActivityMap events={allEvents} />
 
         {/* ── 9. Send Task to Hermes ── */}
@@ -1576,6 +1682,7 @@ export default function MissionPage() {
       </div>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap');
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 3px rgba(16,185,129,0.15)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0.08)} }
         @keyframes pulse-ring-red { 0%,100%{box-shadow:0 0 0 3px rgba(239,68,68,0.15)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0.08)} }

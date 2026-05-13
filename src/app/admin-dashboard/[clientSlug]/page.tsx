@@ -59,6 +59,110 @@ const C2 = {
 };
 const CARD = { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 16, boxShadow: '0 4px 20px rgba(44,36,25,0.06)' };
 
+/* ── Status Bullets ── builds 3-5 human-readable bullets from mission events ── */
+const OWNER_MAP: Record<string, string> = {
+  ads:        'Vinnie & Sam (Ads)',
+  seo:        'Quan & Thien (SEO)',
+  content:    'Rachel (Content)',
+  competitor: 'Quan (SEO)',
+  account:    'Amanda (Account)',
+  client:     'Amanda (Account)',
+};
+function ownerFor(category: string): string {
+  return OWNER_MAP[category] || 'Team';
+}
+
+interface StatusBullet {
+  type: 'good' | 'watch' | 'neutral';
+  text: string;
+  owner: string;
+}
+
+function buildStatusBullets(events: any[]): StatusBullet[] {
+  const bullets: StatusBullet[] = [];
+  const now = Date.now();
+  const recent = events.filter(e => now - new Date(e.occurred_at).getTime() < 30 * 86400000);
+
+  // 1. Traffic trend from traffic_snapshot
+  const trafficEv = recent.find(e => e.event_type === 'traffic_snapshot');
+  if (trafficEv?.data) {
+    const d = trafficEv.data;
+    const hist = d.history as Array<{ date: string; organic: number }> | undefined;
+    const avg = d.traffic_monthly_avg as number | undefined;
+    if (hist && hist.length >= 2 && avg != null) {
+      const last = hist[hist.length - 1].organic;
+      const prev = hist[hist.length - 2].organic;
+      const pct = prev > 0 ? Math.round(((last - prev) / prev) * 100) : 0;
+      if (pct >= 10) {
+        bullets.push({ type: 'good', text: `Organic traffic up ${pct}% this month (${last.toLocaleString()} visits). SEO content is gaining traction.`, owner: ownerFor('seo') });
+      } else if (pct <= -15) {
+        bullets.push({ type: 'watch', text: `Organic traffic dropped ${Math.abs(pct)}% vs last month (${last.toLocaleString()} visits). Investigating potential ranking changes.`, owner: ownerFor('seo') });
+      } else {
+        bullets.push({ type: 'neutral', text: `Organic traffic stable at ~${avg.toLocaleString()} visits/mo. Continuing link building and content publishing.`, owner: ownerFor('seo') });
+      }
+    }
+    // Top ranking keyword
+    const topKw = (d.top_keywords as any[])?.[0];
+    if (topKw?.keyword && topKw.position <= 5) {
+      bullets.push({ type: 'good', text: `"${topKw.keyword}" ranking #${topKw.position} on Google — ${topKw.traffic?.toLocaleString() ?? '?'} monthly searches.`, owner: ownerFor('seo') });
+    } else if (topKw?.keyword && topKw.position <= 15) {
+      bullets.push({ type: 'neutral', text: `"${topKw.keyword}" at position #${topKw.position}. Working to move it into top 5.`, owner: ownerFor('seo') });
+    }
+  }
+
+  // 2. Backlinks from backlinks_snapshot
+  const blEv = recent.find(e => e.event_type === 'backlinks_snapshot');
+  if (blEv?.data) {
+    const d = blEv.data;
+    const dr = d.domain_rating as number | undefined;
+    const refs = d.ref_domains as number | undefined;
+    if (dr != null && refs != null) {
+      bullets.push({ type: dr >= 20 ? 'good' : 'neutral', text: `Domain Rating ${dr} · ${refs} referring domains. ${dr >= 20 ? 'Link profile growing steadily.' : 'Actively building links to strengthen authority.'}`, owner: ownerFor('seo') });
+    }
+  }
+
+  // 3. Ads performance from ai_decision_logged
+  const adsFlag = recent.find(e => e.event_type === 'ai_decision_logged' && e.severity !== 'success');
+  if (adsFlag?.data) {
+    const flag = adsFlag.data.flag as string;
+    const actionTaken = adsFlag.data.action_taken as string | undefined;
+    if (actionTaken) {
+      const m = actionTaken.match(/^(\d+)\s+changes?\s+by\s+([\w@.,\s]+?):/i);
+      const who = m ? m[2].split(',').map((s: string) => s.trim().split('@')[0]).join(', ') : 'team';
+      bullets.push({ type: 'watch', text: `Hermes flagged: ${flag}. Team applied ${m?.[1] ?? 'several'} fixes (${who}) — monitoring closely.`, owner: ownerFor('ads') });
+    } else {
+      bullets.push({ type: 'watch', text: `Hermes flagged: ${flag}. Team reviewing and will action within 24h.`, owner: ownerFor('ads') });
+    }
+  }
+
+  // 4. Search terms waste from search_terms_classified
+  const stEv = recent.find(e => e.event_type === 'search_terms_classified');
+  if (stEv?.data) {
+    const d = stEv.data;
+    const wasteful = d.wasteful as number;
+    const cost = d.waste_cost as number;
+    if (wasteful > 0 && cost > 0) {
+      bullets.push({ type: 'watch', text: `${wasteful} wasteful search terms flagged ($${Math.round(cost)} wasted). Being added to negative keyword list.`, owner: ownerFor('ads') });
+    }
+  }
+
+  // 5. Blog posts published
+  const blogCount = recent.filter(e => e.event_type === 'wordpress_post_published').length;
+  if (blogCount > 0) {
+    bullets.push({ type: 'good', text: `${blogCount} new blog post${blogCount > 1 ? 's' : ''} published this month — focused on high-intent local search terms.`, owner: ownerFor('content') });
+  }
+
+  // 6. Competitor activity
+  const compAds = recent.filter(e => e.event_type === 'competitor_new_ad' && (e.data as any)?.new_value?.is_running_ads);
+  if (compAds.length > 0) {
+    const domains = [...new Set(compAds.map((e: any) => (e.data?.competitor_domain || '').split('.')[0]))].slice(0, 2).join(', ');
+    bullets.push({ type: 'watch', text: `${compAds.length} competitor${compAds.length > 1 ? 's' : ''} running active ads in your area (${domains}…). Hermes tracking daily.`, owner: ownerFor('competitor') });
+  }
+
+  // Trim to 3-5
+  return bullets.slice(0, 5);
+}
+
 function SectionHead({ title, italic: it, meta }: { title: string; italic: string; meta?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, margin: '26px 0 13px' }}>
@@ -824,6 +928,62 @@ export default function ClientDetailPage() {
             </div>
           </>
         )}
+
+        {/* ── What We're Working On ─────────────────────────────── */}
+        {hermesEvents.length > 0 && (() => {
+          const bullets = buildStatusBullets(hermesEvents);
+          if (bullets.length === 0) return null;
+          const dotColor = (t: StatusBullet['type']) =>
+            t === 'good' ? '#10b981' : t === 'watch' ? '#f59e0b' : '#9ca3af';
+          const rowBg = (t: StatusBullet['type']) =>
+            t === 'good' ? 'rgba(16,185,129,0.05)' : t === 'watch' ? 'rgba(245,158,11,0.05)' : 'rgba(44,36,25,0.02)';
+          const rowBorder = (t: StatusBullet['type']) =>
+            t === 'good' ? 'rgba(16,185,129,0.15)' : t === 'watch' ? 'rgba(245,158,11,0.18)' : 'rgba(44,36,25,0.07)';
+          return (
+            <>
+              <SectionHead title="What We're" italic="Working On" meta={`${bullets.length} updates`} />
+              <div style={{ ...CARD, padding: '6px 8px', background: 'rgba(255,252,240,0.95)', border: '1px solid rgba(217,168,84,0.2)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {bullets.map((b, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '12px 16px', borderRadius: 10,
+                      background: rowBg(b.type),
+                      border: `1px solid ${rowBorder(b.type)}`,
+                    }}>
+                      {/* dot */}
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: dotColor(b.type),
+                        flexShrink: 0, marginTop: 5,
+                        boxShadow: `0 0 0 3px ${dotColor(b.type)}22`,
+                      }} />
+                      {/* text */}
+                      <p style={{
+                        flex: 1, margin: 0,
+                        fontFamily: FF.outfit, fontStyle: 'italic',
+                        fontSize: 13, color: C2.choc, lineHeight: 1.65,
+                      }}>
+                        {b.text}
+                      </p>
+                      {/* owner badge */}
+                      <span style={{
+                        flexShrink: 0, fontSize: 10, fontWeight: 700,
+                        color: dotColor(b.type), fontFamily: FF.mono,
+                        background: rowBg(b.type),
+                        border: `1px solid ${rowBorder(b.type)}`,
+                        borderRadius: 20, padding: '2px 9px',
+                        marginTop: 2, whiteSpace: 'nowrap',
+                      }}>
+                        {b.owner}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* ── Hermes AI — Tasks Completed While You Slept ─────────── */}
         {hermesEvents.length > 0 && (
