@@ -1,0 +1,50 @@
+name: Biweekly Sheets Content Sync
+
+on:
+  schedule:
+    - cron: '0 14 1,15 * *'  # 1st and 15th of month, 14:00 UTC (21:00 VN)
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync Google Sheets blog posts → Mission Control
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout GWOS repo
+        uses: actions/checkout@v4
+        with:
+          repository: nftwise/graphicwise-aios
+          token: ${{ secrets.GWOS_GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run sheets extractor
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.GWOS_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.GWOS_SUPABASE_SERVICE_ROLE_KEY }}
+          CRM_SUPABASE_URL: ${{ secrets.CRM_SUPABASE_URL }}
+          CRM_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CRM_SUPABASE_SERVICE_ROLE_KEY }}
+        run: python -m scripts.jobs.sync_mission_to_crm --only sheets_content --quiet
+
+      - name: Notify Telegram on success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"✅ <b>Sheets Content Sync DONE</b>\\nBlog posts từ Google Sheets đã sync vào Mission Control.\",\"parse_mode\":\"HTML\"}"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>Sheets Content Sync FAILED</b>\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
