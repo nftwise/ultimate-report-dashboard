@@ -47,6 +47,13 @@ const EVENT_CONFIG: Record<string, { icon: string; label: string; color: string;
   staff_change:             { icon: '👤', label: 'Staff Change',      color: '#6b7280', bg: '#f9fafb' },
   anomaly_alert:            { icon: '🚨', label: 'Anomaly',           color: '#ef4444', bg: '#fef2f2' },
   client_task_submitted:    { icon: '📋', label: 'Client Request',    color: '#c4704f', bg: '#fdf4f0' },
+  local_events_radar:       { icon: '📡', label: 'Local Events Radar', color: '#0891b2', bg: '#ecfeff' },
+  backlinks_snapshot:       { icon: '🔗', label: 'Backlinks Snapshot', color: '#7c3aed', bg: '#f5f3ff' },
+  competitor_ad_report:     { icon: '🕵️', label: 'Competitor Ad Report', color: '#ef4444', bg: '#fef2f2' },
+  gbp_signal:               { icon: '📍', label: 'GBP Signal',        color: '#c4704f', bg: '#fdf4f0' },
+  seo_signal:               { icon: '🔎', label: 'SEO Signal',        color: '#10b981', bg: '#ecfdf5' },
+  content_published:        { icon: '✍️', label: 'Content Published', color: '#8b5cf6', bg: '#f5f3ff' },
+  wordpress_post_published: { icon: '✍️', label: 'Blog Published',    color: '#8b5cf6', bg: '#f5f3ff' },
 };
 
 const SEV: Record<string, { color: string; bg: string; label: string; border: string }> = {
@@ -109,6 +116,26 @@ function timeAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   if (days === 1) return 'yesterday';
   return `${days}d ago`;
+}
+
+function getSentToMember(ev: Pick<MissionEvent, 'category' | 'event_type' | 'title' | 'description'>): string {
+  const text = `${ev.title} ${ev.description}`.toLowerCase();
+  if (
+    ev.category === 'ads' ||
+    ev.event_type.toLowerCase().includes('ads') ||
+    ['bid', 'cpc', 'spend', 'campaign'].some(term => text.includes(term))
+  ) {
+    return 'Vinnie (Ads Senior)';
+  }
+
+  if (
+    ev.category === 'seo' ||
+    ['seo', 'keyword', 'rank', 'search', 'gsc'].some(term => text.includes(term))
+  ) {
+    return 'Sam (Ads Specialist)';
+  }
+
+  return 'Amanda (Account Manager)';
 }
 
 function getNextSchedule() {
@@ -334,6 +361,11 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
                       {fmtTimestamp(ev.occurred_at)}
                     </span>
                   </div>
+                  {(ev.event_type === 'ai_decision_logged' || (ev.category === 'account' && ev.source === 'hermes_cron')) && (
+                    <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700, marginTop: 4 }}>
+                      ✓ Noticed · Sent to {getSentToMember(ev)}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -423,24 +455,15 @@ export default function MissionPage() {
   // Filter for activity log
   const filtered = filterTab === 'all' ? allEvents : allEvents.filter(e => e.category === filterTab);
 
-  // Latest daily_metrics event
-  const latestMetrics = allEvents.find(e => e.event_type === 'daily_metrics');
-  const metricsData   = latestMetrics?.data as any;
-
-  // Latest weekly digest
-  const latestDigest = allEvents.find(e => e.event_type === 'weekly_summary_published');
-  const digestData   = latestDigest?.data as any;
-
   // Competitor landscape
   const compDiscovered = allEvents.filter(e => e.event_type === 'competitor_discovered');
   const compAdEvents   = allEvents.filter(e => e.event_type === 'competitor_new_ad');
   const runningAdsCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
   const dormantCount    = compDiscovered.length - runningAdsCount;
-
-  // Top 3 competitors running ads
-  const top3Running = compAdEvents
-    .filter(e => (e.data as any)?.new_value?.is_running_ads)
-    .slice(0, 3);
+  const lastCompetitorScan = compDiscovered.reduce<MissionEvent | null>((latest, ev) => {
+    if (!latest) return ev;
+    return new Date(ev.occurred_at).getTime() > new Date(latest.occurred_at).getTime() ? ev : latest;
+  }, null);
 
   // AI decisions
   const aiDecisions = allEvents.filter(e => e.event_type === 'ai_decision_logged');
@@ -534,118 +557,33 @@ export default function MissionPage() {
           ))}
         </div>
 
-        {/* ── 3. Hermes Status Panel — 3 columns ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
-
-          {/* Col 1 — Latest Ads Snapshot */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(59,130,246,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg,#eff6ff,#f0f9ff)', borderBottom: '1px solid rgba(59,130,246,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>📊</span>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#1e3a5f' }}>Latest Ads Snapshot</div>
-                {metricsData?.date && <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{metricsData.date}</div>}
+        {/* ── 3. Competitor Summary Bar ── */}
+        {competitors > 0 && (
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '12px 20px',
+            border: '1px solid rgba(239,68,68,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            marginBottom: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              <div style={{ fontSize: 16, flexShrink: 0 }}>🕵️</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b', whiteSpace: 'nowrap' }}>Competitor Landscape</span>
+                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>{competitors} tracked</span>
+                <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>{runningAdsCount} running ads</span>
+                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap' }}>{dormantCount < 0 ? 0 : dormantCount} dormant</span>
               </div>
-              {latestMetrics && <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latestMetrics.occurred_at)}</span>}
             </div>
-            <div style={{ padding: '14px 18px' }}>
-              {latestMetrics ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {[
-                    { label: 'Spend',       value: metricsData?.cost != null ? `$${Number(metricsData.cost).toFixed(0)}` : '—', color: '#ef4444' },
-                    { label: 'Clicks',      value: metricsData?.clicks ?? '—',                                                   color: '#3b82f6' },
-                    { label: 'CTR',         value: metricsData?.ctr_pct != null ? `${Number(metricsData.ctr_pct).toFixed(1)}%` : '—', color: '#0891b2' },
-                    { label: 'Impr. Share', value: metricsData?.impression_share != null ? `${Math.round(Number(metricsData.impression_share) * 100)}%` : '—', color: '#10b981' },
-                    { label: 'Conversions', value: metricsData?.conversions ?? '—',                                               color: '#8b5cf6' },
-                    { label: 'CPL',         value: metricsData?.cpl != null ? `$${Number(metricsData.cpl).toFixed(0)}` : '—',    color: '#d97706' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: '#fafaf9', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(44,36,25,0.05)' }}>
-                      <div style={{ fontSize: 18, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
-                      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No ads snapshot yet</div>
-              )}
+            <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              Last scanned {lastCompetitorScan ? fmtTimestamp(lastCompetitorScan.occurred_at) : '—'}
             </div>
           </div>
-
-          {/* Col 2 — Latest Weekly Digest */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(139,92,246,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', borderBottom: '1px solid rgba(139,92,246,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>📰</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#4c1d95' }}>Latest Weekly Digest</span>
-              {latestDigest && <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latestDigest.occurred_at)}</span>}
-            </div>
-            <div style={{ padding: '14px 18px' }}>
-              {latestDigest ? (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-                    {[
-                      { label: 'Flags',   value: digestData?.n_flags   ?? '—', color: '#ef4444' },
-                      { label: 'Fixed',   value: digestData?.n_fixed   ?? '—', color: '#10b981' },
-                      { label: 'Pending', value: digestData?.n_pending ?? '—', color: '#d97706' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} style={{ background: 'rgba(139,92,246,0.06)', borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
-                        <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {digestData?.period_start && (
-                    <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, textAlign: 'center', background: 'rgba(139,92,246,0.06)', borderRadius: 8, padding: '6px 10px' }}>
-                      Period: {digestData.period_start} → {digestData.period_end}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No digest published yet</div>
-              )}
-            </div>
-          </div>
-
-          {/* Col 3 — Competitor Landscape */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(239,68,68,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid rgba(239,68,68,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>🕵️</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>Competitor Landscape</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{competitors} TRACKED</span>
-            </div>
-            <div style={{ padding: '14px 18px' }}>
-              {competitors > 0 ? (
-                <>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                    <div style={{ flex: 1, background: '#fef2f2', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{runningAdsCount}</div>
-                      <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>RUNNING ADS</div>
-                    </div>
-                    <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: '#6b7280', lineHeight: 1 }}>{dormantCount < 0 ? 0 : dormantCount}</div>
-                      <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>DORMANT</div>
-                    </div>
-                  </div>
-                  {top3Running.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Top Running</div>
-                      {top3Running.map((ev, i) => {
-                        const d = ev.data as any;
-                        return (
-                          <div key={ev.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < top3Running.length - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
-                            <span style={{ fontSize: 11, color: '#2c2419', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d?.competitor_domain || '—'}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', borderRadius: 6, padding: '1px 6px' }}>🔥 {d?.new_value?.ad_count ?? '?'} ads</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No competitors tracked yet</div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ── 4. Activity Log ── */}
         <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 20, overflow: 'hidden' }}>
@@ -753,6 +691,9 @@ export default function MissionPage() {
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 2 }}>{d?.flag || ev.title}</div>
                         {d?.diagnosis && <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4, marginBottom: 4 }}>{d.diagnosis}</div>}
                         <div style={{ fontSize: 10, color: '#9ca3af' }}>{fmtTimestamp(ev.occurred_at)} · Hermes</div>
+                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700, marginTop: 4 }}>
+                          ✓ Noticed · Sent to {getSentToMember(ev)}
+                        </div>
                       </div>
                       <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: sev.bg, color: sev.color, fontWeight: 800, flexShrink: 0 }}>{sev.label}</span>
                     </div>
@@ -764,7 +705,7 @@ export default function MissionPage() {
         )}
 
         {/* ── Radar + Live Log + Breakdown row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 260px', gap: 14, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14, marginBottom: 20 }}>
 
           {/* Radar + Schedule */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -773,7 +714,11 @@ export default function MissionPage() {
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', animation: 'pulse-ring 2s infinite', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' }} />
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Scanning</span>
               </div>
-              <RadarCanvas />
+              <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ transform: 'scale(0.6)', transformOrigin: 'center center' }}>
+                  <RadarCanvas />
+                </div>
+              </div>
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {[['ADS','#d97706'],['GSC','#3b82f6'],['GBP','#c4704f'],['GA4','#10b981'],['FB','#8b5cf6']].map(([l, c]) => (
                   <span key={l} style={{ fontSize: 9, fontWeight: 700, color: c as string }}>● {l}</span>
@@ -781,31 +726,6 @@ export default function MissionPage() {
               </div>
             </div>
             <HermesSchedule nextActions={data.nextActions} />
-          </div>
-
-          {/* Hermes info */}
-          <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>🤖 What Hermes does every night</div>
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 14, lineHeight: 1.4 }}>
-              While you sleep, Hermes runs a full sweep of your marketing — automatically, every night.
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {[
-                { icon: '📊', text: 'Pulls GA4, GSC, Ads & GBP data' },
-                { icon: '🔍', text: 'Scans competitor ads in your area' },
-                { icon: '⚡', text: 'Adjusts bids & negative keywords' },
-                { icon: '🔎', text: 'Classifies search terms: keep vs cut' },
-                { icon: '💡', text: 'Logs every decision with reasoning' },
-                { icon: '🚨', text: 'Detects anomalies & alerts the team' },
-                { icon: '📰', text: 'Publishes weekly digest for review' },
-                { icon: '🔄', text: 'Works 24/7 — never misses a night' },
-              ].map(({ icon, text }) => (
-                <div key={text} style={{ fontSize: 11, color: '#047857', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', background: 'rgba(255,255,255,0.5)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.1)' }}>
-                  <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
-                  <span style={{ lineHeight: 1.3 }}>{text}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Work breakdown */}
