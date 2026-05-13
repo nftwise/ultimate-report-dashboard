@@ -23,6 +23,7 @@ import {
   BarChart2,
   Settings,
   Facebook,
+  Radar,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -40,12 +41,13 @@ const SETTINGS_ITEMS = [
 ];
 
 const CLIENT_TABS = [
-  { id: 'overview',   label: 'Overview',    icon: LayoutDashboard, href: '',            badge: null },
-  { id: 'seo',        label: 'SEO',         icon: Search,          href: '/seo',        badge: null },
-  { id: 'google-ads', label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads', badge: null },
-  { id: 'gbp',        label: 'GBP',         icon: MapPin,          href: '/gbp',        badge: null },
-  { id: 'facebook',   label: 'Facebook',    icon: Facebook,        href: '/facebook',   badge: null },
-  { id: 'geo',        label: 'GEO / AI',    icon: Bot,             href: '/geo',        badge: 'NEW' },
+  { id: 'overview',   label: 'Overview',        icon: LayoutDashboard, href: '',            badge: null },
+  { id: 'seo',        label: 'SEO',             icon: Search,          href: '/seo',        badge: null },
+  { id: 'google-ads', label: 'Google Ads',      icon: TrendingUp,      href: '/google-ads', badge: null },
+  { id: 'gbp',        label: 'GBP',             icon: MapPin,          href: '/gbp',        badge: null },
+  { id: 'facebook',   label: 'Facebook',        icon: Facebook,        href: '/facebook',   badge: null },
+  { id: 'geo',        label: 'GEO / AI',        icon: Bot,             href: '/geo',        badge: 'NEW' },
+  { id: 'mission',    label: 'Mission Control', icon: Radar,           href: '/mission',    badge: null },
 ] as const;
 
 function formatSlug(slug: string) {

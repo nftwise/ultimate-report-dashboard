@@ -1,0 +1,45 @@
+name: Monthly Event Compress
+
+on:
+  schedule:
+    - cron: '0 14 1 * *'  # 1st of month, 14:00 UTC (21:00 VN)
+  workflow_dispatch:
+
+jobs:
+  compress:
+    name: Compress & Prune mission_events
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Compress prior month + prune events >30 days
+        run: |
+          curl -s -X POST \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/rpc/compress_and_prune_events" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP %{http_code}" | tee /tmp/compress_result.txt
+          grep -q "HTTP 200\|HTTP 204" /tmp/compress_result.txt || exit 1
+
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"text\": \"❌ <b>Monthly Compress FAILED</b>\\n\\nmission_events compress/prune did not run.\\n\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",
+              \"parse_mode\": \"HTML\"
+            }"
+
+      - name: Notify Telegram on success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"text\": \"✅ <b>Monthly Compress DONE</b>\\n\\nmission_events compressed → mission_events_monthly\\nEvents >30 days pruned.\",
+              \"parse_mode\": \"HTML\"
+            }"

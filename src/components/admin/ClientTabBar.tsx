@@ -2,22 +2,23 @@
 
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft, Bot, Facebook } from 'lucide-react';
+import { LayoutDashboard, Search, TrendingUp, MapPin, ArrowLeft, Bot, Facebook, Radar } from 'lucide-react';
 
 interface ClientTabBarProps {
   clientSlug: string;
   clientName?: string;
   clientCity?: string;
-  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo' | 'facebook';
+  activeTab: 'overview' | 'seo' | 'google-ads' | 'gbp' | 'geo' | 'facebook' | 'mission';
 }
 
 const TABS = [
-  { id: 'overview',    label: 'Overview',    icon: LayoutDashboard, href: '',          badge: null },
-  { id: 'seo',         label: 'SEO',         icon: Search,          href: '/seo',       badge: null },
-  { id: 'google-ads',  label: 'Google Ads',  icon: TrendingUp,      href: '/google-ads',badge: null },
-  { id: 'gbp',         label: 'Google Business', icon: MapPin,      href: '/gbp',       badge: null },
-  { id: 'geo',         label: 'News & AI',   icon: Bot,             href: '/geo',       badge: null },
-  { id: 'facebook',    label: 'Facebook',    icon: Facebook,        href: '/facebook',  badge: null },
+  { id: 'overview',    label: 'Overview',        icon: LayoutDashboard, href: '',           badge: null },
+  { id: 'seo',         label: 'SEO',             icon: Search,          href: '/seo',        badge: null },
+  { id: 'google-ads',  label: 'Google Ads',      icon: TrendingUp,      href: '/google-ads', badge: null },
+  { id: 'gbp',         label: 'Google Business', icon: MapPin,          href: '/gbp',        badge: null },
+  { id: 'geo',         label: 'News & AI',       icon: Bot,             href: '/geo',        badge: null },
+  { id: 'facebook',    label: 'Facebook',        icon: Facebook,        href: '/facebook',   badge: null },
+  { id: 'mission',     label: 'Mission Control', icon: Radar,           href: '/mission',    badge: null },
 ] as const;
 
 export default function ClientTabBar({ clientSlug, clientName, clientCity, activeTab }: ClientTabBarProps) {
