@@ -574,6 +574,89 @@ export default function MissionPage() {
           </div>
         </div>
 
+        {/* ── Team Section ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+            {/* AI Team */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+              <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderBottom: '1px solid rgba(16,185,129,0.1)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)', animation: 'pulse-ring 2s infinite' }} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46' }}>AI Team — Hermes</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>ALWAYS ON</span>
+              </div>
+              <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[
+                  { name: 'Queen Bee', role: 'Ads Strategist', icon: '👑', desc: 'Bids, budgets, campaign structure', actor: 'AI Queen Bee', color: '#d97706', bg: '#fffbeb' },
+                  { name: 'Ads Bee',   role: 'Ads Optimizer',  icon: '⚡', desc: 'Keyword sculpting, negative lists', actor: 'AI Performance Tracker', color: '#3b82f6', bg: '#eff6ff' },
+                  { name: 'SEO Bee',   role: 'Search Analyst', icon: '🔎', desc: 'Search term classification', actor: 'AI Search Term Classifier', color: '#0891b2', bg: '#ecfeff' },
+                  { name: 'Writer Bee',role: 'Ad Copywriter',  icon: '✍️', desc: 'Headlines, RSA variants', actor: 'AI Creative Writer', color: '#8b5cf6', bg: '#f5f3ff' },
+                ].map(({ name, role, icon, desc, actor, color, bg }) => {
+                  const lastEvent = allEvents.find(e => e.actor === actor);
+                  return (
+                    <div key={name} style={{ background: bg, borderRadius: 12, padding: '11px 13px', border: `1px solid ${color}22` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                        <span style={{ fontSize: 16 }}>{icon}</span>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{name}</div>
+                          <div style={{ fontSize: 9, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{role}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.4, marginBottom: 6 }}>{desc}</div>
+                      {lastEvent ? (
+                        <div style={{ fontSize: 9, color: '#9ca3af', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>
+                          Last: {timeAgo(lastEvent.occurred_at)}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 9, color: '#d1d5db', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>No data yet</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Human Team */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+              <div style={{ background: 'linear-gradient(135deg,#fafaf9,#f5f1ed)', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14 }}>👥</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#2c2419' }}>Human Team — MyChiropractice</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
+              </div>
+              <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { name: 'Amanda',  role: 'Account Manager',    icon: '🤝', color: '#c4704f' },
+                  { name: 'Vinnie',  role: 'Ads Senior',         icon: '📈', color: '#3b82f6' },
+                  { name: 'Sam',     role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6' },
+                  { name: 'Quan',    role: 'SEO Technical',      icon: '🔧', color: '#0891b2' },
+                  { name: 'Thien',   role: 'SEO Specialist',     icon: '🔎', color: '#0891b2' },
+                  { name: 'Rachel',  role: 'Content Specialist', icon: '✍️', color: '#8b5cf6' },
+                  { name: 'Lee',     role: 'Marketing Manager',  icon: '🎯', color: '#d97706' },
+                  { name: 'Topaz',   role: 'Vice President',     icon: '⭐', color: '#d97706' },
+                  { name: 'Kevin',   role: 'CEO',                icon: '👑', color: '#2c2419' },
+                ].map(({ name, role, icon, color }) => {
+                  const staffEvent = allEvents.find(e =>
+                    e.source !== 'hermes_cron' &&
+                    e.actor?.toLowerCase().includes(name.toLowerCase())
+                  );
+                  return (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, background: '#fafaf9', border: '1px solid rgba(44,36,25,0.06)' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</div>
+                        <div style={{ fontSize: 9, color, fontWeight: 600 }}>{role}</div>
+                        {staffEvent && (
+                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{timeAgo(staffEvent.occurred_at)}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── KPI cards ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
           {[
