@@ -91,6 +91,7 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
     city: '',
   });
   const [clientUUID, setClientUUID] = useState<string | null>(null);
+  const [hermesEvents, setHermesEvents] = useState<any[]>([]);
   const router = useRouter();
 
   // Calculate dates based on selected range - memoized with useCallback
@@ -224,6 +225,24 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
       fetchCoreData();
     }
   }, [user.id, period, startDate?.getTime(), endDate?.getTime(), refreshTrigger]);
+
+  // Fetch Hermes mission events once we have the client slug from dashboard data
+  useEffect(() => {
+    const slug = data?._fastData?.client?.slug;
+    if (!slug) return;
+    fetch(`/api/mission/${slug}`)
+      .then(r => r.json())
+      .then(result => {
+        if (result.events) {
+          // Only hermes_cron events, newest 10
+          const hermes = result.events
+            .filter((e: any) => e.source === 'hermes_cron')
+            .slice(0, 10);
+          setHermesEvents(hermes);
+        }
+      })
+      .catch(() => { /* non-critical — silently ignore */ });
+  }, [data?._fastData?.client?.slug]);
 
   const fetchClientConfig = async () => {
     try {
@@ -1529,6 +1548,56 @@ export default function ProfessionalDashboard({ user }: { user: any }) {
               </div>
             </div>
           </div>
+
+          {/* TASKS COMPLETED WHILE YOU SLEPT — Hermes AI Activity */}
+          {hermesEvents.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Tasks Completed While You Slept</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Hermes AI ran these automatically overnight</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {hermesEvents.length} recent
+                </span>
+              </div>
+              <div className="space-y-2">
+                {hermesEvents.map((ev: any, idx: number) => {
+                  const ts = ev.occurred_at
+                    ? new Date(ev.occurred_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : '';
+                  const severityColor =
+                    ev.severity === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' :
+                    ev.severity === 'warning' ? 'bg-amber-50 border-amber-100 text-amber-800' :
+                    ev.severity === 'critical' ? 'bg-red-50 border-red-100 text-red-800' :
+                    'bg-gray-50 border-gray-100 text-gray-700';
+                  const dotColor =
+                    ev.severity === 'success' ? 'bg-emerald-500' :
+                    ev.severity === 'warning' ? 'bg-amber-500' :
+                    ev.severity === 'critical' ? 'bg-red-500' :
+                    'bg-gray-400';
+                  return (
+                    <div key={ev.id || idx} className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${severityColor}`}>
+                      <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-snug truncate">{ev.title}</p>
+                        {ev.description && (
+                          <p className="text-xs mt-0.5 opacity-70 truncate">{ev.description}</p>
+                        )}
+                      </div>
+                      <span className="text-xs opacity-50 flex-shrink-0 mt-0.5">{ts}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* End of Overview */}
             </>

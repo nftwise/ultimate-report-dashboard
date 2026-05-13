@@ -144,6 +144,7 @@ export default function ClientDetailPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [latestGbpRating, setLatestGbpRating] = useState(0);
+  const [hermesEvents, setHermesEvents] = useState<any[]>([]);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -174,6 +175,19 @@ export default function ClientDetailPage() {
       }
     };
     if (clientSlug) fetchClient();
+  }, [clientSlug]);
+
+  // Fetch Hermes AI events for this client
+  useEffect(() => {
+    if (!clientSlug) return;
+    fetch(`/api/mission/${clientSlug}`)
+      .then(r => r.json())
+      .then((result: any) => {
+        if (result.events) {
+          setHermesEvents(result.events.filter((e: any) => e.source === 'hermes_cron').slice(0, 8));
+        }
+      })
+      .catch(() => {});
   }, [clientSlug]);
 
   // Bootstrap: fetch lastAvailableDate + latestGbpRating in a single API call
@@ -776,6 +790,56 @@ export default function ClientDetailPage() {
               <p style={{ fontSize: 11, color: C2.muted, marginTop: 14, fontStyle: 'italic', borderTop: `1px solid ${C2.borderSoft}`, paddingTop: 10 }}>
                 SEO and GBP have no direct cost shown here — they are funded through your monthly retainer.
               </p>
+            </div>
+          </>
+        )}
+
+        {/* ── Hermes AI — Tasks Completed While You Slept ─────────── */}
+        {hermesEvents.length > 0 && (
+          <>
+            <SectionHead title="Tasks Completed" italic="While You Slept" meta={`${hermesEvents.length} recent actions`} />
+            <div style={{ ...CARD, padding: '18px 20px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${C2.borderSoft}` }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1" fill="#10b981"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontFamily: FF.outfit, fontWeight: 700, fontSize: 14, color: C2.choc }}>Hermes AI</div>
+                  <div style={{ fontSize: 11, color: C2.muted }}>Automated tasks logged for your review</div>
+                </div>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(16,185,129,0.10)', color: C2.emerald, border: '1px solid rgba(16,185,129,0.2)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: C2.emerald, display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                  Active 24/7
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {hermesEvents.map((ev: any, idx: number) => {
+                  const ts = ev.occurred_at
+                    ? (() => {
+                        const d = new Date(ev.occurred_at);
+                        const now = new Date();
+                        const diffMs = now.getTime() - d.getTime();
+                        const diffH = diffMs / 3600000;
+                        if (diffH < 1) return `${Math.round(diffH * 60)}m ago`;
+                        if (diffH < 24) return `${Math.round(diffH)}h ago`;
+                        if (diffH < 48) return `Yesterday ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                        return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      })()
+                    : '';
+                  const dotColor = ev.severity === 'success' ? C2.emerald : ev.severity === 'warning' ? '#f59e0b' : ev.severity === 'critical' ? '#ef4444' : C2.muted;
+                  const rowBg = ev.severity === 'success' ? 'rgba(16,185,129,0.04)' : ev.severity === 'warning' ? 'rgba(245,158,11,0.04)' : 'rgba(44,36,25,0.02)';
+                  return (
+                    <div key={ev.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, background: rowBg, border: `1px solid rgba(44,36,25,0.06)` }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, marginTop: 5 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C2.choc, lineHeight: 1.4 }}>{ev.title}</div>
+                        {ev.description && <div style={{ fontSize: 11, color: C2.text2, marginTop: 3, lineHeight: 1.4 }}>{ev.description}</div>}
+                      </div>
+                      <span style={{ fontSize: 10, color: C2.muted, flexShrink: 0, fontFamily: FF.mono, marginTop: 2 }}>{ts}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </>
         )}
