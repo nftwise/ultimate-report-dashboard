@@ -29,6 +29,10 @@ interface MissionData {
   } | null;
   metrics: unknown[];
   generatedAt: string;
+  // Optional enriched fields from newer API version
+  stats?: { totalDays: number; uptime: string };
+  nextActions?: { icon: string; label: string; time: string; type?: string }[];
+  lastByType?: Record<string, string>; // event_type → occurred_at ISO
 }
 
 /* ─── Event config ───────────────────────────── */
@@ -46,11 +50,11 @@ const EVENT_CONFIG: Record<string, { icon: string; label: string; color: string;
   client_task_submitted:    { icon: '📋', label: 'Client Request',    color: '#c4704f', bg: '#fdf4f0' },
 };
 
-const SEV: Record<string, { color: string; bg: string; label: string }> = {
-  success:  { color: '#10b981', bg: '#ecfdf5', label: 'Win' },
-  warning:  { color: '#d97706', bg: '#fffbeb', label: 'Alert' },
-  critical: { color: '#ef4444', bg: '#fef2f2', label: 'Critical' },
-  info:     { color: '#6b7280', bg: '#f3f4f6', label: 'Info' },
+const SEV: Record<string, { color: string; bg: string; label: string; border: string }> = {
+  success:  { color: '#10b981', bg: '#ecfdf5', label: 'Win',      border: '#10b981' },
+  warning:  { color: '#d97706', bg: '#fffbeb', label: 'Alert',    border: '#d97706' },
+  critical: { color: '#ef4444', bg: '#fef2f2', label: 'Critical', border: '#ef4444' },
+  info:     { color: '#6b7280', bg: '#f3f4f6', label: 'Info',     border: '#9ca3af' },
 };
 
 const CATEGORIES = [
@@ -60,6 +64,69 @@ const CATEGORIES = [
   { key: 'account',      label: 'Changes',      icon: '⚡' },
   { key: 'performance',  label: 'Performance',  icon: '📊' },
 ];
+
+/* ─── Helpers ────────────────────────────────── */
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins < 2)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
+function dateDivider(iso: string): string {
+  const d    = new Date(iso);
+  const now  = new Date();
+  const diff = Math.floor((now.setHours(0,0,0,0) - d.setHours(0,0,0,0)) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function getNextSchedule() {
+  const now  = new Date();
+  const vnOffset = 7 * 60; // UTC+7
+  const toVN = (d: Date) => new Date(d.getTime() + (vnOffset - d.getTimezoneOffset()) * 60000);
+
+  // Daily ads sync — today 9 PM VN (UTC 14:00)
+  const todayAdsVN = new Date(now);
+  todayAdsVN.setUTCHours(14, 0, 0, 0);
+  if (todayAdsVN <= now) todayAdsVN.setUTCDate(todayAdsVN.getUTCDate() + 1);
+
+  // Search Term Classification — next Monday (UTC 03:00)
+  const nextMon = new Date(now);
+  nextMon.setUTCHours(3, 0, 0, 0);
+  const daysTilMon = (8 - nextMon.getUTCDay()) % 7 || 7;
+  nextMon.setUTCDate(nextMon.getUTCDate() + daysTilMon);
+
+  // Weekly Digest — next Sunday (UTC 10:00)
+  const nextSun = new Date(now);
+  nextSun.setUTCHours(10, 0, 0, 0);
+  const daysTilSun = (7 - nextSun.getUTCDay()) % 7 || 7;
+  nextSun.setUTCDate(nextSun.getUTCDate() + daysTilSun);
+
+  // Monthly Archive — 1st of next month
+  const nextFirst = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 12, 0, 0));
+
+  const fmtVN = (d: Date) => {
+    const vn = toVN(d);
+    const diff = Math.floor((d.getTime() - now.getTime()) / 3600000);
+    if (diff < 24) return `Today ${vn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} VN`;
+    if (diff < 48) return `Tomorrow ${vn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} VN`;
+    return vn.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + vn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' VN';
+  };
+
+  return [
+    { icon: '⏱', label: 'Daily Ads Sync',              time: fmtVN(todayAdsVN) },
+    { icon: '📋', label: 'Search Term Classification',  time: fmtVN(nextMon) },
+    { icon: '📰', label: 'Weekly Digest',               time: fmtVN(nextSun) },
+    { icon: '🗜', label: 'Monthly Archive',             time: nextFirst.toLocaleDateString([], { month: 'long', day: 'numeric' }) },
+  ];
+}
 
 /* ─── Radar canvas ───────────────────────────── */
 function RadarCanvas() {
@@ -145,6 +212,225 @@ function RadarCanvas() {
   return <canvas ref={canvasRef} width={200} height={200} style={{ borderRadius: '50%', display: 'block' }} />;
 }
 
+/* ─── Live Log (thought stream showing real events) ── */
+function LiveLog({ events }: { events: MissionEvent[] }) {
+  const [logIdx, setLogIdx] = useState(0);
+
+  // Events sorted newest first
+  const sorted = [...events].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+
+  useEffect(() => {
+    if (sorted.length === 0) return;
+    const t = setInterval(() => setLogIdx(i => (i + 1) % Math.max(sorted.length, 1)), 2400);
+    return () => clearInterval(t);
+  }, [sorted.length]);
+
+  if (sorted.length === 0) {
+    return <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No activity yet</div>;
+  }
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+      {[...Array(5)].map((_, i) => {
+        // Line 0 = oldest shown (most faded), Line 4 = newest (bright + spinner)
+        const evIdx = (logIdx - (4 - i) + sorted.length) % sorted.length;
+        const ev    = sorted[evIdx];
+        const isLast = i === 4;
+        const op    = [0.18, 0.32, 0.50, 0.70, 1][i];
+        const cfg   = EVENT_CONFIG[ev?.event_type] || { icon: '·', label: ev?.event_type, color: '#6b7280', bg: '#f3f4f6' };
+
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, opacity: op, transition: 'opacity 400ms' }}>
+            {isLast
+              ? <div style={{ width: 11, height: 11, border: '1.5px solid #d1fae5', borderTop: '1.5px solid #10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0, marginTop: 2 }} />
+              : <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ecfdf5', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                  <span style={{ fontSize: 7, color: '#10b981', fontWeight: 900 }}>✓</span>
+                </div>
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11 }}>{cfg.icon}</span>
+                <span style={{ fontSize: 12, color: isLast ? '#2c2419' : '#6b7280', fontWeight: isLast ? 700 : 400, lineHeight: 1.3, flex: 1 }}>{ev?.title}</span>
+                {isLast && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{ev ? timeAgo(ev.occurred_at) : ''}</span>}
+              </div>
+            </div>
+            {isLast && <span style={{ width: 7, height: 14, background: '#10b981', borderRadius: 1, flexShrink: 0, marginTop: 2, animation: 'blink 0.8s infinite', display: 'inline-block' }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Last Activity by Type chips ────────────── */
+function LastByTypeRow({ events }: { events: MissionEvent[] }) {
+  // Compute last occurrence of key event types from actual event data
+  const KEY_TYPES: { key: string; icon: string; label: string }[] = [
+    { key: 'ai_change',                icon: '🤖', label: 'AI Change' },
+    { key: 'ai_decision_logged',       icon: '💡', label: 'AI Decision' },
+    { key: 'competitor_new_ad',        icon: '🔍', label: 'Competitor' },
+    { key: 'daily_metrics',            icon: '📊', label: 'Snapshot' },
+    { key: 'weekly_summary_published', icon: '📰', label: 'Digest' },
+    { key: 'search_terms_classified',  icon: '🔎', label: 'Search Terms' },
+  ];
+
+  const lastMap: Record<string, string> = {};
+  for (const ev of events) {
+    if (!lastMap[ev.event_type]) lastMap[ev.event_type] = ev.occurred_at;
+  }
+
+  const chips = KEY_TYPES.filter(t => lastMap[t.key]);
+  if (chips.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+      {chips.map(t => (
+        <div key={t.key} style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          background: 'rgba(255,255,255,0.9)',
+          border: '1px solid rgba(44,36,25,0.1)',
+          borderRadius: 20, padding: '4px 12px',
+          fontSize: 11, color: '#4b5563', fontWeight: 500,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}>
+          <span>{t.icon}</span>
+          <span style={{ fontWeight: 600 }}>{t.label}</span>
+          <span style={{ color: '#9ca3af' }}>—</span>
+          <span style={{ color: '#c4704f', fontWeight: 600 }}>{timeAgo(lastMap[t.key])}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Hermes Schedule panel ──────────────────── */
+function HermesSchedule({ nextActions }: { nextActions?: { icon: string; label: string; time: string }[] }) {
+  const schedule = nextActions && nextActions.length > 0 ? nextActions : getNextSchedule();
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.9)',
+      border: '1px solid rgba(44,36,25,0.1)',
+      borderRadius: 14, padding: '14px 18px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <span style={{ fontSize: 14 }}>🗓</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes Schedule</span>
+        <span style={{ fontSize: 9, background: '#eff6ff', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 20, padding: '1px 7px', fontWeight: 700, marginLeft: 'auto' }}>UPCOMING</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {schedule.map((item, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#2c2419' }}>{item.label}</div>
+            </div>
+            <div style={{ fontSize: 10, color: '#c4704f', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>{item.time}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Grouped Events List ────────────────────── */
+function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isClientRole: boolean }) {
+  if (events.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: '#d1d5db', fontSize: 13 }}>
+        No events in this category
+      </div>
+    );
+  }
+
+  // Group by date divider
+  const groups: { divider: string; events: MissionEvent[] }[] = [];
+  let currentDivider = '';
+
+  for (const ev of events) {
+    const div = dateDivider(ev.occurred_at);
+    if (div !== currentDivider) {
+      currentDivider = div;
+      groups.push({ divider: div, events: [ev] });
+    } else {
+      groups[groups.length - 1].events.push(ev);
+    }
+  }
+
+  return (
+    <>
+      {groups.map((group, gi) => (
+        <div key={gi}>
+          {/* Date divider */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            margin: gi === 0 ? '0 0 14px' : '14px 0',
+          }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+              {group.divider}
+            </span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
+          </div>
+
+          {group.events.map((ev, i) => {
+            const cfg    = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
+            const sev    = SEV[ev.severity] || SEV.info;
+            const isLast = i === group.events.length - 1;
+            const timeStr = new Date(ev.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            return (
+              <div key={ev.id ?? `${gi}-${i}`} style={{ display: 'flex', gap: 0 }}>
+                {/* Spine */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: 12, flexShrink: 0 }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%',
+                    background: cfg.bg, border: `1.5px solid ${cfg.color}44`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, flexShrink: 0,
+                  }}>{cfg.icon}</div>
+                  {!(isLast && gi === groups.length - 1) && (
+                    <div style={{ width: 1, flex: 1, background: 'rgba(44,36,25,0.06)', minHeight: 12, margin: '4px 0' }} />
+                  )}
+                </div>
+
+                {/* Content card */}
+                <div style={{
+                  flex: 1, paddingBottom: isLast ? 0 : 14,
+                  borderLeft: `3px solid ${sev.border}33`,
+                  paddingLeft: 10, marginLeft: -2,
+                  borderRadius: '0 8px 8px 0',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#2c2419', flex: 1, lineHeight: 1.3 }}>{ev.title}</span>
+                    <span style={{
+                      fontSize: 9, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
+                      background: sev.bg, color: sev.color, fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: '0.4px',
+                    }}>{sev.label}</span>
+                  </div>
+                  {ev.description && (
+                    <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, marginBottom: 5 }}>{ev.description}</div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: cfg.color, fontWeight: 600, background: cfg.bg, padding: '1px 7px', borderRadius: 5 }}>{cfg.label}</span>
+                    {!isClientRole && ev.actor && (
+                      <span style={{ fontSize: 10, color: '#9ca3af' }}>· {ev.actor}</span>
+                    )}
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: '#c9c5c0', fontWeight: 500 }}>{timeStr} · {timeAgo(ev.occurred_at)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* ─── Main ───────────────────────────────────── */
 export default function MissionPage() {
   const params     = useParams();
@@ -156,7 +442,6 @@ export default function MissionPage() {
   const [data,       setData]       = useState<MissionData | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
-  const [thoughtIdx, setThoughtIdx] = useState(0);
   const [filterCat,  setFilterCat]  = useState('all');
   const [taskText,   setTaskText]   = useState('');
   const [selTags,    setSelTags]    = useState<string[]>([]);
@@ -175,14 +460,6 @@ export default function MissionPage() {
   }, [clientSlug]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // Cycle real event titles as thought stream
-  const thoughtPool = data?.events?.map(e => e.title) || [];
-  useEffect(() => {
-    if (thoughtPool.length === 0) return;
-    const t = setInterval(() => setThoughtIdx(i => (i + 1) % thoughtPool.length), 2200);
-    return () => clearInterval(t);
-  }, [thoughtPool.length]);
 
   const handleSubmit = async () => {
     if (!taskText.trim() && selTags.length === 0) return;
@@ -268,13 +545,13 @@ export default function MissionPage() {
         </div>
 
         {/* ── KPI cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
           {[
             { icon: '🤖', label: 'AI Actions',    value: aiActions,   color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.2)' },
             { icon: '🔍', label: 'Competitors',    value: competitors, color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.2)' },
             { icon: '✅', label: 'Wins Logged',    value: wins,        color: '#d97706', bg: '#fffbeb', border: 'rgba(217,119,6,0.2)' },
             { icon: '⚠️',  label: 'Alerts Raised', value: alerts,      color: '#f97316', bg: '#fff7ed', border: 'rgba(249,115,22,0.2)' },
-          ].map(({ icon, label, value, color, bg, border }) => (
+          ].map(({ icon, label, value, color, bg }) => (
             <div key={label} style={{
               background: '#fff', borderRadius: 14,
               border: '1px solid rgba(44,36,25,0.08)',
@@ -291,55 +568,39 @@ export default function MissionPage() {
           ))}
         </div>
 
+        {/* ── Last Activity by Type chips ── */}
+        <LastByTypeRow events={allEvents} />
+
         {/* ── Radar + Thought Stream + Breakdown ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 260px', gap: 14, marginBottom: 14 }}>
 
-          {/* Radar */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, alignSelf: 'flex-start' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', animation: 'pulse-ring 2s infinite', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Scanning</span>
+          {/* Radar + Schedule stacked */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, alignSelf: 'flex-start' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', animation: 'pulse-ring 2s infinite', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Scanning</span>
+              </div>
+              <RadarCanvas />
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {[['ADS','#d97706'],['GSC','#3b82f6'],['GBP','#c4704f'],['GA4','#10b981'],['FB','#8b5cf6']].map(([l, c]) => (
+                  <span key={l} style={{ fontSize: 9, fontWeight: 700, color: c as string }}>● {l}</span>
+                ))}
+              </div>
             </div>
-            <RadarCanvas />
-            <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {[['ADS','#d97706'],['GSC','#3b82f6'],['GBP','#c4704f'],['GA4','#10b981'],['FB','#8b5cf6']].map(([l, c]) => (
-                <span key={l} style={{ fontSize: 9, fontWeight: 700, color: c as string }}>● {l}</span>
-              ))}
-            </div>
+
+            {/* Hermes Schedule */}
+            <HermesSchedule nextActions={data.nextActions} />
           </div>
 
-          {/* Thought stream */}
+          {/* Live Log (thought stream) */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes — Live Activity Log</span>
               <span style={{ fontSize: 9, background: '#ecfdf5', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {thoughtPool.length === 0 ? (
-                <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No activity yet</div>
-              ) : (
-                [...Array(5)].map((_, i) => {
-                  const idx    = (thoughtIdx - 4 + i + thoughtPool.length) % Math.max(thoughtPool.length, 1);
-                  const isLast = i === 4;
-                  const op     = 0.2 + i * 0.2;
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, opacity: isLast ? 1 : op }}>
-                      {isLast
-                        ? <div style={{ width: 10, height: 10, border: '1.5px solid #d1fae5', borderTop: '1.5px solid #10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0, marginTop: 3 }} />
-                        : <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ecfdf5', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 3 }}>
-                            <span style={{ fontSize: 7, color: '#10b981', fontWeight: 900 }}>✓</span>
-                          </div>
-                      }
-                      <span style={{ fontSize: 12, color: isLast ? '#2c2419' : '#9ca3af', lineHeight: 1.4, fontWeight: isLast ? 600 : 400 }}>
-                        {thoughtPool[idx]}
-                      </span>
-                      {isLast && <span style={{ width: 7, height: 14, background: '#10b981', borderRadius: 1, flexShrink: 0, marginTop: 3, animation: 'blink 0.8s infinite', display: 'inline-block' }} />}
-                    </div>
-                  );
-                })
-              )}
-            </div>
+            <LiveLog events={allEvents} />
 
             {/* Status footer */}
             <div style={{ marginTop: 16, padding: '10px 14px', background: '#f9fafb', borderRadius: 10, border: '1px solid rgba(44,36,25,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -389,7 +650,7 @@ export default function MissionPage() {
         {/* ── Activity Timeline + Task Form ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
 
-          {/* Timeline */}
+          {/* Timeline — unlimited scroll */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
 
             {/* Filter tabs */}
@@ -416,65 +677,18 @@ export default function MissionPage() {
                   </button>
                 );
               })}
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', fontSize: 10, color: '#9ca3af', paddingRight: 4 }}>
+                {filtered.length} events · scroll to see all
+              </span>
             </div>
 
-            {/* Events list */}
-            <div style={{ padding: '14px 18px', maxHeight: 520, overflowY: 'auto' }}>
-              {filtered.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#d1d5db', fontSize: 13 }}>
-                  No events in this category
-                </div>
-              ) : (
-                filtered.map((ev, i) => {
-                  const cfg = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
-                  const sev = SEV[ev.severity] || SEV.info;
-                  const date = new Date(ev.occurred_at);
-                  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                  const isLast  = i === filtered.length - 1;
-
-                  return (
-                    <div key={ev.id ?? i} style={{ display: 'flex', gap: 0 }}>
-                      {/* Spine */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: 12, flexShrink: 0 }}>
-                        <div style={{
-                          width: 30, height: 30, borderRadius: '50%',
-                          background: cfg.bg, border: `1.5px solid ${cfg.color}33`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 13, flexShrink: 0,
-                        }}>{cfg.icon}</div>
-                        {!isLast && <div style={{ width: 1, flex: 1, background: 'rgba(44,36,25,0.06)', minHeight: 10, margin: '4px 0' }} />}
-                      </div>
-
-                      {/* Content */}
-                      <div style={{ flex: 1, paddingBottom: isLast ? 0 : 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#2c2419', flex: 1, lineHeight: 1.3 }}>{ev.title}</span>
-                          <span style={{
-                            fontSize: 9, padding: '2px 6px', borderRadius: 6, flexShrink: 0,
-                            background: sev.bg, color: sev.color, fontWeight: 800,
-                            textTransform: 'uppercase', letterSpacing: '0.4px',
-                          }}>{sev.label}</span>
-                        </div>
-                        {ev.description && (
-                          <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.4, marginBottom: 4 }}>{ev.description}</div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 10, color: cfg.color, fontWeight: 600, background: cfg.bg, padding: '1px 6px', borderRadius: 5 }}>{cfg.label}</span>
-                          {!isClientRole && ev.actor && (
-                            <span style={{ fontSize: 10, color: '#9ca3af' }}>· {ev.actor}</span>
-                          )}
-                          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#d1d5db' }}>{dateStr} {timeStr}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            {/* Events list — no maxHeight cap, unlimited scroll */}
+            <div style={{ padding: '16px 18px' }}>
+              <GroupedEvents events={filtered} isClientRole={isClientRole} />
             </div>
           </div>
 
-          {/* Right: Task form */}
+          {/* Right: Task form + Hermes info */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {/* Send task card */}
