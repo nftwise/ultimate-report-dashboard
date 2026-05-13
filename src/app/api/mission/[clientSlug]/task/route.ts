@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 export async function POST(
   req: NextRequest,
@@ -54,6 +55,13 @@ export async function POST(
     console.error('[mission/task] insert error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Notify team via Telegram
+  const tagLine = tags.length > 0 ? `\nTags: ${tags.join(', ')}` : '';
+  const msgLine = text?.trim() ? `\nMessage: ${text.trim()}` : '';
+  sendTelegramMessage(
+    `📋 <b>Client Task Submitted</b>\n\nClient: <b>${client.name}</b>\nBy: ${userName}${tagLine}${msgLine}`
+  ).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
