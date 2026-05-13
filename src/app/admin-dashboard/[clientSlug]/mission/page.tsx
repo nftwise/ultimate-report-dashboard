@@ -137,6 +137,8 @@ function fmtTimestamp(iso: string): string {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
+  // Future dates — show full date
+  if (d > now) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const yestStart = new Date(todayStart);
   yestStart.setDate(yestStart.getDate() - 1);
   const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -150,8 +152,11 @@ function fmtTimestamp(iso: string): string {
 
 function dateDivider(iso: string): string {
   const d = new Date(iso);
-  const todayStart = new Date();
+  const now = new Date();
+  const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
+  // Future events group under their actual date
+  if (d > now) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const diff = Math.floor((todayStart.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
@@ -160,6 +165,7 @@ function dateDivider(iso: string): string {
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
