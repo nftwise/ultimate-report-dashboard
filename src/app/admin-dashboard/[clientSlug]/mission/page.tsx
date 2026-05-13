@@ -29,10 +29,9 @@ interface MissionData {
   } | null;
   metrics: unknown[];
   generatedAt: string;
-  // Optional enriched fields from newer API version
   stats?: { totalDays: number; uptime: string };
   nextActions?: { icon: string; label: string; time: string; type?: string }[];
-  lastByType?: Record<string, string>; // event_type → occurred_at ISO
+  lastByType?: Record<string, string>;
 }
 
 /* ─── Event config ───────────────────────────── */
@@ -57,60 +56,80 @@ const SEV: Record<string, { color: string; bg: string; label: string; border: st
   info:     { color: '#6b7280', bg: '#f3f4f6', label: 'Info',     border: '#9ca3af' },
 };
 
-const CATEGORIES = [
-  { key: 'all',          label: 'All Activity', icon: '◎' },
+const FILTER_TABS = [
+  { key: 'all',          label: 'All',          icon: '◎' },
   { key: 'ai_workforce', label: 'AI Actions',   icon: '🤖' },
   { key: 'competitor',   label: 'Competitors',  icon: '🔍' },
-  { key: 'account',      label: 'Changes',      icon: '⚡' },
   { key: 'performance',  label: 'Performance',  icon: '📊' },
+  { key: 'account',      label: 'Changes',      icon: '⚡' },
   { key: 'client',       label: 'Requests',     icon: '📋' },
 ];
 
 /* ─── Helpers ────────────────────────────────── */
+function normalizeActor(actor?: string): string {
+  if (!actor) return 'Hermes';
+  const aiNames = ['Queen Bee', 'Ad Bee', 'SEO Bee', 'Recon Bee', 'AI Queen Bee', 'AI Performance Tracker', 'AI Search Term Classifier', 'AI Creative Writer'];
+  if (aiNames.some(a => actor.includes(a))) return 'Hermes';
+  return actor;
+}
+
+function fmtTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const yestStart = new Date(todayStart);
+  yestStart.setDate(yestStart.getDate() - 1);
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (d >= todayStart) return `Today, ${timeStr}`;
+  if (d >= yestStart) return `Yesterday, ${timeStr}`;
+  const weekAgo = new Date(todayStart);
+  weekAgo.setDate(weekAgo.getDate() - 6);
+  if (d >= weekAgo) return d.toLocaleDateString([], { weekday: 'short' }) + `, ${timeStr}`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + `, ${timeStr}`;
+}
+
+function dateDivider(iso: string): string {
+  const d = new Date(iso);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const diff = Math.floor((todayStart.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
-  if (mins < 2)  return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 2)   return 'just now';
+  if (mins < 60)  return `${mins}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days === 1) return 'yesterday';
   return `${days}d ago`;
 }
 
-function dateDivider(iso: string): string {
-  const d    = new Date(iso);
-  const now  = new Date();
-  const diff = Math.floor((now.setHours(0,0,0,0) - d.setHours(0,0,0,0)) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
 function getNextSchedule() {
-  const now  = new Date();
-  const vnOffset = 7 * 60; // UTC+7
+  const now = new Date();
+  const vnOffset = 7 * 60;
   const toVN = (d: Date) => new Date(d.getTime() + (vnOffset - d.getTimezoneOffset()) * 60000);
 
-  // Daily ads sync — today 9 PM VN (UTC 14:00)
   const todayAdsVN = new Date(now);
   todayAdsVN.setUTCHours(14, 0, 0, 0);
   if (todayAdsVN <= now) todayAdsVN.setUTCDate(todayAdsVN.getUTCDate() + 1);
 
-  // Search Term Classification — next Monday (UTC 03:00)
   const nextMon = new Date(now);
   nextMon.setUTCHours(3, 0, 0, 0);
   const daysTilMon = (8 - nextMon.getUTCDay()) % 7 || 7;
   nextMon.setUTCDate(nextMon.getUTCDate() + daysTilMon);
 
-  // Weekly Digest — next Sunday (UTC 10:00)
   const nextSun = new Date(now);
   nextSun.setUTCHours(10, 0, 0, 0);
   const daysTilSun = (7 - nextSun.getUTCDay()) % 7 || 7;
   nextSun.setUTCDate(nextSun.getUTCDate() + daysTilSun);
 
-  // Monthly Archive — 1st of next month
   const nextFirst = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 12, 0, 0));
 
   const fmtVN = (d: Date) => {
@@ -122,14 +141,14 @@ function getNextSchedule() {
   };
 
   return [
-    { icon: '⏱', label: 'Daily Ads Sync',              time: fmtVN(todayAdsVN) },
-    { icon: '📋', label: 'Search Term Classification',  time: fmtVN(nextMon) },
-    { icon: '📰', label: 'Weekly Digest',               time: fmtVN(nextSun) },
-    { icon: '🗜', label: 'Monthly Archive',             time: nextFirst.toLocaleDateString([], { month: 'long', day: 'numeric' }) },
+    { icon: '⏱', label: 'Daily Ads Sync',             time: fmtVN(todayAdsVN) },
+    { icon: '📋', label: 'Search Term Classification', time: fmtVN(nextMon) },
+    { icon: '📰', label: 'Weekly Digest',              time: fmtVN(nextSun) },
+    { icon: '🗜', label: 'Monthly Archive',            time: nextFirst.toLocaleDateString([], { month: 'long', day: 'numeric' }) },
   ];
 }
 
-/* ─── Radar canvas ───────────────────────────── */
+/* ─── Radar Canvas ───────────────────────────── */
 function RadarCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const angleRef  = useRef(0);
@@ -153,20 +172,16 @@ function RadarCanvas() {
     function draw() {
       if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
-
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = '#f0fdf4'; ctx.fill();
       ctx.strokeStyle = '#d1fae5'; ctx.lineWidth = 1.5; ctx.stroke();
-
       [0.33, 0.66, 1].forEach(f => {
         ctx.beginPath(); ctx.arc(cx, cy, r * f, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(16,185,129,0.15)'; ctx.lineWidth = 1; ctx.stroke();
       });
-
       ctx.strokeStyle = 'rgba(16,185,129,0.1)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
-
       const a = angleRef.current;
       ctx.save();
       ctx.beginPath(); ctx.moveTo(cx, cy);
@@ -175,34 +190,28 @@ function RadarCanvas() {
       g.addColorStop(0, 'rgba(16,185,129,0)');
       g.addColorStop(1, 'rgba(16,185,129,0.18)');
       ctx.fillStyle = g; ctx.fill(); ctx.restore();
-
       ctx.save();
       ctx.beginPath(); ctx.moveTo(cx, cy);
       ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
       ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2;
       ctx.shadowColor = '#10b981'; ctx.shadowBlur = 6; ctx.stroke(); ctx.restore();
-
       BLIPS.forEach(blip => {
         const bx = cx + r * blip.dist * Math.cos(blip.angle);
         const by = cy + r * blip.dist * Math.sin(blip.angle);
         const diff = ((a - blip.angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
         const pulse = diff < 0.6 ? 1 - diff / 0.6 : 0;
-
         ctx.save();
         ctx.beginPath(); ctx.arc(bx, by, 4 + pulse * 3, 0, Math.PI * 2);
         ctx.fillStyle = blip.color;
         ctx.shadowColor = blip.color; ctx.shadowBlur = 8 + pulse * 12;
         ctx.globalAlpha = 0.8 + pulse * 0.2; ctx.fill(); ctx.restore();
-
         ctx.save();
         ctx.font = 'bold 8px -apple-system,sans-serif';
         ctx.fillStyle = blip.color; ctx.globalAlpha = 0.9;
         ctx.fillText(blip.label, bx + 6, by + 3); ctx.restore();
       });
-
       ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.fillStyle = '#10b981'; ctx.fill();
-
       angleRef.current = (a + 0.018) % (Math.PI * 2);
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -213,109 +222,11 @@ function RadarCanvas() {
   return <canvas ref={canvasRef} width={200} height={200} style={{ borderRadius: '50%', display: 'block' }} />;
 }
 
-/* ─── Live Log (thought stream showing real events) ── */
-function LiveLog({ events }: { events: MissionEvent[] }) {
-  const [logIdx, setLogIdx] = useState(0);
-
-  // Events sorted newest first
-  const sorted = [...events].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
-
-  useEffect(() => {
-    if (sorted.length === 0) return;
-    const t = setInterval(() => setLogIdx(i => (i + 1) % Math.max(sorted.length, 1)), 2400);
-    return () => clearInterval(t);
-  }, [sorted.length]);
-
-  if (sorted.length === 0) {
-    return <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No activity yet</div>;
-  }
-
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
-      {[...Array(5)].map((_, i) => {
-        // Line 0 = oldest shown (most faded), Line 4 = newest (bright + spinner)
-        const evIdx = (logIdx - (4 - i) + sorted.length) % sorted.length;
-        const ev    = sorted[evIdx];
-        const isLast = i === 4;
-        const op    = [0.18, 0.32, 0.50, 0.70, 1][i];
-        const cfg   = EVENT_CONFIG[ev?.event_type] || { icon: '·', label: ev?.event_type, color: '#6b7280', bg: '#f3f4f6' };
-
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, opacity: op, transition: 'opacity 400ms' }}>
-            {isLast
-              ? <div style={{ width: 11, height: 11, border: '1.5px solid #d1fae5', borderTop: '1.5px solid #10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0, marginTop: 2 }} />
-              : <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ecfdf5', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                  <span style={{ fontSize: 7, color: '#10b981', fontWeight: 900 }}>✓</span>
-                </div>
-            }
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11 }}>{cfg.icon}</span>
-                <span style={{ fontSize: 12, color: isLast ? '#2c2419' : '#6b7280', fontWeight: isLast ? 700 : 400, lineHeight: 1.3, flex: 1 }}>{ev?.title}</span>
-                {isLast && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{ev ? timeAgo(ev.occurred_at) : ''}</span>}
-              </div>
-            </div>
-            {isLast && <span style={{ width: 7, height: 14, background: '#10b981', borderRadius: 1, flexShrink: 0, marginTop: 2, animation: 'blink 0.8s infinite', display: 'inline-block' }} />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Last Activity by Type chips ────────────── */
-function LastByTypeRow({ events }: { events: MissionEvent[] }) {
-  // Compute last occurrence of key event types from actual event data
-  const KEY_TYPES: { key: string; icon: string; label: string }[] = [
-    { key: 'ai_change',                icon: '🤖', label: 'AI Change' },
-    { key: 'ai_decision_logged',       icon: '💡', label: 'AI Decision' },
-    { key: 'competitor_new_ad',        icon: '🔍', label: 'Competitor' },
-    { key: 'daily_metrics',            icon: '📊', label: 'Snapshot' },
-    { key: 'weekly_summary_published', icon: '📰', label: 'Digest' },
-    { key: 'search_terms_classified',  icon: '🔎', label: 'Search Terms' },
-  ];
-
-  const lastMap: Record<string, string> = {};
-  for (const ev of events) {
-    if (!lastMap[ev.event_type]) lastMap[ev.event_type] = ev.occurred_at;
-  }
-
-  const chips = KEY_TYPES.filter(t => lastMap[t.key]);
-  if (chips.length === 0) return null;
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-      {chips.map(t => (
-        <div key={t.key} style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          background: 'rgba(255,255,255,0.9)',
-          border: '1px solid rgba(44,36,25,0.1)',
-          borderRadius: 20, padding: '4px 12px',
-          fontSize: 11, color: '#4b5563', fontWeight: 500,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}>
-          <span>{t.icon}</span>
-          <span style={{ fontWeight: 600 }}>{t.label}</span>
-          <span style={{ color: '#9ca3af' }}>—</span>
-          <span style={{ color: '#c4704f', fontWeight: 600 }}>{timeAgo(lastMap[t.key])}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Hermes Schedule panel ──────────────────── */
+/* ─── Hermes Schedule ────────────────────────── */
 function HermesSchedule({ nextActions }: { nextActions?: { icon: string; label: string; time: string }[] }) {
   const schedule = nextActions && nextActions.length > 0 ? nextActions : getNextSchedule();
-
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.9)',
-      border: '1px solid rgba(44,36,25,0.1)',
-      borderRadius: 14, padding: '14px 18px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      marginBottom: 14,
-    }}>
+    <div style={{ background: '#fff', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <span style={{ fontSize: 14 }}>🗓</span>
         <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes Schedule</span>
@@ -346,11 +257,13 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
     );
   }
 
+  // Sort newest first
+  const sorted = [...events].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+
   // Group by date divider
   const groups: { divider: string; events: MissionEvent[] }[] = [];
   let currentDivider = '';
-
-  for (const ev of events) {
+  for (const ev of sorted) {
     const div = dateDivider(ev.occurred_at);
     if (div !== currentDivider) {
       currentDivider = div;
@@ -365,10 +278,7 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
       {groups.map((group, gi) => (
         <div key={gi}>
           {/* Date divider */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            margin: gi === 0 ? '0 0 14px' : '14px 0',
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: gi === 0 ? '0 0 14px' : '14px 0' }}>
             <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
             <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
               {group.divider}
@@ -377,10 +287,10 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
           </div>
 
           {group.events.map((ev, i) => {
-            const cfg    = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
-            const sev    = SEV[ev.severity] || SEV.info;
+            const cfg  = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
+            const sev  = SEV[ev.severity] || SEV.info;
             const isLast = i === group.events.length - 1;
-            const timeStr = new Date(ev.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const actorDisplay = normalizeActor(ev.actor);
 
             return (
               <div key={ev.id ?? `${gi}-${i}`} style={{ display: 'flex', gap: 0 }}>
@@ -397,7 +307,7 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
                   )}
                 </div>
 
-                {/* Content card */}
+                {/* Content */}
                 <div style={{
                   flex: 1, paddingBottom: isLast ? 0 : 14,
                   borderLeft: `3px solid ${sev.border}33`,
@@ -417,10 +327,12 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 10, color: cfg.color, fontWeight: 600, background: cfg.bg, padding: '1px 7px', borderRadius: 5 }}>{cfg.label}</span>
-                    {!isClientRole && ev.actor && (
-                      <span style={{ fontSize: 10, color: '#9ca3af' }}>· {ev.actor}</span>
+                    {!isClientRole && actorDisplay && (
+                      <span style={{ fontSize: 10, color: '#9ca3af' }}>· {actorDisplay}</span>
                     )}
-                    <span style={{ marginLeft: 'auto', fontSize: 10, color: '#c9c5c0', fontWeight: 500 }}>{timeStr} · {timeAgo(ev.occurred_at)}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>
+                      {fmtTimestamp(ev.occurred_at)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -432,7 +344,7 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
   );
 }
 
-/* ─── Main ───────────────────────────────────── */
+/* ─── Main Page ──────────────────────────────── */
 export default function MissionPage() {
   const params     = useParams();
   const clientSlug = (params?.clientSlug as string) || '';
@@ -440,13 +352,13 @@ export default function MissionPage() {
   const userRole   = (session?.user as any)?.role || '';
   const isClientRole = userRole === 'client';
 
-  const [data,       setData]       = useState<MissionData | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-  const [filterCat,  setFilterCat]  = useState('all');
-  const [taskText,   setTaskText]   = useState('');
-  const [selTags,    setSelTags]    = useState<string[]>([]);
-  const [taskState,  setTaskState]  = useState<'idle' | 'sending' | 'done'>('idle');
+  const [data,      setData]      = useState<MissionData | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [filterTab, setFilterTab] = useState('all');
+  const [taskText,  setTaskText]  = useState('');
+  const [selTags,   setSelTags]   = useState<string[]>([]);
+  const [taskState, setTaskState] = useState<'idle' | 'sending' | 'done'>('idle');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -499,17 +411,43 @@ export default function MissionPage() {
     </AdminLayout>
   );
 
-  /* ── Derived KPIs ── */
-  const allEvents   = data.events;
-  const aiActions   = allEvents.filter(e => e.source === 'hermes_cron' || e.event_type.startsWith('ai_')).length;
-  const competitors = allEvents.filter(e => e.category === 'competitor').length;
+  /* ── Derived data ── */
+  const allEvents = data.events;
+
+  // KPI counts
+  const aiActions   = allEvents.filter(e => e.source === 'hermes_cron').length;
+  const competitors = allEvents.filter(e => e.event_type === 'competitor_discovered').length;
+  const flags       = allEvents.filter(e => e.severity === 'warning' || e.severity === 'critical').length;
   const wins        = allEvents.filter(e => e.severity === 'success').length;
-  const alerts      = allEvents.filter(e => e.severity === 'warning' || e.severity === 'critical').length;
-  const filtered    = filterCat === 'all' ? allEvents : allEvents.filter(e => e.category === filterCat);
+
+  // Filter for activity log
+  const filtered = filterTab === 'all' ? allEvents : allEvents.filter(e => e.category === filterTab);
+
+  // Latest daily_metrics event
+  const latestMetrics = allEvents.find(e => e.event_type === 'daily_metrics');
+  const metricsData   = latestMetrics?.data as any;
+
+  // Latest weekly digest
+  const latestDigest = allEvents.find(e => e.event_type === 'weekly_summary_published');
+  const digestData   = latestDigest?.data as any;
+
+  // Competitor landscape
+  const compDiscovered = allEvents.filter(e => e.event_type === 'competitor_discovered');
+  const compAdEvents   = allEvents.filter(e => e.event_type === 'competitor_new_ad');
+  const runningAdsCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
+  const dormantCount    = compDiscovered.length - runningAdsCount;
+
+  // Top 3 competitors running ads
+  const top3Running = compAdEvents
+    .filter(e => (e.data as any)?.new_value?.is_running_ads)
+    .slice(0, 3);
+
+  // AI decisions
+  const aiDecisions = allEvents.filter(e => e.event_type === 'ai_decision_logged');
 
   const lastUpdated = new Date(data.generatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // Event type breakdown
+  // Work breakdown (for right panel)
   const breakdown = Object.entries(
     allEvents.reduce((acc, ev) => { acc[ev.event_type] = (acc[ev.event_type] || 0) + 1; return acc; }, {} as Record<string, number>)
   ).sort(([, a], [, b]) => b - a).slice(0, 6);
@@ -518,11 +456,10 @@ export default function MissionPage() {
     <AdminLayout>
       <ClientTabBar clientSlug={clientSlug} clientName={data.client.name} clientCity={data.client.city} activeTab="mission" />
 
-      <div style={{ padding: '24px 28px 60px', background: '#f9f7f4', minHeight: 'calc(100vh - 120px)' }}>
+      <div style={{ padding: '24px 28px 80px', background: '#f9f7f4', minHeight: 'calc(100vh - 120px)' }}>
 
-        {/* ── Hero header ── */}
+        {/* ── 1. Hero Header ── */}
         <div style={{ background: 'linear-gradient(135deg,#2c2419,#3d3228)', borderRadius: 18, padding: '24px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-          {/* Background glow */}
           <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, background: '#10b981', opacity: 0.06, borderRadius: '50%', filter: 'blur(40px)' }} />
           <div style={{ position: 'absolute', bottom: -30, left: 100, width: 150, height: 150, background: '#c4704f', opacity: 0.08, borderRadius: '50%', filter: 'blur(30px)' }} />
 
@@ -534,13 +471,11 @@ export default function MissionPage() {
                 <span style={{ fontSize: 9, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
               </div>
               <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', lineHeight: 1.2 }}>
-                Mission Control — {data.client.name}
+                Mission Control · {data.client.name}
               </h1>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 16px', lineHeight: 1.5, maxWidth: 560 }}>
-                Hermes is your AI marketing agent, working autonomously every night while you sleep.
-                It scans your ads, monitors competitors, cuts wasted spend, and logs every action here — so you always know exactly what&apos;s being done on your behalf.
+                Your AI marketing agent, working autonomously every night.
               </p>
-              {/* Value props */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {[
                   { icon: '🤖', text: 'AI makes changes nightly' },
@@ -556,18 +491,18 @@ export default function MissionPage() {
               </div>
             </div>
 
-            {/* Right: uptime stats */}
+            {/* Right: event count + refresh */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', flexShrink: 0 }}>
               <button onClick={fetchData} style={{
                 background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
                 color: '#fff', fontSize: 11, fontWeight: 600,
-                padding: '7px 14px', borderRadius: 10, cursor: 'pointer', transition: 'all 150ms',
+                padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
               }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.18)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)'; }}
               >↻ Refresh</button>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{allEvents.length}</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{allEvents.length}</div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>actions logged</div>
               </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Last sync {lastUpdated}</div>
@@ -575,288 +510,263 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* ── Team Section ── */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-
-            {/* AI Team */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-              <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderBottom: '1px solid rgba(16,185,129,0.1)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)', animation: 'pulse-ring 2s infinite' }} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46' }}>AI Team — Hermes</span>
-                <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>ALWAYS ON</span>
-              </div>
-              <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {[
-                  { name: 'Queen Bee', role: 'Ads Strategist',   icon: '👑', actor: '👑 Queen Bee',    color: '#d97706', bg: '#fffbeb',
-                    metricFn: (evs: MissionEvent[]) => {
-                      const d = evs.find(e => e.actor === '👑 Queen Bee' && e.event_type === 'weekly_summary_published');
-                      if (d) { const dd = d.data as any; return dd?.n_flags != null ? `${dd.n_flags} flags · ${dd.n_fixed ?? 0} fixed` : null; }
-                      return null;
-                    }},
-                  { name: 'Ad Bee',    role: 'Ads Optimizer',    icon: '📊', actor: '📊 Ad Bee',       color: '#3b82f6', bg: '#eff6ff',
-                    metricFn: (evs: MissionEvent[]) => {
-                      const d = evs.find(e => e.actor === '📊 Ad Bee' && e.event_type === 'daily_metrics');
-                      if (d) { const dd = d.data as any; return dd?.cost != null ? `$${dd.cost.toFixed(0)} · ${dd.clicks ?? 0} clicks · IS ${dd.impression_share != null ? Math.round(dd.impression_share*100) : '?'}%` : null; }
-                      return null;
-                    }},
-                  { name: 'SEO Bee',   role: 'Search Analyst',   icon: '🌱', actor: '🌱 SEO Bee',      color: '#0891b2', bg: '#ecfeff',
-                    metricFn: (evs: MissionEvent[]) => {
-                      const d = evs.find(e => e.actor === '🌱 SEO Bee');
-                      if (d) { return d.title.replace(/^[^\s]+\s/, '').slice(0, 40); }
-                      return null;
-                    }},
-                  { name: 'Recon Bee', role: 'Competitor Intel', icon: '🕵️', actor: '🕵️ Recon Bee',   color: '#8b5cf6', bg: '#f5f3ff',
-                    metricFn: (evs: MissionEvent[]) => {
-                      const compCount = evs.filter(e => e.actor === '🕵️ Recon Bee' && e.event_type === 'competitor_discovered').length;
-                      const runningAds = evs.filter(e => e.actor === '🕵️ Recon Bee' && e.event_type === 'competitor_new_ad' && (e.data as any)?.new_value?.is_running_ads).length;
-                      return compCount > 0 ? `${compCount} competitors · ${runningAds} running ads` : null;
-                    }},
-                ].map(({ name, role, icon, actor, color, bg, metricFn }) => {
-                  const lastEvent = allEvents.find(e => e.actor === actor);
-                  const metric = metricFn(allEvents);
-                  const evCount = allEvents.filter(e => e.actor === actor).length;
-                  return (
-                    <div key={name} style={{ background: bg, borderRadius: 12, padding: '11px 13px', border: `1px solid ${color}22` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${color}18`, border: `1.5px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{name}</div>
-                          <div style={{ fontSize: 9, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{role}</div>
-                        </div>
-                        {lastEvent && (
-                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 2px rgba(16,185,129,0.2)', animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />
-                        )}
-                      </div>
-                      {lastEvent ? (
-                        <>
-                          <div style={{ fontSize: 10, color: '#4b5563', lineHeight: 1.4, marginBottom: 5, fontWeight: 500 }}>
-                            {metric || lastEvent.title.slice(0, 50)}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ fontSize: 9, color: '#9ca3af', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '2px 7px' }}>
-                              {timeAgo(lastEvent.occurred_at)}
-                            </div>
-                            <div style={{ fontSize: 9, color, fontWeight: 700 }}>{evCount} actions</div>
-                          </div>
-                        </>
-                      ) : (
-                        <div style={{ fontSize: 9, color: '#d1d5db', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>Waiting for first sync…</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Human Team */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-              <div style={{ background: 'linear-gradient(135deg,#fafaf9,#f5f1ed)', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14 }}>👥</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#2c2419' }}>Human Team — MyChiropractice</span>
-                <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
-              </div>
-              <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[
-                  { name: 'Amanda',  role: 'Account Manager',    icon: '🤝', color: '#c4704f', actor: 'Amanda (Account Manager)' },
-                  { name: 'Vinnie',  role: 'Ads Senior',         icon: '📈', color: '#3b82f6', actor: 'Vinnie (Ads Senior)' },
-                  { name: 'Sam',     role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6', actor: 'Sam (Ads Specialist)' },
-                  { name: 'Quan',    role: 'SEO Technical',      icon: '🔧', color: '#0891b2', actor: 'Quan (SEO Technical)' },
-                  { name: 'Thien',   role: 'SEO Specialist',     icon: '🔎', color: '#0891b2', actor: 'Thien (SEO Specialist)' },
-                  { name: 'Rachel',  role: 'Content Specialist', icon: '✍️', color: '#8b5cf6', actor: 'Rachel (Content)' },
-                  { name: 'Lee',     role: 'Marketing Manager',  icon: '🎯', color: '#d97706', actor: 'Lee (Marketing Manager)' },
-                  { name: 'Topaz',   role: 'Vice President',     icon: '⭐', color: '#d97706', actor: 'Topaz (VP)' },
-                  { name: 'Kevin',   role: 'CEO',                icon: '👑', color: '#2c2419', actor: 'Kevin (CEO)' },
-                ].map(({ name, role, icon, color, actor: actorName }) => {
-                  const staffEvent = allEvents.find(e => e.actor === actorName);
-                  return (
-                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, background: '#fafaf9', border: '1px solid rgba(44,36,25,0.06)' }}>
-                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</div>
-                        <div style={{ fontSize: 9, color, fontWeight: 600 }}>{role}</div>
-                        {staffEvent ? (
-                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, lineHeight: 1.3,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            maxWidth: 120,
-                          }}>
-                            {timeAgo(staffEvent.occurred_at)} · {staffEvent.title.replace(/^[^\s]+\s/, '')}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 2 }}>No recent activity</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── KPI cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
+        {/* ── 2. Live Stats Row ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { icon: '🤖', label: 'AI Actions',    value: aiActions,   color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.2)' },
-            { icon: '🔍', label: 'Competitors',    value: competitors, color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.2)' },
-            { icon: '✅', label: 'Wins Logged',    value: wins,        color: '#d97706', bg: '#fffbeb', border: 'rgba(217,119,6,0.2)' },
-            { icon: '⚠️',  label: 'Alerts Raised', value: alerts,      color: '#f97316', bg: '#fff7ed', border: 'rgba(249,115,22,0.2)' },
+            { icon: '🤖', label: 'AI Actions',    value: aiActions,   color: '#10b981', bg: '#ecfdf5' },
+            { icon: '🕵️', label: 'Competitors',   value: competitors, color: '#ef4444', bg: '#fef2f2' },
+            { icon: '⚠️',  label: 'Flags Raised',  value: flags,       color: '#d97706', bg: '#fffbeb' },
+            { icon: '✅', label: 'Wins',           value: wins,        color: '#3b82f6', bg: '#eff6ff' },
           ].map(({ icon, label, value, color, bg }) => (
             <div key={label} style={{
               background: '#fff', borderRadius: 14,
               border: '1px solid rgba(44,36,25,0.08)',
-              padding: '16px 20px',
+              padding: '18px 22px',
               boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               position: 'relative', overflow: 'hidden',
             }}>
               <div style={{ position: 'absolute', top: 0, right: 0, width: 60, height: 60, background: bg, borderRadius: '0 14px 0 60px', opacity: 0.8 }} />
-              <div style={{ fontSize: 20, marginBottom: 8, position: 'relative' }}>{icon}</div>
-              <div style={{ fontSize: 30, fontWeight: 900, color: '#2c2419', lineHeight: 1, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 22, marginBottom: 8, position: 'relative' }}>{icon}</div>
+              <div style={{ fontSize: 34, fontWeight: 900, color: '#2c2419', lineHeight: 1, marginBottom: 4 }}>{value}</div>
               <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${color}, transparent)`, opacity: 0.4 }} />
             </div>
           ))}
         </div>
 
-        {/* ── Last Activity by Type chips ── */}
-        <LastByTypeRow events={allEvents} />
+        {/* ── 3. Hermes Status Panel — 3 columns ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
 
-        {/* ── Competitor Intel + AI Decisions ── */}
-        {(() => {
-          const compEvents = allEvents.filter(e => e.category === 'competitor');
-          const aiDecisions = allEvents.filter(e => e.event_type === 'ai_decision_logged');
-          const weeklyDigests = allEvents.filter(e => e.event_type === 'weekly_summary_published');
-          if (compEvents.length === 0 && aiDecisions.length === 0) return null;
-          return (
-            <div style={{ display: 'grid', gridTemplateColumns: competitors > 0 ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 14 }}>
-
-              {/* Competitor Intel */}
-              {competitors > 0 && (
-                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(239,68,68,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-                  <div style={{ background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid rgba(239,68,68,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 14 }}>🕵️</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>Competitor Intel</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{competitors} TRACKED</span>
-                  </div>
-                  <div style={{ padding: '12px 18px', maxHeight: 280, overflowY: 'auto' }}>
-                    {compEvents
-                      .filter(e => e.event_type === 'competitor_discovered')
-                      .slice(0, 8)
-                      .map((ev, i) => {
-                        const d = ev.data as any;
-                        const isRunningAds = compEvents.find(ce =>
-                          ce.event_type === 'competitor_new_ad' &&
-                          (ce.data as any)?.competitor_domain === d?.domain
-                        );
-                        const runningAds = isRunningAds ? (isRunningAds.data as any)?.new_value?.is_running_ads : false;
-                        const adCount = isRunningAds ? (isRunningAds.data as any)?.new_value?.ad_count || 0 : 0;
-                        return (
-                          <div key={ev.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < Math.min(compEvents.filter(e => e.event_type === 'competitor_discovered').length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 8, background: runningAds ? '#fef2f2' : '#f9fafb', border: `1.5px solid ${runningAds ? 'rgba(239,68,68,0.2)' : 'rgba(44,36,25,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
-                              {runningAds ? '🏃' : '😴'}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {d?.name || ev.title}
-                              </div>
-                              <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>
-                                {d?.domain ? <span style={{ color: '#6b7280' }}>{d.domain}</span> : null}
-                                {d?.city ? <span> · {d.city}{d?.state ? `, ${d.state}` : ''}</span> : null}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                              {runningAds ? (
-                                <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '2px 6px' }}>
-                                  🔥 {adCount} ads
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: 9, color: '#9ca3af', background: '#f3f4f6', borderRadius: 6, padding: '2px 6px' }}>No ads</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    {compEvents.filter(e => e.event_type === 'competitor_discovered').length > 8 && (
-                      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', paddingTop: 8 }}>
-                        +{compEvents.filter(e => e.event_type === 'competitor_discovered').length - 8} more · see All Activity → Competitors
-                      </div>
-                    )}
-                  </div>
+          {/* Col 1 — Latest Ads Snapshot */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(59,130,246,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#eff6ff,#f0f9ff)', borderBottom: '1px solid rgba(59,130,246,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>📊</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#1e3a5f' }}>Latest Ads Snapshot</div>
+                {metricsData?.date && <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{metricsData.date}</div>}
+              </div>
+              {latestMetrics && <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latestMetrics.occurred_at)}</span>}
+            </div>
+            <div style={{ padding: '14px 18px' }}>
+              {latestMetrics ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'Spend',       value: metricsData?.cost != null ? `$${Number(metricsData.cost).toFixed(0)}` : '—', color: '#ef4444' },
+                    { label: 'Clicks',      value: metricsData?.clicks ?? '—',                                                   color: '#3b82f6' },
+                    { label: 'CTR',         value: metricsData?.ctr_pct != null ? `${Number(metricsData.ctr_pct).toFixed(1)}%` : '—', color: '#0891b2' },
+                    { label: 'Impr. Share', value: metricsData?.impression_share != null ? `${Math.round(Number(metricsData.impression_share) * 100)}%` : '—', color: '#10b981' },
+                    { label: 'Conversions', value: metricsData?.conversions ?? '—',                                               color: '#8b5cf6' },
+                    { label: 'CPL',         value: metricsData?.cpl != null ? `$${Number(metricsData.cpl).toFixed(0)}` : '—',    color: '#d97706' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: '#fafaf9', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(44,36,25,0.05)' }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No ads snapshot yet</div>
               )}
+            </div>
+          </div>
 
-              {/* AI Decisions + Weekly Digest */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {/* AI Decisions */}
-                {aiDecisions.length > 0 && (
-                  <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(217,119,6,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-                    <div style={{ background: 'linear-gradient(135deg,#fffbeb,#fefce8)', borderBottom: '1px solid rgba(217,119,6,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>💡</span>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: '#92400e' }}>AI Decisions Logged</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
+          {/* Col 2 — Latest Weekly Digest */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(139,92,246,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', borderBottom: '1px solid rgba(139,92,246,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>📰</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#4c1d95' }}>Latest Weekly Digest</span>
+              {latestDigest && <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latestDigest.occurred_at)}</span>}
+            </div>
+            <div style={{ padding: '14px 18px' }}>
+              {latestDigest ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                    {[
+                      { label: 'Flags',   value: digestData?.n_flags   ?? '—', color: '#ef4444' },
+                      { label: 'Fixed',   value: digestData?.n_fixed   ?? '—', color: '#10b981' },
+                      { label: 'Pending', value: digestData?.n_pending ?? '—', color: '#d97706' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ background: 'rgba(139,92,246,0.06)', borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                        <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {digestData?.period_start && (
+                    <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, textAlign: 'center', background: 'rgba(139,92,246,0.06)', borderRadius: 8, padding: '6px 10px' }}>
+                      Period: {digestData.period_start} → {digestData.period_end}
                     </div>
-                    <div style={{ padding: '12px 18px', maxHeight: 200, overflowY: 'auto' }}>
-                      {aiDecisions.slice(0, 5).map((ev, i) => {
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No digest published yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Col 3 — Competitor Landscape */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(239,68,68,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid rgba(239,68,68,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>🕵️</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>Competitor Landscape</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{competitors} TRACKED</span>
+            </div>
+            <div style={{ padding: '14px 18px' }}>
+              {competitors > 0 ? (
+                <>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                    <div style={{ flex: 1, background: '#fef2f2', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{runningAdsCount}</div>
+                      <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>RUNNING ADS</div>
+                    </div>
+                    <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#6b7280', lineHeight: 1 }}>{dormantCount < 0 ? 0 : dormantCount}</div>
+                      <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>DORMANT</div>
+                    </div>
+                  </div>
+                  {top3Running.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Top Running</div>
+                      {top3Running.map((ev, i) => {
                         const d = ev.data as any;
-                        const sev = SEV[ev.severity] || SEV.info;
                         return (
-                          <div key={ev.id ?? i} style={{ padding: '8px 0', borderBottom: i < Math.min(aiDecisions.length, 5) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: sev.color, marginTop: 4, flexShrink: 0 }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', lineHeight: 1.3 }}>{d?.flag || ev.title}</div>
-                                {d?.diagnosis && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{d.diagnosis}</div>}
-                                <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 3 }}>{timeAgo(ev.occurred_at)} · {ev.actor}</div>
-                              </div>
-                              <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 5, background: sev.bg, color: sev.color, fontWeight: 700, flexShrink: 0 }}>{sev.label}</span>
-                            </div>
+                          <div key={ev.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < top3Running.length - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: '#2c2419', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d?.competitor_domain || '—'}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', borderRadius: 6, padding: '1px 6px' }}>🔥 {d?.new_value?.ad_count ?? '?'} ads</span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: '#d1d5db', fontSize: 12, padding: '20px 0' }}>No competitors tracked yet</div>
+              )}
+            </div>
+          </div>
+        </div>
 
-                {/* Latest Weekly Digest */}
-                {weeklyDigests.length > 0 && (() => {
-                  const latest = weeklyDigests[0];
-                  const d = latest.data as any;
-                  return (
-                    <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', borderRadius: 14, border: '1px solid rgba(139,92,246,0.15)', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <span style={{ fontSize: 14 }}>📰</span>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: '#4c1d95' }}>Latest Weekly Digest</span>
-                        <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latest.occurred_at)}</span>
+        {/* ── 4. Activity Log ── */}
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 20, overflow: 'hidden' }}>
+          {/* Filter tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '0 16px', background: '#fafaf9', flexWrap: 'wrap' }}>
+            {FILTER_TABS.map(tab => {
+              const count = tab.key === 'all' ? allEvents.length : allEvents.filter(e => e.category === tab.key).length;
+              const active = filterTab === tab.key;
+              return (
+                <button key={tab.key} onClick={() => setFilterTab(tab.key)} style={{
+                  background: 'none', border: 'none',
+                  borderBottom: `2px solid ${active ? '#c4704f' : 'transparent'}`,
+                  color: active ? '#c4704f' : '#9ca3af',
+                  fontSize: 11, fontWeight: active ? 700 : 500,
+                  padding: '11px 12px 9px', cursor: 'pointer', transition: 'all 200ms',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span style={{
+                    fontSize: 9, padding: '1px 5px', borderRadius: 8, fontWeight: 700,
+                    background: active ? 'rgba(196,112,79,0.1)' : '#f3f4f6',
+                    color: active ? '#c4704f' : '#9ca3af',
+                  }}>{count}</span>
+                </button>
+              );
+            })}
+            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', fontSize: 10, color: '#9ca3af', paddingRight: 4 }}>
+              {filtered.length} events · newest first
+            </span>
+          </div>
+          <div style={{ padding: '16px 18px' }}>
+            <GroupedEvents events={filtered} isClientRole={isClientRole} />
+          </div>
+        </div>
+
+        {/* ── 5. Competitor Intel Grid (only if competitor events exist) ── */}
+        {compDiscovered.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 14 }}>🕵️</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#2c2419' }}>Competitor Intel</span>
+              <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{compDiscovered.length} TRACKED</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+              {compDiscovered.slice(0, 12).map((ev, i) => {
+                const d = ev.data as any;
+                const adEv = compAdEvents.find(ce => (ce.data as any)?.competitor_domain === d?.domain);
+                const isRunning = adEv ? (adEv.data as any)?.new_value?.is_running_ads : false;
+                const adCount   = adEv ? (adEv.data as any)?.new_value?.ad_count || 0 : 0;
+                return (
+                  <div key={ev.id ?? i} style={{
+                    background: '#fff', borderRadius: 14, padding: '14px 16px',
+                    border: `1px solid ${isRunning ? 'rgba(239,68,68,0.15)' : 'rgba(44,36,25,0.08)'}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: isRunning ? '#fef2f2' : '#f9fafb', border: `1.5px solid ${isRunning ? 'rgba(239,68,68,0.2)' : 'rgba(44,36,25,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                        {isRunning ? '🏃' : '😴'}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                        {[
-                          { label: 'Flags', value: d?.n_flags ?? '—', color: '#ef4444' },
-                          { label: 'Fixed', value: d?.n_fixed ?? '—', color: '#10b981' },
-                          { label: 'Pending', value: d?.n_pending ?? '—', color: '#d97706' },
-                        ].map(({ label, value, color }) => (
-                          <div key={label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 10, padding: '8px 10px', textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
-                            <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
-                          </div>
-                        ))}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d?.name || ev.title}</div>
+                        {d?.domain && <div style={{ fontSize: 10, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.domain}</div>}
                       </div>
-                      {d?.period_start && (
-                        <div style={{ fontSize: 9, color: '#7c3aed', marginTop: 8, textAlign: 'center', fontWeight: 600 }}>
-                          Period: {d.period_start} → {d.period_end}
-                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {(d?.city || d?.state) && (
+                        <span style={{ fontSize: 10, color: '#9ca3af' }}>{[d.city, d.state].filter(Boolean).join(', ')}</span>
+                      )}
+                      {isRunning ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '2px 6px' }}>🔥 {adCount} ads running</span>
+                      ) : (
+                        <span style={{ fontSize: 9, color: '#9ca3af', background: '#f3f4f6', borderRadius: 6, padding: '2px 6px' }}>No ads</span>
                       )}
                     </div>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })()}
+            {compDiscovered.length > 12 && (
+              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', paddingTop: 10 }}>
+                +{compDiscovered.length - 12} more competitors · filter by Competitors tab above
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* ── Radar + Thought Stream + Breakdown ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 260px', gap: 14, marginBottom: 14 }}>
+        {/* ── 6. AI Decisions (only if exist) ── */}
+        {aiDecisions.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 14 }}>💡</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#2c2419' }}>AI Decisions</span>
+              <span style={{ fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
+            </div>
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(217,119,6,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '4px 0', overflow: 'hidden' }}>
+              {aiDecisions.slice(0, 8).map((ev, i) => {
+                const d   = ev.data as any;
+                const sev = SEV[ev.severity] || SEV.info;
+                return (
+                  <div key={ev.id ?? i} style={{ padding: '12px 18px', borderBottom: i < Math.min(aiDecisions.length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: sev.color, marginTop: 4, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 2 }}>{d?.flag || ev.title}</div>
+                        {d?.diagnosis && <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4, marginBottom: 4 }}>{d.diagnosis}</div>}
+                        <div style={{ fontSize: 10, color: '#9ca3af' }}>{fmtTimestamp(ev.occurred_at)} · Hermes</div>
+                      </div>
+                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: sev.bg, color: sev.color, fontWeight: 800, flexShrink: 0 }}>{sev.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-          {/* Radar + Schedule stacked */}
+        {/* ── Radar + Live Log + Breakdown row ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 260px', gap: 14, marginBottom: 20 }}>
+
+          {/* Radar + Schedule */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, alignSelf: 'flex-start' }}>
@@ -870,174 +780,63 @@ export default function MissionPage() {
                 ))}
               </div>
             </div>
-
-            {/* Hermes Schedule */}
             <HermesSchedule nextActions={data.nextActions} />
           </div>
 
-          {/* Live Log (thought stream) */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes — Live Activity Log</span>
-              <span style={{ fontSize: 9, background: '#ecfdf5', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
+          {/* Hermes info */}
+          <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>🤖 What Hermes does every night</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 14, lineHeight: 1.4 }}>
+              While you sleep, Hermes runs a full sweep of your marketing — automatically, every night.
             </div>
-
-            <LiveLog events={allEvents} />
-
-            {/* Status footer */}
-            <div style={{ marginTop: 16, padding: '10px 14px', background: '#f9fafb', borderRadius: 10, border: '1px solid rgba(44,36,25,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)', animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes AI — Online</div>
-                <div style={{ fontSize: 10, color: '#9ca3af' }}>Autonomous 24/7 · {allEvents.length} events tracked</div>
-              </div>
-              <div style={{ display: 'flex', gap: 14 }}>
-                {[['Tasks', aiActions], ['Wins', wins], ['Alerts', alerts]].map(([l, n]) => (
-                  <div key={l as string} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: '#2c2419' }}>{n}</div>
-                    <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Work breakdown + latest snapshot */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', marginBottom: 14 }}>Work Breakdown</div>
-              {breakdown.length === 0 ? (
-                <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
-              ) : (
-                breakdown.map(([type, count]) => {
-                  const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
-                  const pct = Math.round((count / allEvents.length) * 100);
-                  return (
-                    <div key={type} style={{ marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span>{cfg.icon}</span>{cfg.label}
-                        </span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6 }}>{count}</span>
-                      </div>
-                      <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4 }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Latest daily snapshot from Ad Bee */}
-            {(() => {
-              const snap = allEvents.find(e => e.event_type === 'daily_metrics');
-              if (!snap) return null;
-              const d = snap.data as any;
-              return (
-                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(59,130,246,0.12)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                    <span style={{ fontSize: 13 }}>📊</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Latest Ads Snapshot</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{d?.date || timeAgo(snap.occurred_at)}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {[
-                      { label: 'Cost', value: d?.cost != null ? `$${d.cost.toFixed(0)}` : '—', color: '#ef4444' },
-                      { label: 'Clicks', value: d?.clicks ?? '—', color: '#3b82f6' },
-                      { label: 'CTR', value: d?.ctr_pct != null ? `${d.ctr_pct.toFixed(1)}%` : '—', color: '#0891b2' },
-                      { label: 'Impr. Share', value: d?.impression_share != null ? `${Math.round(d.impression_share * 100)}%` : '—', color: '#10b981' },
-                      { label: 'Conversions', value: d?.conversions ?? '—', color: '#8b5cf6' },
-                      { label: 'CPL', value: d?.cpl != null ? `$${d.cpl.toFixed(0)}` : '—', color: '#d97706' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} style={{ background: '#fafaf9', borderRadius: 8, padding: '7px 10px', border: '1px solid rgba(44,36,25,0.05)' }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
-                        <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* ── Activity Timeline + Task Form ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
-
-          {/* Timeline — unlimited scroll */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-
-            {/* Filter tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '0 16px', background: '#fafaf9' }}>
-              {CATEGORIES.map(cat => {
-                const count = cat.key === 'all' ? allEvents.length : allEvents.filter(e => e.category === cat.key).length;
-                const active = filterCat === cat.key;
-                return (
-                  <button key={cat.key} onClick={() => setFilterCat(cat.key)} style={{
-                    background: 'none', border: 'none',
-                    borderBottom: `2px solid ${active ? '#c4704f' : 'transparent'}`,
-                    color: active ? '#c4704f' : '#9ca3af',
-                    fontSize: 11, fontWeight: active ? 700 : 500,
-                    padding: '11px 12px 9px', cursor: 'pointer', transition: 'all 200ms',
-                    display: 'flex', alignItems: 'center', gap: 5,
-                  }}>
-                    <span>{cat.icon}</span>
-                    <span>{cat.label}</span>
-                    <span style={{
-                      fontSize: 9, padding: '1px 5px', borderRadius: 8, fontWeight: 700,
-                      background: active ? 'rgba(196,112,79,0.1)' : '#f3f4f6',
-                      color: active ? '#c4704f' : '#9ca3af',
-                    }}>{count}</span>
-                  </button>
-                );
-              })}
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', fontSize: 10, color: '#9ca3af', paddingRight: 4 }}>
-                {filtered.length} events · scroll to see all
-              </span>
-            </div>
-
-            {/* Events list — no maxHeight cap, unlimited scroll */}
-            <div style={{ padding: '16px 18px' }}>
-              <GroupedEvents events={filtered} isClientRole={isClientRole} />
-            </div>
-          </div>
-
-          {/* Right: Hermes info card */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 4 }}>🤖 What Hermes does every night</div>
-              <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 12, lineHeight: 1.4 }}>
-                While you sleep, Hermes runs a full sweep of your marketing — automatically, every night.
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
                 { icon: '📊', text: 'Pulls GA4, GSC, Ads & GBP data' },
                 { icon: '🔍', text: 'Scans competitor ads in your area' },
-                { icon: '⚡', text: 'Adjusts bids & adds negative keywords' },
+                { icon: '⚡', text: 'Adjusts bids & negative keywords' },
                 { icon: '🔎', text: 'Classifies search terms: keep vs cut' },
                 { icon: '💡', text: 'Logs every decision with reasoning' },
                 { icon: '🚨', text: 'Detects anomalies & alerts the team' },
                 { icon: '📰', text: 'Publishes weekly digest for review' },
+                { icon: '🔄', text: 'Works 24/7 — never misses a night' },
               ].map(({ icon, text }) => (
-                <div key={text} style={{ fontSize: 11, color: '#047857', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ fontSize: 13 }}>{icon}</span>
-                  <span>{text}</span>
+                <div key={text} style={{ fontSize: 11, color: '#047857', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', background: 'rgba(255,255,255,0.5)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.1)' }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ lineHeight: 1.3 }}>{text}</span>
                 </div>
               ))}
             </div>
+          </div>
 
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>Why this matters</div>
-              <p style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.6, margin: 0 }}>
-                Most agencies report once a month. Hermes logs every action in real time — so you see the work, not just the results. This is the first AI agent built specifically for chiropractic practices, running 24/7 so your marketing never stops optimizing.
-              </p>
-            </div>
+          {/* Work breakdown */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', marginBottom: 14 }}>Work Breakdown</div>
+            {breakdown.length === 0 ? (
+              <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
+            ) : (
+              breakdown.map(([type, count]) => {
+                const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
+                const pct = Math.round((count / allEvents.length) * 100);
+                return (
+                  <div key={type} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span>{cfg.icon}</span>{cfg.label}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6 }}>{count}</span>
+                    </div>
+                    <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4 }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* ── Send Task to Hermes — Full Width Section ── */}
-        <div style={{ marginTop: 14, background: '#fff', borderRadius: 18, border: '1.5px solid rgba(196,112,79,0.2)', boxShadow: '0 2px 12px rgba(196,112,79,0.08)', overflow: 'hidden' }}>
-          {/* Section header */}
+        {/* ── 7. Send Task to Hermes ── */}
+        <div style={{ marginBottom: 20, background: '#fff', borderRadius: 18, border: '1.5px solid rgba(196,112,79,0.2)', boxShadow: '0 2px 12px rgba(196,112,79,0.08)', overflow: 'hidden' }}>
           <div style={{ background: 'linear-gradient(135deg,#fdf4f0,#fef9f6)', borderBottom: '1px solid rgba(196,112,79,0.1)', padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 28 }}>🛰</span>
             <div>
@@ -1054,7 +853,6 @@ export default function MissionPage() {
 
           <div style={{ padding: '24px 28px' }}>
             {taskState === 'done' ? (
-              /* ── Success state ── */
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#ecfdf5', border: '2px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 22 }}>✓</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#2c2419', marginBottom: 6 }}>Task received by Hermes</div>
@@ -1068,7 +866,6 @@ export default function MissionPage() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                {/* Left: quick tags + textarea */}
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#4b5563', marginBottom: 10 }}>What&apos;s this about? (pick one or more)</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
@@ -1102,14 +899,12 @@ export default function MissionPage() {
                     onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(44,36,25,0.1)'; }}
                   />
                 </div>
-
-                {/* Right: what happens + submit */}
                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#4b5563', marginBottom: 10 }}>What happens next</div>
                     {[
                       { step: '1', text: 'Hermes logs your request immediately', color: '#10b981' },
-                      { step: '2', text: 'Team receives a Telegram alert', color: '#3b82f6' },
+                      { step: '2', text: 'Team receives a Telegram alert',       color: '#3b82f6' },
                       { step: '3', text: 'We investigate and update you directly', color: '#c4704f' },
                     ].map(({ step, text, color }) => (
                       <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
@@ -1118,7 +913,6 @@ export default function MissionPage() {
                       </div>
                     ))}
                   </div>
-
                   <button onClick={handleSubmit} disabled={taskState === 'sending'} style={{
                     width: '100%', background: 'linear-gradient(135deg,#c4704f,#d4835f)',
                     color: '#fff', border: 'none', borderRadius: 12,
@@ -1139,14 +933,52 @@ export default function MissionPage() {
             )}
           </div>
         </div>
+
+        {/* ── 8. Human Team (bottom) ── */}
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+          <div style={{ background: 'linear-gradient(135deg,#fafaf9,#f5f1ed)', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14 }}>👥</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#2c2419' }}>Human Team — MyChiropractice</span>
+            <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
+          </div>
+          <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            {[
+              { name: 'Amanda', role: 'Account Manager',    icon: '🤝', color: '#c4704f', actorKey: 'Amanda' },
+              { name: 'Vinnie', role: 'Ads Senior',         icon: '📈', color: '#3b82f6', actorKey: 'Vinnie' },
+              { name: 'Sam',    role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6', actorKey: 'Sam' },
+              { name: 'Quan',   role: 'SEO Technical',      icon: '🔧', color: '#0891b2', actorKey: 'Quan' },
+              { name: 'Thien',  role: 'SEO Specialist',     icon: '🔎', color: '#0891b2', actorKey: 'Thien' },
+              { name: 'Rachel', role: 'Content',            icon: '✍️', color: '#8b5cf6', actorKey: 'Rachel' },
+              { name: 'Lee',    role: 'Marketing Manager',  icon: '🎯', color: '#d97706', actorKey: 'Lee' },
+              { name: 'Topaz',  role: 'Vice President',     icon: '⭐', color: '#d97706', actorKey: 'Topaz' },
+              { name: 'Kevin',  role: 'CEO',                icon: '👑', color: '#2c2419', actorKey: 'Kevin' },
+            ].map(({ name, role, icon, color, actorKey }) => {
+              const staffEvent = allEvents.find(e => e.actor && e.actor.includes(actorKey));
+              return (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: '#fafaf9', border: '1px solid rgba(44,36,25,0.06)' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419' }}>{name}</div>
+                    <div style={{ fontSize: 9, color, fontWeight: 600 }}>{role}</div>
+                    {staffEvent ? (
+                      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                        {timeAgo(staffEvent.occurred_at)} · {staffEvent.title.replace(/^[^\s]+\s/, '').slice(0, 30)}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 2 }}>No recent activity</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 3px rgba(16,185,129,0.15)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0.08)} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-        @keyframes slideUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:none} }
       `}</style>
     </AdminLayout>
   );
