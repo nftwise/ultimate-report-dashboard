@@ -445,8 +445,7 @@ export default function MissionPage() {
   const [filterCat,  setFilterCat]  = useState('all');
   const [taskText,   setTaskText]   = useState('');
   const [selTags,    setSelTags]    = useState<string[]>([]);
-  const [showModal,  setShowModal]  = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [taskState,  setTaskState]  = useState<'idle' | 'sending' | 'done'>('idle');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -463,7 +462,7 @@ export default function MissionPage() {
 
   const handleSubmit = async () => {
     if (!taskText.trim() && selTags.length === 0) return;
-    setSubmitting(true);
+    setTaskState('sending');
     try {
       await fetch(`/api/mission/${clientSlug}/task`, {
         method: 'POST',
@@ -471,7 +470,10 @@ export default function MissionPage() {
         body: JSON.stringify({ tags: selTags, text: taskText }),
       });
     } catch (_) {}
-    setShowModal(true); setSubmitting(false); setTaskText(''); setSelTags([]);
+    await new Promise(r => setTimeout(r, 500));
+    setTaskState('done');
+    setTaskText(''); setSelTags([]);
+    setTimeout(() => setTaskState('idle'), 6000);
   };
 
   const QUICK_TAGS = ['Ads audit', 'Lead quality', 'Competitor check', 'SEO review', 'GBP update', 'Weekly report'];
@@ -517,31 +519,59 @@ export default function MissionPage() {
 
       <div style={{ padding: '24px 28px 60px', background: '#f9f7f4', minHeight: 'calc(100vh - 120px)' }}>
 
-        {/* ── Page header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)', animation: 'pulse-ring 2s infinite' }} />
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: '#2c2419', margin: 0 }}>Mission Control</h1>
-              <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20, padding: '2px 10px', fontWeight: 700 }}>
-                HERMES ONLINE
-              </span>
+        {/* ── Hero header ── */}
+        <div style={{ background: 'linear-gradient(135deg,#2c2419,#3d3228)', borderRadius: 18, padding: '24px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+          {/* Background glow */}
+          <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, background: '#10b981', opacity: 0.06, borderRadius: '50%', filter: 'blur(40px)' }} />
+          <div style={{ position: 'absolute', bottom: -30, left: 100, width: 150, height: 150, background: '#c4704f', opacity: 0.08, borderRadius: '50%', filter: 'blur(30px)' }} />
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, position: 'relative' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.25)', animation: 'pulse-ring 2s infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Hermes AI — Online</span>
+                <span style={{ fontSize: 9, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
+              </div>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', lineHeight: 1.2 }}>
+                Mission Control — {data.client.name}
+              </h1>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 16px', lineHeight: 1.5, maxWidth: 560 }}>
+                Hermes is your AI marketing agent, working autonomously every night while you sleep.
+                It scans your ads, monitors competitors, cuts wasted spend, and logs every action here — so you always know exactly what&apos;s being done on your behalf.
+              </p>
+              {/* Value props */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {[
+                  { icon: '🤖', text: 'AI makes changes nightly' },
+                  { icon: '🔍', text: 'Competitor intel 24/7' },
+                  { icon: '💡', text: 'Every decision logged' },
+                  { icon: '📰', text: 'Weekly digest for your team' },
+                ].map(({ icon, text }) => (
+                  <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 12px' }}>
+                    <span style={{ fontSize: 13 }}>{icon}</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
-              AI agent working 24/7 for {data.client.name} · Last sync {lastUpdated}
-            </p>
+
+            {/* Right: uptime stats */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', flexShrink: 0 }}>
+              <button onClick={fetchData} style={{
+                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff', fontSize: 11, fontWeight: 600,
+                padding: '7px 14px', borderRadius: 10, cursor: 'pointer', transition: 'all 150ms',
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.18)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)'; }}
+              >↻ Refresh</button>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{allEvents.length}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>actions logged</div>
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Last sync {lastUpdated}</div>
+            </div>
           </div>
-          <button onClick={fetchData} style={{
-            background: '#fff', border: '1px solid rgba(44,36,25,0.12)',
-            color: '#2c2419', fontSize: 12, fontWeight: 600,
-            padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)', transition: 'all 150ms',
-          }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; }}
-          >
-            ↻ Refresh
-          </button>
         </div>
 
         {/* ── KPI cards ── */}
@@ -688,105 +718,143 @@ export default function MissionPage() {
             </div>
           </div>
 
-          {/* Right: Task form + Hermes info */}
+          {/* Right: Hermes info card */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* Send task card */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(196,112,79,0.2)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>🛰</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Send Task to Hermes</span>
-              </div>
-              <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 14px', lineHeight: 1.4 }}>
-                Report an issue or request — Hermes logs it and notifies the team immediately.
-              </p>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {QUICK_TAGS.map(tag => {
-                  const sel = selTags.includes(tag);
-                  return (
-                    <button key={tag} onClick={() => setSelTags(p => sel ? p.filter(t => t !== tag) : [...p, tag])} style={{
-                      padding: '4px 10px', borderRadius: 20,
-                      border: `1.5px solid ${sel ? '#c4704f' : 'rgba(44,36,25,0.12)'}`,
-                      background: sel ? '#c4704f' : '#fff',
-                      color: sel ? '#fff' : '#6b7280',
-                      fontSize: 10, fontWeight: 600, cursor: 'pointer', transition: 'all 200ms',
-                    }}>
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <textarea rows={3} value={taskText} onChange={e => setTaskText(e.target.value)}
-                placeholder="Describe your request…"
-                style={{
-                  width: '100%', padding: 10, borderRadius: 10,
-                  border: '1.5px solid rgba(44,36,25,0.1)',
-                  background: '#fafaf9', color: '#2c2419',
-                  fontSize: 12, resize: 'none', fontFamily: 'inherit',
-                  outline: 'none', lineHeight: 1.5, marginBottom: 10,
-                  boxSizing: 'border-box', transition: 'border-color 200ms',
-                }}
-                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = '#c4704f'; }}
-                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(44,36,25,0.1)'; }}
-              />
-
-              <button onClick={handleSubmit} disabled={submitting} style={{
-                width: '100%', background: 'linear-gradient(135deg,#c4704f,#d4835f)',
-                color: '#fff', border: 'none', borderRadius: 10,
-                padding: '10px 0', fontSize: 12, fontWeight: 700,
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                opacity: submitting ? 0.7 : 1, boxShadow: '0 2px 8px rgba(196,112,79,0.25)',
-              }}>
-                {submitting
-                  ? <><div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Sending…</>
-                  : '🛰 Send to Hermes'
-                }
-              </button>
-            </div>
-
-            {/* Hermes info card */}
             <div style={{ background: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)', borderRadius: 14, border: '1px solid rgba(16,185,129,0.15)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 10 }}>🤖 What Hermes does nightly</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 4 }}>🤖 What Hermes does every night</div>
+              <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 12, lineHeight: 1.4 }}>
+                While you sleep, Hermes runs a full sweep of your marketing — automatically, every night.
+              </div>
               {[
-                '📊 Pulls GA4, GSC, Ads, GBP data',
-                '🔍 Scans competitor ads in your area',
-                '⚡ Makes bid & keyword adjustments',
-                '🔎 Classifies search terms: keep vs cut',
-                '💡 Logs decisions & flags anomalies',
-                '📰 Publishes weekly digest for your team',
-              ].map(item => (
-                <div key={item} style={{ fontSize: 11, color: '#047857', marginBottom: 6, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                  <span style={{ flexShrink: 0 }}></span>
-                  <span>{item}</span>
+                { icon: '📊', text: 'Pulls GA4, GSC, Ads & GBP data' },
+                { icon: '🔍', text: 'Scans competitor ads in your area' },
+                { icon: '⚡', text: 'Adjusts bids & adds negative keywords' },
+                { icon: '🔎', text: 'Classifies search terms: keep vs cut' },
+                { icon: '💡', text: 'Logs every decision with reasoning' },
+                { icon: '🚨', text: 'Detects anomalies & alerts the team' },
+                { icon: '📰', text: 'Publishes weekly digest for review' },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ fontSize: 11, color: '#047857', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 13 }}>{icon}</span>
+                  <span>{text}</span>
                 </div>
               ))}
             </div>
+
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>Why this matters</div>
+              <p style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.6, margin: 0 }}>
+                Most agencies report once a month. Hermes logs every action in real time — so you see the work, not just the results. This is the first AI agent built specifically for chiropractic practices, running 24/7 so your marketing never stops optimizing.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Send Task to Hermes — Full Width Section ── */}
+        <div style={{ marginTop: 14, background: '#fff', borderRadius: 18, border: '1.5px solid rgba(196,112,79,0.2)', boxShadow: '0 2px 12px rgba(196,112,79,0.08)', overflow: 'hidden' }}>
+          {/* Section header */}
+          <div style={{ background: 'linear-gradient(135deg,#fdf4f0,#fef9f6)', borderBottom: '1px solid rgba(196,112,79,0.1)', padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🛰</span>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#2c2419', marginBottom: 2 }}>Send a Task to Hermes</div>
+              <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.4 }}>
+                See something that needs attention? Tell Hermes — it logs your request, notifies the team, and they&apos;ll follow up. You&apos;re always in the loop.
+              </div>
+            </div>
+            <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>Response time</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#c4704f' }}>Next business day</div>
+            </div>
+          </div>
+
+          <div style={{ padding: '24px 28px' }}>
+            {taskState === 'done' ? (
+              /* ── Success state ── */
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#ecfdf5', border: '2px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 22 }}>✓</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#2c2419', marginBottom: 6 }}>Task received by Hermes</div>
+                <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, maxWidth: 400, margin: '0 auto 16px' }}>
+                  Your request has been logged and the team has been notified via Telegram. You&apos;ll see an update in the Activity Feed after the next sync.
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fdf4f0', border: '1px solid rgba(196,112,79,0.2)', borderRadius: 12, padding: '10px 18px' }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', animation: 'pulse-ring 2s infinite', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' }} />
+                  <span style={{ fontSize: 12, color: '#c4704f', fontWeight: 600 }}>Hermes is on it · Team notified</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {/* Left: quick tags + textarea */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#4b5563', marginBottom: 10 }}>What&apos;s this about? (pick one or more)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                    {QUICK_TAGS.map(tag => {
+                      const sel = selTags.includes(tag);
+                      return (
+                        <button key={tag} onClick={() => setSelTags(p => sel ? p.filter(t => t !== tag) : [...p, tag])} style={{
+                          padding: '6px 14px', borderRadius: 20,
+                          border: `1.5px solid ${sel ? '#c4704f' : 'rgba(44,36,25,0.12)'}`,
+                          background: sel ? '#c4704f' : '#fff',
+                          color: sel ? '#fff' : '#6b7280',
+                          fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 200ms',
+                          boxShadow: sel ? '0 2px 8px rgba(196,112,79,0.2)' : 'none',
+                        }}>
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <textarea rows={4} value={taskText} onChange={e => setTaskText(e.target.value)}
+                    placeholder="Describe what you need… e.g. 'Our leads seem off this week — too many non-chiro calls'"
+                    style={{
+                      width: '100%', padding: 12, borderRadius: 12,
+                      border: '1.5px solid rgba(44,36,25,0.1)',
+                      background: '#fafaf9', color: '#2c2419',
+                      fontSize: 13, resize: 'none', fontFamily: 'inherit',
+                      outline: 'none', lineHeight: 1.6,
+                      boxSizing: 'border-box', transition: 'border-color 200ms',
+                    }}
+                    onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = '#c4704f'; }}
+                    onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(44,36,25,0.1)'; }}
+                  />
+                </div>
+
+                {/* Right: what happens + submit */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#4b5563', marginBottom: 10 }}>What happens next</div>
+                    {[
+                      { step: '1', text: 'Hermes logs your request immediately', color: '#10b981' },
+                      { step: '2', text: 'Team receives a Telegram alert', color: '#3b82f6' },
+                      { step: '3', text: 'We investigate and update you directly', color: '#c4704f' },
+                    ].map(({ step, text, color }) => (
+                      <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${color}18`, border: `1.5px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color, flexShrink: 0 }}>{step}</div>
+                        <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.4, paddingTop: 3 }}>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button onClick={handleSubmit} disabled={taskState === 'sending'} style={{
+                    width: '100%', background: 'linear-gradient(135deg,#c4704f,#d4835f)',
+                    color: '#fff', border: 'none', borderRadius: 12,
+                    padding: '13px 0', fontSize: 13, fontWeight: 700,
+                    cursor: taskState === 'sending' ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    opacity: taskState === 'sending' ? 0.8 : 1,
+                    boxShadow: '0 4px 16px rgba(196,112,79,0.3)',
+                    transition: 'all 200ms',
+                  }}>
+                    {taskState === 'sending'
+                      ? <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Notifying team…</>
+                      : <>🛰 Send to Hermes — Notify Team</>
+                    }
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* ── Confirm Modal ── */}
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 200ms' }} onClick={() => setShowModal(false)}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: 28, maxWidth: 380, width: '90%', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.15)', animation: 'slideUp 300ms cubic-bezier(0.34,1.56,0.64,1)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🛰</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#2c2419', marginBottom: 6 }}>Task Received</div>
-            <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, marginBottom: 16 }}>
-              Hermes logged your request and notified the team. Updates will appear in the Activity Feed after the next sync.
-            </div>
-            <div style={{ background: '#fdf4f0', borderRadius: 12, padding: 14, marginBottom: 16, textAlign: 'left', borderLeft: '3px solid #c4704f' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#c4704f', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 5 }}>Hermes</div>
-              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>Got it. I&apos;ll pull the relevant data and flag it for the team to review.</div>
-            </div>
-            <button onClick={() => setShowModal(false)} style={{ background: '#c4704f', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(196,112,79,0.25)' }}>
-              Got It
-            </button>
-          </div>
-        </div>
-      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
