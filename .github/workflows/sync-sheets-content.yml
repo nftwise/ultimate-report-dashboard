@@ -12,28 +12,22 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout GWOS repo
+      - name: Checkout Data11 repo
         uses: actions/checkout@v4
-        with:
-          repository: nftwise/graphicwise-aios
-          token: ${{ secrets.GWOS_GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install requests supabase python-dotenv
 
-      - name: Run sheets extractor
+      - name: Run sheets → CRM sync
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.GWOS_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.GWOS_SUPABASE_SERVICE_ROLE_KEY }}
           CRM_SUPABASE_URL: ${{ secrets.CRM_SUPABASE_URL }}
           CRM_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CRM_SUPABASE_SERVICE_ROLE_KEY }}
-        run: python -m scripts.jobs.sync_mission_to_crm --only sheets_content --quiet
+        run: python .github/scripts/sync_sheets.py
 
       - name: Notify Telegram on success
         if: success()
