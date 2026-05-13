@@ -651,7 +651,9 @@ function CompetitorRadar({ compDiscovered, compAdEvents, clientName }: {
   compAdEvents: MissionEvent[];
   clientName: string;
 }) {
-  const totalMonitored = compDiscovered.length;
+  // Use ad events as fallback count if discovered list is empty (happens when events are competitor_new_ad only)
+  const uniqueAdDomains = [...new Set(compAdEvents.map(e => (e.data as any)?.competitor_domain).filter(Boolean))];
+  const totalMonitored = compDiscovered.length || uniqueAdDomains.length;
   const runningAds = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
   const newDiscovered = compDiscovered.filter(e => {
     const diff = Date.now() - new Date(e.occurred_at).getTime();
@@ -749,6 +751,9 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
   compAdEvents: MissionEvent[];
   clientName: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [watchExpanded, setWatchExpanded] = useState(false);
+
   if (compDiscovered.length === 0) return null;
 
   // Match competitor_discovered → competitor_new_ad by domain/name
@@ -799,8 +804,8 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
             <div style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, fontFamily: FF.mono }}>
               🔥 Active Competitors ({running.length})
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-              {running.slice(0, 8).map((ev, i) => {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
+              {(expanded ? running : running.slice(0, 3)).map((ev, i) => {
                 const d = ev.data as any;
                 const adEv = getMatchedAdEvent(ev);
                 const ad = adEv?.data as any;
@@ -875,6 +880,12 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
                 );
               })}
             </div>
+            {!expanded && running.length > 3 && (
+              <button onClick={() => setExpanded(true)} style={{ width: '100%', padding: '8px', background: 'none', border: '1px dashed rgba(239,68,68,0.25)', borderRadius: 8, color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginTop: 6, marginBottom: 12 }}>
+                See {running.length - 3} more active competitors →
+              </button>
+            )}
+            {expanded && <div style={{ marginBottom: 8 }} />}
           </>
         )}
 
@@ -885,7 +896,7 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
               👁 Watching — no ads ({watching.length})
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-              {watching.slice(0, 12).map((ev, i) => {
+              {(watchExpanded ? watching : watching.slice(0, 6)).map((ev, i) => {
                 const d = ev.data as any;
                 return (
                   <div key={ev.id ?? i} style={{ padding: '7px 10px', background: '#fafaf9', borderRadius: 8, border: '1px solid rgba(44,36,25,0.05)' }}>
@@ -895,6 +906,11 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
                 );
               })}
             </div>
+            {!watchExpanded && watching.length > 6 && (
+              <button onClick={() => setWatchExpanded(true)} style={{ width: '100%', padding: '8px', background: 'none', border: '1px dashed rgba(107,114,128,0.25)', borderRadius: 8, color: '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginTop: 6 }}>
+                See {watching.length - 6} more watching →
+              </button>
+            )}
           </>
         )}
 
@@ -1071,7 +1087,7 @@ function TeamActivityMap({ events }: { events: MissionEvent[] }) {
 /* ─── Local Events Radar ─────────────────────── */
 function LocalEventsRadar({ events, city, compact }: { events: MissionEvent[]; city?: string; compact?: boolean }) {
   const radarEv = events.find(e => e.event_type === 'local_events_radar');
-  const localEvents = (radarEv?.data as any)?.events as Array<{ date: string; name: string; opportunity?: string }> | undefined;
+  const localEvents = (radarEv?.data as any)?.events as Array<{ date?: string; start_date?: string; event_date?: string; name?: string; title?: string; event_name?: string; opportunity?: string }> | undefined;
 
   return (
     <div style={{
@@ -1101,13 +1117,20 @@ function LocalEventsRadar({ events, city, compact }: { events: MissionEvent[]; c
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {localEvents.slice(0, 5).map((ev, i) => {
-            const date = new Date(ev.date);
-            const dateLabel = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            const rawDate = ev.date || ev.start_date || ev.event_date || '';
+            let dateLabel = '';
+            if (rawDate) {
+              const parsed = new Date(rawDate);
+              dateLabel = isNaN(parsed.getTime()) ? rawDate : parsed.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            } else {
+              dateLabel = 'Upcoming';
+            }
+            const eventName = ev.name || ev.title || ev.event_name || 'Event';
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: '#fafaf9', borderRadius: 8, border: '1px solid rgba(44,36,25,0.06)' }}>
                 <div style={{ background: '#eff6ff', color: '#3b82f6', borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{dateLabel}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419' }}>{ev.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419' }}>{eventName}</div>
                   {ev.opportunity && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>💡 {ev.opportunity}</div>}
                 </div>
               </div>
@@ -1121,19 +1144,6 @@ function LocalEventsRadar({ events, city, compact }: { events: MissionEvent[]; c
 
 /* ─── Decision Queue ─────────────────────────── */
 function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
-  const [responses, setResponses] = useState<Record<string, string>>({});
-
-  function handleAction(evId: string, action: string) {
-    console.log(`Decision ${evId}: ${action}`);
-    setResponses(prev => ({ ...prev, [evId]: action }));
-    // Clear after 4 seconds
-    setTimeout(() => setResponses(prev => {
-      const next = { ...prev };
-      delete next[evId];
-      return next;
-    }), 4000);
-  }
-
   if (aiDecisions.length === 0) {
     return (
       <div style={{
@@ -1178,7 +1188,6 @@ function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
         {aiDecisions.slice(0, 8).map((ev, i) => {
           const d   = ev.data as any;
           const sev = SEV[ev.severity] || SEV.info;
-          const resp = responses[ev.id];
 
           // Parse action_taken field
           const rawAction = d?.action_taken as string | undefined;
@@ -1224,47 +1233,22 @@ function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
                     </div>
                   )}
 
-                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: actionDone ? 0 : 8 }}>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>
                     {fmtTimestamp(ev.occurred_at)} · Hermes AI
                   </div>
 
-                  {/* Action buttons — only show if team hasn't already acted */}
-                  {!actionDone && (
-                    resp ? (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: '#ecfdf5', color: '#10b981',
-                        border: '1px solid rgba(16,185,129,0.25)',
-                        borderRadius: 8, padding: '6px 12px',
-                        fontSize: 11, fontWeight: 700,
-                      }}>
-                        ✓ Response logged — {resp}
+                  {/* No buttons — show who it's been sent to */}
+                  {(() => {
+                    const flagText = (d?.flag || ev.title || '').toLowerCase();
+                    let owner = 'Amanda (Account Manager)';
+                    if (['cpl','cpc','spend','bid','campaign','ctr','conv','click','impression'].some(k => flagText.includes(k))) owner = 'Vinnie (Ads Senior)';
+                    else if (['keyword','rank','search','gsc','seo','organic'].some(k => flagText.includes(k))) owner = 'Quan (SEO Technical)';
+                    return (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600, color: '#3b82f6' }}>
+                        📨 Sent to {owner}
                       </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {[
-                          { label: 'Approve', color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.25)' },
-                          { label: 'Reject',  color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.25)' },
-                          { label: 'Discuss', color: '#3b82f6', bg: '#eff6ff', border: 'rgba(59,130,246,0.25)' },
-                        ].map(({ label, color, bg, border }) => (
-                          <button
-                            key={label}
-                            onClick={() => handleAction(ev.id, label)}
-                            style={{
-                              fontSize: 10, fontWeight: 700, color,
-                              background: bg, border: `1px solid ${border}`,
-                              borderRadius: 7, padding: '5px 12px',
-                              cursor: 'pointer', transition: 'all 150ms',
-                            }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: actionDone ? '#ecfdf5' : sev.bg, color: actionDone ? '#10b981' : sev.color, fontWeight: 800, flexShrink: 0 }}>{actionDone ? 'Done' : sev.label}</span>
@@ -1506,21 +1490,21 @@ export default function MissionPage() {
         </div>
 
         {/* ── 6. Signals + Schedule Row (Weather | Local Events | Schedule) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 260px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) 240px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
           <WeatherDemandBar events={allEvents} city={data.client.city} compact />
           <LocalEventsRadar events={allEvents} city={data.client.city} compact />
           <HermesSchedule nextActions={data.nextActions} />
         </div>
 
         {/* ── 7. Intelligence Row: Signal Breakdown | SCANNING ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
           {/* Signal Breakdown */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: FF.mono }}>Signal Breakdown</div>
             {breakdown.length === 0 ? (
               <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {breakdown.map(([type, count], index) => {
                   const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
                   const pct = Math.round((count / allEvents.length) * 100);
