@@ -625,28 +625,32 @@ export default function MissionPage() {
               </div>
               <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {[
-                  { name: 'Amanda',  role: 'Account Manager',    icon: '🤝', color: '#c4704f' },
-                  { name: 'Vinnie',  role: 'Ads Senior',         icon: '📈', color: '#3b82f6' },
-                  { name: 'Sam',     role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6' },
-                  { name: 'Quan',    role: 'SEO Technical',      icon: '🔧', color: '#0891b2' },
-                  { name: 'Thien',   role: 'SEO Specialist',     icon: '🔎', color: '#0891b2' },
-                  { name: 'Rachel',  role: 'Content Specialist', icon: '✍️', color: '#8b5cf6' },
-                  { name: 'Lee',     role: 'Marketing Manager',  icon: '🎯', color: '#d97706' },
-                  { name: 'Topaz',   role: 'Vice President',     icon: '⭐', color: '#d97706' },
-                  { name: 'Kevin',   role: 'CEO',                icon: '👑', color: '#2c2419' },
-                ].map(({ name, role, icon, color }) => {
-                  const staffEvent = allEvents.find(e =>
-                    e.source !== 'hermes_cron' &&
-                    e.actor?.toLowerCase().includes(name.toLowerCase())
-                  );
+                  { name: 'Amanda',  role: 'Account Manager',    icon: '🤝', color: '#c4704f', actor: 'Amanda (Account Manager)' },
+                  { name: 'Vinnie',  role: 'Ads Senior',         icon: '📈', color: '#3b82f6', actor: 'Vinnie (Ads Senior)' },
+                  { name: 'Sam',     role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6', actor: 'Sam (Ads Specialist)' },
+                  { name: 'Quan',    role: 'SEO Technical',      icon: '🔧', color: '#0891b2', actor: 'Quan (SEO Technical)' },
+                  { name: 'Thien',   role: 'SEO Specialist',     icon: '🔎', color: '#0891b2', actor: 'Thien (SEO Specialist)' },
+                  { name: 'Rachel',  role: 'Content Specialist', icon: '✍️', color: '#8b5cf6', actor: 'Rachel (Content)' },
+                  { name: 'Lee',     role: 'Marketing Manager',  icon: '🎯', color: '#d97706', actor: 'Lee (Marketing Manager)' },
+                  { name: 'Topaz',   role: 'Vice President',     icon: '⭐', color: '#d97706', actor: 'Topaz (VP)' },
+                  { name: 'Kevin',   role: 'CEO',                icon: '👑', color: '#2c2419', actor: 'Kevin (CEO)' },
+                ].map(({ name, role, icon, color, actor: actorName }) => {
+                  const staffEvent = allEvents.find(e => e.actor === actorName);
                   return (
                     <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, background: '#fafaf9', border: '1px solid rgba(44,36,25,0.06)' }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</div>
                         <div style={{ fontSize: 9, color, fontWeight: 600 }}>{role}</div>
-                        {staffEvent && (
-                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{timeAgo(staffEvent.occurred_at)}</div>
+                        {staffEvent ? (
+                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, lineHeight: 1.3,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            maxWidth: 120,
+                          }}>
+                            {timeAgo(staffEvent.occurred_at)} · {staffEvent.title.replace(/^[^\s]+\s/, '')}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 2 }}>No recent activity</div>
                         )}
                       </div>
                     </div>
