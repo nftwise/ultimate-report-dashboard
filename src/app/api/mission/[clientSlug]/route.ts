@@ -94,10 +94,11 @@ export async function GET(
   }
 
   // Fetch last 200 events for full 90-day history
+  // Query by client_slug (GWOS doesn't populate client_id) with client_id fallback
   const eventsQuery = supabaseAdmin
     .from('mission_events')
     .select('id, event_type, category, severity, title, description, data, actor, source, occurred_at')
-    .eq('client_id', client.id)
+    .eq('client_slug', clientSlug)
     .order('occurred_at', { ascending: false })
     .limit(200);
 
@@ -108,7 +109,7 @@ export async function GET(
   const monthlyQuery = supabaseAdmin
     .from('mission_events_monthly')
     .select('*')
-    .eq('client_id', client.id)
+    .eq('client_slug', clientSlug)
     .eq('month', monthKey)
     .single();
 
@@ -120,7 +121,7 @@ export async function GET(
   const metricsQuery = supabaseAdmin
     .from('mission_metrics_daily')
     .select('*')
-    .eq('client_id', client.id)
+    .eq('client_slug', clientSlug)
     .gte('date', dateFrom)
     .order('date', { ascending: false });
 
