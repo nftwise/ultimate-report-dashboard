@@ -587,10 +587,10 @@ export default function MissionPage() {
               </div>
               <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
-                  { name: 'Queen Bee', role: 'Ads Strategist', icon: '👑', desc: 'Bids, budgets, campaign structure', actor: 'AI Queen Bee', color: '#d97706', bg: '#fffbeb' },
-                  { name: 'Ads Bee',   role: 'Ads Optimizer',  icon: '⚡', desc: 'Keyword sculpting, negative lists', actor: 'AI Performance Tracker', color: '#3b82f6', bg: '#eff6ff' },
-                  { name: 'SEO Bee',   role: 'Search Analyst', icon: '🔎', desc: 'Search term classification', actor: 'AI Search Term Classifier', color: '#0891b2', bg: '#ecfeff' },
-                  { name: 'Writer Bee',role: 'Ad Copywriter',  icon: '✍️', desc: 'Headlines, RSA variants', actor: 'AI Creative Writer', color: '#8b5cf6', bg: '#f5f3ff' },
+                  { name: 'Queen Bee', role: 'Ads Strategist', icon: '👑', desc: 'Bids, budgets, campaign structure', actor: '👑 Queen Bee', color: '#d97706', bg: '#fffbeb' },
+                  { name: 'Ads Bee',   role: 'Ads Optimizer',  icon: '⚡', desc: 'Keyword sculpting, negative lists', actor: '📊 Ad Bee', color: '#3b82f6', bg: '#eff6ff' },
+                  { name: 'SEO Bee',   role: 'Search Analyst', icon: '🔎', desc: 'Search term classification', actor: '🌱 SEO Bee', color: '#0891b2', bg: '#ecfeff' },
+                  { name: 'Recon Bee', role: 'Competitor Intel', icon: '🕵️', desc: 'Competitor ads & discovery', actor: '🕵️ Recon Bee', color: '#8b5cf6', bg: '#f5f3ff' },
                 ].map(({ name, role, icon, desc, actor, color, bg }) => {
                   const lastEvent = allEvents.find(e => e.actor === actor);
                   return (
