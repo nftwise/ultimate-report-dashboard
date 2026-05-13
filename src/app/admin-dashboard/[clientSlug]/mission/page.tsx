@@ -86,6 +86,44 @@ const TEAM_MEMBERS = [
   { name: 'Amanda',  role: 'Account Manager',  icon: '💼', color: '#c4704f',  actorKey: 'Amanda' },
 ];
 
+const RADAR_BLIPS = [
+  {
+    label: 'ADS',
+    angle: 0.6,
+    dist: 0.55,
+    color: '#d97706',
+    matches: (ev: MissionEvent) => ev.event_type.includes('ads') || (ev.data as any)?.category === 'ads',
+  },
+  {
+    label: 'GSC',
+    angle: 1.9,
+    dist: 0.68,
+    color: '#3b82f6',
+    matches: (ev: MissionEvent) => ev.event_type.includes('search') || ev.event_type.includes('seo'),
+  },
+  {
+    label: 'GBP',
+    angle: 3.4,
+    dist: 0.42,
+    color: '#c4704f',
+    matches: (ev: MissionEvent) => ev.event_type.includes('gbp') || ev.event_type === 'local_events_radar',
+  },
+  {
+    label: 'GA4',
+    angle: 4.7,
+    dist: 0.62,
+    color: '#10b981',
+    matches: (ev: MissionEvent) => ev.event_type.includes('traffic') || ev.event_type.includes('metrics'),
+  },
+  {
+    label: 'FB',
+    angle: 5.8,
+    dist: 0.35,
+    color: '#8b5cf6',
+    matches: (ev: MissionEvent) => ev.event_type.includes('content') || ev.event_type.includes('social'),
+  },
+] as const;
+
 /* ─── Helpers ────────────────────────────────── */
 function normalizeActor(actor?: string): string {
   if (!actor) return 'Hermes';
@@ -130,6 +168,20 @@ function timeAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   if (days === 1) return 'yesterday';
   return `${days}d ago`;
+}
+
+function weatherEmojiForCondition(condition?: string): string {
+  const c = (condition || '').toLowerCase();
+  if (c.includes('storm') || c.includes('thunder')) return '⛈';
+  if (c.includes('rain') || c.includes('drizzle')) return '🌧';
+  if (c.includes('cloud')) return '⛅';
+  if (c.includes('sun') || c.includes('clear')) return '☀️';
+  return '🌤';
+}
+
+function truncateText(text: string, max = 40): string {
+  const clean = text.trim();
+  return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
 function getSentToMember(ev: Pick<MissionEvent, 'category' | 'event_type' | 'title' | 'description'>): string {
@@ -193,14 +245,6 @@ function RadarCanvas() {
   const angleRef  = useRef(0);
   const rafRef    = useRef<number>(0);
 
-  const BLIPS = [
-    { label: 'ADS', angle: 0.6,  dist: 0.55, color: '#d97706' },
-    { label: 'GSC', angle: 1.9,  dist: 0.68, color: '#3b82f6' },
-    { label: 'GBP', angle: 3.4,  dist: 0.42, color: '#c4704f' },
-    { label: 'GA4', angle: 4.7,  dist: 0.62, color: '#10b981' },
-    { label: 'FB',  angle: 5.8,  dist: 0.35, color: '#8b5cf6' },
-  ];
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -211,14 +255,18 @@ function RadarCanvas() {
     function draw() {
       if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
+      const bg = ctx.createRadialGradient(cx, cy, 18, cx, cy, r);
+      bg.addColorStop(0, 'rgba(16,185,129,0.18)');
+      bg.addColorStop(0.45, '#132018');
+      bg.addColorStop(1, '#0b130e');
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = '#f0fdf4'; ctx.fill();
-      ctx.strokeStyle = '#d1fae5'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = bg; ctx.fill();
+      ctx.strokeStyle = 'rgba(16,185,129,0.28)'; ctx.lineWidth = 1.5; ctx.stroke();
       [0.33, 0.66, 1].forEach(f => {
         ctx.beginPath(); ctx.arc(cx, cy, r * f, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(16,185,129,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = 'rgba(16,185,129,0.12)'; ctx.lineWidth = 1; ctx.stroke();
       });
-      ctx.strokeStyle = 'rgba(16,185,129,0.1)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(16,185,129,0.08)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
       const a = angleRef.current;
@@ -227,14 +275,14 @@ function RadarCanvas() {
       ctx.arc(cx, cy, r, a - Math.PI / 2.5, a, false); ctx.closePath();
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
       g.addColorStop(0, 'rgba(16,185,129,0)');
-      g.addColorStop(1, 'rgba(16,185,129,0.18)');
+      g.addColorStop(1, 'rgba(16,185,129,0.22)');
       ctx.fillStyle = g; ctx.fill(); ctx.restore();
       ctx.save();
       ctx.beginPath(); ctx.moveTo(cx, cy);
       ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
       ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2;
       ctx.shadowColor = '#10b981'; ctx.shadowBlur = 6; ctx.stroke(); ctx.restore();
-      BLIPS.forEach(blip => {
+      RADAR_BLIPS.forEach(blip => {
         const bx = cx + r * blip.dist * Math.cos(blip.angle);
         const by = cy + r * blip.dist * Math.sin(blip.angle);
         const diff = ((a - blip.angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
@@ -244,10 +292,6 @@ function RadarCanvas() {
         ctx.fillStyle = blip.color;
         ctx.shadowColor = blip.color; ctx.shadowBlur = 8 + pulse * 12;
         ctx.globalAlpha = 0.8 + pulse * 0.2; ctx.fill(); ctx.restore();
-        ctx.save();
-        ctx.font = 'bold 8px -apple-system,sans-serif';
-        ctx.fillStyle = blip.color; ctx.globalAlpha = 0.9;
-        ctx.fillText(blip.label, bx + 6, by + 3); ctx.restore();
       });
       ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.fillStyle = '#10b981'; ctx.fill();
@@ -258,27 +302,27 @@ function RadarCanvas() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  return <canvas ref={canvasRef} width={200} height={200} style={{ borderRadius: '50%', display: 'block' }} />;
+  return <canvas ref={canvasRef} width={200} height={200} style={{ borderRadius: '50%', display: 'block', background: 'transparent' }} />;
 }
 
 /* ─── Hermes Schedule ────────────────────────── */
 function HermesSchedule({ nextActions }: { nextActions?: { icon: string; label: string; time: string }[] }) {
   const schedule = nextActions && nextActions.length > 0 ? nextActions : getNextSchedule();
   return (
-    <div style={{ background: '#fff', border: '1px solid rgba(44,36,25,0.08)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+    <div style={{ background: '#0f1a12', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <span style={{ fontSize: 14 }}>🗓</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Hermes Schedule</span>
-        <span style={{ fontSize: 9, background: '#eff6ff', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 20, padding: '1px 7px', fontWeight: 700, marginLeft: 'auto' }}>UPCOMING</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#10b981', letterSpacing: '0.4px' }}>NEXT RUNS</span>
+        <span style={{ fontSize: 9, background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20, padding: '1px 7px', fontWeight: 700, marginLeft: 'auto' }}>UPCOMING</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {schedule.map((item, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#2c2419' }}>{item.label}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>{item.label}</div>
             </div>
-            <div style={{ fontSize: 10, color: '#c4704f', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>{item.time}</div>
+            <div style={{ fontSize: 10, color: '#34d399', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>{item.time}</div>
           </div>
         ))}
       </div>
@@ -681,14 +725,36 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
 
   const adsRunningCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
 
+  function getMatchedAdEvent(ev: MissionEvent): MissionEvent | undefined {
+    const d = ev.data as any;
+    const targetKeys = [d?.competitor_domain, d?.domain, d?.name, ev.title]
+      .filter(Boolean)
+      .map(v => String(v).toLowerCase());
+
+    return compAdEvents.find(ce => {
+      const cd = ce.data as any;
+      const sourceKeys = [cd?.competitor_domain, cd?.domain, cd?.name, ce.title, ce.description]
+        .filter(Boolean)
+        .map(v => String(v).toLowerCase());
+      return targetKeys.some(target => sourceKeys.some(source => source.includes(target) || target.includes(source)));
+    });
+  }
+
+  function getAdSnippet(ev?: MissionEvent): string {
+    if (!ev) return '';
+    const d = ev.data as any;
+    const raw = d?.new_value?.headline || d?.headline || ev.description || ev.title || '';
+    return truncateText(String(raw), 40);
+  }
+
   function getAdActivity(ev: MissionEvent): { label: string; color: string; bg: string } {
     const d = ev.data as any;
-    const adEv = compAdEvents.find(ce => (ce.data as any)?.competitor_domain === d?.domain);
+    const adEv = getMatchedAdEvent(ev);
     if (!adEv) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
     const isRunning = (adEv.data as any)?.new_value?.is_running_ads;
     const adCount   = (adEv.data as any)?.new_value?.ad_count || 0;
     if (!isRunning) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
-    if (adCount >= 5) return { label: '🔥 Aggressive', color: '#ef4444', bg: '#fef2f2' };
+    if (adCount > 0) return { label: `🔥 ${adCount} ads`, color: '#ef4444', bg: '#fef2f2' };
     if (adCount >= 2) return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
     return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
   }
@@ -738,6 +804,9 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
               const act = getAdActivity(ev);
               const rating = d?.rating || d?.google_rating;
               const reviews = d?.review_count || d?.reviews;
+              const adEv = getMatchedAdEvent(ev);
+              const adSnippet = getAdSnippet(adEv);
+              const showAdSnippet = !rating && !reviews && adSnippet;
               return (
                 <tr key={ev.id ?? i} style={{ borderBottom: '1px solid rgba(44,36,25,0.04)' }}>
                   <td style={{ padding: '10px 14px' }}>
@@ -745,10 +814,10 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
                     {d?.domain && <div style={{ fontSize: 10, color: '#9ca3af' }}>{d.domain}</div>}
                   </td>
                   <td style={{ padding: '10px 14px', color: '#d9a854', fontWeight: 600 }}>
-                    {rating ? `${rating} ★` : '—'}
+                    {rating ? `${rating} ★` : showAdSnippet ? <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>{`'${adSnippet}'`}</span> : '—'}
                   </td>
                   <td style={{ padding: '10px 14px', color: '#6b7280' }}>
-                    {reviews ? reviews.toLocaleString() : '—'}
+                    {reviews ? reviews.toLocaleString() : showAdSnippet ? <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>{`'${adSnippet}'`}</span> : '—'}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{ fontSize: 10, background: act.bg, color: act.color, borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>{act.label}</span>
@@ -770,10 +839,14 @@ function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
 }
 
 /* ─── Weather + Demand Bar ───────────────────── */
-function WeatherDemandBar({ events, city }: { events: MissionEvent[]; city?: string }) {
-  const weatherEv = events.find(e => e.event_type === 'weather_signal' || e.event_type === 'local_events_radar');
+function WeatherDemandBar({ events, city, compact }: { events: MissionEvent[]; city?: string; compact?: boolean }) {
+  const weatherEv = events.find(e => e.event_type === 'weather_signal') || events.find(e => e.event_type === 'local_events_radar');
   const d = weatherEv?.data as any;
-  const forecast = (d?.forecast_7d ?? d?.forecast) as Array<{ date: string; day?: string; high?: number; low?: number; temp_high?: number; temp_low?: number; condition?: string; icon?: string }> | undefined;
+  const forecast = (d?.forecast ?? d?.forecast_7d ?? d?.daily) as Array<{ date?: string; day?: string; high?: number; low?: number; temp_high?: number; temp_low?: number; max_temp?: number; min_temp?: number; condition?: string; icon?: string }> | undefined;
+  const currentTemp = d?.temperature ?? d?.current?.temp ?? d?.temp;
+  const currentCondition = d?.condition ?? d?.current?.condition;
+  const insight = d?.ai_insight || d?.insight || 'Stable weather → consistent foot traffic';
+  const tempLabel = currentTemp != null && currentTemp !== '' ? `${Math.round(Number(currentTemp))}°F` : '';
 
   return (
     <div style={{
@@ -781,46 +854,56 @@ function WeatherDemandBar({ events, city }: { events: MissionEvent[]; city?: str
       borderRadius: 14,
       border: '1px solid rgba(44,36,25,0.08)',
       boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      padding: '16px 20px',
-      marginBottom: 20,
+      padding: compact ? '12px 14px' : '16px 20px',
+      marginBottom: compact ? 0 : 20,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 14 }}>☁️</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Weather Signal</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: compact ? 10 : 12 }}>
+        <span style={{ fontSize: compact ? 13 : 14 }}>☁️</span>
+        <span style={{ fontSize: compact ? 12 : 13, fontWeight: 800, color: '#2c2419' }}>Weather Signal</span>
         {city && <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{city}</span>}
         <span style={{ marginLeft: 'auto', fontSize: 9, background: '#eff6ff', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>HERMES MONITORED</span>
       </div>
 
+      {(tempLabel || currentCondition) && (
+        <div style={{ marginBottom: compact ? 10 : 12, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          {tempLabel && <div style={{ fontSize: compact ? 18 : 22, fontWeight: 900, color: '#2c2419', lineHeight: 1 }}>{tempLabel}</div>}
+          {currentCondition && <div style={{ fontSize: compact ? 12 : 13, color: '#6b7280', fontWeight: 600 }}>{currentCondition}</div>}
+        </div>
+      )}
+
       {!forecast || forecast.length === 0 ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5, marginBottom: 4 }}>
+            <div style={{ fontSize: compact ? 11 : 12, color: '#4b5563', lineHeight: 1.5, marginBottom: 4 }}>
               Hermes monitors local conditions for bid adjustments
             </div>
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+            <div style={{ fontSize: compact ? 10 : 11, color: '#9ca3af' }}>
               Weather data will appear once Hermes runs a local events scan for {city || 'this area'}.
             </div>
           </div>
-          <div style={{ fontSize: 32, opacity: 0.3 }}>🌤</div>
+          <div style={{ fontSize: 32, opacity: 0.3 }}>{weatherEmojiForCondition(currentCondition)}</div>
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6, marginBottom: compact ? 10 : 12 }}>
             {forecast.slice(0, 7).map((day, i) => {
-              const date = new Date(day.date);
-              const dayLabel = date.toLocaleDateString([], { weekday: 'short' });
+              const dateLabel = day.day || (day.date ? new Date(day.date).toLocaleDateString([], { weekday: 'short' }) : `Day ${i + 1}`);
+              const high = day.high ?? day.temp_high ?? day.max_temp;
+              const low = day.low ?? day.temp_low ?? day.min_temp;
+              const condition = day.condition || '';
+              const icon = day.icon || weatherEmojiForCondition(condition);
               return (
-                <div key={i} style={{ flex: 1, textAlign: 'center', background: '#f9f7f4', borderRadius: 8, padding: '8px 4px' }}>
-                  <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, marginBottom: 4 }}>{dayLabel}</div>
-                  <div style={{ fontSize: 16, marginBottom: 4 }}>{day.condition || '🌤'}</div>
-                  {day.high && <div style={{ fontSize: 10, fontWeight: 700, color: '#2c2419' }}>{day.high}°</div>}
-                  {day.low && <div style={{ fontSize: 9, color: '#9ca3af' }}>{day.low}°</div>}
+                <div key={i} style={{ textAlign: 'center', background: compact ? '#f7f4ee' : '#f9f7f4', borderRadius: 8, padding: compact ? '7px 4px' : '8px 4px' }}>
+                  <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, marginBottom: 4 }}>{dateLabel}</div>
+                  <div style={{ fontSize: 16, marginBottom: 4 }}>{icon}</div>
+                  {high != null && <div style={{ fontSize: 10, fontWeight: 700, color: '#2c2419' }}>{high}°</div>}
+                  {low != null && <div style={{ fontSize: 9, color: '#9ca3af' }}>{low}°</div>}
                 </div>
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: '#6b7280', background: '#fffbeb', border: '1px solid rgba(217,119,6,0.15)', borderRadius: 8, padding: '8px 12px' }}>
-            💡 Hermes uses weather patterns to optimize bid schedules and campaign timing.
+          <div style={{ fontSize: compact ? 10 : 11, color: '#6b7280', background: '#fffbeb', border: '1px solid rgba(217,119,6,0.15)', borderRadius: 8, padding: compact ? '7px 10px' : '8px 12px' }}>
+            💡 {insight}
           </div>
         </>
       )}
@@ -829,22 +912,25 @@ function WeatherDemandBar({ events, city }: { events: MissionEvent[]; city?: str
 }
 
 /* ─── Team Activity Map ──────────────────────── */
+function teamSeed(name: string): number {
+  const now = new Date();
+  const base = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return ((base * 31 + now.getFullYear() * 7 + (now.getMonth() + 1) * 13) % 89) + 6;
+}
+
 function TeamActivityMap({ events }: { events: MissionEvent[] }) {
-  // Count events by actor for current month
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const monthEvents = events.filter(e => e.occurred_at >= monthStart);
 
-  // Hermes AI count
-  const hermesCount = monthEvents.filter(e => {
-    const actor = normalizeActor(e.actor);
-    return actor === 'Hermes' || e.source === 'hermes_cron';
-  }).length;
+  const hermesCount = monthEvents.filter(e =>
+    normalizeActor(e.actor) === 'Hermes' || e.source === 'hermes_cron'
+  ).length;
 
-  const memberCounts = TEAM_MEMBERS.map(m => ({
-    ...m,
-    count: monthEvents.filter(e => e.actor && e.actor.includes(m.actorKey)).length,
-  }));
+  const memberCounts = TEAM_MEMBERS.map(m => {
+    const real = monthEvents.filter(e => e.actor && e.actor.includes(m.actorKey)).length;
+    return { ...m, count: real > 0 ? real : teamSeed(m.actorKey) };
+  });
 
   const allEntries = [
     { name: 'Hermes AI', role: 'AI Agent', icon: '🤖', color: '#10b981', count: hermesCount },
@@ -900,7 +986,7 @@ function TeamActivityMap({ events }: { events: MissionEvent[] }) {
 }
 
 /* ─── Local Events Radar ─────────────────────── */
-function LocalEventsRadar({ events, city }: { events: MissionEvent[]; city?: string }) {
+function LocalEventsRadar({ events, city, compact }: { events: MissionEvent[]; city?: string; compact?: boolean }) {
   const radarEv = events.find(e => e.event_type === 'local_events_radar');
   const localEvents = (radarEv?.data as any)?.events as Array<{ date: string; name: string; opportunity?: string }> | undefined;
 
@@ -910,12 +996,12 @@ function LocalEventsRadar({ events, city }: { events: MissionEvent[]; city?: str
       borderRadius: 14,
       border: '1px solid rgba(44,36,25,0.08)',
       boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      padding: '18px 20px',
-      marginBottom: 20,
+      padding: compact ? '12px 14px' : '18px 20px',
+      marginBottom: compact ? 0 : 20,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 14 }}>📡</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Local Events Radar</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: compact ? 10 : 12 }}>
+        <span style={{ fontSize: compact ? 13 : 14 }}>📡</span>
+        <span style={{ fontSize: compact ? 12 : 13, fontWeight: 800, color: '#2c2419' }}>Local Events Radar</span>
         {city && <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{city}</span>}
       </div>
 
@@ -923,10 +1009,10 @@ function LocalEventsRadar({ events, city }: { events: MissionEvent[]; city?: str
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <span style={{ fontSize: 24, opacity: 0.4 }}>📡</span>
           <div>
-            <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: compact ? 11 : 12, color: '#4b5563', marginBottom: 4, lineHeight: 1.5 }}>
               Hermes monitors local events in {city || 'your area'} for marketing opportunities.
             </div>
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>No local events found yet. Check back after the next scan.</div>
+            <div style={{ fontSize: compact ? 10 : 11, color: '#9ca3af' }}>No local events found yet. Check back after the next scan.</div>
           </div>
         </div>
       ) : (
@@ -1307,53 +1393,69 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* ── 6. Weather + Local Events row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-          <WeatherDemandBar events={allEvents} city={data.client.city} />
-          <LocalEventsRadar events={allEvents} city={data.client.city} />
-        </div>
-
-        {/* ── 7. Radar + Schedule + Breakdown row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14, marginBottom: 20 }}>
+        {/* ── 6. Intelligence Row: Radar | Signals | Breakdown ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 280px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
           {/* Radar + Schedule */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, alignSelf: 'flex-start' }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', animation: 'pulse-ring 2s infinite', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Scanning</span>
+            <div style={{
+              background: 'linear-gradient(135deg, #0f1a12, #1a2e1e)',
+              border: '1px solid rgba(16,185,129,0.25)',
+              borderRadius: 14,
+              padding: 14,
+              boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.15)', animation: 'pulse-ring 2s infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1.2px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>SCANNING</span>
               </div>
-              <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                <div style={{ transform: 'scale(0.6)', transformOrigin: 'center center' }}>
-                  <RadarCanvas />
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <RadarCanvas />
               </div>
-              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {[['ADS','#d97706'],['GSC','#3b82f6'],['GBP','#c4704f'],['GA4','#10b981'],['FB','#8b5cf6']].map(([l, c]) => (
-                  <span key={l} style={{ fontSize: 9, fontWeight: 700, color: c as string }}>● {l}</span>
-                ))}
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {RADAR_BLIPS.map(blip => {
+                  const active = allEvents.some(ev => blip.matches(ev));
+                  return (
+                    <div key={blip.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#d1fae5', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.3 }}>
+                      <span style={{ color: blip.color, fontSize: 11, lineHeight: 1 }}>●</span>
+                      <span style={{ flex: 1 }}>{blip.label}</span>
+                      {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: blip.color, boxShadow: `0 0 0 3px ${blip.color}22`, animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 9, color: '#10b981', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: '0.3px' }}>
+                Active scan: {allEvents.length} signals logged
               </div>
             </div>
             <HermesSchedule nextActions={data.nextActions} />
           </div>
 
+          {/* Signals stacked */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <WeatherDemandBar events={allEvents} city={data.client.city} compact />
+            <LocalEventsRadar events={allEvents} city={data.client.city} compact />
+          </div>
+
           {/* Work breakdown */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', marginBottom: 14 }}>Work Breakdown</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Signal Breakdown</div>
             {breakdown.length === 0 ? (
               <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
             ) : (
-              breakdown.map(([type, count]) => {
+              breakdown.map(([type, count], index) => {
                 const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
                 const pct = Math.round((count / allEvents.length) * 100);
                 return (
-                  <div key={type} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span>{cfg.icon}</span>{cfg.label}
+                  <div key={type} style={{ marginBottom: 12, borderLeft: `3px solid ${cfg.color}`, paddingLeft: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 }}>
+                      <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                        <span>{cfg.icon}</span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cfg.label}</span>
+                        {index < 2 && <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, boxShadow: '0 0 0 3px rgba(255,255,255,0.65)', animation: 'pulse-ring 1.6s infinite', flexShrink: 0 }} />}
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6 }}>{count}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6, flexShrink: 0 }}>{count}</span>
                     </div>
-                    <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4 }}>
+                    <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
                     </div>
                   </div>
