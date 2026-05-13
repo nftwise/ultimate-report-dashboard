@@ -63,6 +63,7 @@ const CATEGORIES = [
   { key: 'competitor',   label: 'Competitors',  icon: '🔍' },
   { key: 'account',      label: 'Changes',      icon: '⚡' },
   { key: 'performance',  label: 'Performance',  icon: '📊' },
+  { key: 'client',       label: 'Requests',     icon: '📋' },
 ];
 
 /* ─── Helpers ────────────────────────────────── */
@@ -688,6 +689,138 @@ export default function MissionPage() {
         {/* ── Last Activity by Type chips ── */}
         <LastByTypeRow events={allEvents} />
 
+        {/* ── Competitor Intel + AI Decisions ── */}
+        {(() => {
+          const compEvents = allEvents.filter(e => e.category === 'competitor');
+          const aiDecisions = allEvents.filter(e => e.event_type === 'ai_decision_logged');
+          const weeklyDigests = allEvents.filter(e => e.event_type === 'weekly_summary_published');
+          if (compEvents.length === 0 && aiDecisions.length === 0) return null;
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: competitors > 0 ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 14 }}>
+
+              {/* Competitor Intel */}
+              {competitors > 0 && (
+                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(239,68,68,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                  <div style={{ background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid rgba(239,68,68,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14 }}>🕵️</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>Competitor Intel</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{competitors} TRACKED</span>
+                  </div>
+                  <div style={{ padding: '12px 18px', maxHeight: 280, overflowY: 'auto' }}>
+                    {compEvents
+                      .filter(e => e.event_type === 'competitor_discovered')
+                      .slice(0, 8)
+                      .map((ev, i) => {
+                        const d = ev.data as any;
+                        const isRunningAds = compEvents.find(ce =>
+                          ce.event_type === 'competitor_new_ad' &&
+                          (ce.data as any)?.competitor_domain === d?.domain
+                        );
+                        const runningAds = isRunningAds ? (isRunningAds.data as any)?.new_value?.is_running_ads : false;
+                        const adCount = isRunningAds ? (isRunningAds.data as any)?.new_value?.ad_count || 0 : 0;
+                        return (
+                          <div key={ev.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < Math.min(compEvents.filter(e => e.event_type === 'competitor_discovered').length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: runningAds ? '#fef2f2' : '#f9fafb', border: `1.5px solid ${runningAds ? 'rgba(239,68,68,0.2)' : 'rgba(44,36,25,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                              {runningAds ? '🏃' : '😴'}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {d?.name || ev.title}
+                              </div>
+                              <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>
+                                {d?.domain ? <span style={{ color: '#6b7280' }}>{d.domain}</span> : null}
+                                {d?.city ? <span> · {d.city}{d?.state ? `, ${d.state}` : ''}</span> : null}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              {runningAds ? (
+                                <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '2px 6px' }}>
+                                  🔥 {adCount} ads
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 9, color: '#9ca3af', background: '#f3f4f6', borderRadius: 6, padding: '2px 6px' }}>No ads</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {compEvents.filter(e => e.event_type === 'competitor_discovered').length > 8 && (
+                      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', paddingTop: 8 }}>
+                        +{compEvents.filter(e => e.event_type === 'competitor_discovered').length - 8} more · see All Activity → Competitors
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Decisions + Weekly Digest */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* AI Decisions */}
+                {aiDecisions.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(217,119,6,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                    <div style={{ background: 'linear-gradient(135deg,#fffbeb,#fefce8)', borderBottom: '1px solid rgba(217,119,6,0.08)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14 }}>💡</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: '#92400e' }}>AI Decisions Logged</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
+                    </div>
+                    <div style={{ padding: '12px 18px', maxHeight: 200, overflowY: 'auto' }}>
+                      {aiDecisions.slice(0, 5).map((ev, i) => {
+                        const d = ev.data as any;
+                        const sev = SEV[ev.severity] || SEV.info;
+                        return (
+                          <div key={ev.id ?? i} style={{ padding: '8px 0', borderBottom: i < Math.min(aiDecisions.length, 5) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: sev.color, marginTop: 4, flexShrink: 0 }} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', lineHeight: 1.3 }}>{d?.flag || ev.title}</div>
+                                {d?.diagnosis && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{d.diagnosis}</div>}
+                                <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 3 }}>{timeAgo(ev.occurred_at)} · {ev.actor}</div>
+                              </div>
+                              <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 5, background: sev.bg, color: sev.color, fontWeight: 700, flexShrink: 0 }}>{sev.label}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Latest Weekly Digest */}
+                {weeklyDigests.length > 0 && (() => {
+                  const latest = weeklyDigests[0];
+                  const d = latest.data as any;
+                  return (
+                    <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', borderRadius: 14, border: '1px solid rgba(139,92,246,0.15)', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <span style={{ fontSize: 14 }}>📰</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: '#4c1d95' }}>Latest Weekly Digest</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{timeAgo(latest.occurred_at)}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                        {[
+                          { label: 'Flags', value: d?.n_flags ?? '—', color: '#ef4444' },
+                          { label: 'Fixed', value: d?.n_fixed ?? '—', color: '#10b981' },
+                          { label: 'Pending', value: d?.n_pending ?? '—', color: '#d97706' },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 10, padding: '8px 10px', textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                            <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {d?.period_start && (
+                        <div style={{ fontSize: 9, color: '#7c3aed', marginTop: 8, textAlign: 'center', fontWeight: 600 }}>
+                          Period: {d.period_start} → {d.period_end}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Radar + Thought Stream + Breakdown ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 260px', gap: 14, marginBottom: 14 }}>
 
@@ -737,30 +870,63 @@ export default function MissionPage() {
             </div>
           </div>
 
-          {/* Work breakdown */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', marginBottom: 14 }}>Work Breakdown</div>
-            {breakdown.length === 0 ? (
-              <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
-            ) : (
-              breakdown.map(([type, count]) => {
-                const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
-                const pct = Math.round((count / allEvents.length) * 100);
-                return (
-                  <div key={type} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span>{cfg.icon}</span>{cfg.label}
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6 }}>{count}</span>
+          {/* Work breakdown + latest snapshot */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#2c2419', marginBottom: 14 }}>Work Breakdown</div>
+              {breakdown.length === 0 ? (
+                <div style={{ color: '#d1d5db', fontSize: 12, textAlign: 'center', paddingTop: 20 }}>No data</div>
+              ) : (
+                breakdown.map(([type, count]) => {
+                  const cfg = EVENT_CONFIG[type] || { icon: '·', label: type, color: '#6b7280', bg: '#f3f4f6' };
+                  const pct = Math.round((count / allEvents.length) * 100);
+                  return (
+                    <div key={type} style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span>{cfg.icon}</span>{cfg.label}
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 6 }}>{count}</span>
+                      </div>
+                      <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4 }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
+                      </div>
                     </div>
-                    <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4 }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: cfg.color, borderRadius: 4, opacity: 0.7, transition: 'width 600ms ease' }} />
-                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Latest daily snapshot from Ad Bee */}
+            {(() => {
+              const snap = allEvents.find(e => e.event_type === 'daily_metrics');
+              if (!snap) return null;
+              const d = snap.data as any;
+              return (
+                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(59,130,246,0.12)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                    <span style={{ fontSize: 13 }}>📊</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>Latest Ads Snapshot</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 9, color: '#9ca3af' }}>{d?.date || timeAgo(snap.occurred_at)}</span>
                   </div>
-                );
-              })
-            )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[
+                      { label: 'Cost', value: d?.cost != null ? `$${d.cost.toFixed(0)}` : '—', color: '#ef4444' },
+                      { label: 'Clicks', value: d?.clicks ?? '—', color: '#3b82f6' },
+                      { label: 'CTR', value: d?.ctr_pct != null ? `${d.ctr_pct.toFixed(1)}%` : '—', color: '#0891b2' },
+                      { label: 'Impr. Share', value: d?.impression_share != null ? `${Math.round(d.impression_share * 100)}%` : '—', color: '#10b981' },
+                      { label: 'Conversions', value: d?.conversions ?? '—', color: '#8b5cf6' },
+                      { label: 'CPL', value: d?.cpl != null ? `$${d.cpl.toFixed(0)}` : '—', color: '#d97706' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ background: '#fafaf9', borderRadius: 8, padding: '7px 10px', border: '1px solid rgba(44,36,25,0.05)' }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                        <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
