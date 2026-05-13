@@ -93,16 +93,10 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const isClientRole = userRole === 'client';
-
-  // Fetch last 200 events (up from 50) for full 90-day history
+  // Fetch last 200 events for full 90-day history
   const eventsQuery = supabaseAdmin
     .from('mission_events')
-    .select(
-      isClientRole
-        ? 'id, event_type, category, severity, title, description, actor, occurred_at'
-        : 'id, event_type, category, severity, title, description, data, actor, source, occurred_at'
-    )
+    .select('id, event_type, category, severity, title, description, data, actor, source, occurred_at')
     .eq('client_id', client.id)
     .order('occurred_at', { ascending: false })
     .limit(200);
