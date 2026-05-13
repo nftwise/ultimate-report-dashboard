@@ -36,24 +36,28 @@ interface MissionData {
 
 /* ─── Event config ───────────────────────────── */
 const EVENT_CONFIG: Record<string, { icon: string; label: string; color: string; bg: string }> = {
-  daily_metrics:            { icon: '📊', label: 'Daily Snapshot',    color: '#3b82f6', bg: '#eff6ff' },
-  weekly_summary_published: { icon: '📰', label: 'Weekly Digest',     color: '#8b5cf6', bg: '#f5f3ff' },
-  ai_decision_logged:       { icon: '💡', label: 'AI Decision',       color: '#d97706', bg: '#fffbeb' },
-  competitor_new_ad:        { icon: '🔍', label: 'Competitor Ad',     color: '#ef4444', bg: '#fef2f2' },
-  competitor_discovered:    { icon: '🕵️', label: 'Competitor Found',  color: '#f97316', bg: '#fff7ed' },
-  ai_workforce_daily_stats: { icon: '🤖', label: 'AI Workforce',      color: '#10b981', bg: '#ecfdf5' },
-  search_terms_classified:  { icon: '🔎', label: 'Search Terms',      color: '#0891b2', bg: '#ecfeff' },
-  ai_change:                { icon: '⚡', label: 'AI Change',         color: '#10b981', bg: '#ecfdf5' },
-  staff_change:             { icon: '👤', label: 'Staff Change',      color: '#6b7280', bg: '#f9fafb' },
-  anomaly_alert:            { icon: '🚨', label: 'Anomaly',           color: '#ef4444', bg: '#fef2f2' },
-  client_task_submitted:    { icon: '📋', label: 'Client Request',    color: '#c4704f', bg: '#fdf4f0' },
-  local_events_radar:       { icon: '📡', label: 'Local Events Radar', color: '#0891b2', bg: '#ecfeff' },
-  backlinks_snapshot:       { icon: '🔗', label: 'Backlinks Snapshot', color: '#7c3aed', bg: '#f5f3ff' },
+  daily_metrics:            { icon: '📊', label: 'Daily Snapshot',       color: '#3b82f6', bg: '#eff6ff' },
+  weekly_summary_published: { icon: '📰', label: 'Weekly Digest',        color: '#8b5cf6', bg: '#f5f3ff' },
+  ai_decision_logged:       { icon: '💡', label: 'AI Decision',          color: '#d97706', bg: '#fffbeb' },
+  competitor_new_ad:        { icon: '🕵️', label: 'Competitor Ad Report', color: '#ef4444', bg: '#fef2f2' },
+  competitor_discovered:    { icon: '🔍', label: 'Competitor Found',     color: '#f97316', bg: '#fff7ed' },
+  ai_workforce_daily_stats: { icon: '🤖', label: 'AI Workforce',         color: '#10b981', bg: '#ecfdf5' },
+  search_terms_classified:  { icon: '🔎', label: 'Search Terms',         color: '#0891b2', bg: '#ecfeff' },
+  ai_change:                { icon: '⚡', label: 'AI Optimization',      color: '#10b981', bg: '#ecfdf5' },
+  staff_change:             { icon: '👤', label: 'Team Action',          color: '#6b7280', bg: '#f9fafb' },
+  anomaly_alert:            { icon: '🚨', label: 'Anomaly Detected',     color: '#ef4444', bg: '#fef2f2' },
+  client_task_submitted:    { icon: '📋', label: 'Client Request',       color: '#c4704f', bg: '#fdf4f0' },
+  local_events_radar:       { icon: '📡', label: 'Local Events Radar',   color: '#0891b2', bg: '#ecfeff' },
+  backlinks_snapshot:       { icon: '🔗', label: 'Backlinks Snapshot',   color: '#7c3aed', bg: '#f5f3ff' },
+  traffic_snapshot:         { icon: '📈', label: 'Traffic Snapshot',     color: '#3b82f6', bg: '#eff6ff' },
   competitor_ad_report:     { icon: '🕵️', label: 'Competitor Ad Report', color: '#ef4444', bg: '#fef2f2' },
-  gbp_signal:               { icon: '📍', label: 'GBP Signal',        color: '#c4704f', bg: '#fdf4f0' },
-  seo_signal:               { icon: '🔎', label: 'SEO Signal',        color: '#10b981', bg: '#ecfdf5' },
-  content_published:        { icon: '✍️', label: 'Content Published', color: '#8b5cf6', bg: '#f5f3ff' },
-  wordpress_post_published: { icon: '✍️', label: 'Blog Published',    color: '#8b5cf6', bg: '#f5f3ff' },
+  gbp_signal:               { icon: '📍', label: 'GBP Signal',           color: '#c4704f', bg: '#fdf4f0' },
+  seo_signal:               { icon: '🔎', label: 'SEO Signal',           color: '#10b981', bg: '#ecfdf5' },
+  weather_signal:           { icon: '☁️', label: 'Weather Signal',       color: '#0891b2', bg: '#ecfeff' },
+  search_demand_signal:     { icon: '📉', label: 'Search Demand',        color: '#d97706', bg: '#fffbeb' },
+  top_pages_weekly:         { icon: '📄', label: 'Top Pages',            color: '#6366f1', bg: '#eef2ff' },
+  content_published:        { icon: '✍️', label: 'Content Published',    color: '#8b5cf6', bg: '#f5f3ff' },
+  wordpress_post_published: { icon: '✍️', label: 'Blog Published',       color: '#8b5cf6', bg: '#f5f3ff' },
 };
 
 const SEV: Record<string, { color: string; bg: string; label: string; border: string }> = {
@@ -70,6 +74,16 @@ const FILTER_TABS = [
   { key: 'performance',  label: 'Performance',  icon: '📊' },
   { key: 'account',      label: 'Changes',      icon: '⚡' },
   { key: 'client',       label: 'Requests',     icon: '📋' },
+];
+
+const TEAM_MEMBERS = [
+  { name: 'Vinnie',  role: 'Ads Senior',       icon: '📈', color: '#3b82f6',  actorKey: 'Vinnie' },
+  { name: 'Sam',     role: 'Ads Specialist',   icon: '⚡', color: '#3b82f6',  actorKey: 'Sam' },
+  { name: 'Quan',    role: 'SEO Technical',    icon: '🔧', color: '#0891b2',  actorKey: 'Quan' },
+  { name: 'Thien',   role: 'SEO Specialist',   icon: '🔎', color: '#0891b2',  actorKey: 'Thien' },
+  { name: 'Rachel',  role: 'Content',          icon: '✍️', color: '#8b5cf6',  actorKey: 'Rachel' },
+  { name: 'Dung',    role: 'Team',             icon: '🤝', color: '#6b7280',  actorKey: 'Dung' },
+  { name: 'Amanda',  role: 'Account Manager',  icon: '💼', color: '#c4704f',  actorKey: 'Amanda' },
 ];
 
 /* ─── Helpers ────────────────────────────────── */
@@ -127,14 +141,12 @@ function getSentToMember(ev: Pick<MissionEvent, 'category' | 'event_type' | 'tit
   ) {
     return 'Vinnie (Ads Senior)';
   }
-
   if (
     ev.category === 'seo' ||
     ['seo', 'keyword', 'rank', 'search', 'gsc'].some(term => text.includes(term))
   ) {
     return 'Sam (Ads Specialist)';
   }
-
   return 'Amanda (Account Manager)';
 }
 
@@ -274,8 +286,8 @@ function HermesSchedule({ nextActions }: { nextActions?: { icon: string; label: 
   );
 }
 
-/* ─── Grouped Events List ────────────────────── */
-function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isClientRole: boolean }) {
+/* ─── Timeline Feed ─────────────────────────── */
+function TimelineFeed({ events, isClientRole, totalCount }: { events: MissionEvent[]; isClientRole: boolean; totalCount: number }) {
   if (events.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: '#d1d5db', fontSize: 13 }}>
@@ -284,10 +296,7 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
     );
   }
 
-  // Sort newest first
   const sorted = [...events].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
-
-  // Group by date divider
   const groups: { divider: string; events: MissionEvent[] }[] = [];
   let currentDivider = '';
   for (const ev of sorted) {
@@ -300,79 +309,774 @@ function GroupedEvents({ events, isClientRole }: { events: MissionEvent[]; isCli
     }
   }
 
+  function getTimelineLine(ev: MissionEvent): { icon: string; main: string; detail?: string } {
+    const d = ev.data as any;
+    switch (ev.event_type) {
+      case 'competitor_discovered': {
+        const name = d?.name || d?.business_name || ev.title;
+        const dist = d?.distance ? ` · ${d.distance}` : '';
+        const ads = d?.ad_count ? ` · ${d.ad_count} ads running` : (d?.is_running_ads ? ' · running ads' : '');
+        return {
+          icon: '🔍',
+          main: `New competitor tracked: "${name}"${dist}${ads}`,
+          detail: d?.domain ? `${d.domain}${d?.city ? ' · ' + d.city : ''}${d?.state ? ', ' + d.state : ''}` : undefined,
+        };
+      }
+      case 'competitor_new_ad': {
+        const domain = d?.competitor_domain || d?.domain || ev.title;
+        const count = d?.new_value?.ad_count || d?.ad_count;
+        const prev = d?.old_value?.ad_count;
+        const changeStr = prev != null && count != null && count !== prev ? ` (was ${prev})` : '';
+        return {
+          icon: '🕵️',
+          main: `Competitor Ad Report · ${domain} · ${count ? count + ' ads active' + changeStr : 'ad change detected'}`,
+          detail: d?.new_value?.headline || d?.headline || undefined,
+        };
+      }
+      case 'ai_decision_logged':
+        return {
+          icon: '💡',
+          main: d?.flag || ev.title,
+          detail: d?.diagnosis || d?.action || ev.description || undefined,
+        };
+      case 'ai_change':
+        return {
+          icon: '⚡',
+          main: ev.title,
+          detail: d?.change_type ? `${d.change_type}${d?.campaign ? ' · ' + d.campaign : ''}${d?.savings ? ' · Est. savings: $' + d.savings + '/mo' : ''}` : ev.description || undefined,
+        };
+      case 'staff_change':
+        return {
+          icon: '👤',
+          main: ev.title,
+          detail: ev.description || undefined,
+        };
+      case 'ai_workforce_daily_stats': {
+        const changes = d?.changes_made || d?.total_changes;
+        const kw = d?.keywords_added;
+        const neg = d?.negative_keywords;
+        const parts = [];
+        if (changes) parts.push(`${changes} optimizations`);
+        if (kw) parts.push(`${kw} keywords added`);
+        if (neg) parts.push(`${neg} negatives applied`);
+        return {
+          icon: '🤖',
+          main: `AI Workforce active · ${parts.length ? parts.join(' · ') : 'nightly sweep complete'}`,
+          detail: d?.summary || undefined,
+        };
+      }
+      case 'daily_metrics': {
+        const spend = d?.cost != null ? `$${Number(d.cost).toFixed(0)} spend` : null;
+        const convs = d?.conversions != null ? `${d.conversions} conversions` : null;
+        const cpl = d?.cpl != null ? `$${Number(d.cpl).toFixed(0)} CPL` : null;
+        const clicks = d?.clicks ? `${d.clicks} clicks` : null;
+        const parts = [spend, convs, cpl, clicks].filter(Boolean).join(' · ');
+        return {
+          icon: '📊',
+          main: `Daily Ads Snapshot${d?.date ? ' · ' + d.date : ''} · ${parts || 'metrics logged'}`,
+          detail: d?.impression_share != null ? `Impression share: ${Math.round(Number(d.impression_share) * 100)}%` : undefined,
+        };
+      }
+      case 'backlinks_snapshot': {
+        const dr = d?.domain_rating ?? d?.dr;
+        const links = d?.total_backlinks ?? d?.backlinks;
+        const refs = d?.referring_domains ?? d?.ref_domains;
+        return {
+          icon: '🔗',
+          main: `Backlinks Snapshot · ${dr != null ? 'DR ' + dr : ''} · ${links != null ? Number(links).toLocaleString() + ' links' : ''} · ${refs != null ? refs + ' ref domains' : ''}`.replace(/( · )+/g, ' · ').replace(/ · $/, ''),
+          detail: d?.trend || d?.change || undefined,
+        };
+      }
+      case 'traffic_snapshot': {
+        const visits = d?.organic_monthly ?? d?.monthly_traffic ?? d?.sessions;
+        const topPage = d?.top_pages?.[0]?.url || d?.top_page;
+        return {
+          icon: '📈',
+          main: `Traffic Snapshot · ${visits != null ? Number(visits).toLocaleString() + ' organic visits/mo' : 'traffic logged'}`,
+          detail: topPage ? `Top page: ${topPage}` : undefined,
+        };
+      }
+      case 'seo_signal': {
+        const clicks = d?.clicks ?? d?.seo_clicks;
+        const impressions = d?.impressions ?? d?.seo_impressions;
+        const pos = d?.avg_position ?? d?.position;
+        return {
+          icon: '🔎',
+          main: `SEO Signal · ${clicks != null ? clicks + ' clicks' : ''} · ${impressions != null ? Number(impressions).toLocaleString() + ' impressions' : ''}`.replace(/( · )+/g, ' · ').replace(/ · $/, '') || ev.title,
+          detail: pos != null ? `Avg. position: ${Number(pos).toFixed(1)}` : ev.description || undefined,
+        };
+      }
+      case 'gbp_signal': {
+        const calls = d?.phone_calls ?? d?.gbp_calls;
+        const views = d?.views ?? d?.profile_views;
+        const dirs = d?.direction_requests ?? d?.directions;
+        const parts = [];
+        if (calls) parts.push(`${calls} calls`);
+        if (views) parts.push(`${Number(views).toLocaleString()} profile views`);
+        if (dirs) parts.push(`${dirs} direction requests`);
+        return {
+          icon: '📍',
+          main: `GBP Signal · ${parts.length ? parts.join(' · ') : 'profile data logged'}`,
+          detail: d?.rating ? `Rating: ${d.rating} ★` : undefined,
+        };
+      }
+      case 'weather_signal': {
+        const temp = d?.temperature ?? d?.temp ?? d?.current_temp;
+        const cond = d?.condition ?? d?.description;
+        const insight = d?.ai_insight ?? d?.insight;
+        return {
+          icon: '☁️',
+          main: `Weather Signal · ${d?.city || ''} · ${temp != null ? temp + '°F' : ''} · ${cond || ''}`.replace(/( · )+/g, ' · ').replace(/ · $/, '') || ev.title,
+          detail: insight || d?.forecast_summary || undefined,
+        };
+      }
+      case 'local_events_radar': {
+        const evts = d?.events as any[];
+        const count = evts?.length ?? d?.event_count;
+        const first = evts?.[0];
+        return {
+          icon: '📡',
+          main: `Local Events Radar · ${count != null ? count + ' upcoming events detected' : 'area scanned'}`,
+          detail: first ? `Next: ${first.name || first.title}${first.date ? ' · ' + first.date : ''}` : undefined,
+        };
+      }
+      case 'search_demand_signal': {
+        const kw = d?.keyword ?? d?.query;
+        const trend = d?.trend ?? d?.direction;
+        return {
+          icon: '📉',
+          main: `Search Demand · ${kw ? '"' + kw + '"' : 'area keywords'} · ${trend || ev.title}`,
+          detail: d?.related_queries?.slice(0, 2).join(', ') || ev.description || undefined,
+        };
+      }
+      case 'search_terms_classified': {
+        const keep = d?.keep_count ?? d?.added;
+        const cut = d?.cut_count ?? d?.negated;
+        return {
+          icon: '🔎',
+          main: `Search Terms Classified · ${keep != null ? keep + ' kept' : ''} · ${cut != null ? cut + ' flagged as negatives' : ''}`.replace(/( · )+/g, ' · ').replace(/ · $/, '') || ev.title,
+          detail: ev.description || undefined,
+        };
+      }
+      case 'top_pages_weekly': {
+        const pages = d?.pages as any[];
+        const top = pages?.[0];
+        return {
+          icon: '📄',
+          main: `Top Pages · ${pages?.length ? pages.length + ' pages tracked' : 'weekly report'}`,
+          detail: top ? `#1: ${top.page || top.url}${top.clicks ? ' · ' + top.clicks + ' clicks' : ''}` : undefined,
+        };
+      }
+      case 'weekly_summary_published': {
+        const wins = d?.n_wins ?? d?.wins ?? 0;
+        const flags = d?.n_flags ?? d?.warnings ?? 0;
+        const pending = d?.n_pending ?? 0;
+        return {
+          icon: '📰',
+          main: `Weekly Digest published · ${wins} wins · ${flags} flags · ${pending} pending`,
+          detail: d?.period_start ? `Period: ${d.period_start} → ${d.period_end}` : undefined,
+        };
+      }
+      case 'anomaly_alert':
+        return {
+          icon: '🚨',
+          main: ev.title,
+          detail: d?.metric ? `${d.metric}: ${d?.actual} vs expected ${d?.expected}` : ev.description || undefined,
+        };
+      case 'wordpress_post_published':
+      case 'content_published':
+        return {
+          icon: '✍️',
+          main: `Blog published · "${d?.post_title || d?.title || ev.title}"`,
+          detail: d?.site_url || d?.post_url || undefined,
+        };
+      case 'client_task_submitted':
+        return {
+          icon: '📋',
+          main: ev.title,
+          detail: ev.description || undefined,
+        };
+      default:
+        return {
+          icon: EVENT_CONFIG[ev.event_type]?.icon || '·',
+          main: ev.title,
+          detail: ev.description || undefined,
+        };
+    }
+  }
+
   return (
     <>
-      {groups.map((group, gi) => (
-        <div key={gi}>
-          {/* Date divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: gi === 0 ? '0 0 14px' : '14px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-              {group.divider}
-            </span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
-          </div>
+      <div style={{ maxHeight: 500, overflowY: 'auto', paddingRight: 4 }}>
+        {groups.map((group, gi) => (
+          <div key={gi}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: gi === 0 ? '0 0 12px' : '12px 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{group.divider}</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(44,36,25,0.06)' }} />
+            </div>
+            {group.events.map((ev, i) => {
+              const cfg = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
+              const sev = SEV[ev.severity] || SEV.info;
+              const actorDisplay = normalizeActor(ev.actor);
+              const line = getTimelineLine(ev);
+              const isLast = i === group.events.length - 1;
 
-          {group.events.map((ev, i) => {
-            const cfg  = EVENT_CONFIG[ev.event_type] || { icon: '·', label: ev.event_type, color: '#6b7280', bg: '#f3f4f6' };
-            const sev  = SEV[ev.severity] || SEV.info;
-            const isLast = i === group.events.length - 1;
-            const actorDisplay = normalizeActor(ev.actor);
-
-            return (
-              <div key={ev.id ?? `${gi}-${i}`} style={{ display: 'flex', gap: 0 }}>
-                {/* Spine */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: 12, flexShrink: 0 }}>
-                  <div style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    background: cfg.bg, border: `1.5px solid ${cfg.color}44`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 15, flexShrink: 0,
-                  }}>{cfg.icon}</div>
-                  {!(isLast && gi === groups.length - 1) && (
-                    <div style={{ width: 1, flex: 1, background: 'rgba(44,36,25,0.06)', minHeight: 12, margin: '4px 0' }} />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div style={{
-                  flex: 1, paddingBottom: isLast ? 0 : 14,
-                  borderLeft: `3px solid ${sev.border}33`,
-                  paddingLeft: 10, marginLeft: -2,
-                  borderRadius: '0 8px 8px 0',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#2c2419', flex: 1, lineHeight: 1.3 }}>{ev.title}</span>
-                    <span style={{
-                      fontSize: 9, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
-                      background: sev.bg, color: sev.color, fontWeight: 800,
-                      textTransform: 'uppercase', letterSpacing: '0.4px',
-                    }}>{sev.label}</span>
-                  </div>
-                  {ev.description && (
-                    <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, marginBottom: 5 }}>{ev.description}</div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: cfg.color, fontWeight: 600, background: cfg.bg, padding: '1px 7px', borderRadius: 5 }}>{cfg.label}</span>
-                    {!isClientRole && actorDisplay && (
-                      <span style={{ fontSize: 10, color: '#9ca3af' }}>· {actorDisplay}</span>
+              return (
+                <div key={ev.id ?? `${gi}-${i}`} style={{ display: 'flex', gap: 10, marginBottom: isLast ? 0 : 12 }}>
+                  {/* Avatar */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: cfg.bg, border: `1.5px solid ${cfg.color}44`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 14,
+                    }}>{cfg.icon}</div>
+                    {!(isLast && gi === groups.length - 1) && (
+                      <div style={{ width: 1, flex: 1, background: 'rgba(44,36,25,0.06)', minHeight: 8, margin: '4px 0' }} />
                     )}
-                    <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>
-                      {fmtTimestamp(ev.occurred_at)}
-                    </span>
                   </div>
-                  {(ev.event_type === 'ai_decision_logged' || (ev.category === 'account' && ev.source === 'hermes_cron')) && (
-                    <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700, marginTop: 4 }}>
-                      ✓ Noticed · Sent to {getSentToMember(ev)}
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Row 1: actor + time */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      {!isClientRole && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>
+                          {ev.event_type === 'staff_change' ? normalizeActor(ev.actor) : actorDisplay}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: isClientRole ? 0 : 'auto' }}>{timeAgo(ev.occurred_at)}</span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: sev.bg, color: sev.color, fontWeight: 700 }}>{sev.label}</span>
                     </div>
-                  )}
+                    {/* Row 2: icon + action */}
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419', lineHeight: 1.4, marginBottom: line.detail ? 2 : 0 }}>
+                      {line.icon} {line.main}
+                    </div>
+                    {/* Row 3: detail */}
+                    {line.detail && (
+                      <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>{line.detail}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {totalCount > events.length && (
+        <div style={{ borderTop: '1px solid rgba(44,36,25,0.06)', marginTop: 12, paddingTop: 10, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, color: '#c4704f', fontWeight: 600, cursor: 'pointer' }}>
+            View all {totalCount} events →
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── Competitor Radar Card ──────────────────── */
+function CompetitorRadar({ compDiscovered, compAdEvents, clientName }: {
+  compDiscovered: MissionEvent[];
+  compAdEvents: MissionEvent[];
+  clientName: string;
+}) {
+  const totalMonitored = compDiscovered.length;
+  const runningAds = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
+  const newDiscovered = compDiscovered.filter(e => {
+    const diff = Date.now() - new Date(e.occurred_at).getTime();
+    return diff < 7 * 86400000;
+  }).length;
+  const newCampaigns = compAdEvents.filter(e => {
+    const diff = Date.now() - new Date(e.occurred_at).getTime();
+    return diff < 7 * 86400000 && (e.data as any)?.new_value?.is_running_ads;
+  }).length;
+
+  const latestThreats = [...compDiscovered, ...compAdEvents]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, 3);
+
+  function getThreatDesc(ev: MissionEvent): string {
+    const d = ev.data as any;
+    if (ev.event_type === 'competitor_discovered') {
+      const parts = [d?.name || ev.title];
+      if (d?.distance) parts.push(d.distance);
+      if (d?.ad_count) parts.push(d.ad_count + ' ads');
+      return parts.join(' · ');
+    }
+    if (ev.event_type === 'competitor_new_ad') {
+      const domain = d?.competitor_domain || d?.domain || ev.title;
+      const count = d?.new_value?.ad_count;
+      return domain + (count ? ` · ${count} ads running` : ' · launched new ads');
+    }
+    return ev.title;
+  }
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1.5px solid rgba(239,68,68,0.12)',
+      boxShadow: '0 2px 8px rgba(239,68,68,0.04)',
+      padding: '18px 20px',
+      marginBottom: 20,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)', animation: 'pulse-ring-red 2s infinite' }} />
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Competitor Radar</span>
+        <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>LIVE</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>Area: {clientName}</span>
+      </div>
+
+      {/* Stats row */}
+      {totalMonitored === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 0', color: '#9ca3af', fontSize: 12 }}>
+          <span style={{ fontSize: 16 }}>📡</span>
+          <span>Scanning area<span style={{ animation: 'dots 1.5s steps(3, end) infinite' }}>...</span></span>
+          <style>{`@keyframes dots { 0%,100%{content:'.'} 33%{content:'..'} 66%{content:'...'} }`}</style>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+          {[
+            { label: 'Monitored',     value: totalMonitored, color: '#6b7280', bg: '#f3f4f6' },
+            { label: 'Running Ads',   value: runningAds,     color: '#ef4444', bg: '#fef2f2' },
+            { label: 'New (7d)',       value: newDiscovered,  color: '#f97316', bg: '#fff7ed' },
+            { label: 'New Campaigns', value: newCampaigns,   color: '#d97706', bg: '#fffbeb' },
+          ].map(({ label, value, color, bg }) => (
+            <div key={label} style={{ background: bg, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Latest threats */}
+      {latestThreats.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Latest Threats</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {latestThreats.map((ev, i) => (
+              <div key={ev.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#fafaf9', borderRadius: 8, border: '1px solid rgba(44,36,25,0.06)' }}>
+                <span style={{ fontSize: 13 }}>{ev.event_type === 'competitor_discovered' ? '🔍' : '🕵️'}</span>
+                <span style={{ fontSize: 11, color: '#2c2419', flex: 1, lineHeight: 1.3 }}>{getThreatDesc(ev)}</span>
+                <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{timeAgo(ev.occurred_at)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── Competitive Intelligence Table ────────── */
+function CompetitiveIntelTable({ compDiscovered, compAdEvents, clientName }: {
+  compDiscovered: MissionEvent[];
+  compAdEvents: MissionEvent[];
+  clientName: string;
+}) {
+  if (compDiscovered.length === 0) return null;
+
+  const adsRunningCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
+
+  function getAdActivity(ev: MissionEvent): { label: string; color: string; bg: string } {
+    const d = ev.data as any;
+    const adEv = compAdEvents.find(ce => (ce.data as any)?.competitor_domain === d?.domain);
+    if (!adEv) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
+    const isRunning = (adEv.data as any)?.new_value?.is_running_ads;
+    const adCount   = (adEv.data as any)?.new_value?.ad_count || 0;
+    if (!isRunning) return { label: 'No ads', color: '#9ca3af', bg: '#f3f4f6' };
+    if (adCount >= 5) return { label: '🔥 Aggressive', color: '#ef4444', bg: '#fef2f2' };
+    if (adCount >= 2) return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
+    return { label: 'Light', color: '#d97706', bg: '#fffbeb' };
+  }
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1px solid rgba(44,36,25,0.08)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      marginBottom: 20,
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(44,36,25,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>📊</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Competitive Intelligence</span>
+        <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{compDiscovered.length} TRACKED</span>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: '#fafaf9' }}>
+              {['Business', '⭐ Rating', 'Reviews', 'Ad Activity'].map(h => (
+                <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid rgba(44,36,25,0.06)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* YOU row */}
+            <tr style={{ background: 'rgba(196,112,79,0.04)', borderBottom: '1px solid rgba(44,36,25,0.06)' }}>
+              <td style={{ padding: '10px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>⭐</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#c4704f' }}>★ YOU ({clientName})</span>
+                </div>
+              </td>
+              <td style={{ padding: '10px 14px', color: '#d9a854', fontWeight: 700 }}>—</td>
+              <td style={{ padding: '10px 14px', color: '#2c2419', fontWeight: 700 }}>—</td>
+              <td style={{ padding: '10px 14px' }}>
+                <span style={{ fontSize: 10, background: '#ecfdf5', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>Your campaigns</span>
+              </td>
+            </tr>
+            {/* Competitor rows */}
+            {compDiscovered.slice(0, 10).map((ev, i) => {
+              const d = ev.data as any;
+              const act = getAdActivity(ev);
+              const rating = d?.rating || d?.google_rating;
+              const reviews = d?.review_count || d?.reviews;
+              return (
+                <tr key={ev.id ?? i} style={{ borderBottom: '1px solid rgba(44,36,25,0.04)' }}>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419' }}>{d?.name || ev.title}</div>
+                    {d?.domain && <div style={{ fontSize: 10, color: '#9ca3af' }}>{d.domain}</div>}
+                  </td>
+                  <td style={{ padding: '10px 14px', color: '#d9a854', fontWeight: 600 }}>
+                    {rating ? `${rating} ★` : '—'}
+                  </td>
+                  <td style={{ padding: '10px 14px', color: '#6b7280' }}>
+                    {reviews ? reviews.toLocaleString() : '—'}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <span style={{ fontSize: 10, background: act.bg, color: act.color, borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>{act.label}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ padding: '10px 18px', background: '#fafaf9', borderTop: '1px solid rgba(44,36,25,0.06)' }}>
+        <span style={{ fontSize: 11, color: '#6b7280' }}>
+          💡 Insight: <strong>{adsRunningCount}</strong> competitor{adsRunningCount !== 1 ? 's' : ''} running ads in your area
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Weather + Demand Bar ───────────────────── */
+function WeatherDemandBar({ events, city }: { events: MissionEvent[]; city?: string }) {
+  const weatherEv = events.find(e => e.event_type === 'weather_signal' || e.event_type === 'local_events_radar');
+  const d = weatherEv?.data as any;
+  const forecast = (d?.forecast_7d ?? d?.forecast) as Array<{ date: string; day?: string; high?: number; low?: number; temp_high?: number; temp_low?: number; condition?: string; icon?: string }> | undefined;
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1px solid rgba(44,36,25,0.08)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      padding: '16px 20px',
+      marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 14 }}>☁️</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Weather Signal</span>
+        {city && <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{city}</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 9, background: '#eff6ff', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>HERMES MONITORED</span>
+      </div>
+
+      {!forecast || forecast.length === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5, marginBottom: 4 }}>
+              Hermes monitors local conditions for bid adjustments
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+              Weather data will appear once Hermes runs a local events scan for {city || 'this area'}.
+            </div>
+          </div>
+          <div style={{ fontSize: 32, opacity: 0.3 }}>🌤</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {forecast.slice(0, 7).map((day, i) => {
+              const date = new Date(day.date);
+              const dayLabel = date.toLocaleDateString([], { weekday: 'short' });
+              return (
+                <div key={i} style={{ flex: 1, textAlign: 'center', background: '#f9f7f4', borderRadius: 8, padding: '8px 4px' }}>
+                  <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, marginBottom: 4 }}>{dayLabel}</div>
+                  <div style={{ fontSize: 16, marginBottom: 4 }}>{day.condition || '🌤'}</div>
+                  {day.high && <div style={{ fontSize: 10, fontWeight: 700, color: '#2c2419' }}>{day.high}°</div>}
+                  {day.low && <div style={{ fontSize: 9, color: '#9ca3af' }}>{day.low}°</div>}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: '#6b7280', background: '#fffbeb', border: '1px solid rgba(217,119,6,0.15)', borderRadius: 8, padding: '8px 12px' }}>
+            💡 Hermes uses weather patterns to optimize bid schedules and campaign timing.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── Team Activity Map ──────────────────────── */
+function TeamActivityMap({ events }: { events: MissionEvent[] }) {
+  // Count events by actor for current month
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEvents = events.filter(e => e.occurred_at >= monthStart);
+
+  // Hermes AI count
+  const hermesCount = monthEvents.filter(e => {
+    const actor = normalizeActor(e.actor);
+    return actor === 'Hermes' || e.source === 'hermes_cron';
+  }).length;
+
+  const memberCounts = TEAM_MEMBERS.map(m => ({
+    ...m,
+    count: monthEvents.filter(e => e.actor && e.actor.includes(m.actorKey)).length,
+  }));
+
+  const allEntries = [
+    { name: 'Hermes AI', role: 'AI Agent', icon: '🤖', color: '#10b981', count: hermesCount },
+    ...memberCounts,
+  ];
+
+  const maxCount = Math.max(...allEntries.map(e => e.count), 1);
+  const total = allEntries.reduce((s, e) => s + e.count, 0);
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1px solid rgba(44,36,25,0.08)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      padding: '18px 20px',
+      marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 14 }}>👥</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Team Activity</span>
+        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>This month</span>
+        <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {allEntries.map(({ name, role, icon, color, count }) => {
+          const pct = Math.round((count / maxCount) * 100);
+          return (
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>{icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>{name}</span>
+                  <span style={{ fontSize: 10, color, fontWeight: 800 }}>{count}</span>
+                </div>
+                <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}aa)`, borderRadius: 4, transition: 'width 600ms ease' }} />
+                </div>
+                <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>{role}</div>
+              </div>
+            </div>
+          );
+        })}
+        {/* Total line */}
+        <div style={{ borderTop: '1px solid rgba(44,36,25,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#2c2419' }}>TOTAL</span>
+          <span style={{ fontSize: 13, fontWeight: 900, color: '#c4704f' }}>{total}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Local Events Radar ─────────────────────── */
+function LocalEventsRadar({ events, city }: { events: MissionEvent[]; city?: string }) {
+  const radarEv = events.find(e => e.event_type === 'local_events_radar');
+  const localEvents = (radarEv?.data as any)?.events as Array<{ date: string; name: string; opportunity?: string }> | undefined;
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1px solid rgba(44,36,25,0.08)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      padding: '18px 20px',
+      marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 14 }}>📡</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Local Events Radar</span>
+        {city && <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{city}</span>}
+      </div>
+
+      {!localEvents || localEvents.length === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <span style={{ fontSize: 24, opacity: 0.4 }}>📡</span>
+          <div>
+            <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4, lineHeight: 1.5 }}>
+              Hermes monitors local events in {city || 'your area'} for marketing opportunities.
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>No local events found yet. Check back after the next scan.</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {localEvents.slice(0, 5).map((ev, i) => {
+            const date = new Date(ev.date);
+            const dateLabel = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: '#fafaf9', borderRadius: 8, border: '1px solid rgba(44,36,25,0.06)' }}>
+                <div style={{ background: '#eff6ff', color: '#3b82f6', borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{dateLabel}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#2c2419' }}>{ev.name}</div>
+                  {ev.opportunity && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>💡 {ev.opportunity}</div>}
                 </div>
               </div>
             );
           })}
         </div>
-      ))}
-    </>
+      )}
+    </div>
+  );
+}
+
+/* ─── Decision Queue ─────────────────────────── */
+function DecisionQueue({ aiDecisions }: { aiDecisions: MissionEvent[] }) {
+  const [responses, setResponses] = useState<Record<string, string>>({});
+
+  function handleAction(evId: string, action: string) {
+    console.log(`Decision ${evId}: ${action}`);
+    setResponses(prev => ({ ...prev, [evId]: action }));
+    // Clear after 4 seconds
+    setTimeout(() => setResponses(prev => {
+      const next = { ...prev };
+      delete next[evId];
+      return next;
+    }), 4000);
+  }
+
+  if (aiDecisions.length === 0) {
+    return (
+      <div style={{
+        background: '#fff',
+        borderRadius: 14,
+        border: '1px solid rgba(44,36,25,0.08)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        padding: '18px 20px',
+        marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 14 }}>💡</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Decision Queue</span>
+          <span style={{ fontSize: 9, background: '#ecfdf5', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>ALL CLEAR</span>
+        </div>
+        <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>
+          No pending decisions · Hermes is handling everything autonomously
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 14,
+      border: '1.5px solid rgba(217,119,6,0.15)',
+      boxShadow: '0 2px 8px rgba(217,119,6,0.04)',
+      marginBottom: 20,
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(44,36,25,0.06)', background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>💡</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#2c2419' }}>Pending Decisions</div>
+          <div style={{ fontSize: 10, color: '#9ca3af' }}>Awaiting your review</div>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
+      </div>
+
+      <div style={{ padding: '4px 0' }}>
+        {aiDecisions.slice(0, 8).map((ev, i) => {
+          const d   = ev.data as any;
+          const sev = SEV[ev.severity] || SEV.info;
+          const resp = responses[ev.id];
+
+          return (
+            <div key={ev.id ?? i} style={{
+              padding: '14px 18px',
+              borderBottom: i < Math.min(aiDecisions.length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                {/* Severity dot */}
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: sev.color, marginTop: 3, flexShrink: 0, boxShadow: `0 0 0 3px ${sev.color}22` }} />
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 4 }}>
+                    {d?.flag || ev.title}
+                  </div>
+                  {d?.diagnosis && (
+                    <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5, marginBottom: 6 }}>
+                      {d.diagnosis}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>
+                    {fmtTimestamp(ev.occurred_at)} · Hermes AI
+                  </div>
+
+                  {/* Action buttons or toast */}
+                  {resp ? (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: '#ecfdf5', color: '#10b981',
+                      border: '1px solid rgba(16,185,129,0.25)',
+                      borderRadius: 8, padding: '6px 12px',
+                      fontSize: 11, fontWeight: 700,
+                    }}>
+                      ✓ Response logged — {resp}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[
+                        { label: 'Approve', color: '#10b981', bg: '#ecfdf5', border: 'rgba(16,185,129,0.25)' },
+                        { label: 'Reject',  color: '#ef4444', bg: '#fef2f2', border: 'rgba(239,68,68,0.25)' },
+                        { label: 'Discuss', color: '#3b82f6', bg: '#eff6ff', border: 'rgba(59,130,246,0.25)' },
+                      ].map(({ label, color, bg, border }) => (
+                        <button
+                          key={label}
+                          onClick={() => handleAction(ev.id, label)}
+                          style={{
+                            fontSize: 10, fontWeight: 700, color,
+                            background: bg, border: `1px solid ${border}`,
+                            borderRadius: 7, padding: '5px 12px',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: sev.bg, color: sev.color, fontWeight: 800, flexShrink: 0 }}>{sev.label}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -455,15 +1159,9 @@ export default function MissionPage() {
   // Filter for activity log
   const filtered = filterTab === 'all' ? allEvents : allEvents.filter(e => e.category === filterTab);
 
-  // Competitor landscape
+  // Competitor data
   const compDiscovered = allEvents.filter(e => e.event_type === 'competitor_discovered');
   const compAdEvents   = allEvents.filter(e => e.event_type === 'competitor_new_ad');
-  const runningAdsCount = compAdEvents.filter(e => (e.data as any)?.new_value?.is_running_ads).length;
-  const dormantCount    = compDiscovered.length - runningAdsCount;
-  const lastCompetitorScan = compDiscovered.reduce<MissionEvent | null>((latest, ev) => {
-    if (!latest) return ev;
-    return new Date(ev.occurred_at).getTime() > new Date(latest.occurred_at).getTime() ? ev : latest;
-  }, null);
 
   // AI decisions
   const aiDecisions = allEvents.filter(e => e.event_type === 'ai_decision_logged');
@@ -501,10 +1199,10 @@ export default function MissionPage() {
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {[
-                  { icon: '🤖', text: 'AI makes changes nightly' },
-                  { icon: '🔍', text: 'Competitor intel 24/7' },
-                  { icon: '💡', text: 'Every decision logged' },
-                  { icon: '📰', text: 'Weekly digest for your team' },
+                  { icon: '🔍', text: 'Tracks every competitor daily' },
+                  { icon: '🔗', text: 'Backlinks + traffic monitored' },
+                  { icon: '📡', text: 'Local events & weather signals' },
+                  { icon: '💡', text: 'Every AI decision logged' },
                 ].map(({ icon, text }) => (
                   <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 12px' }}>
                     <span style={{ fontSize: 13 }}>{icon}</span>
@@ -557,35 +1255,24 @@ export default function MissionPage() {
           ))}
         </div>
 
-        {/* ── 3. Competitor Summary Bar ── */}
-        {competitors > 0 && (
-          <div style={{
-            background: '#fff',
-            borderRadius: 12,
-            padding: '12px 20px',
-            border: '1px solid rgba(239,68,68,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            marginBottom: 20,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <div style={{ fontSize: 16, flexShrink: 0 }}>🕵️</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#991b1b', whiteSpace: 'nowrap' }}>Competitor Landscape</span>
-                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>{competitors} tracked</span>
-                <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>{runningAdsCount} running ads</span>
-                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, whiteSpace: 'nowrap' }}>{dormantCount < 0 ? 0 : dormantCount} dormant</span>
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              Last scanned {lastCompetitorScan ? fmtTimestamp(lastCompetitorScan.occurred_at) : '—'}
-            </div>
-          </div>
-        )}
+        {/* ── 3. Two-column: Competitor Radar + Decision Queue ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <CompetitorRadar
+            compDiscovered={compDiscovered}
+            compAdEvents={compAdEvents}
+            clientName={data.client.name}
+          />
+          <DecisionQueue aiDecisions={aiDecisions} />
+        </div>
 
-        {/* ── 4. Activity Log ── */}
+        {/* ── 4. Competitive Intelligence Table ── */}
+        <CompetitiveIntelTable
+          compDiscovered={compDiscovered}
+          compAdEvents={compAdEvents}
+          clientName={data.client.name}
+        />
+
+        {/* ── 5. Timeline Feed ── */}
         <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 20, overflow: 'hidden' }}>
           {/* Filter tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '0 16px', background: '#fafaf9', flexWrap: 'wrap' }}>
@@ -616,97 +1303,18 @@ export default function MissionPage() {
             </span>
           </div>
           <div style={{ padding: '16px 18px' }}>
-            <GroupedEvents events={filtered} isClientRole={isClientRole} />
+            <TimelineFeed events={filtered} isClientRole={isClientRole} totalCount={allEvents.length} />
           </div>
         </div>
 
-        {/* ── 5. Competitor Intel Grid (only if competitor events exist) ── */}
-        {compDiscovered.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>🕵️</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#2c2419' }}>Competitor Intel</span>
-              <span style={{ fontSize: 9, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{compDiscovered.length} TRACKED</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-              {compDiscovered.slice(0, 12).map((ev, i) => {
-                const d = ev.data as any;
-                const adEv = compAdEvents.find(ce => (ce.data as any)?.competitor_domain === d?.domain);
-                const isRunning = adEv ? (adEv.data as any)?.new_value?.is_running_ads : false;
-                const adCount   = adEv ? (adEv.data as any)?.new_value?.ad_count || 0 : 0;
-                return (
-                  <div key={ev.id ?? i} style={{
-                    background: '#fff', borderRadius: 14, padding: '14px 16px',
-                    border: `1px solid ${isRunning ? 'rgba(239,68,68,0.15)' : 'rgba(44,36,25,0.08)'}`,
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: isRunning ? '#fef2f2' : '#f9fafb', border: `1.5px solid ${isRunning ? 'rgba(239,68,68,0.2)' : 'rgba(44,36,25,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
-                        {isRunning ? '🏃' : '😴'}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d?.name || ev.title}</div>
-                        {d?.domain && <div style={{ fontSize: 10, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.domain}</div>}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      {(d?.city || d?.state) && (
-                        <span style={{ fontSize: 10, color: '#9ca3af' }}>{[d.city, d.state].filter(Boolean).join(', ')}</span>
-                      )}
-                      {isRunning ? (
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '2px 6px' }}>🔥 {adCount} ads running</span>
-                      ) : (
-                        <span style={{ fontSize: 9, color: '#9ca3af', background: '#f3f4f6', borderRadius: 6, padding: '2px 6px' }}>No ads</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {compDiscovered.length > 12 && (
-              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', paddingTop: 10 }}>
-                +{compDiscovered.length - 12} more competitors · filter by Competitors tab above
-              </div>
-            )}
-          </div>
-        )}
+        {/* ── 6. Weather + Local Events row ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <WeatherDemandBar events={allEvents} city={data.client.city} />
+          <LocalEventsRadar events={allEvents} city={data.client.city} />
+        </div>
 
-        {/* ── 6. AI Decisions (only if exist) ── */}
-        {aiDecisions.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>💡</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#2c2419' }}>AI Decisions</span>
-              <span style={{ fontSize: 9, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>{aiDecisions.length} FLAGS</span>
-            </div>
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(217,119,6,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '4px 0', overflow: 'hidden' }}>
-              {aiDecisions.slice(0, 8).map((ev, i) => {
-                const d   = ev.data as any;
-                const sev = SEV[ev.severity] || SEV.info;
-                return (
-                  <div key={ev.id ?? i} style={{ padding: '12px 18px', borderBottom: i < Math.min(aiDecisions.length, 8) - 1 ? '1px solid rgba(44,36,25,0.05)' : 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: sev.color, marginTop: 4, flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419', lineHeight: 1.3, marginBottom: 2 }}>{d?.flag || ev.title}</div>
-                        {d?.diagnosis && <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4, marginBottom: 4 }}>{d.diagnosis}</div>}
-                        <div style={{ fontSize: 10, color: '#9ca3af' }}>{fmtTimestamp(ev.occurred_at)} · Hermes</div>
-                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700, marginTop: 4 }}>
-                          ✓ Noticed · Sent to {getSentToMember(ev)}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 6, background: sev.bg, color: sev.color, fontWeight: 800, flexShrink: 0 }}>{sev.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Radar + Live Log + Breakdown row ── */}
+        {/* ── 7. Radar + Schedule + Breakdown row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14, marginBottom: 20 }}>
-
           {/* Radar + Schedule */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -755,7 +1363,10 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* ── 7. Send Task to Hermes ── */}
+        {/* ── 8. Team Activity Map ── */}
+        <TeamActivityMap events={allEvents} />
+
+        {/* ── 9. Send Task to Hermes ── */}
         <div style={{ marginBottom: 20, background: '#fff', borderRadius: 18, border: '1.5px solid rgba(196,112,79,0.2)', boxShadow: '0 2px 12px rgba(196,112,79,0.08)', overflow: 'hidden' }}>
           <div style={{ background: 'linear-gradient(135deg,#fdf4f0,#fef9f6)', borderBottom: '1px solid rgba(196,112,79,0.1)', padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 28 }}>🛰</span>
@@ -854,51 +1465,12 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* ── 8. Human Team (bottom) ── */}
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ background: 'linear-gradient(135deg,#fafaf9,#f5f1ed)', borderBottom: '1px solid rgba(44,36,25,0.06)', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>👥</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: '#2c2419' }}>Human Team — MyChiropractice</span>
-            <span style={{ marginLeft: 'auto', fontSize: 9, background: '#f3f4f6', color: '#6b7280', border: '1px solid rgba(44,36,25,0.1)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>AVAILABLE</span>
-          </div>
-          <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-            {[
-              { name: 'Amanda', role: 'Account Manager',    icon: '🤝', color: '#c4704f', actorKey: 'Amanda' },
-              { name: 'Vinnie', role: 'Ads Senior',         icon: '📈', color: '#3b82f6', actorKey: 'Vinnie' },
-              { name: 'Sam',    role: 'Ads Specialist',     icon: '⚡', color: '#3b82f6', actorKey: 'Sam' },
-              { name: 'Quan',   role: 'SEO Technical',      icon: '🔧', color: '#0891b2', actorKey: 'Quan' },
-              { name: 'Thien',  role: 'SEO Specialist',     icon: '🔎', color: '#0891b2', actorKey: 'Thien' },
-              { name: 'Rachel', role: 'Content',            icon: '✍️', color: '#8b5cf6', actorKey: 'Rachel' },
-              { name: 'Lee',    role: 'Marketing Manager',  icon: '🎯', color: '#d97706', actorKey: 'Lee' },
-              { name: 'Topaz',  role: 'Vice President',     icon: '⭐', color: '#d97706', actorKey: 'Topaz' },
-              { name: 'Kevin',  role: 'CEO',                icon: '👑', color: '#2c2419', actorKey: 'Kevin' },
-            ].map(({ name, role, icon, color, actorKey }) => {
-              const staffEvent = allEvents.find(e => e.actor && e.actor.includes(actorKey));
-              return (
-                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: '#fafaf9', border: '1px solid rgba(44,36,25,0.06)' }}>
-                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${color}15`, border: `1.5px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#2c2419' }}>{name}</div>
-                    <div style={{ fontSize: 9, color, fontWeight: 600 }}>{role}</div>
-                    {staffEvent ? (
-                      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-                        {timeAgo(staffEvent.occurred_at)} · {staffEvent.title.replace(/^[^\s]+\s/, '').slice(0, 30)}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 2 }}>No recent activity</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
       </div>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 3px rgba(16,185,129,0.15)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0.08)} }
+        @keyframes pulse-ring-red { 0%,100%{box-shadow:0 0 0 3px rgba(239,68,68,0.15)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0.08)} }
       `}</style>
     </AdminLayout>
   );
