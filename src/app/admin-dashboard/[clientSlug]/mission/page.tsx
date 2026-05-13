@@ -588,28 +588,60 @@ export default function MissionPage() {
               </div>
               <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
-                  { name: 'Queen Bee', role: 'Ads Strategist', icon: '👑', desc: 'Bids, budgets, campaign structure', actor: '👑 Queen Bee', color: '#d97706', bg: '#fffbeb' },
-                  { name: 'Ads Bee',   role: 'Ads Optimizer',  icon: '⚡', desc: 'Keyword sculpting, negative lists', actor: '📊 Ad Bee', color: '#3b82f6', bg: '#eff6ff' },
-                  { name: 'SEO Bee',   role: 'Search Analyst', icon: '🔎', desc: 'Search term classification', actor: '🌱 SEO Bee', color: '#0891b2', bg: '#ecfeff' },
-                  { name: 'Recon Bee', role: 'Competitor Intel', icon: '🕵️', desc: 'Competitor ads & discovery', actor: '🕵️ Recon Bee', color: '#8b5cf6', bg: '#f5f3ff' },
-                ].map(({ name, role, icon, desc, actor, color, bg }) => {
+                  { name: 'Queen Bee', role: 'Ads Strategist',   icon: '👑', actor: '👑 Queen Bee',    color: '#d97706', bg: '#fffbeb',
+                    metricFn: (evs: MissionEvent[]) => {
+                      const d = evs.find(e => e.actor === '👑 Queen Bee' && e.event_type === 'weekly_summary_published');
+                      if (d) { const dd = d.data as any; return dd?.n_flags != null ? `${dd.n_flags} flags · ${dd.n_fixed ?? 0} fixed` : null; }
+                      return null;
+                    }},
+                  { name: 'Ad Bee',    role: 'Ads Optimizer',    icon: '📊', actor: '📊 Ad Bee',       color: '#3b82f6', bg: '#eff6ff',
+                    metricFn: (evs: MissionEvent[]) => {
+                      const d = evs.find(e => e.actor === '📊 Ad Bee' && e.event_type === 'daily_metrics');
+                      if (d) { const dd = d.data as any; return dd?.cost != null ? `$${dd.cost.toFixed(0)} · ${dd.clicks ?? 0} clicks · IS ${dd.impression_share != null ? Math.round(dd.impression_share*100) : '?'}%` : null; }
+                      return null;
+                    }},
+                  { name: 'SEO Bee',   role: 'Search Analyst',   icon: '🌱', actor: '🌱 SEO Bee',      color: '#0891b2', bg: '#ecfeff',
+                    metricFn: (evs: MissionEvent[]) => {
+                      const d = evs.find(e => e.actor === '🌱 SEO Bee');
+                      if (d) { return d.title.replace(/^[^\s]+\s/, '').slice(0, 40); }
+                      return null;
+                    }},
+                  { name: 'Recon Bee', role: 'Competitor Intel', icon: '🕵️', actor: '🕵️ Recon Bee',   color: '#8b5cf6', bg: '#f5f3ff',
+                    metricFn: (evs: MissionEvent[]) => {
+                      const compCount = evs.filter(e => e.actor === '🕵️ Recon Bee' && e.event_type === 'competitor_discovered').length;
+                      const runningAds = evs.filter(e => e.actor === '🕵️ Recon Bee' && e.event_type === 'competitor_new_ad' && (e.data as any)?.new_value?.is_running_ads).length;
+                      return compCount > 0 ? `${compCount} competitors · ${runningAds} running ads` : null;
+                    }},
+                ].map(({ name, role, icon, actor, color, bg, metricFn }) => {
                   const lastEvent = allEvents.find(e => e.actor === actor);
+                  const metric = metricFn(allEvents);
+                  const evCount = allEvents.filter(e => e.actor === actor).length;
                   return (
                     <div key={name} style={{ background: bg, borderRadius: 12, padding: '11px 13px', border: `1px solid ${color}22` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                        <span style={{ fontSize: 16 }}>{icon}</span>
-                        <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${color}18`, border: `1.5px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 800, color: '#2c2419', lineHeight: 1 }}>{name}</div>
                           <div style={{ fontSize: 9, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{role}</div>
                         </div>
+                        {lastEvent && (
+                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 2px rgba(16,185,129,0.2)', animation: 'pulse-ring 2s infinite', flexShrink: 0 }} />
+                        )}
                       </div>
-                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.4, marginBottom: 6 }}>{desc}</div>
                       {lastEvent ? (
-                        <div style={{ fontSize: 9, color: '#9ca3af', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>
-                          Last: {timeAgo(lastEvent.occurred_at)}
-                        </div>
+                        <>
+                          <div style={{ fontSize: 10, color: '#4b5563', lineHeight: 1.4, marginBottom: 5, fontWeight: 500 }}>
+                            {metric || lastEvent.title.slice(0, 50)}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ fontSize: 9, color: '#9ca3af', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '2px 7px' }}>
+                              {timeAgo(lastEvent.occurred_at)}
+                            </div>
+                            <div style={{ fontSize: 9, color, fontWeight: 700 }}>{evCount} actions</div>
+                          </div>
+                        </>
                       ) : (
-                        <div style={{ fontSize: 9, color: '#d1d5db', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>No data yet</div>
+                        <div style={{ fontSize: 9, color: '#d1d5db', background: 'rgba(255,255,255,0.7)', borderRadius: 6, padding: '3px 7px' }}>Waiting for first sync…</div>
                       )}
                     </div>
                   );
