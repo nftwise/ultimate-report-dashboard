@@ -137,6 +137,15 @@ export async function GET(request: NextRequest) {
                 top50:   allQueries.filter((q: any) => Math.round(q.position || 999) <= 50).length,
                 total:   allQueries.length,
               };
+              const topKwJson = [...allQueries]
+                .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
+                .slice(0, 20)
+                .map((q: any) => ({
+                  kw: q.query,
+                  pos: Math.round(q.position || 999),
+                  clicks: q.clicks || 0,
+                  impressions: q.impressions || 0,
+                }));
               const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
                 client_id: client.id,
                 site_url: client.siteUrl,
@@ -147,6 +156,7 @@ export async function GET(request: NextRequest) {
                 top5_keywords_count: posBuckets.top5,
                 top11to20_keywords_count: allQueries.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
                 position_buckets: posBuckets,
+                top_keywords_json: topKwJson,
               }, { onConflict: 'client_id,site_url,date' });
               if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);
             }

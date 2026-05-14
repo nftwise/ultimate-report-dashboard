@@ -49,10 +49,11 @@ def fetch_gsc_queries(token, site_url, date):
         return []
     resp.raise_for_status()
     rows = resp.json().get("rows", [])
-    return [{"query": r["keys"][0], "position": r.get("position", 999)} for r in rows]
+    return [{"query": r["keys"][0], "position": r.get("position", 999), "clicks": r.get("clicks", 0), "impressions": r.get("impressions", 0)} for r in rows]
 
 def compute_buckets(rows):
     def p(q): return math.floor(q["position"] + 0.5)  # round
+    top_kw = sorted(rows, key=lambda q: q.get("clicks", 0), reverse=True)[:20]
     return {
         "top3":    sum(1 for q in rows if p(q) <= 3),
         "top5":    sum(1 for q in rows if p(q) <= 5),
@@ -61,6 +62,7 @@ def compute_buckets(rows):
         "top20":   sum(1 for q in rows if p(q) <= 20),
         "top50":   sum(1 for q in rows if p(q) <= 50),
         "total":   len(rows),
+        "top_kw":  [{"kw": q["query"], "pos": round(q["position"]), "clicks": q.get("clicks", 0), "impressions": q.get("impressions", 0)} for q in top_kw],
     }
 
 # Fetch clients with GSC config
@@ -119,6 +121,7 @@ for client in clients:
                     "position_buckets": pb,
                     "top5_keywords_count": pb["top5"],
                     "top11to20_keywords_count": pb["top11_20"],
+                    "top_keywords_json": pb["top_kw"],
                 },
                 timeout=10,
             )
