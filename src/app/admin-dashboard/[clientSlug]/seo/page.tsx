@@ -63,7 +63,7 @@ export default function SEOPage() {
 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
-  const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
+  const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number; total?: number; totalChange?: number | null }>({ top5: 0, top10: 0, top11to20: 0 });
   const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number; currTop10?: number; prevTop10?: number; top10Change?: number | null }>({ improved: 0, declined: 0 });
   const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number; organicVisits: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
   const [realConversions, setRealConversions] = useState<number>(0);
@@ -498,19 +498,21 @@ export default function SEOPage() {
                   </div>
                 ))}
               </div>
-              {/* Avg position with context */}
+              {/* Total Keywords Ranking */}
               <div style={{ background: 'rgba(44,36,25,0.04)', borderRadius: '12px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>Average Position<InfoIcon id="avg_position" text="Your average ranking position in Google Search results across all tracked keywords. Lower is better (1 = top result)." /></p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Lower = closer to #1 on Google</p>
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Total Keywords Ranking<InfoIcon id="total_ranking" text="Total number of keywords your site currently appears for anywhere in Google Search results." />
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>All keywords Google is showing your site for</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '28px', fontWeight: 700, color: avgGoogleRankValue === 0 ? '#9ca3af' : avgGoogleRankValue <= 10 ? '#10b981' : avgGoogleRankValue <= 20 ? '#d9a854' : '#c4704f', margin: 0 }}>
-                    {avgGoogleRankValue > 0 ? `#${avgGoogleRankValue.toFixed(1)}` : '—'}
+                  <p style={{ fontSize: '28px', fontWeight: 700, color: keywordRankBuckets.total ? '#2c2419' : '#9ca3af', margin: 0 }}>
+                    {keywordRankBuckets.total ? keywordRankBuckets.total.toLocaleString() : '—'}
                   </p>
-                  {avgGoogleRankValue > 0 && (
-                    <p style={{ fontSize: '9px', fontWeight: 600, color: avgGoogleRankValue <= 10 ? '#10b981' : avgGoogleRankValue <= 20 ? '#d9a854' : '#c4704f', margin: 0 }}>
-                      {avgGoogleRankValue <= 10 ? 'Page 1' : avgGoogleRankValue <= 20 ? 'Page 2' : 'Page 3+'}
+                  {keywordRankBuckets.totalChange != null && (
+                    <p style={{ fontSize: '11px', fontWeight: 700, margin: '2px 0 0 0', color: keywordRankBuckets.totalChange >= 0 ? '#10b981' : '#ef4444' }}>
+                      {keywordRankBuckets.totalChange >= 0 ? '▲' : '▼'} {Math.abs(keywordRankBuckets.totalChange)} vs prev period
                     </p>
                   )}
                 </div>

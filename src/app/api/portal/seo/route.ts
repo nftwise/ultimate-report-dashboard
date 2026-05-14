@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     const [
       { data: dailyRows, error: dailyErr },
       { data: gscDailyRows },
+      { data: gscPrevRows },
       { data: prevMetricsRows },
       { data: convRows },
     ] = await Promise.all([
@@ -55,6 +56,14 @@ export async function GET(request: NextRequest) {
         .eq('client_id', clientId)
         .gte('date', from)
         .lte('date', to)
+        .order('date', { ascending: false })
+        .limit(1),
+      supabaseAdmin
+        .from('gsc_daily_summary')
+        .select('position_buckets')
+        .eq('client_id', clientId)
+        .gte('date', prev.from)
+        .lte('date', prev.to)
         .order('date', { ascending: false })
         .limit(1),
       supabaseAdmin
@@ -79,13 +88,18 @@ export async function GET(request: NextRequest) {
 
     // Keyword rank buckets — prefer position_buckets jsonb, fallback to individual columns, then cms
     const gscLatest = (gscDailyRows as any)?.[0] || {};
+    const gscPrevLatest = (gscPrevRows as any)?.[0] || {};
     const pb = (gscLatest.position_buckets || {}) as Record<string, number>;
+    const pbPrev = (gscPrevLatest.position_buckets || {}) as Record<string, number>;
     const top10FromCms = (dailyRows || []).reduce((max: number, r: any) => Math.max(max, r.top_keywords || 0), 0);
+    const totalRanking = pb.total ?? 0;
+    const prevTotalRanking = pbPrev.total ?? 0;
     const keywordRankBuckets = {
       top5:    pb.top5    ?? gscLatest.top5_keywords_count    ?? 0,
       top10:   pb.top10   ?? gscLatest.top_keywords_count     ?? top10FromCms,
       top11to20: pb.top11_20 ?? gscLatest.top11to20_keywords_count ?? 0,
-      total:   pb.total   ?? 0,
+      total:   totalRanking,
+      totalChange: prevTotalRanking > 0 ? totalRanking - prevTotalRanking : null,
     };
 
     // Top 10 keyword count — max day in current vs prev period
