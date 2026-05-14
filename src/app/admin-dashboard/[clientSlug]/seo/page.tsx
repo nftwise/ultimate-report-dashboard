@@ -63,7 +63,7 @@ export default function SEOPage() {
 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
-  const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number; total?: number; totalChange?: number | null }>({ top5: 0, top10: 0, top11to20: 0 });
+  const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number; total?: number }>({ top5: 0, top10: 0, top11to20: 0 });
   const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number; currTop10?: number; prevTop10?: number; top10Change?: number | null }>({ improved: 0, declined: 0 });
   const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number; organicVisits: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
   const [realConversions, setRealConversions] = useState<number>(0);
@@ -510,11 +510,6 @@ export default function SEOPage() {
                   <p style={{ fontSize: '28px', fontWeight: 700, color: keywordRankBuckets.total ? '#2c2419' : '#9ca3af', margin: 0 }}>
                     {keywordRankBuckets.total ? keywordRankBuckets.total.toLocaleString() : '—'}
                   </p>
-                  {keywordRankBuckets.totalChange != null && (
-                    <p style={{ fontSize: '11px', fontWeight: 700, margin: '2px 0 0 0', color: keywordRankBuckets.totalChange >= 0 ? '#10b981' : '#ef4444' }}>
-                      {keywordRankBuckets.totalChange >= 0 ? '▲' : '▼'} {Math.abs(keywordRankBuckets.totalChange)} vs prev period
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
