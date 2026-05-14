@@ -567,33 +567,61 @@ export default function SEOPage() {
             </div>
           </div>
 
-          {/* ── Top Keywords List ────────────────────────────────────── */}
+          {/* ── Top Keywords Table ───────────────────────────────────── */}
           {topKeywords && topKeywords.length > 0 && (
-            <div style={{ ...card, marginBottom: '32px' }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Search Rankings</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px 0' }}>Top Keywords Driving Traffic</h3>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 20px 0' }}>Top 20 keywords by clicks — most recent data available</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-                {topKeywords.slice(0, 20).map((kw: any, i: number) => {
-                  const pos = kw.pos ?? kw.position ?? 99;
-                  const posColor = pos <= 3 ? '#10b981' : pos <= 5 ? '#10b981' : pos <= 10 ? '#d9a854' : '#c4704f';
-                  const posLabel = pos <= 3 ? 'Top 3' : pos <= 5 ? 'Top 5' : pos <= 10 ? 'Page 1' : 'Page 2';
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(44,36,25,0.03)', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.06)' }}>
-                      <div style={{ minWidth: '40px', textAlign: 'center' }}>
-                        <p style={{ fontSize: '18px', fontWeight: 800, color: posColor, margin: 0, lineHeight: 1 }}>#{pos}</p>
-                        <p style={{ fontSize: '8px', color: posColor, margin: '2px 0 0 0', fontWeight: 600, textTransform: 'uppercase' }}>{posLabel}</p>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: '12px', fontWeight: 600, color: '#2c2419', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.kw || kw.keyword || kw.query}</p>
-                        <p style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 0 0' }}>
-                          {kw.clicks > 0 && <span>{fmtNum(kw.clicks)} clicks</span>}
-                          {kw.impressions > 0 && <span style={{ marginLeft: '6px' }}>{fmtNum(kw.impressions)} impressions</span>}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+            <div style={{ ...card, marginBottom: '32px', padding: 0, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ padding: '20px 24px 16px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 4px 0' }}>Search Rankings</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 2px 0' }}>Top Keywords Driving Traffic</h3>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Top 20 keywords by clicks — most recent data available</p>
+              </div>
+              {/* Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(44,36,25,0.04)', borderTop: '1px solid rgba(44,36,25,0.08)', borderBottom: '1px solid rgba(44,36,25,0.08)' }}>
+                      <th style={{ padding: '10px 24px', textAlign: 'left', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850', width: '40px' }}>#</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850' }}>Keyword</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850', whiteSpace: 'nowrap' }}>Position</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850' }}>Clicks</th>
+                      <th style={{ padding: '10px 24px 10px 16px', textAlign: 'right', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5c5850' }}>Impressions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topKeywords.slice(0, 20).map((kw: any, i: number) => {
+                      const pos = kw.pos ?? kw.position ?? 99;
+                      const posColor = pos <= 3 ? '#10b981' : pos <= 10 ? '#d9a854' : '#c4704f';
+                      const posBg = pos <= 3 ? 'rgba(16,185,129,0.1)' : pos <= 10 ? 'rgba(217,168,84,0.1)' : 'rgba(196,112,79,0.1)';
+                      const posLabel = pos <= 3 ? 'Top 3' : pos <= 5 ? 'Top 5' : pos <= 10 ? 'Page 1' : 'Page 2+';
+                      const isEven = i % 2 === 1;
+                      return (
+                        <tr key={i} style={{ background: isEven ? 'rgba(44,36,25,0.02)' : 'transparent', borderBottom: '1px solid rgba(44,36,25,0.05)', transition: 'background 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(196,112,79,0.04)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = isEven ? 'rgba(44,36,25,0.02)' : 'transparent')}
+                        >
+                          <td style={{ padding: '11px 24px', color: '#9ca3af', fontSize: '12px', fontWeight: 600 }}>{i + 1}</td>
+                          <td style={{ padding: '11px 16px', color: '#2c2419', fontWeight: 500, maxWidth: '420px' }}>
+                            <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {kw.kw || kw.keyword || kw.query}
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: posBg, color: posColor, fontWeight: 700, fontSize: '12px', borderRadius: '20px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
+                              #{pos} <span style={{ fontSize: '10px', fontWeight: 600, opacity: 0.8 }}>{posLabel}</span>
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 16px', textAlign: 'right', color: '#2c2419', fontWeight: 700, fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
+                            {kw.clicks > 0 ? fmtNum(kw.clicks) : <span style={{ color: '#9ca3af' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '11px 24px 11px 16px', textAlign: 'right', color: '#5c5850', fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
+                            {kw.impressions > 0 ? fmtNum(kw.impressions) : <span style={{ color: '#9ca3af' }}>—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
