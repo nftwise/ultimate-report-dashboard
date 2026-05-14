@@ -131,7 +131,7 @@ export default function ExecutiveSummaryCards({
           {renderMoMBadge(momSpend)}
         </div>
 
-        {/* Card 2: Total Conversions (Bold) */}
+        {/* Card 2: Phone Calls (Bold) */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.9)',
           backdropFilter: 'blur(10px)',
@@ -158,7 +158,7 @@ export default function ExecutiveSummaryCards({
             color: '#5c5850',
             margin: '0 0 12px 0'
           }}>
-            Total Conversions
+            Phone Calls
           </p>
           <div style={{
             fontSize: '32px',
