@@ -85,12 +85,15 @@ export async function GET(request: NextRequest) {
 
     const siteUrl = (serviceConfig as any)?.gsc_site_url ?? null;
     let topKeywords: { kw: string; clicks: number; impressions: number; pos: number }[] | null = null;
+    const _gscDebug: Record<string, any> = { siteUrl };
 
     if (siteUrl) {
       try {
         const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
         const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-        console.log('[/api/portal/seo] GSC attempt — siteUrl:', siteUrl, '| hasKey:', !!privateKey, '| hasEmail:', !!clientEmail, '| keyStart:', privateKey?.slice(0, 30));
+        _gscDebug.hasKey = !!privateKey && privateKey.includes('-----BEGIN');
+        _gscDebug.hasEmail = !!clientEmail;
+        _gscDebug.keyLen = privateKey.length;
         if (privateKey && clientEmail) {
           const auth = new JWT({
             email: clientEmail,
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
             scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
           });
           const { token } = await auth.getAccessToken();
-          console.log('[/api/portal/seo] GSC token obtained:', !!token);
+          _gscDebug.tokenOk = !!token;
           if (token) {
             const encodedSiteUrl = encodeURIComponent(siteUrl);
             const res = await fetch(
@@ -116,10 +119,10 @@ export async function GET(request: NextRequest) {
                 signal: AbortSignal.timeout(15000),
               }
             );
-            console.log('[/api/portal/seo] GSC response status:', res.status);
+            _gscDebug.gscStatus = res.status;
             if (res.ok) {
               const json = await res.json();
-              console.log('[/api/portal/seo] GSC rows returned:', json.rows?.length ?? 0);
+              _gscDebug.gscRows = json.rows?.length ?? 0;
               topKeywords = ((json.rows || []) as any[])
                 .filter((r: any) =>
                   (r.clicks || 0) >= 1 ||
@@ -135,13 +138,12 @@ export async function GET(request: NextRequest) {
                   pos: Math.round((r.position || 999) * 10) / 10,
                 }));
             } else {
-              const errText = await res.text();
-              console.error('[/api/portal/seo] GSC error body:', errText.slice(0, 300));
+              _gscDebug.gscError = (await res.text()).slice(0, 300);
             }
           }
         }
       } catch (gscErr) {
-        console.warn('[/api/portal/seo] GSC keyword fetch failed:', (gscErr as any)?.message);
+        _gscDebug.gscException = (gscErr as any)?.message;
       }
     }
 
@@ -213,6 +215,7 @@ export async function GET(request: NextRequest) {
       lastAvailableDate,
       daily: dailyRows || [],
       topKeywords,
+      _gscDebug,
       keywordRankBuckets,
       keywordMovement,
       prevPeriod,
