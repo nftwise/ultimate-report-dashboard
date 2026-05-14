@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         .order('date', { ascending: true }),
       supabaseAdmin
         .from('gsc_daily_summary')
-        .select('top5_keywords_count, top_keywords_count, top11to20_keywords_count')
+        .select('position_buckets, top5_keywords_count, top_keywords_count, top11to20_keywords_count')
         .eq('client_id', clientId)
         .gte('date', from)
         .lte('date', to)
@@ -77,13 +77,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: dailyErr.message }, { status: 500 });
     }
 
-    // Keyword rank buckets — most recent day from gsc_daily_summary; top10 fallback from cms
+    // Keyword rank buckets — prefer position_buckets jsonb, fallback to individual columns, then cms
     const gscLatest = (gscDailyRows as any)?.[0] || {};
+    const pb = (gscLatest.position_buckets || {}) as Record<string, number>;
     const top10FromCms = (dailyRows || []).reduce((max: number, r: any) => Math.max(max, r.top_keywords || 0), 0);
     const keywordRankBuckets = {
-      top5: gscLatest.top5_keywords_count || 0,
-      top10: gscLatest.top_keywords_count || top10FromCms,
-      top11to20: gscLatest.top11to20_keywords_count || 0,
+      top5:    pb.top5    ?? gscLatest.top5_keywords_count    ?? 0,
+      top10:   pb.top10   ?? gscLatest.top_keywords_count     ?? top10FromCms,
+      top11to20: pb.top11_20 ?? gscLatest.top11to20_keywords_count ?? 0,
+      total:   pb.total   ?? 0,
     };
 
     // Keyword movement — summed from client_metrics_summary daily rows

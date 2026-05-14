@@ -127,15 +127,25 @@ export async function GET(request: NextRequest) {
             // Always write (even 0s) so cron-monitor knows the sync ran successfully —
             // low-traffic sites may legitimately have 0 impressions some days.
             {
+              const posBuckets = {
+                top3:    allQueries.filter((q: any) => (q.position || 999) <= 3).length,
+                top5:    allQueries.filter((q: any) => (q.position || 999) <= 5).length,
+                top10:   allQueries.filter((q: any) => (q.position || 999) <= 10).length,
+                top11_20: allQueries.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
+                top20:   allQueries.filter((q: any) => (q.position || 999) <= 20).length,
+                top50:   allQueries.filter((q: any) => (q.position || 999) <= 50).length,
+                total:   allQueries.length,
+              };
               const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
                 client_id: client.id,
                 site_url: client.siteUrl,
                 date: syncDate,
                 total_impressions: totalImpressions,
                 total_clicks: totalClicks,
-                top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
-                top5_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 5).length,
+                top_keywords_count: posBuckets.top10,
+                top5_keywords_count: posBuckets.top5,
                 top11to20_keywords_count: allQueries.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
+                position_buckets: posBuckets,
               }, { onConflict: 'client_id,site_url,date' });
               if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);
             }
