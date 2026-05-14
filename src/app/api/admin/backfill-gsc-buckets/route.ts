@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
         if (rows.length === 0) continue;
 
         const pb = {
-          top3:     rows.filter((q: any) => (q.position || 999) <= 3).length,
-          top5:     rows.filter((q: any) => (q.position || 999) <= 5).length,
-          top10:    rows.filter((q: any) => (q.position || 999) <= 10).length,
-          top11_20: rows.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
-          top20:    rows.filter((q: any) => (q.position || 999) <= 20).length,
-          top50:    rows.filter((q: any) => (q.position || 999) <= 50).length,
+          top3:     rows.filter((q: any) => Math.round(q.position || 999) <= 3).length,
+          top5:     rows.filter((q: any) => Math.round(q.position || 999) <= 5).length,
+          top10:    rows.filter((q: any) => Math.round(q.position || 999) <= 10).length,
+          top11_20: rows.filter((q: any) => { const p = Math.round(q.position || 999); return p > 10 && p <= 20; }).length,
+          top20:    rows.filter((q: any) => Math.round(q.position || 999) <= 20).length,
+          top50:    rows.filter((q: any) => Math.round(q.position || 999) <= 50).length,
           total:    rows.length,
         };
 

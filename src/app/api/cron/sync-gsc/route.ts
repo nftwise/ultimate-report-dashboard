@@ -127,13 +127,14 @@ export async function GET(request: NextRequest) {
             // Always write (even 0s) so cron-monitor knows the sync ran successfully —
             // low-traffic sites may legitimately have 0 impressions some days.
             {
+              // GSC position is a float average — round to nearest integer before bucketing
               const posBuckets = {
-                top3:    allQueries.filter((q: any) => (q.position || 999) <= 3).length,
-                top5:    allQueries.filter((q: any) => (q.position || 999) <= 5).length,
-                top10:   allQueries.filter((q: any) => (q.position || 999) <= 10).length,
-                top11_20: allQueries.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
-                top20:   allQueries.filter((q: any) => (q.position || 999) <= 20).length,
-                top50:   allQueries.filter((q: any) => (q.position || 999) <= 50).length,
+                top3:    allQueries.filter((q: any) => Math.round(q.position || 999) <= 3).length,
+                top5:    allQueries.filter((q: any) => Math.round(q.position || 999) <= 5).length,
+                top10:   allQueries.filter((q: any) => Math.round(q.position || 999) <= 10).length,
+                top11_20: allQueries.filter((q: any) => { const p = Math.round(q.position || 999); return p > 10 && p <= 20; }).length,
+                top20:   allQueries.filter((q: any) => Math.round(q.position || 999) <= 20).length,
+                top50:   allQueries.filter((q: any) => Math.round(q.position || 999) <= 50).length,
                 total:   allQueries.length,
               };
               const { error: summaryError } = await supabaseAdmin.from('gsc_daily_summary').upsert({
