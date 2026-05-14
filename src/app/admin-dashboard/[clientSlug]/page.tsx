@@ -472,7 +472,7 @@ export default function ClientDetailPage() {
       title: 'Google Ads', accent: C2.coral,
       iconBg: 'rgba(196,112,79,0.10)', iconFg: C2.coral,
       metrics: [
-        { label: 'Inquiries', value: fmtNum(totalAdsConversions) },
+        { label: 'Phone Calls', value: fmtNum(totalAdsConversions) },
         { label: 'Ad Clicks', value: fmtNum(adsClicks) },
         { label: 'Amount Spent', value: fmtCurrency(adSpend, 0) },
         { label: 'Click Rate', value: `${adsCtr}%` },
