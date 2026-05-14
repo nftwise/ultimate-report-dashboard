@@ -81,9 +81,19 @@ export async function POST(request: NextRequest) {
           total:    rows.length,
         };
 
+        const topKwJson = [...rows]
+          .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
+          .slice(0, 50)
+          .map((q: any) => ({
+            kw: q.query,
+            pos: Math.round(q.position || 999),
+            clicks: q.clicks || 0,
+            impressions: q.impressions || 0,
+          }));
+
         const { error } = await supabaseAdmin
           .from('gsc_daily_summary')
-          .update({ position_buckets: pb, top5_keywords_count: pb.top5, top11to20_keywords_count: pb.top11_20 })
+          .update({ position_buckets: pb, top5_keywords_count: pb.top5, top11to20_keywords_count: pb.top11_20, top_keywords_json: topKwJson })
           .eq('client_id', client.id)
           .eq('date', date);
 

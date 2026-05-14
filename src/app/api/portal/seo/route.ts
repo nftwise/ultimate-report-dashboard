@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getPortalSession, authorizeClientId, parseDateParam, PortalAuthError } from '@/lib/portal-auth';
+import { JWT } from 'google-auth-library';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,10 +36,10 @@ export async function GET(request: NextRequest) {
 
     const [
       { data: dailyRows, error: dailyErr },
-      { data: gscDailyRows },
       { data: gscPrevRows },
       { data: prevMetricsRows },
       { data: convRows },
+      { data: serviceConfig },
     ] = await Promise.all([
       supabaseAdmin
         .from('client_metrics_summary')
@@ -50,15 +51,6 @@ export async function GET(request: NextRequest) {
         .gte('date', from)
         .lte('date', to)
         .order('date', { ascending: true }),
-      supabaseAdmin
-        .from('gsc_daily_summary')
-        .select('position_buckets, top5_keywords_count, top_keywords_count, top11to20_keywords_count, top_keywords_json')
-        .eq('client_id', clientId)
-        .gte('date', from)
-        .lte('date', to)
-        .not('top_keywords_json', 'is', null)
-        .order('date', { ascending: false })
-        .limit(1),
       supabaseAdmin
         .from('gsc_daily_summary')
         .select('position_buckets')
@@ -80,24 +72,84 @@ export async function GET(request: NextRequest) {
         .gte('date', from)
         .lte('date', to)
         .in('event_name', ['submit_form_successful', 'Appointment_Successful', 'call_from_web']),
+      supabaseAdmin
+        .from('service_configs')
+        .select('gsc_site_url')
+        .eq('client_id', clientId)
+        .maybeSingle(),
     ]);
 
     if (dailyErr) {
       return NextResponse.json({ success: false, error: dailyErr.message }, { status: 500 });
     }
 
-    // Keyword rank buckets — prefer position_buckets jsonb, fallback to individual columns, then cms
-    const gscLatest = (gscDailyRows as any)?.[0] || {};
-    const pb = (gscLatest.position_buckets || {}) as Record<string, number>;
+    // Fetch top keywords directly from GSC API for the selected date range.
+    // The GSC query dimension with startDate ≠ endDate returns per-keyword totals
+    // aggregated over the full range — much better than a single day's top_keywords_json.
+    const siteUrl = (serviceConfig as any)?.gsc_site_url ?? null;
+    let topKeywords: { kw: string; clicks: number; impressions: number; pos: number }[] | null = null;
+
+    if (siteUrl) {
+      try {
+        const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+        const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        if (privateKey && clientEmail) {
+          const auth = new JWT({
+            email: clientEmail,
+            key: privateKey,
+            scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
+          });
+          const { token } = await auth.getAccessToken();
+          if (token) {
+            const encodedSiteUrl = encodeURIComponent(siteUrl);
+            const res = await fetch(
+              `https://www.googleapis.com/webmasters/v3/sites/${encodedSiteUrl}/searchAnalytics/query`,
+              {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  startDate: from,
+                  endDate: to,
+                  dimensions: ['query'],
+                  rowLimit: 5000,
+                  dataState: 'all',
+                }),
+                signal: AbortSignal.timeout(15000),
+              }
+            );
+            if (res.ok) {
+              const json = await res.json();
+              topKeywords = ((json.rows || []) as any[])
+                .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
+                .slice(0, 50)
+                .map((r: any) => ({
+                  kw: r.keys?.[0] || '',
+                  clicks: r.clicks || 0,
+                  impressions: r.impressions || 0,
+                  pos: Math.round((r.position || 999) * 10) / 10,
+                }));
+            }
+          }
+        }
+      } catch (gscErr) {
+        // Non-fatal — fall back to null (UI handles missing keywords gracefully)
+        console.warn('[/api/portal/seo] GSC keyword fetch failed:', (gscErr as any)?.message);
+      }
+    }
+
+    // Keyword rank buckets — use max across all days in period (most stable signal)
     const top10FromCms = (dailyRows || []).reduce((max: number, r: any) => Math.max(max, r.top_keywords || 0), 0);
-    // Use max total across all days in period — more stable than single day
     const totalRanking = ((gscPrevRows as any) || []).reduce(
       (max: number, r: any) => Math.max(max, (r.position_buckets as any)?.total ?? 0), 0
     );
+    // Derive rank buckets from live GSC response when available, else fall back to DB
+    const liveTop5 = topKeywords ? topKeywords.filter(k => k.pos <= 5).length : null;
+    const liveTop10 = topKeywords ? topKeywords.filter(k => k.pos <= 10).length : null;
+    const liveTop11to20 = topKeywords ? topKeywords.filter(k => k.pos > 10 && k.pos <= 20).length : null;
     const keywordRankBuckets = {
-      top5:    pb.top5    ?? gscLatest.top5_keywords_count    ?? 0,
-      top10:   pb.top10   ?? gscLatest.top_keywords_count     ?? top10FromCms,
-      top11to20: pb.top11_20 ?? gscLatest.top11to20_keywords_count ?? 0,
+      top5:    liveTop5    ?? 0,
+      top10:   liveTop10   ?? top10FromCms,
+      top11to20: liveTop11to20 ?? 0,
       total:   totalRanking,
     };
 
@@ -130,8 +182,6 @@ export async function GET(request: NextRequest) {
       (s: number, r: any) => s + (r.event_count || 0),
       0
     );
-
-    const topKeywords = (gscLatest.top_keywords_json as any[]) || null;
 
     return NextResponse.json({
       success: true,

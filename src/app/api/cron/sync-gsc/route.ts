@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
               };
               const topKwJson = [...allQueries]
                 .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
-                .slice(0, 20)
+                .slice(0, 50)
                 .map((q: any) => ({
                   kw: q.query,
                   pos: Math.round(q.position || 999),
