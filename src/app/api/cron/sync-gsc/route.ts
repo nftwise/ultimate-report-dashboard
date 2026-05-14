@@ -134,6 +134,8 @@ export async function GET(request: NextRequest) {
                 total_impressions: totalImpressions,
                 total_clicks: totalClicks,
                 top_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 10).length,
+                top5_keywords_count: allQueries.filter((q: any) => (q.position || 999) <= 5).length,
+                top11to20_keywords_count: allQueries.filter((q: any) => { const p = q.position || 999; return p > 10 && p <= 20; }).length,
               }, { onConflict: 'client_id,site_url,date' });
               if (summaryError) console.log(`[sync-gsc] Summary upsert error ${client.name}:`, summaryError.message);
             }
