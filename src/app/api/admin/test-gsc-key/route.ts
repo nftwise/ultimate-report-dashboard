@@ -16,23 +16,9 @@ export async function GET() {
   const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || '';
 
-  // Detect format
-  let privateKey: string;
-  let keyFormat: string;
-  try {
-    const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
-    if (decoded.includes('-----BEGIN')) {
-      privateKey = decoded;
-      keyFormat = 'base64';
-    } else {
-      privateKey = rawKey.replace(/\\n/g, '\n');
-      keyFormat = 'raw_escaped';
-    }
-  } catch {
-    privateKey = rawKey.replace(/\\n/g, '\n');
-    keyFormat = 'raw_fallback';
-  }
-
+  // Same logic as backfill-gsc-buckets (known working)
+  const privateKey = rawKey.replace(/\\n/g, '\n');
+  const keyFormat = rawKey.includes('-----BEGIN') ? 'raw_pem' : rawKey.length > 100 ? 'raw_escaped' : 'missing';
   const hasKey = !!privateKey && privateKey.includes('-----BEGIN');
   const keyPreview = privateKey.slice(0, 50);
 

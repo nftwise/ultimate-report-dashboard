@@ -88,14 +88,7 @@ export async function GET(request: NextRequest) {
 
     if (siteUrl) {
       try {
-        const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
-        let privateKey: string;
-        try {
-          const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
-          privateKey = decoded.includes('-----BEGIN') ? decoded : rawKey.replace(/\\n/g, '\n');
-        } catch {
-          privateKey = rawKey.replace(/\\n/g, '\n');
-        }
+        const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
         const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
         console.log('[/api/portal/seo] GSC attempt — siteUrl:', siteUrl, '| hasKey:', !!privateKey, '| hasEmail:', !!clientEmail, '| keyStart:', privateKey?.slice(0, 30));
         if (privateKey && clientEmail) {
