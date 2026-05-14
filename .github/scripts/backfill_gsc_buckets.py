@@ -7,8 +7,8 @@ from datetime import datetime, timezone, timedelta
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 
-SUPABASE_URL = os.environ["CRM_SUPABASE_URL"].rstrip("/")
-SUPABASE_KEY = os.environ["CRM_SUPABASE_SERVICE_ROLE_KEY"]
+SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 CLIENT_EMAIL = os.environ["GOOGLE_CLIENT_EMAIL"]
 PRIVATE_KEY  = os.environ["GOOGLE_PRIVATE_KEY"].replace("\\n", "\n")
 DAYS         = int(os.environ.get("DAYS", "90"))

@@ -30,8 +30,8 @@ jobs:
         env:
           GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
           GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          CRM_SUPABASE_URL: ${{ secrets.CRM_SUPABASE_URL }}
-          CRM_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CRM_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DAYS: ${{ github.event.inputs.days }}
         run: python .github/scripts/backfill_gsc_buckets.py
 
