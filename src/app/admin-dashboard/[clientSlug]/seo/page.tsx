@@ -64,7 +64,7 @@ export default function SEOPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [topKeywords, setTopKeywords] = useState<any[]>([]);
   const [keywordRankBuckets, setKeywordRankBuckets] = useState<{ top5: number; top10: number; top11to20: number }>({ top5: 0, top10: 0, top11to20: 0 });
-  const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number }>({ improved: 0, declined: 0 });
+  const [keywordMovement, setKeywordMovement] = useState<{ improved: number; declined: number; currTop10?: number; prevTop10?: number; top10Change?: number | null }>({ improved: 0, declined: 0 });
   const [prevPeriodMetrics, setPrevPeriodMetrics] = useState<{ sessions: number; users: number; ctr: number; seoClicks: number; organicVisits: number }>({ sessions: 0, users: 0, ctr: 0, seoClicks: 0, organicVisits: 0 });
   const [realConversions, setRealConversions] = useState<number>(0);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -182,7 +182,6 @@ export default function SEOPage() {
   const avgGoogleRankValue = rankDays.length > 0
     ? rankDays.reduce((s, d: any) => s + (d.google_rank || 0), 0) / rankDays.length : 0;
 
-  const keywordsNetChange = keywordMovement.improved - keywordMovement.declined;
   const hasAds = (client as any).services?.googleAds === true;
 
   const InfoIcon = ({ id, text }: { id: string; text: string }) => (
@@ -520,22 +519,34 @@ export default function SEOPage() {
 
             {/* Keyword movement */}
             <div style={card}>
-              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Ranking Changes</p>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Keywords Moving Up or Down</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid rgba(16,185,129,0.15)' }}>
-                  <p style={{ fontSize: '10px', color: '#10b981', margin: '0 0 4px 0', fontWeight: 700 }}>↑ Moved Up</p>
-                  <p style={{ fontSize: '28px', fontWeight: 700, color: '#10b981', margin: 0 }}>{keywordMovement.improved}</p>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Page 1 Rankings</p>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 20px 0' }}>Keywords on Google Page 1</h3>
+              {/* Main Top 10 stat */}
+              <div style={{ background: 'rgba(217,168,84,0.08)', borderRadius: '14px', padding: '20px', marginBottom: '16px', border: '1px solid rgba(217,168,84,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 700, textTransform: 'uppercase' }}>Top 10 Keywords</p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Best day this period</p>
                 </div>
-                <div style={{ background: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid rgba(239,68,68,0.15)' }}>
-                  <p style={{ fontSize: '10px', color: '#ef4444', margin: '0 0 4px 0', fontWeight: 700 }}>↓ Moved Down</p>
-                  <p style={{ fontSize: '28px', fontWeight: 700, color: '#ef4444', margin: 0 }}>{keywordMovement.declined}</p>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '36px', fontWeight: 800, color: '#d9a854', margin: 0, lineHeight: 1 }}>{keywordMovement.currTop10 ?? keywordRankBuckets.top10}</p>
+                  {keywordMovement.top10Change != null && (
+                    <p style={{ fontSize: '12px', fontWeight: 700, margin: '4px 0 0 0', color: keywordMovement.top10Change >= 0 ? '#10b981' : '#ef4444' }}>
+                      {keywordMovement.top10Change >= 0 ? '▲' : '▼'} {Math.abs(keywordMovement.top10Change)} vs prev period
+                    </p>
+                  )}
                 </div>
-                <div style={{ background: keywordsNetChange >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px', textAlign: 'center', border: `1px solid ${keywordsNetChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
-                  <p style={{ fontSize: '10px', color: '#5c5850', margin: '0 0 4px 0', fontWeight: 700 }}>Net</p>
-                  <p style={{ fontSize: '28px', fontWeight: 700, color: keywordsNetChange >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
-                    {keywordsNetChange >= 0 ? '+' : ''}{keywordsNetChange}
-                  </p>
+              </div>
+              {/* Top 5 + Top 10 buckets */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '14px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
+                  <p style={{ fontSize: '9px', fontWeight: 700, color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Top 5</p>
+                  <p style={{ fontSize: '26px', fontWeight: 700, color: '#10b981', margin: '0 0 2px 0' }}>{keywordRankBuckets.top5}</p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Most visible</p>
+                </div>
+                <div style={{ background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '14px', textAlign: 'center', borderTop: '3px solid #c4704f' }}>
+                  <p style={{ fontSize: '9px', fontWeight: 700, color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Pos 11–20</p>
+                  <p style={{ fontSize: '26px', fontWeight: 700, color: '#c4704f', margin: '0 0 2px 0' }}>{keywordRankBuckets.top11to20}</p>
+                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Page 2</p>
                 </div>
               </div>
               {/* Engagement Rate */}

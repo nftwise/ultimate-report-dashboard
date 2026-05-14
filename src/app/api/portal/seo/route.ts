@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         .limit(1),
       supabaseAdmin
         .from('client_metrics_summary')
-        .select('sessions, users, seo_impressions, seo_clicks, traffic_organic')
+        .select('sessions, users, seo_impressions, seo_clicks, traffic_organic, top_keywords')
         .eq('client_id', clientId)
         .eq('period_type', 'daily')
         .gte('date', prev.from)
@@ -88,10 +88,15 @@ export async function GET(request: NextRequest) {
       total:   pb.total   ?? 0,
     };
 
-    // Keyword movement — summed from client_metrics_summary daily rows
+    // Top 10 keyword count — max day in current vs prev period
+    const currTop10 = (dailyRows || []).reduce((max: number, r: any) => Math.max(max, r.top_keywords || 0), 0);
+    const prevTop10 = (prevMetricsRows || []).reduce((max: number, r: any) => Math.max(max, r.top_keywords || 0), 0);
     const keywordMovement = {
       improved: sumField(dailyRows, 'keywords_improved'),
       declined: sumField(dailyRows, 'keywords_declined'),
+      currTop10,
+      prevTop10,
+      top10Change: prevTop10 > 0 ? currTop10 - prevTop10 : null,
     };
 
     // Previous period aggregates
