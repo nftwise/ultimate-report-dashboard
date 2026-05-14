@@ -10,7 +10,13 @@ from google.auth.transport.requests import Request
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 CLIENT_EMAIL = os.environ["GOOGLE_CLIENT_EMAIL"]
-PRIVATE_KEY  = os.environ["GOOGLE_PRIVATE_KEY"].replace("\\n", "\n")
+import base64
+_raw_key = os.environ["GOOGLE_PRIVATE_KEY"]
+# Secret stored as base64 (GOOGLE_PRIVATE_KEY_B64) to avoid newline escaping issues
+try:
+    PRIVATE_KEY = base64.b64decode(_raw_key).decode("utf-8")
+except Exception:
+    PRIVATE_KEY = _raw_key.replace("\\n", "\n")
 DAYS         = int(os.environ.get("DAYS", "90"))
 
 HEADERS = {
