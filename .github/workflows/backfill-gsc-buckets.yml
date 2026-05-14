@@ -1,0 +1,50 @@
+name: Backfill GSC Position Buckets
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of days to backfill (default 90)'
+        required: false
+        default: '90'
+
+jobs:
+  backfill:
+    name: Backfill position_buckets → gsc_daily_summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests google-auth
+
+      - name: Run backfill
+        env:
+          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          CRM_SUPABASE_URL: ${{ secrets.CRM_SUPABASE_URL }}
+          CRM_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CRM_SUPABASE_SERVICE_ROLE_KEY }}
+          DAYS: ${{ github.event.inputs.days }}
+        run: python .github/scripts/backfill_gsc_buckets.py
+
+      - name: Notify Telegram on success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"✅ <b>GSC Buckets Backfill DONE</b>\\nposition_buckets đã được fill cho ${{ github.event.inputs.days }} ngày qua.\",\"parse_mode\":\"HTML\"}"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${{ secrets.TELEGRAM_CHAT_ID }}\",\"text\":\"❌ <b>GSC Buckets Backfill FAILED</b>\\n<a href=\\\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\\\">View logs</a>\",\"parse_mode\":\"HTML\"}"
