@@ -52,10 +52,11 @@ export async function GET(request: NextRequest) {
         .order('date', { ascending: true }),
       supabaseAdmin
         .from('gsc_daily_summary')
-        .select('position_buckets, top5_keywords_count, top_keywords_count, top11to20_keywords_count')
+        .select('position_buckets, top5_keywords_count, top_keywords_count, top11to20_keywords_count, top_keywords_json')
         .eq('client_id', clientId)
         .gte('date', from)
         .lte('date', to)
+        .not('top_keywords_json', 'is', null)
         .order('date', { ascending: false })
         .limit(1),
       supabaseAdmin
@@ -130,11 +131,13 @@ export async function GET(request: NextRequest) {
       0
     );
 
+    const topKeywords = (gscLatest.top_keywords_json as any[]) || null;
+
     return NextResponse.json({
       success: true,
       lastAvailableDate,
       daily: dailyRows || [],
-      topKeywords: null,
+      topKeywords,
       keywordRankBuckets,
       keywordMovement,
       prevPeriod,

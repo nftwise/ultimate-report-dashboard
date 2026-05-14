@@ -567,6 +567,37 @@ export default function SEOPage() {
             </div>
           </div>
 
+          {/* ── Top Keywords List ────────────────────────────────────── */}
+          {topKeywords && topKeywords.length > 0 && (
+            <div style={{ ...card, marginBottom: '32px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5c5850', margin: '0 0 6px 0' }}>Search Rankings</p>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2c2419', margin: '0 0 4px 0' }}>Top Keywords Driving Traffic</h3>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 20px 0' }}>Top 20 keywords by clicks — most recent data available</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                {topKeywords.slice(0, 20).map((kw: any, i: number) => {
+                  const pos = kw.pos ?? kw.position ?? 99;
+                  const posColor = pos <= 3 ? '#10b981' : pos <= 5 ? '#10b981' : pos <= 10 ? '#d9a854' : '#c4704f';
+                  const posLabel = pos <= 3 ? 'Top 3' : pos <= 5 ? 'Top 5' : pos <= 10 ? 'Page 1' : 'Page 2';
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(44,36,25,0.03)', borderRadius: '10px', border: '1px solid rgba(44,36,25,0.06)' }}>
+                      <div style={{ minWidth: '40px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '18px', fontWeight: 800, color: posColor, margin: 0, lineHeight: 1 }}>#{pos}</p>
+                        <p style={{ fontSize: '8px', color: posColor, margin: '2px 0 0 0', fontWeight: 600, textTransform: 'uppercase' }}>{posLabel}</p>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '12px', fontWeight: 600, color: '#2c2419', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.kw || kw.keyword || kw.query}</p>
+                        <p style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 0 0' }}>
+                          {kw.clicks > 0 && <span>{fmtNum(kw.clicks)} clicks</span>}
+                          {kw.impressions > 0 && <span style={{ marginLeft: '6px' }}>{fmtNum(kw.impressions)} impressions</span>}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── Visitor Breakdown ────────────────────────────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
             {/* New vs Returning + Device */}
