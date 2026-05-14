@@ -87,9 +87,16 @@ export async function GET(request: NextRequest) {
     let topKeywords: { kw: string; clicks: number; impressions: number; pos: number }[] | null = null;
 
     if (siteUrl) {
-      // Live GSC call — needed for custom date ranges or when DB cache is missing
       try {
-        const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+        const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
+        // Support both base64-encoded key and raw PEM with escaped newlines
+        let privateKey: string;
+        try {
+          const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
+          privateKey = decoded.includes('-----BEGIN') ? decoded : rawKey.replace(/\\n/g, '\n');
+        } catch {
+          privateKey = rawKey.replace(/\\n/g, '\n');
+        }
         const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
         if (privateKey && clientEmail) {
           const auth = new JWT({
@@ -135,8 +142,24 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (gscErr) {
-        // Non-fatal — fall back to null (UI handles missing keywords gracefully)
         console.warn('[/api/portal/seo] GSC keyword fetch failed:', (gscErr as any)?.message);
+      }
+    }
+
+    // Fallback to DB cache if live GSC call failed or returned nothing
+    if (!topKeywords || topKeywords.length === 0) {
+      const { data: cachedRow } = await supabaseAdmin
+        .from('gsc_daily_summary')
+        .select('top_keywords_json')
+        .eq('client_id', clientId)
+        .gte('date', from)
+        .lte('date', to)
+        .not('top_keywords_json', 'is', null)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cachedRow && Array.isArray((cachedRow as any).top_keywords_json)) {
+        topKeywords = (cachedRow as any).top_keywords_json;
       }
     }
 
