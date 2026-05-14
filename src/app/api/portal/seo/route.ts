@@ -89,7 +89,6 @@ export async function GET(request: NextRequest) {
     if (siteUrl) {
       try {
         const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
-        // Support both base64-encoded key and raw PEM with escaped newlines
         let privateKey: string;
         try {
           const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
@@ -98,6 +97,7 @@ export async function GET(request: NextRequest) {
           privateKey = rawKey.replace(/\\n/g, '\n');
         }
         const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        console.log('[/api/portal/seo] GSC attempt — siteUrl:', siteUrl, '| hasKey:', !!privateKey, '| hasEmail:', !!clientEmail, '| keyStart:', privateKey?.slice(0, 30));
         if (privateKey && clientEmail) {
           const auth = new JWT({
             email: clientEmail,
@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
             scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
           });
           const { token } = await auth.getAccessToken();
+          console.log('[/api/portal/seo] GSC token obtained:', !!token);
           if (token) {
             const encodedSiteUrl = encodeURIComponent(siteUrl);
             const res = await fetch(
@@ -122,8 +123,10 @@ export async function GET(request: NextRequest) {
                 signal: AbortSignal.timeout(15000),
               }
             );
+            console.log('[/api/portal/seo] GSC response status:', res.status);
             if (res.ok) {
               const json = await res.json();
+              console.log('[/api/portal/seo] GSC rows returned:', json.rows?.length ?? 0);
               topKeywords = ((json.rows || []) as any[])
                 .filter((r: any) =>
                   (r.clicks || 0) >= 1 ||
@@ -138,6 +141,9 @@ export async function GET(request: NextRequest) {
                   impressions: r.impressions || 0,
                   pos: Math.round((r.position || 999) * 10) / 10,
                 }));
+            } else {
+              const errText = await res.text();
+              console.error('[/api/portal/seo] GSC error body:', errText.slice(0, 300));
             }
           }
         }
