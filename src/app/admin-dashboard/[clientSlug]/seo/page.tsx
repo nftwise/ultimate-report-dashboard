@@ -488,7 +488,7 @@ export default function SEOPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                 {[
                   { label: 'Top 5', value: keywordRankBuckets.top5, color: '#10b981', sub: 'Most visible' },
-                  { label: 'Top 10', value: keywordRankBuckets.top10, color: '#d9a854', sub: 'Page 1' },
+                  { label: 'Top 10', value: keywordMovement.currTop10 ?? keywordRankBuckets.top10, color: '#d9a854', sub: 'Page 1' },
                   { label: 'Pos 11–20', value: keywordRankBuckets.top11to20, color: '#c4704f', sub: 'Page 2' },
                 ].map((b, i) => (
                   <div key={i} style={{ background: `rgba(${b.color === '#10b981' ? '16,185,129' : b.color === '#d9a854' ? '217,168,84' : '196,112,79'},0.08)`, borderRadius: '12px', padding: '14px', textAlign: 'center', borderTop: `3px solid ${b.color}` }}>
@@ -534,19 +534,6 @@ export default function SEOPage() {
                       {keywordMovement.top10Change >= 0 ? '▲' : '▼'} {Math.abs(keywordMovement.top10Change)} vs prev period
                     </p>
                   )}
-                </div>
-              </div>
-              {/* Top 5 + Top 10 buckets */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: '10px', padding: '14px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
-                  <p style={{ fontSize: '9px', fontWeight: 700, color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Top 5</p>
-                  <p style={{ fontSize: '26px', fontWeight: 700, color: '#10b981', margin: '0 0 2px 0' }}>{keywordRankBuckets.top5}</p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Most visible</p>
-                </div>
-                <div style={{ background: 'rgba(196,112,79,0.08)', borderRadius: '10px', padding: '14px', textAlign: 'center', borderTop: '3px solid #c4704f' }}>
-                  <p style={{ fontSize: '9px', fontWeight: 700, color: '#5c5850', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Pos 11–20</p>
-                  <p style={{ fontSize: '26px', fontWeight: 700, color: '#c4704f', margin: '0 0 2px 0' }}>{keywordRankBuckets.top11to20}</p>
-                  <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0 }}>Page 2</p>
                 </div>
               </div>
               {/* Engagement Rate */}
