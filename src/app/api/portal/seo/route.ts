@@ -34,12 +34,19 @@ export async function GET(request: NextRequest) {
     }
     const prev = computePreviousPeriod(from, to);
 
+    // Detect if this is a "default 30d" range (28–31 days) to enable DB-first keyword lookup
+    const fromDate = new Date(from + 'T12:00:00Z');
+    const toDate = new Date(to + 'T12:00:00Z');
+    const daysDiff = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000);
+    const isDefaultRange = daysDiff >= 28 && daysDiff <= 31;
+
     const [
       { data: dailyRows, error: dailyErr },
       { data: gscPrevRows },
       { data: prevMetricsRows },
       { data: convRows },
       { data: serviceConfig },
+      { data: cachedKwRow },
     ] = await Promise.all([
       supabaseAdmin
         .from('client_metrics_summary')
@@ -77,19 +84,37 @@ export async function GET(request: NextRequest) {
         .select('gsc_site_url')
         .eq('client_id', clientId)
         .maybeSingle(),
+      // For default 30d ranges, fetch the most recent day with cached keyword data
+      isDefaultRange
+        ? supabaseAdmin
+            .from('gsc_daily_summary')
+            .select('top_keywords_json')
+            .eq('client_id', clientId)
+            .gte('date', from)
+            .lte('date', to)
+            .not('top_keywords_json', 'is', null)
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (dailyErr) {
       return NextResponse.json({ success: false, error: dailyErr.message }, { status: 500 });
     }
 
-    // Fetch top keywords directly from GSC API for the selected date range.
-    // The GSC query dimension with startDate ≠ endDate returns per-keyword totals
-    // aggregated over the full range — much better than a single day's top_keywords_json.
+    // Resolve top keywords:
+    // 1. For default 30d ranges — use cached top_keywords_json from DB (avoids live GSC call).
+    // 2. For custom ranges — call GSC API live and apply quality filter.
     const siteUrl = (serviceConfig as any)?.gsc_site_url ?? null;
     let topKeywords: { kw: string; clicks: number; impressions: number; pos: number }[] | null = null;
 
-    if (siteUrl) {
+    const cachedKws = (cachedKwRow as any)?.top_keywords_json ?? null;
+    if (isDefaultRange && Array.isArray(cachedKws) && cachedKws.length > 0) {
+      // DB cache hit — data already filtered at write time, use directly
+      topKeywords = cachedKws as { kw: string; clicks: number; impressions: number; pos: number }[];
+    } else if (siteUrl) {
+      // Live GSC call — needed for custom date ranges or when DB cache is missing
       try {
         const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
         const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
@@ -120,6 +145,11 @@ export async function GET(request: NextRequest) {
             if (res.ok) {
               const json = await res.json();
               topKeywords = ((json.rows || []) as any[])
+                .filter((r: any) =>
+                  (r.clicks || 0) >= 1 ||
+                  Math.round((r.position || 999) * 10) / 10 <= 10 ||
+                  (r.impressions || 0) >= 50
+                )
                 .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
                 .slice(0, 50)
                 .map((r: any) => ({

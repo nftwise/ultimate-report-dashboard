@@ -138,6 +138,11 @@ export async function GET(request: NextRequest) {
                 total:   allQueries.length,
               };
               const topKwJson = [...allQueries]
+                .filter((q: any) =>
+                  (q.clicks || 0) >= 1 ||
+                  Math.round(q.position || 999) <= 10 ||
+                  (q.impressions || 0) >= 50
+                )
                 .sort((a: any, b: any) => (b.clicks || 0) - (a.clicks || 0))
                 .slice(0, 50)
                 .map((q: any) => ({

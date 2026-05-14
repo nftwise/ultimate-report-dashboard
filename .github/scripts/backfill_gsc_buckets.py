@@ -53,7 +53,10 @@ def fetch_gsc_queries(token, site_url, date):
 
 def compute_buckets(rows):
     def p(q): return math.floor(q["position"] + 0.5)  # round
-    top_kw = sorted(rows, key=lambda q: q.get("clicks", 0), reverse=True)[:20]
+    top_kw = sorted(
+        [q for q in rows if q.get("clicks", 0) >= 1 or p(q) <= 10 or q.get("impressions", 0) >= 50],
+        key=lambda q: q.get("clicks", 0), reverse=True
+    )[:50]
     return {
         "top3":    sum(1 for q in rows if p(q) <= 3),
         "top5":    sum(1 for q in rows if p(q) <= 5),
