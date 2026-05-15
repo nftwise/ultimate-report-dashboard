@@ -1,0 +1,57 @@
+name: Sync GSC env to Vercel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove old GOOGLE_PRIVATE_KEY from Vercel
+        run: |
+          # Get env var ID
+          ID=$(curl -s "https://api.vercel.com/v9/projects/ultimate-report-dashboard-main/env?teamSlug=my-chiropractices-projects" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            | python3 -c "import sys,json; envs=json.load(sys.stdin).get('envs',[]); [print(e['id']) for e in envs if e['key']=='GOOGLE_PRIVATE_KEY']" 2>/dev/null)
+          if [ -n "$ID" ]; then
+            curl -s -X DELETE "https://api.vercel.com/v9/projects/ultimate-report-dashboard-main/env/$ID?teamSlug=my-chiropractices-projects" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+            echo "Deleted old GOOGLE_PRIVATE_KEY (id=$ID)"
+          fi
+
+      - name: Remove old GOOGLE_CLIENT_EMAIL from Vercel
+        run: |
+          ID=$(curl -s "https://api.vercel.com/v9/projects/ultimate-report-dashboard-main/env?teamSlug=my-chiropractices-projects" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            | python3 -c "import sys,json; envs=json.load(sys.stdin).get('envs',[]); [print(e['id']) for e in envs if e['key']=='GOOGLE_CLIENT_EMAIL']" 2>/dev/null)
+          if [ -n "$ID" ]; then
+            curl -s -X DELETE "https://api.vercel.com/v9/projects/ultimate-report-dashboard-main/env/$ID?teamSlug=my-chiropractices-projects" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+            echo "Deleted old GOOGLE_CLIENT_EMAIL (id=$ID)"
+          fi
+
+      - name: Add GOOGLE_PRIVATE_KEY (decoded from B64)
+        run: |
+          PRIVATE_KEY=$(echo "${{ secrets.GOOGLE_PRIVATE_KEY_B64 }}" | base64 -d)
+          curl -s -X POST "https://api.vercel.com/v10/projects/ultimate-report-dashboard-main/env?teamSlug=my-chiropractices-projects" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"GOOGLE_PRIVATE_KEY\",\"value\":$(echo "$PRIVATE_KEY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),\"type\":\"encrypted\",\"target\":[\"production\"]}"
+          echo "Added GOOGLE_PRIVATE_KEY"
+
+      - name: Add GOOGLE_CLIENT_EMAIL
+        run: |
+          curl -s -X POST "https://api.vercel.com/v10/projects/ultimate-report-dashboard-main/env?teamSlug=my-chiropractices-projects" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"GOOGLE_CLIENT_EMAIL\",\"value\":\"${{ secrets.GOOGLE_CLIENT_EMAIL }}\",\"type\":\"encrypted\",\"target\":[\"production\"]}"
+          echo "Added GOOGLE_CLIENT_EMAIL"
+
+      - name: Redeploy Vercel production
+        run: |
+          REPO_ID=$(curl -s https://api.github.com/repos/nftwise/ultimate-report-dashboard | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+          curl -s -X POST "https://api.vercel.com/v13/deployments?teamSlug=my-chiropractices-projects" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"ultimate-report-dashboard-main\",\"gitSource\":{\"type\":\"github\",\"repoId\":\"$REPO_ID\",\"ref\":\"main\"}}" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('Deploy URL:', d.get('url','error'), d.get('error',''))" 2>/dev/null
