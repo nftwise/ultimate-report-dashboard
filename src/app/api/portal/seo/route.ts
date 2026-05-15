@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       { data: prevMetricsRows },
       { data: convRows },
       { data: serviceConfig },
+      { data: clientInfo },
     ] = await Promise.all([
       supabaseAdmin
         .from('client_metrics_summary')
@@ -76,6 +77,11 @@ export async function GET(request: NextRequest) {
         .from('service_configs')
         .select('gsc_site_url')
         .eq('client_id', clientId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('clients')
+        .select('name, city, slug')
+        .eq('id', clientId)
         .maybeSingle(),
     ]);
 
@@ -162,6 +168,36 @@ export async function GET(request: NextRequest) {
       if (cachedRow && Array.isArray((cachedRow as any).top_keywords_json)) {
         topKeywords = (cachedRow as any).top_keywords_json;
       }
+    }
+
+    // Priority-sort keywords: brand > chiropractor+city > rest (within each group, sort by clicks desc)
+    if (topKeywords && topKeywords.length > 0) {
+      const name = ((clientInfo as any)?.name || '').toLowerCase();
+      const city = ((clientInfo as any)?.city || '').split(',')[0].toLowerCase().trim();
+      const slug = ((clientInfo as any)?.slug || '').toLowerCase();
+      // Build brand tokens: words from clinic name + slug parts
+      const brandTokens = [
+        ...name.split(/\s+/).filter((w: string) => w.length > 3),
+        ...slug.split('-').filter((w: string) => w.length > 3),
+      ].filter(Boolean);
+
+      const score = (kw: string): number => {
+        const k = kw.toLowerCase();
+        const hasCity = city && k.includes(city);
+        const hasBrand = brandTokens.some((t: string) => k.includes(t));
+        const hasChiro = k.includes('chiropractor') || k.includes('chiropractic') || k.includes('chiropractor');
+        if (hasBrand && hasCity) return 3;        // brand + city = top
+        if (hasBrand) return 2;                   // brand only
+        if (hasChiro && hasCity) return 2;        // chiropractor + city
+        if (hasChiro) return 1;                   // chiropractor generic
+        return 0;
+      };
+
+      topKeywords = topKeywords.sort((a, b) => {
+        const sd = score(b.kw) - score(a.kw);
+        if (sd !== 0) return sd;
+        return (b.clicks || 0) - (a.clicks || 0); // tie-break by clicks
+      });
     }
 
     // Keyword rank buckets — use max across all days in period (most stable signal)
