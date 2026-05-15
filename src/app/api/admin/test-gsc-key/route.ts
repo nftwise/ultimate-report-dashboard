@@ -14,7 +14,7 @@ export async function GET() {
   }
 
   const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || '';
+  const clientEmail = (process.env.GOOGLE_CLIENT_EMAIL || '').trim();
 
   // Same logic as backfill-gsc-buckets (known working)
   const privateKey = rawKey.replace(/\\n/g, '\n');

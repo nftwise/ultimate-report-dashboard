@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     if (siteUrl) {
       try {
         const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-        const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        const clientEmail = (process.env.GOOGLE_CLIENT_EMAIL || '').trim();
         _gscDebug.hasKey = !!privateKey && privateKey.includes('-----BEGIN');
         _gscDebug.hasEmail = !!clientEmail;
         _gscDebug.keyLen = privateKey.length;
