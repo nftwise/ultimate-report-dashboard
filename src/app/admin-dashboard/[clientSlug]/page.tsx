@@ -85,6 +85,7 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
 
   // 1. Traffic trend from traffic_snapshot
   const trafficEv = recent.find(e => e.event_type === 'traffic_snapshot');
+  const ownDomain = (trafficEv?.data?.domain as string | undefined)?.toLowerCase().replace(/^www\./, '');
   if (trafficEv?.data) {
     const d = trafficEv.data;
     const hist = d.history as Array<{ date: string; organic: number }> | undefined;
@@ -93,11 +94,16 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
       const last = hist[hist.length - 1].organic;
       const prev = hist[hist.length - 2].organic;
       const pct = prev > 0 ? Math.round(((last - prev) / prev) * 100) : 0;
-      if (pct >= 10) {
+      // Suppress noisy alarms: tiny baselines (< 10 visits) or huge swings (>50%)
+      // are almost always data noise (Ahrefs monthly estimate rounding, missing GA4 days),
+      // not real ranking events — hiding them keeps client-facing notes credible.
+      const tooSmallToTrust = Math.max(last, prev) < 10;
+      const swingTooBigToTrust = Math.abs(pct) > 50;
+      if (pct >= 10 && !tooSmallToTrust && !swingTooBigToTrust) {
         bullets.push({ type: 'good', text: `Organic traffic up ${pct}% this month (${last.toLocaleString()} visits). SEO content is gaining traction.`, owner: ownerFor('seo') });
-      } else if (pct <= -15) {
+      } else if (pct <= -15 && !tooSmallToTrust && !swingTooBigToTrust) {
         bullets.push({ type: 'watch', text: `Organic traffic dropped ${Math.abs(pct)}% vs last month (${last.toLocaleString()} visits). Investigating potential ranking changes.`, owner: ownerFor('seo') });
-      } else {
+      } else if (avg > 0) {
         bullets.push({ type: 'neutral', text: `Organic traffic stable at ~${avg.toLocaleString()} visits/mo. Continuing link building and content publishing.`, owner: ownerFor('seo') });
       }
     }
@@ -152,8 +158,14 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
     bullets.push({ type: 'good', text: `${blogCount} new blog post${blogCount > 1 ? 's' : ''} published this month — focused on high-intent local search terms.`, owner: ownerFor('content') });
   }
 
-  // 6. Competitor activity
-  const compAds = recent.filter(e => e.event_type === 'competitor_new_ad' && (e.data as any)?.new_value?.is_running_ads);
+  // 6. Competitor activity — exclude the client's own domain (Hermes occasionally
+  // flags self-as-competitor when the local-pack scrape picks up the same listing)
+  const compAds = recent.filter(e => {
+    if (e.event_type !== 'competitor_new_ad') return false;
+    if (!(e.data as any)?.new_value?.is_running_ads) return false;
+    const dom = ((e.data as any)?.competitor_domain || '').toLowerCase().replace(/^www\./, '');
+    return ownDomain ? dom !== ownDomain : true;
+  });
   if (compAds.length > 0) {
     const domains = [...new Set(compAds.map((e: any) => (e.data?.competitor_domain || '').split('.')[0]))].slice(0, 2).join(', ');
     bullets.push({ type: 'watch', text: `${compAds.length} competitor${compAds.length > 1 ? 's' : ''} running active ads in your area (${domains}…). Hermes tracking daily.`, owner: ownerFor('competitor') });
