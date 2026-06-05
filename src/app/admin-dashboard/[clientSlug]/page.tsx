@@ -445,8 +445,13 @@ export default function ClientDetailPage() {
 
   // ── MoM ───────────────────────────────────────────────────────────────────
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / MS_PER_DAY);
-  const calcMoM = (curr: number, prev: number, invert = false) => {
-    if (prev === 0) return { pct: '—', type: 'neutral' as const };
+  // Below this baseline a period-over-period % is statistical noise (e.g. a
+  // previous value of 1 turns a +4 change into "+400%", or a drop to 0 into a
+  // scary "-100%"). For count metrics we pass this floor so such swings render
+  // as a neutral "—" instead of an alarming number on the client's report.
+  const MOM_MIN_BASELINE = 5;
+  const calcMoM = (curr: number, prev: number, invert = false, minBaseline = 0) => {
+    if (prev === 0 || prev < minBaseline) return { pct: '—', type: 'neutral' as const };
     const raw = (curr - prev) / prev * 100;
     const isPos = raw > 0;
     const type = Math.abs(raw) < 0.01 ? 'neutral' : (invert ? (raw < 0 ? 'up' : 'down') : (raw > 0 ? 'up' : 'down'));
@@ -459,11 +464,11 @@ export default function ClientDetailPage() {
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
   const prevCpl          = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
-  const leadTrendData    = calcMoM(totalLeads, prevData.leads);
-  const sessionsTrendData = calcMoM(sessions, prevData.sessions);
+  const leadTrendData    = calcMoM(totalLeads, prevData.leads, false, MOM_MIN_BASELINE);
+  const sessionsTrendData = calcMoM(sessions, prevData.sessions, false, MOM_MIN_BASELINE);
   const cplTrendData     = calcMoM(costPerLead, prevCpl, true);
-  const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
-  const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills);
+  const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls, false, MOM_MIN_BASELINE);
+  const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills, false, MOM_MIN_BASELINE);
 
   // Form Fills are tracked per CALENDAR MONTH (manual entry), so this card
   // shows the latest entered month vs the month before it — not the rolling
@@ -474,7 +479,7 @@ export default function ClientDetailPage() {
     return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   const formFillsCardTrend = manualFormFillsEntered
-    ? calcMoM(manualFormFills, manualFormFillsPrev)
+    ? calcMoM(manualFormFills, manualFormFillsPrev, false, MOM_MIN_BASELINE)
     : formFillsTrendData;
   const formFillsCardCompare = manualFormFillsEntered
     ? `vs ${fmtNum(manualFormFillsPrev)}${manualFormFillsPrevMonth ? ` (${ymLabel(manualFormFillsPrevMonth)})` : ' prev month'}`

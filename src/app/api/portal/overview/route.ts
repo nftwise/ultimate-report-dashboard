@@ -23,18 +23,43 @@ export async function GET(request: NextRequest) {
     const toParam = request.nextUrl.searchParams.get('to');
 
     // ── Bootstrap data (always returned) ──────────────────────────────────
-    const [latestRow, latestGbpRating] = await Promise.all([
-      supabaseAdmin
-        .from('client_metrics_summary')
-        .select('date')
-        .eq('client_id', clientId)
-        .eq('period_type', 'daily')
+    // Different data sources lag by different amounts (GA4 is freshest, GBP can
+    // be 2-4 days behind). If we ended the window on the freshest source's last
+    // day, the trailing days would be zero for the lagging source, making its
+    // period-over-period comparison show a fake drop. So we compute the last day
+    // that has data PER SOURCE and use the EARLIEST of them — the window then
+    // ends where every source the client uses is complete.
+    const lastDateWhere = (filter: (q: any) => any) =>
+      filter(
+        supabaseAdmin
+          .from('client_metrics_summary')
+          .select('date')
+          .eq('client_id', clientId)
+          .eq('period_type', 'daily')
+      )
         .order('date', { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then((r) => (r.data as any)?.date ?? null),
+        .then((r: any) => (r.data as any)?.date ?? null);
+
+    // Only GA4 (sessions) and GBP (views/calls) are checked: both produce data
+    // every day for an active client, so a trailing zero means "not synced yet".
+    // Ads are deliberately excluded — ad_spend of 0 is a legitimate value (paused
+    // campaign), so it must not drag the window back for non-spending clients.
+    const [lastAny, lastGa4, lastGbp, latestGbpRating] = await Promise.all([
+      lastDateWhere((q) => q),
+      lastDateWhere((q) => q.gt('sessions', 0)),
+      lastDateWhere((q) => q.or('gbp_calls.gt.0,gbp_profile_views.gt.0,gbp_website_clicks.gt.0,gbp_directions.gt.0')),
       fetchLatestGbpRating(clientId),
     ]);
+
+    // Earliest of the per-source last days (ISO date strings sort correctly).
+    // Ignore sources the client has never had data for (null). Fall back to the
+    // overall last row if somehow no source matched.
+    const sourceLastDays = [lastGa4, lastGbp].filter(Boolean) as string[];
+    const latestRow = sourceLastDays.length
+      ? sourceLastDays.reduce((min, d) => (d < min ? d : min))
+      : lastAny;
 
     if (!fromParam && !toParam) {
       return NextResponse.json({
