@@ -667,6 +667,62 @@ export default function ClientDetailPage() {
           </>)}
         </div>
 
+        {/* ── What We're Working On ─────────────────────────────── */}
+        {hermesEvents.length > 0 && (() => {
+          const bullets = buildStatusBullets(hermesEvents);
+          if (bullets.length === 0) return null;
+          const dotColor = (t: StatusBullet['type']) =>
+            t === 'good' ? '#10b981' : t === 'watch' ? '#f59e0b' : '#9ca3af';
+          const rowBg = (t: StatusBullet['type']) =>
+            t === 'good' ? 'rgba(16,185,129,0.05)' : t === 'watch' ? 'rgba(245,158,11,0.05)' : 'rgba(44,36,25,0.02)';
+          const rowBorder = (t: StatusBullet['type']) =>
+            t === 'good' ? 'rgba(16,185,129,0.15)' : t === 'watch' ? 'rgba(245,158,11,0.18)' : 'rgba(44,36,25,0.07)';
+          return (
+            <>
+              <SectionHead title="What We're" italic="Working On" meta={`${bullets.length} updates`} />
+              <div style={{ ...CARD, padding: '6px 8px', background: 'rgba(255,252,240,0.95)', border: '1px solid rgba(217,168,84,0.2)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {bullets.map((b, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '12px 16px', borderRadius: 10,
+                      background: rowBg(b.type),
+                      border: `1px solid ${rowBorder(b.type)}`,
+                    }}>
+                      {/* dot */}
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: dotColor(b.type),
+                        flexShrink: 0, marginTop: 5,
+                        boxShadow: `0 0 0 3px ${dotColor(b.type)}22`,
+                      }} />
+                      {/* text */}
+                      <p style={{
+                        flex: 1, margin: 0,
+                        fontFamily: FF.outfit, fontStyle: 'italic',
+                        fontSize: 13, color: C2.choc, lineHeight: 1.65,
+                      }}>
+                        {b.text}
+                      </p>
+                      {/* owner badge */}
+                      <span style={{
+                        flexShrink: 0, fontSize: 10, fontWeight: 700,
+                        color: dotColor(b.type), fontFamily: FF.mono,
+                        background: rowBg(b.type),
+                        border: `1px solid ${rowBorder(b.type)}`,
+                        borderRadius: 20, padding: '2px 9px',
+                        marginTop: 2, whiteSpace: 'nowrap',
+                      }}>
+                        {b.owner}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
         {/* ── Team Activity summary row ─────────────────────────────── */}
         {(() => {
           // Deterministic seed from slug so numbers are stable per client
@@ -969,62 +1025,6 @@ export default function ClientDetailPage() {
             </div>
           </>
         )}
-
-        {/* ── What We're Working On ─────────────────────────────── */}
-        {hermesEvents.length > 0 && (() => {
-          const bullets = buildStatusBullets(hermesEvents);
-          if (bullets.length === 0) return null;
-          const dotColor = (t: StatusBullet['type']) =>
-            t === 'good' ? '#10b981' : t === 'watch' ? '#f59e0b' : '#9ca3af';
-          const rowBg = (t: StatusBullet['type']) =>
-            t === 'good' ? 'rgba(16,185,129,0.05)' : t === 'watch' ? 'rgba(245,158,11,0.05)' : 'rgba(44,36,25,0.02)';
-          const rowBorder = (t: StatusBullet['type']) =>
-            t === 'good' ? 'rgba(16,185,129,0.15)' : t === 'watch' ? 'rgba(245,158,11,0.18)' : 'rgba(44,36,25,0.07)';
-          return (
-            <>
-              <SectionHead title="What We're" italic="Working On" meta={`${bullets.length} updates`} />
-              <div style={{ ...CARD, padding: '6px 8px', background: 'rgba(255,252,240,0.95)', border: '1px solid rgba(217,168,84,0.2)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {bullets.map((b, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 12,
-                      padding: '12px 16px', borderRadius: 10,
-                      background: rowBg(b.type),
-                      border: `1px solid ${rowBorder(b.type)}`,
-                    }}>
-                      {/* dot */}
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: dotColor(b.type),
-                        flexShrink: 0, marginTop: 5,
-                        boxShadow: `0 0 0 3px ${dotColor(b.type)}22`,
-                      }} />
-                      {/* text */}
-                      <p style={{
-                        flex: 1, margin: 0,
-                        fontFamily: FF.outfit, fontStyle: 'italic',
-                        fontSize: 13, color: C2.choc, lineHeight: 1.65,
-                      }}>
-                        {b.text}
-                      </p>
-                      {/* owner badge */}
-                      <span style={{
-                        flexShrink: 0, fontSize: 10, fontWeight: 700,
-                        color: dotColor(b.type), fontFamily: FF.mono,
-                        background: rowBg(b.type),
-                        border: `1px solid ${rowBorder(b.type)}`,
-                        borderRadius: 20, padding: '2px 9px',
-                        marginTop: 2, whiteSpace: 'nowrap',
-                      }}>
-                        {b.owner}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          );
-        })()}
 
         {/* ── Hermes AI — Tasks Completed While You Slept ─────────── */}
         {hermesEvents.length > 0 && (
