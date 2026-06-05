@@ -171,8 +171,26 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
     bullets.push({ type: 'watch', text: `${compAds.length} competitor${compAds.length > 1 ? 's' : ''} running active ads in your area (${domains}…). Hermes tracking daily.`, owner: ownerFor('competitor') });
   }
 
+  // Client-facing guarantee for this section: NEVER surface a decline worse than
+  // -70%. A swing that large is either data noise or simply too alarming to put in
+  // front of a client raw — drop the whole bullet rather than show it. This is a
+  // belt-and-suspenders floor on top of the per-bullet caps above (e.g. the
+  // organic-traffic drop is already suppressed past 50%); it also protects any
+  // future bullet that might introduce a percentage.
+  const MAX_DECLINE_SHOWN = 70;
+  const declinesTooHard = (text: string): boolean => {
+    // Match a negative phrasing followed by a percentage, e.g. "dropped 82%",
+    // "down 75%", "fell 90%", "-84%".
+    const re = /(?:down|dropped|drop|fell|fall|decreased?|decline\w*|lost|lower(?:ed)?|-)\s*(?:by\s*)?(\d{1,3})\s*%/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (Number(m[1]) > MAX_DECLINE_SHOWN) return true;
+    }
+    return false;
+  };
+
   // Trim to 3-5
-  return bullets.slice(0, 5);
+  return bullets.filter(b => !declinesTooHard(b.text)).slice(0, 5);
 }
 
 function SectionHead({ title, italic: it, meta }: { title: string; italic: string; meta?: string }) {
