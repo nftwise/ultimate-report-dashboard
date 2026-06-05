@@ -10,7 +10,7 @@ import ClientTabBar from '@/components/admin/ClientTabBar';
 import { COLORS, MS_PER_DAY } from '@/lib/design-tokens';
 import { fmtNum, fmtCurrency, toLocalDateStr } from '@/lib/format';
 import { PieChart, Pie, Cell, Tooltip as PieTooltip, ResponsiveContainer } from 'recharts';
-import { Users, Globe, DollarSign, Target, Phone, FileText, Settings, BarChart2, RefreshCw } from 'lucide-react';
+import { Users, Globe, Target, Phone, FileText, Settings, BarChart2, RefreshCw } from 'lucide-react';
 
 const ChartSkeleton = () => (
   <div style={{ height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px' }}>
@@ -461,7 +461,6 @@ export default function ClientDetailPage() {
   const prevCpl          = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
   const leadTrendData    = calcMoM(totalLeads, prevData.leads);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions);
-  const adSpendTrendData = calcMoM(adSpend, prevData.adSpend, true);
   const cplTrendData     = calcMoM(costPerLead, prevCpl, true);
   const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
   const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills);
@@ -545,6 +544,14 @@ export default function ClientDetailPage() {
     ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: C2.gold }] : []),
   ];
   const donutTotal = donutChannels.reduce((s, c) => s + c.value, 0);
+
+  // Form Fills KPI card — shown for every client (incl. ads clients, who used
+  // to see "Ad Spend" in this slot and no form-fills card at all).
+  const formFillsCard = kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <FileText size={15}/>,
+    'Form Fills', formFillsCardSub,
+    manualFormFillsEntered ? fmtNum(manualFormFills) : fmtNum(totalFormFills),
+    formFillsCardTrend, formFillsCardCompare,
+    !manualFormFillsEntered && totalFormFills > 0 ? <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4 }}>⚠ Showing GA4 events</div> : null);
 
   return (
     <AdminLayout>
@@ -638,17 +645,8 @@ export default function ClientDetailPage() {
               'Website Visitors', 'All sessions from every source',
               fmtNum(sessions), sessionsTrendData, `vs ${fmtNum(prevData.sessions)} prev period`)}
 
-            {/* Ad Spend or Form Fills */}
-            {hasAds
-              ? kpiCard(C2.gold, 'rgba(217,168,84,0.18)', '#8a6a2e', <DollarSign size={15}/>,
-                  'Ad Spend', 'Spent on Google Ads this period',
-                  fmtCurrency(adSpend, 0), adSpendTrendData, `vs ${fmtCurrency(prevData.adSpend, 0)} prev period`)
-              : kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <FileText size={15}/>,
-                  'Form Fills', formFillsCardSub,
-                  manualFormFillsEntered ? fmtNum(manualFormFills) : fmtNum(totalFormFills),
-                  formFillsCardTrend, formFillsCardCompare,
-                  !manualFormFillsEntered && totalFormFills > 0 ? <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4 }}>⚠ Showing GA4 events</div> : null)
-            }
+            {/* Form Fills — shown for every client */}
+            {formFillsCard}
 
             {/* Cost Per Lead or GBP Calls */}
             {hasAds
