@@ -594,8 +594,12 @@ export default function GoogleAdsPage() {
   // MoM comparison
   const periodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
 
-  const calcMoM = (current: number, prev: number, invert = false) => {
-    if (prev === 0) return { pct: '\u2014', type: 'neutral' as const };
+  // Below this baseline a period-over-period % is statistical noise (prev=1 \u2192
+  // "+400%", or a drop to 0 \u2192 a scary "-100%"), so it renders as a neutral "\u2014".
+  // Applied to count/spend metrics \u2014 CPA/CTR are ratios and keep their behavior.
+  const MOM_MIN_BASELINE = 5;
+  const calcMoM = (current: number, prev: number, invert = false, minBaseline = 0) => {
+    if (prev === 0 || prev < minBaseline) return { pct: '\u2014', type: 'neutral' as const };
     const val = ((current - prev) / prev * 100);
     const pct = val.toFixed(1);
     const isUp = val > 0;
@@ -608,8 +612,8 @@ export default function GoogleAdsPage() {
   const currentCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
   const currentCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
 
-  const momSpend = calcMoM(totalSpend, prevPeriodData.spend);
-  const momConversions = calcMoM(totalConversions, prevPeriodData.conversions);
+  const momSpend = calcMoM(totalSpend, prevPeriodData.spend, false, MOM_MIN_BASELINE);
+  const momConversions = calcMoM(totalConversions, prevPeriodData.conversions, false, MOM_MIN_BASELINE);
   const momCpa = calcMoM(currentCpa, prevCpa, true); // invert: lower CPA is better
   const momCtr = calcMoM(currentCtr, prevCtr);
 

@@ -58,8 +58,11 @@ function buildPrior12Months(current: ReturnType<typeof buildLast12Months>) {
   });
 }
 
-const calcChange = (curr: number, prev: number) => {
-  if (prev === 0) return { pct: '—', type: 'neutral' as const };
+// Below this baseline a period-over-period % is statistical noise (prev=1 →
+// "+400%", or a drop to 0 → a scary "-100%"), so it renders as a neutral "—".
+const MOM_MIN_BASELINE = 5;
+const calcChange = (curr: number, prev: number, minBaseline = 0) => {
+  if (prev === 0 || prev < minBaseline) return { pct: '—', type: 'neutral' as const };
   const v = (curr - prev) / prev * 100;
   return {
     pct: v > 0 ? `+${v.toFixed(1)}%` : `${v.toFixed(1)}%`,
@@ -231,10 +234,10 @@ export default function GBPPage() {
   }
 
   // ── derived ───────────────────────────────────────────────────────────────
-  const momViews = calcChange(pViews, prevpViews);
-  const momCalls = calcChange(pCalls, prevpCalls);
-  const momClicks = calcChange(pClicks, prevpClicks);
-  const momDir = calcChange(pDir, prevpDir);
+  const momViews = calcChange(pViews, prevpViews, MOM_MIN_BASELINE);
+  const momCalls = calcChange(pCalls, prevpCalls, MOM_MIN_BASELINE);
+  const momClicks = calcChange(pClicks, prevpClicks, MOM_MIN_BASELINE);
+  const momDir = calcChange(pDir, prevpDir, MOM_MIN_BASELINE);
 
   const engRateNum  = pViews > 0 ? (pActions / pViews) * 100 : null;
   const callConvNum = pViews > 0 ? (pCalls   / pViews) * 100 : null;

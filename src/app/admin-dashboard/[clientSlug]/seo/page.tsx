@@ -242,14 +242,18 @@ export default function SEOPage() {
   const fmtD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
-  const calcMoM = (curr: number, prev: number) => {
-    if (prev === 0) return { pct: null, label: prevLabel };
+  // Below this baseline a period-over-period % is statistical noise (prev=1 →
+  // "+400%", or a drop to 0 → a scary "-100%"), so it shows nothing instead.
+  // Only applied to count metrics — CTR is a ratio whose baseline is small (~2).
+  const MOM_MIN_BASELINE = 5;
+  const calcMoM = (curr: number, prev: number, minBaseline = 0) => {
+    if (prev === 0 || prev < minBaseline) return { pct: null, label: prevLabel };
     return { pct: ((curr - prev) / prev) * 100, label: prevLabel };
   };
-  const visitsMoM = calcMoM(totalVisits, prevPeriodMetrics.sessions);
-  const visitorsMoM = calcMoM(totalUniqueVisitors, prevPeriodMetrics.users);
+  const visitsMoM = calcMoM(totalVisits, prevPeriodMetrics.sessions, MOM_MIN_BASELINE);
+  const visitorsMoM = calcMoM(totalUniqueVisitors, prevPeriodMetrics.users, MOM_MIN_BASELINE);
   const ctrMoM = calcMoM(avgCtrNum, prevPeriodMetrics.ctr);
-  const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits);
+  const organicMoM = calcMoM(totalOrganicVisits, prevPeriodMetrics.organicVisits, MOM_MIN_BASELINE);
 
   const momBadge = (mom: { pct: number | null; label: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>

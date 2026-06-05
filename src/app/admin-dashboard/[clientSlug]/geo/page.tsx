@@ -368,7 +368,9 @@ export default function GeoPage() {
     const prevEndStr = prevEnd.toISOString().split('T')[0];
     const prevStartStr = prevStart.toISOString().split('T')[0];
     const prevTotal = aiDaily.filter(r => r.date >= prevStartStr && r.date <= prevEndStr).reduce((s, r) => s + r.citations, 0);
-    if (prevTotal === 0) return null;
+    // Below a small baseline the % is statistical noise (prev=1 → "+400%", or a
+    // drop to 0 → a scary "-100%"), so we show no trend rather than an alarm.
+    if (prevTotal < 5) return null;
     const pct = ((totalCitations - prevTotal) / prevTotal * 100);
     const sign = pct > 0 ? '+' : '';
     return {
