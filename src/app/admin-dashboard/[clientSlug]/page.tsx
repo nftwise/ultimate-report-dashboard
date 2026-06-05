@@ -247,6 +247,10 @@ export default function ClientDetailPage() {
   const [dailyData, setDailyData] = useState<DailyMetrics[]>([]);
   const [prevData, setPrevData] = useState<{ leads: number; sessions: number; adSpend: number; adsCv: number; seoClicks: number; gbpCalls: number; formFills: number }>({ leads: 0, sessions: 0, adSpend: 0, adsCv: 0, seoClicks: 0, gbpCalls: 0, formFills: 0 });
   const [manualFormFills, setManualFormFills] = useState(0);
+  const [manualFormFillsEntered, setManualFormFillsEntered] = useState(false);
+  const [manualFormFillsMonth, setManualFormFillsMonth] = useState<string | null>(null);
+  const [manualFormFillsPrev, setManualFormFillsPrev] = useState(0);
+  const [manualFormFillsPrevMonth, setManualFormFillsPrevMonth] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -342,6 +346,10 @@ export default function ClientDetailPage() {
 
       setDailyData((payload.daily || []) as DailyMetrics[]);
       setManualFormFills(payload.manualFormFills || 0);
+      setManualFormFillsEntered(!!payload.manualFormFillsEntered);
+      setManualFormFillsMonth(payload.manualFormFillsMonth ?? null);
+      setManualFormFillsPrev(payload.manualFormFillsPrev || 0);
+      setManualFormFillsPrevMonth(payload.manualFormFillsPrevMonth ?? null);
       setPrevData({
         leads:     payload.prevPeriod?.leads     || 0,
         sessions:  payload.prevPeriod?.sessions  || 0,
@@ -410,7 +418,7 @@ export default function ClientDetailPage() {
   const totalGbpWebsiteClicks = dailyData.reduce((s: number, d: any) => s + (d.gbp_website_clicks || 0), 0);
   const totalGbpDirections    = dailyData.reduce((s: number, d: any) => s + (d.gbp_direction_requests || 0), 0);
   const totalAdsConversions   = dailyData.reduce((s: number, d: any) => s + (d.google_ads_conversions || 0), 0);
-  const verifiedFormFills = manualFormFills > 0 ? manualFormFills : totalFormFills;
+  const verifiedFormFills = manualFormFillsEntered ? manualFormFills : totalFormFills;
   const totalLeads   = verifiedFormFills + totalAdsConversions + totalGbpCalls;
   const adSpend      = dailyData.reduce((s: number, d: any) => s + (d.ad_spend || 0), 0);
   const costPerLead  = totalAdsConversions > 0 ? Math.round((adSpend / totalAdsConversions) * 100) / 100 : 0;
@@ -457,6 +465,24 @@ export default function ClientDetailPage() {
   const cplTrendData     = calcMoM(costPerLead, prevCpl, true);
   const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls);
   const formFillsTrendData = calcMoM(totalFormFills, prevData.formFills);
+
+  // Form Fills are tracked per CALENDAR MONTH (manual entry), so this card
+  // shows the latest entered month vs the month before it — not the rolling
+  // 30-day window the rest of the dashboard uses.
+  const ymLabel = (ym: string | null) => {
+    if (!ym) return '';
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  };
+  const formFillsCardTrend = manualFormFillsEntered
+    ? calcMoM(manualFormFills, manualFormFillsPrev)
+    : formFillsTrendData;
+  const formFillsCardCompare = manualFormFillsEntered
+    ? `vs ${fmtNum(manualFormFillsPrev)}${manualFormFillsPrevMonth ? ` (${ymLabel(manualFormFillsPrevMonth)})` : ' prev month'}`
+    : `vs ${fmtNum(prevData.formFills)} prev period`;
+  const formFillsCardSub = manualFormFillsEntered
+    ? `Verified · ${ymLabel(manualFormFillsMonth) || 'latest month'}`
+    : 'GA4 events (manual not entered)';
   const leadTrend = leadTrendData.pct;
   const isTrendUp = leadTrendData.type === 'up';
 
@@ -515,7 +541,7 @@ export default function ClientDetailPage() {
   // ── Donut chart data ───────────────────────────────────────────────────────
   const donutChannels = [
     ...(hasAds ? [{ label: 'Google Ads', sublabel: 'ad inquiries', value: totalAdsConversions, color: C2.coral }] : []),
-    ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFills > 0 ? 'verified fills' : 'form events', value: manualFormFills > 0 ? manualFormFills : totalFormFills, color: C2.sage }] : []),
+    ...(hasSeo ? [{ label: 'Website Forms', sublabel: manualFormFillsEntered ? 'verified fills' : 'form events', value: manualFormFillsEntered ? manualFormFills : totalFormFills, color: C2.sage }] : []),
     ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'Google Business', sublabel: 'phone calls', value: totalGbpCalls, color: C2.gold }] : []),
   ];
   const donutTotal = donutChannels.reduce((s, c) => s + c.value, 0);
@@ -618,10 +644,10 @@ export default function ClientDetailPage() {
                   'Ad Spend', 'Spent on Google Ads this period',
                   fmtCurrency(adSpend, 0), adSpendTrendData, `vs ${fmtCurrency(prevData.adSpend, 0)} prev period`)
               : kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <FileText size={15}/>,
-                  'Form Fills', manualFormFills > 0 ? 'Verified · spam filtered' : 'GA4 events (manual not entered)',
-                  manualFormFills > 0 ? fmtNum(manualFormFills) : fmtNum(totalFormFills),
-                  formFillsTrendData, `vs ${fmtNum(prevData.formFills)} prev period`,
-                  manualFormFills === 0 && totalFormFills > 0 ? <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4 }}>⚠ Showing GA4 events</div> : null)
+                  'Form Fills', formFillsCardSub,
+                  manualFormFillsEntered ? fmtNum(manualFormFills) : fmtNum(totalFormFills),
+                  formFillsCardTrend, formFillsCardCompare,
+                  !manualFormFillsEntered && totalFormFills > 0 ? <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4 }}>⚠ Showing GA4 events</div> : null)
             }
 
             {/* Cost Per Lead or GBP Calls */}
@@ -837,7 +863,7 @@ export default function ClientDetailPage() {
               {(() => {
                 const srcs = [
                   ...((hasGbp || totalGbpCalls > 0) ? [{ label: 'GBP Calls', curr: totalGbpCalls, prev: prevData.gbpCalls, color: C2.gold }] : []),
-                  ...(hasSeo ? [{ label: 'Form Fills', curr: verifiedFormFills, prev: prevData.formFills, color: C2.sage }] : []),
+                  ...(hasSeo ? [{ label: 'Form Fills', curr: verifiedFormFills, prev: manualFormFillsEntered ? manualFormFillsPrev : prevData.formFills, color: C2.sage }] : []),
                   ...(hasAds ? [{ label: 'Google Ads', curr: totalAdsConversions, prev: prevData.adsCv, color: C2.coral }] : []),
                 ];
                 if (srcs.length === 0) return null;

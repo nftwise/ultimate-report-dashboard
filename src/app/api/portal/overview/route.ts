@@ -59,6 +59,19 @@ export async function GET(request: NextRequest) {
     // Avoids the toISOString() UTC drift bug present in the old browser code.
     const prev = computePreviousPeriod(from, to);
 
+    // Form Fills are entered manually per CALENDAR MONTH. The card always shows
+    // the PREVIOUS complete calendar month relative to the window end (e.g. when
+    // the window is in June, it shows all of May), compared to the month before.
+    const addMonths = (ym: string, delta: number) => {
+      const [y, m] = ym.split('-').map(Number);
+      const idx = y * 12 + (m - 1) + delta;
+      const ny = Math.floor(idx / 12);
+      const nm = (idx % 12) + 1;
+      return `${ny}-${String(nm).padStart(2, '0')}`;
+    };
+    const formFillMonth = addMonths(to.slice(0, 7), -1);     // previous calendar month
+    const formFillPrevMonth = addMonths(to.slice(0, 7), -2); // the month before that
+
     const [
       { data: dailyData, error: dailyErr },
       { data: manualFills },
@@ -77,12 +90,13 @@ export async function GET(request: NextRequest) {
         .gte('date', from)
         .lte('date', to)
         .order('date', { ascending: true }),
+      // Fetch exactly the two target months (previous calendar month + the one
+      // before it) for the Form Fills card's month-over-month comparison.
       supabaseAdmin
         .from('manual_form_fills')
         .select('year_month, form_fills')
         .eq('client_id', clientId)
-        .gte('year_month', from.slice(0, 7))
-        .lte('year_month', to.slice(0, 7)),
+        .in('year_month', [formFillMonth, formFillPrevMonth]),
       supabaseAdmin
         .from('client_metrics_summary')
         .select('total_leads, sessions, ad_spend, google_ads_conversions, seo_clicks, gbp_calls, form_fills')
@@ -112,10 +126,20 @@ export async function GET(request: NextRequest) {
       gbp_direction_requests: m.gbp_directions ?? 0,
     }));
 
-    const manualFormFills = (manualFills || []).reduce(
-      (s: number, r: any) => s + (r.form_fills || 0),
-      0
+    // Map the two fetched rows by month, then pick the fixed target months.
+    const manualByMonth = new Map(
+      ((manualFills || []) as Array<{ year_month: string; form_fills: number }>).map(
+        (r) => [r.year_month, r.form_fills ?? 0]
+      )
     );
+    const manualFormFills = manualByMonth.get(formFillMonth) ?? 0;
+    const manualFormFillsMonth = formFillMonth;
+    const manualFormFillsPrev = manualByMonth.get(formFillPrevMonth) ?? 0;
+    const manualFormFillsPrevMonth = formFillPrevMonth;
+    // Whether the admin has actually entered the target month — distinct from a
+    // value of 0 (a verified "zero form fills" is a real, entered value and
+    // must not fall back to raw GA4 events).
+    const manualFormFillsEntered = manualByMonth.has(formFillMonth);
 
     const prevPeriod = {
       leads: sumField(prevMetrics, 'total_leads'),
@@ -134,6 +158,10 @@ export async function GET(request: NextRequest) {
       latestGbpRating,
       daily,
       manualFormFills,
+      manualFormFillsEntered,
+      manualFormFillsMonth,
+      manualFormFillsPrev,
+      manualFormFillsPrevMonth,
       prevPeriod,
       prevRange: prev,
     });
