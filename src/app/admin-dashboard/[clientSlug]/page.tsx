@@ -127,38 +127,18 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
     }
   }
 
-  // 3. Ads performance from ai_decision_logged
-  const adsFlag = recent.find(e => e.event_type === 'ai_decision_logged' && e.severity !== 'success');
-  if (adsFlag?.data) {
-    const flag = adsFlag.data.flag as string;
-    const actionTaken = adsFlag.data.action_taken as string | undefined;
-    if (actionTaken) {
-      const m = actionTaken.match(/^(\d+)\s+changes?\s+by\s+([\w@.,\s]+?):/i);
-      const who = m ? m[2].split(',').map((s: string) => s.trim().split('@')[0]).join(', ') : 'team';
-      bullets.push({ type: 'watch', text: `Hermes flagged: ${flag}. Team applied ${m?.[1] ?? 'several'} fixes (${who}) — monitoring closely.`, owner: ownerFor('ads') });
-    } else {
-      bullets.push({ type: 'watch', text: `Hermes flagged: ${flag}. Team reviewing and will action within 24h.`, owner: ownerFor('ads') });
-    }
-  }
+  // NOTE: Negative ad/spend bullets (Hermes overspend flags, "$X wasted on
+  // search terms") are intentionally NOT surfaced here — this section is
+  // client-facing and should not lead with framing the client as wasting money.
+  // Those issues are tracked internally and actioned by the team regardless.
 
-  // 4. Search terms waste from search_terms_classified
-  const stEv = recent.find(e => e.event_type === 'search_terms_classified');
-  if (stEv?.data) {
-    const d = stEv.data;
-    const wasteful = d.wasteful as number;
-    const cost = d.waste_cost as number;
-    if (wasteful > 0 && cost > 0) {
-      bullets.push({ type: 'watch', text: `${wasteful} wasteful search terms flagged ($${Math.round(cost)} wasted). Being added to negative keyword list.`, owner: ownerFor('ads') });
-    }
-  }
-
-  // 5. Blog posts published
+  // 3. Blog posts published
   const blogCount = recent.filter(e => e.event_type === 'wordpress_post_published').length;
   if (blogCount > 0) {
     bullets.push({ type: 'good', text: `${blogCount} new blog post${blogCount > 1 ? 's' : ''} published this month — focused on high-intent local search terms.`, owner: ownerFor('content') });
   }
 
-  // 6. Competitor activity — exclude the client's own domain (Hermes occasionally
+  // 4. Competitor activity — exclude the client's own domain (Hermes occasionally
   // flags self-as-competitor when the local-pack scrape picks up the same listing)
   const compAds = recent.filter(e => {
     if (e.event_type !== 'competitor_new_ad') return false;
