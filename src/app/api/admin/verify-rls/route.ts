@@ -23,6 +23,7 @@ const SENSITIVE_TABLES = [
   'ads_campaign_metrics',
   'manual_form_fills',
   'users',
+  'website_form_leads',
 ] as const;
 
 export async function GET(_request: NextRequest) {

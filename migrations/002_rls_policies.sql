@@ -48,7 +48,7 @@ DECLARE
     -- Core
     'clients', 'service_configs', 'client_metrics_summary',
     'system_settings', 'users', 'login_logs',
-    'manual_form_fills',
+    'manual_form_fills', 'website_form_leads',
     -- GBP
     'gbp_locations', 'gbp_location_daily_metrics',
     -- GA4

@@ -248,3 +248,32 @@ export function normalizePhoneNumber(phone: string): string {
   // Otherwise just add +
   return `+${digits}`;
 }
+
+/**
+ * Strict E.164 (US) normalizer.
+ * Returns +1XXXXXXXXXX for valid US numbers, or null if the input
+ * can't be confidently normalized (empty, too short, wrong shape).
+ * Accepts: 10-digit, 11-digit starting with 1, or already-E.164 (+1...).
+ * @param phone Raw phone string (may contain spaces, dashes, parens, +1, etc.)
+ */
+export function toE164US(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+
+  const trimmed = String(phone).trim();
+  if (!trimmed) return null;
+
+  // Already E.164 US: +1 followed by 10 digits
+  const e164Match = trimmed.match(/^\+1(\d{10})$/);
+  if (e164Match) return `+1${e164Match[1]}`;
+
+  const digits = trimmed.replace(/\D/g, '');
+
+  // 10-digit US local number
+  if (digits.length === 10) return `+1${digits}`;
+
+  // 11-digit US number starting with country code 1
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+
+  // Anything else (too short, international, junk) → not confidently US
+  return null;
+}
