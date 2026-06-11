@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, AlertTriangle, TrendingDown, PlusCircle } from 'lucide-react';
+import { Search, AlertTriangle, TrendingDown, TrendingUp, ClipboardList, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import DateRangePicker from '@/components/admin/DateRangePicker';
@@ -62,6 +62,14 @@ export default function AdminDashboardPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
   const [alertsWindowLabel, setAlertsWindowLabel] = useState('');
+  const [wins, setWins] = useState<AlertItem[]>([]);
+  const [winsCollapsed, setWinsCollapsed] = useState(false);
+  const [actionItems, setActionItems] = useState<{
+    fillMonth: string;
+    missingFormFills: { id: string; name: string }[];
+    staleSync: { id: string; name: string; lastDate: string | null }[];
+  } | null>(null);
+  const [todoCollapsed, setTodoCollapsed] = useState(false);
 
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
@@ -205,6 +213,7 @@ export default function AdminDashboardPage() {
       for (const c of payload.clients || []) nameMap[c.id] = c.name;
 
       const found: AlertItem[] = [];
+      const goodMovers: AlertItem[] = [];
       for (const [id, name] of Object.entries(nameMap)) {
         const c = cur[id] || { leads: 0, sessions: 0 };
         const p = prev[id] || { leads: 0, sessions: 0 };
@@ -220,8 +229,16 @@ export default function AdminDashboardPage() {
         if (leadsAlert || sessionsAlert) {
           found.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
         }
+        // Top wins — mirror of the drop gates
+        const leadsWin = lp >= 25 && p.leads >= 10 && (c.leads - p.leads) >= 5;
+        const sessionsWin = sp >= 30 && p.sessions >= 300;
+        if (leadsWin || sessionsWin) {
+          goodMovers.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
+        }
       }
       setAlerts(found.sort((a, b) => a.leadsPct - b.leadsPct));
+      setWins(goodMovers.sort((a, b) => b.leadsPct - a.leadsPct).slice(0, 6));
+      if (payload.actionItems) setActionItems(payload.actionItems);
     } catch { /* silent */ }
   };
 
@@ -359,6 +376,94 @@ export default function AdminDashboardPage() {
             )}
           </div>
         )}
+
+        {/* Top Wins Section */}
+        {wins.length > 0 && (
+          <div style={{ marginBottom: '24px', background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(16,185,129,0.08)' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px', cursor: 'pointer', borderBottom: winsCollapsed ? 'none' : '1px solid rgba(16,185,129,0.15)' }}
+              onClick={() => setWinsCollapsed(v => !v)}
+            >
+              <TrendingUp size={16} style={{ color: '#059669', flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#065f46' }}>
+                {wins.length} client{wins.length > 1 ? 's' : ''} with big wins{alertsWindowLabel ? ` (${alertsWindowLabel})` : ''}
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#047857' }}>{winsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
+            </div>
+            {!winsCollapsed && (
+              <div style={{ padding: '8px 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '4px' }}>
+                {wins.map(a => (
+                  <div key={a.clientId}
+                    onClick={() => router.push(`/admin-dashboard/${clients.find(c => c.id === a.clientId)?.slug || ''}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'background 150ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,185,129,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <TrendingUp size={13} style={{ color: '#10b981', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2419', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                    <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                      {a.leadsPct >= 25 && (
+                        <span style={{ fontSize: '11px', color: '#047857', background: '#d1fae5', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          Leads +{a.leadsPct}%
+                        </span>
+                      )}
+                      {a.sessionsPct >= 30 && (
+                        <span style={{ fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '2px 7px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          Traffic +{a.sessionsPct}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Team To-Do Section */}
+        {(() => {
+          const noGbp = clients.filter(c => c.is_active !== false && !gbpClientSet.has(c.id));
+          const missing = actionItems?.missingFormFills || [];
+          const stale = actionItems?.staleSync || [];
+          const total = missing.length + stale.length + noGbp.length;
+          if (total === 0) return null;
+          const fillMonthLabel = actionItems?.fillMonth
+            ? new Date(actionItems.fillMonth + '-01T12:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+            : 'last month';
+          const group = (title: string, items: { name: string; extra?: string }[]) => items.length > 0 && (
+            <div style={{ padding: '6px 10px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#92400e', marginBottom: '4px' }}>{title}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {items.map((it, i) => (
+                  <span key={i} style={{ fontSize: '12px', color: '#2c2419', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', padding: '3px 9px', borderRadius: '6px' }}>
+                    {it.name}{it.extra ? <span style={{ color: '#b45309', fontSize: '11px' }}> · {it.extra}</span> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+          return (
+            <div style={{ marginBottom: '24px', background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '16px', overflow: 'hidden' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px', cursor: 'pointer', borderBottom: todoCollapsed ? 'none' : '1px solid rgba(245,158,11,0.12)' }}
+                onClick={() => setTodoCollapsed(v => !v)}
+              >
+                <ClipboardList size={16} style={{ color: '#b45309', flexShrink: 0 }} />
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+                  {total} team to-do{total > 1 ? 's' : ''}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{todoCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
+              </div>
+              {!todoCollapsed && (
+                <div style={{ padding: '8px 10px 12px' }}>
+                  {group(`Form fills not entered for ${fillMonthLabel}`, missing)}
+                  {group('Data sync looks stalled (GA4)', stale.map(s => ({ name: s.name, extra: s.lastDate ? `last ${s.lastDate.slice(5)}` : 'no data 14d' })))}
+                  {group('GBP not configured', noGbp.map(c => ({ name: c.name })))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Summary Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '24px' }}>

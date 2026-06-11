@@ -30,7 +30,16 @@ export async function GET(_request: NextRequest) {
     const prevStart = new Date(Date.UTC(y, m - monthsBack - 1, 1));
     const prevEnd = new Date(Date.UTC(y, m - monthsBack, 0));
 
-    const [{ data: cur }, { data: prev }, { data: clients }] = await Promise.all([
+    // Previous calendar month relative to today — the month admins should have
+    // entered manual form fills for (the client dashboards display it).
+    const fillMonthDate = new Date(Date.UTC(y, m - 1, 1));
+    const fillMonth = `${fillMonthDate.getUTCFullYear()}-${String(fillMonthDate.getUTCMonth() + 1).padStart(2, '0')}`;
+    // Sync staleness: look at the trailing 14 days and find each client's last
+    // day with GA4 sessions. Compared against the fleet's freshest day so a
+    // global sync delay doesn't flag everyone.
+    const recentStart = fmt(new Date(Date.UTC(y, m, now.getUTCDate() - 14)));
+
+    const [{ data: cur }, { data: prev }, { data: clients }, { data: fillRows }, { data: recentRows }] = await Promise.all([
       supabaseAdmin
         .from('client_metrics_summary')
         .select('client_id, google_ads_conversions, gbp_calls, sessions')
@@ -47,7 +56,42 @@ export async function GET(_request: NextRequest) {
         .from('clients')
         .select('id, name')
         .eq('is_active', true),
+      supabaseAdmin
+        .from('manual_form_fills')
+        .select('client_id')
+        .eq('year_month', fillMonth),
+      supabaseAdmin
+        .from('client_metrics_summary')
+        .select('client_id, date, sessions')
+        .eq('period_type', 'daily')
+        .gte('date', recentStart),
     ]);
+
+    // Missing manual form fills for last month
+    const filledSet = new Set((fillRows || []).map((r: any) => r.client_id));
+    const missingFormFills = (clients || [])
+      .filter((c: any) => !filledSet.has(c.id))
+      .map((c: any) => ({ id: c.id, name: c.name }));
+
+    // Stale GA4 sync: client's last sessions>0 day is 3+ days behind the fleet's freshest
+    const lastGa4: Record<string, string> = {};
+    let fleetMax = '';
+    for (const r of (recentRows || []) as any[]) {
+      if ((r.sessions || 0) > 0) {
+        if (!lastGa4[r.client_id] || r.date > lastGa4[r.client_id]) lastGa4[r.client_id] = r.date;
+        if (r.date > fleetMax) fleetMax = r.date;
+      }
+    }
+    const staleSync = fleetMax
+      ? (clients || [])
+          .filter((c: any) => {
+            const last = lastGa4[c.id];
+            if (!last) return true; // no GA4 data in 14 days at all
+            const diffDays = (Date.parse(fleetMax) - Date.parse(last)) / 86400000;
+            return diffDays >= 3;
+          })
+          .map((c: any) => ({ id: c.id, name: c.name, lastDate: lastGa4[c.id] || null }))
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -57,6 +101,11 @@ export async function GET(_request: NextRequest) {
       windows: {
         cur: { from: fmt(curStart), to: curEnd },
         prev: { from: fmt(prevStart), to: fmt(prevEnd) },
+      },
+      actionItems: {
+        fillMonth,
+        missingFormFills,
+        staleSync,
       },
     });
   } catch (err: any) {
