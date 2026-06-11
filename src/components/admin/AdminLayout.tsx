@@ -320,6 +320,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <nav style={{ flex: 1, padding: '0 8px' }}>
           {NAV_ITEMS.filter(({ label }) => {
             if (isClient && (label === 'Clients' || label === 'Users')) return false;
+            // Hide the AI tab from clients — same reasoning as ClientTabBar: its
+            // sparse dataset undersells the 24/7 work shown on the Overview.
+            if (isClient && label === 'GEO / AI') return false;
             return true;
           }).map(({ label, href, icon: Icon }) => {
             const active = isActive(href);

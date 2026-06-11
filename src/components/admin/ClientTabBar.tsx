@@ -69,7 +69,12 @@ export default function ClientTabBar({ clientSlug, clientName, clientCity, activ
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
       }}>
-        {TABS.map(({ id, label, icon: Icon, href, badge }) => {
+        {TABS.filter(({ id }) =>
+          // Hide the AI tab from clients: its sparse dataset undersells the
+          // around-the-clock work. Clients get that story from the Overview's
+          // "What We're Working On" / "Tasks Completed While You Slept" instead.
+          !(isClient && id === 'geo')
+        ).map(({ id, label, icon: Icon, href, badge }) => {
           const active = activeTab === id;
           return (
             <button
