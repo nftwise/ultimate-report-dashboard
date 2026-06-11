@@ -12,9 +12,19 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://tupedninjtaarmdwppgy.supabase.co';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tupedninjtaarmdwppgy.supabase.co';
+// RLS denies the anon key on every sensitive table (migrations/002), which made
+// all data checks blind: freshness checks failed on empty results while
+// client-list checks passed vacuously. CI runs with the service-role key from
+// GitHub secrets; the anon fallback exists only so the script still runs
+// locally (and will then report the RLS denial instead of crashing).
 const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGVkbmluanRhYXJtZHdwcGd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNjMwNTQsImV4cCI6MjA3NjczOTA1NH0.tGme0vdFQRBfQU5CPIHLrBsw3r_mi_PfkrFGar3wXT4';
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('[ci-gate] WARNING: SUPABASE_SERVICE_ROLE_KEY not set — running with anon key; RLS will hide all data and checks are unreliable.');
+}
 // BASE_URL removed — ci-gate now queries Supabase directly (no Vercel dependency)
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -275,8 +285,11 @@ async function checkGA4AggregateRows() {
     .eq('has_seo', true);
 
   if (cErr) return { passed: false, detail: cErr.message };
+  // There are always active SEO clients — an empty list means the query itself
+  // is blind (e.g. RLS denying the key), so fail loudly instead of passing
+  // vacuously and masking a dead pipeline.
   if (!clients?.length)
-    return { passed: true, detail: 'No active SEO clients to check' };
+    return { passed: false, detail: 'Query returned 0 active SEO clients — key may be RLS-denied' };
 
   const clientIds = clients.map((c) => c.id);
 
@@ -458,11 +471,13 @@ async function checkSyncStatus() {
 
 async function checkRollupEndpoint() {
   // Verify rollup data exists in summary table for a recent historical date.
-  // Avoids calling the auth-protected API endpoint directly.
+  // Rolling 10-days-ago (not a fixed date) so monthly compression of old daily
+  // rows can never permanently break this check.
+  const probeDate = daysAgo(10);
   const { data, error } = await supabase
     .from('client_metrics_summary')
     .select('client_id, date, sessions, ad_spend, gbp_calls')
-    .eq('date', '2026-03-15')
+    .eq('date', probeDate)
     .eq('period_type', 'daily')
     .limit(1);
   if (error) return { passed: false, detail: error.message };
@@ -470,8 +485,8 @@ async function checkRollupEndpoint() {
   return {
     passed,
     detail: passed
-      ? `summary rows exist for 2026-03-15 (sessions=${data[0].sessions}, spend=${data[0].ad_spend})`
-      : 'No summary rows found for 2026-03-15 — rollup may not have run',
+      ? `summary rows exist for ${probeDate} (sessions=${data[0].sessions}, spend=${data[0].ad_spend})`
+      : `No summary rows found for ${probeDate} — rollup may not have run`,
   };
 }
 
