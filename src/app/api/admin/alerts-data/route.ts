@@ -25,10 +25,17 @@ export async function GET(_request: NextRequest) {
     const fmt = (d: Date) =>
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
+    // Both lead components are retroactively revised by Google: Ads conversions
+    // land 1-7 days late (hence the 7-day rolling ads sync) and GBP call counts
+    // trail profile views by several days. A window ending on the freshest day
+    // therefore systematically undercounts and mass-flags fake drops. Step the
+    // anchor back 3 days so both windows compare matured data.
+    const MATURITY_BUFFER_DAYS = 3;
     const cutoff = (latestGbp as any)?.date
       ? new Date((latestGbp as any).date + 'T12:00:00Z')
       : (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 8); return d; })();
-    const cur7End = (latestGbp as any)?.date || fmt(cutoff);
+    cutoff.setUTCDate(cutoff.getUTCDate() - MATURITY_BUFFER_DAYS);
+    const cur7End = fmt(cutoff);
     const cur7Start = new Date(cutoff); cur7Start.setUTCDate(cutoff.getUTCDate() - 6);
     const prev7End = new Date(cutoff); prev7End.setUTCDate(cutoff.getUTCDate() - 7);
     const prev7Start = new Date(cutoff); prev7Start.setUTCDate(cutoff.getUTCDate() - 13);
