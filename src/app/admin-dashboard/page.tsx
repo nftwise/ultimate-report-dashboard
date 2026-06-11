@@ -203,9 +203,11 @@ export default function AdminDashboardPage() {
         if (p.leads === 0 && p.sessions === 0) continue;
         const lp = p.leads > 0 ? Math.round(((c.leads - p.leads) / p.leads) * 100) : 0;
         const sp = p.sessions > 0 ? Math.round(((c.sessions - p.sessions) / p.sessions) * 100) : 0;
-        // Require meaningful prev baseline to avoid noise (small numbers = high % swings)
-        const leadsAlert = lp <= -20 && p.leads >= 5 && (p.leads - c.leads) >= 3;
-        const sessionsAlert = sp <= -30 && p.sessions >= 50;
+        // Require meaningful prev baseline to avoid noise (small numbers = high %
+        // swings), and a steep threshold so only genuinely significant drops
+        // surface — softer declines are normal weekly variance, not alerts.
+        const leadsAlert = lp <= -40 && p.leads >= 10 && (p.leads - c.leads) >= 6;
+        const sessionsAlert = sp <= -40 && p.sessions >= 100;
         if (leadsAlert || sessionsAlert) {
           found.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
         }
