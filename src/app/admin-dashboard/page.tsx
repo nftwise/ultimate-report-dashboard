@@ -61,6 +61,7 @@ export default function AdminDashboardPage() {
   const [serviceFilter, setServiceFilter] = useState<'all' | 'both'>('all');
   const [showArchived, setShowArchived] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
+  const [alertsWindowLabel, setAlertsWindowLabel] = useState('');
 
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const to = new Date();
@@ -181,6 +182,13 @@ export default function AdminDashboardPage() {
       const payload = await res.json();
       if (!payload?.success) return;
 
+      // e.g. "May vs Apr" — windows are whole calendar months from the API
+      if (payload.windows?.cur?.from && payload.windows?.prev?.from) {
+        const monthName = (iso: string) =>
+          new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+        setAlertsWindowLabel(`${monthName(payload.windows.cur.from)} vs ${monthName(payload.windows.prev.from)}`);
+      }
+
       const agg = (rows: any[]) => {
         const m: Record<string, { leads: number; sessions: number }> = {};
         for (const r of rows || []) {
@@ -205,9 +213,10 @@ export default function AdminDashboardPage() {
         const sp = p.sessions > 0 ? Math.round(((c.sessions - p.sessions) / p.sessions) * 100) : 0;
         // Require meaningful prev baseline to avoid noise (small numbers = high %
         // swings), and a steep threshold so only genuinely significant drops
-        // surface — softer declines are normal weekly variance, not alerts.
-        const leadsAlert = lp <= -40 && p.leads >= 10 && (p.leads - c.leads) >= 6;
-        const sessionsAlert = sp <= -40 && p.sessions >= 100;
+        // surface. Baselines are sized for MONTHLY volumes (windows are whole
+        // calendar months).
+        const leadsAlert = lp <= -25 && p.leads >= 20 && (p.leads - c.leads) >= 7;
+        const sessionsAlert = sp <= -30 && p.sessions >= 300;
         if (leadsAlert || sessionsAlert) {
           found.push({ clientId: id, name, leadsPct: lp, sessionsPct: sp, curLeads: c.leads, prevLeads: p.leads, curSessions: c.sessions, prevSessions: p.sessions });
         }
@@ -317,7 +326,7 @@ export default function AdminDashboardPage() {
             >
               <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
-                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops (last 7d vs prev 7d)
+                {alerts.length} client{alerts.length > 1 ? 's' : ''} with significant metric drops{alertsWindowLabel ? ` (${alertsWindowLabel})` : ''}
               </span>
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#b45309' }}>{alertsCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
             </div>

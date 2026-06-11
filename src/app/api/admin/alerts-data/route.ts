@@ -6,53 +6,43 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/alerts-data
- * Returns the 7d-vs-prev-7d data needed by the alerts widget on the admin home page.
- * Anchors both windows to the latest date with confirmed GBP data.
+ * Returns month-over-month data for the alerts widget (two most recent complete months).
+ * The just-finished month is only used after the 5th, when its data has matured.
  */
 export async function GET(_request: NextRequest) {
   try {
     await requireAdminTeam();
 
-    const { data: latestGbp } = await supabaseAdmin
-      .from('client_metrics_summary')
-      .select('date')
-      .eq('period_type', 'daily')
-      .gt('gbp_calls', 0)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     const fmt = (d: Date) =>
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
-    // Both lead components are retroactively revised by Google: Ads conversions
-    // land 1-7 days late (hence the 7-day rolling ads sync) and GBP call counts
-    // trail profile views by several days. A window ending on the freshest day
-    // therefore systematically undercounts and mass-flags fake drops. Step the
-    // anchor back 3 days so both windows compare matured data.
-    const MATURITY_BUFFER_DAYS = 3;
-    const cutoff = (latestGbp as any)?.date
-      ? new Date((latestGbp as any).date + 'T12:00:00Z')
-      : (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 8); return d; })();
-    cutoff.setUTCDate(cutoff.getUTCDate() - MATURITY_BUFFER_DAYS);
-    const cur7End = fmt(cutoff);
-    const cur7Start = new Date(cutoff); cur7Start.setUTCDate(cutoff.getUTCDate() - 6);
-    const prev7End = new Date(cutoff); prev7End.setUTCDate(cutoff.getUTCDate() - 7);
-    const prev7Start = new Date(cutoff); prev7Start.setUTCDate(cutoff.getUTCDate() - 13);
+    // Compare the two most recent COMPLETE calendar months. Both lead components
+    // are retroactively revised by Google (Ads conversions land 1-7 days late,
+    // GBP call counts trail views), so the just-finished month is only trusted
+    // after the 5th: e.g. on Jun 11 we compare May vs Apr, but on Jun 3 May's
+    // tail is still filling in, so we compare Apr vs Mar instead.
+    const now = new Date();
+    const monthsBack = now.getUTCDate() > 5 ? 1 : 2;
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const curStart = new Date(Date.UTC(y, m - monthsBack, 1));
+    const curEnd = fmt(new Date(Date.UTC(y, m - monthsBack + 1, 0)));
+    const prevStart = new Date(Date.UTC(y, m - monthsBack - 1, 1));
+    const prevEnd = new Date(Date.UTC(y, m - monthsBack, 0));
 
     const [{ data: cur }, { data: prev }, { data: clients }] = await Promise.all([
       supabaseAdmin
         .from('client_metrics_summary')
         .select('client_id, google_ads_conversions, gbp_calls, sessions')
         .eq('period_type', 'daily')
-        .gte('date', fmt(cur7Start))
-        .lte('date', cur7End),
+        .gte('date', fmt(curStart))
+        .lte('date', curEnd),
       supabaseAdmin
         .from('client_metrics_summary')
         .select('client_id, google_ads_conversions, gbp_calls, sessions')
         .eq('period_type', 'daily')
-        .gte('date', fmt(prev7Start))
-        .lte('date', fmt(prev7End)),
+        .gte('date', fmt(prevStart))
+        .lte('date', fmt(prevEnd)),
       supabaseAdmin
         .from('clients')
         .select('id, name')
@@ -65,8 +55,8 @@ export async function GET(_request: NextRequest) {
       prev: prev || [],
       clients: clients || [],
       windows: {
-        cur: { from: fmt(cur7Start), to: cur7End },
-        prev: { from: fmt(prev7Start), to: fmt(prev7End) },
+        cur: { from: fmt(curStart), to: curEnd },
+        prev: { from: fmt(prevStart), to: fmt(prevEnd) },
       },
     });
   } catch (err: any) {
