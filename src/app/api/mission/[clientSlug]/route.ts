@@ -93,12 +93,22 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // GWOS (the VPS event producer) registered a few clients under different
+  // slugs than data11 uses. Without this alias map their events never match
+  // the dashboard's slug filter, so those clients show no Hermes activity.
+  const GWOS_SLUG_ALIASES: Record<string, string[]> = {
+    'tails-animal-chiropractic-care': ['tails-animal-chiropractic'],
+    'healing-hands-of-manahawkin': ['healing-hands-manahawkin'],
+    'rigel-rigel': ['rigel-chiropractic-rome'],
+  };
+  const slugVariants = [clientSlug, ...(GWOS_SLUG_ALIASES[clientSlug] || [])];
+
   // Fetch last 200 events for full 90-day history
   // Query by client_slug (GWOS doesn't populate client_id) with client_id fallback
   const eventsQuery = supabaseAdmin
     .from('mission_events')
     .select('id, event_type, category, severity, title, description, data, actor, source, occurred_at')
-    .eq('client_slug', clientSlug)
+    .in('client_slug', slugVariants)
     .order('occurred_at', { ascending: false })
     .limit(200);
 
@@ -109,9 +119,10 @@ export async function GET(
   const monthlyQuery = supabaseAdmin
     .from('mission_events_monthly')
     .select('*')
-    .eq('client_slug', clientSlug)
+    .in('client_slug', slugVariants)
     .eq('month', monthKey)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   // Daily metrics — last 7 days
   const sevenDaysAgo = new Date();
@@ -121,7 +132,7 @@ export async function GET(
   const metricsQuery = supabaseAdmin
     .from('mission_metrics_daily')
     .select('*')
-    .eq('client_slug', clientSlug)
+    .in('client_slug', slugVariants)
     .gte('date', dateFrom)
     .order('date', { ascending: false });
 
