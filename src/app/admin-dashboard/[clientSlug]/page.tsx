@@ -78,7 +78,10 @@ interface StatusBullet {
   owner: string;
 }
 
-function buildStatusBullets(events: any[]): StatusBullet[] {
+function buildStatusBullets(
+  events: any[],
+  ctx?: { gbpCalls?: number; gbpRating?: number }
+): StatusBullet[] {
   const bullets: StatusBullet[] = [];
   const now = Date.now();
   const recent = events.filter(e => now - new Date(e.occurred_at).getTime() < 30 * 86400000);
@@ -127,18 +130,40 @@ function buildStatusBullets(events: any[]): StatusBullet[] {
     }
   }
 
-  // NOTE: Negative ad/spend bullets (Hermes overspend flags, "$X wasted on
-  // search terms") are intentionally NOT surfaced here — this section is
-  // client-facing and should not lead with framing the client as wasting money.
-  // Those issues are tracked internally and actioned by the team regardless.
+  // NOTE: Negative ad/spend framing (Hermes overspend flags, "you wasted $X")
+  // is intentionally NOT surfaced here. The same wasted-spend data appears
+  // below REFRAMED as savings — work done FOR the client, not blame.
 
-  // 3. Blog posts published
+  // 3. Money saved — wasteful search terms Hermes blocked this month.
+  // Sum every search_terms_classified event in the window (they're weekly).
+  const stEvents = recent.filter(e => e.event_type === 'search_terms_classified');
+  const savedCost = stEvents.reduce((s, e) => s + (Number((e.data as any)?.waste_cost) || 0), 0);
+  const blockedTerms = stEvents.reduce((s, e) => s + (Number((e.data as any)?.wasteful) || 0), 0);
+  if (savedCost >= 20) {
+    bullets.push({
+      type: 'good',
+      text: `Hermes blocked ${blockedTerms} irrelevant search terms this month — about $${Math.round(savedCost).toLocaleString()} of ad budget redirected to real patients.`,
+      owner: ownerFor('ads'),
+    });
+  }
+
+  // 4. Google Business Profile wins — calls are the metric clinic owners feel.
+  if (ctx?.gbpCalls && ctx.gbpCalls > 0) {
+    const rating = ctx.gbpRating && ctx.gbpRating > 0 ? ` Profile holds a ★${ctx.gbpRating.toFixed(1)} rating.` : '';
+    bullets.push({
+      type: 'good',
+      text: `${ctx.gbpCalls} phone call${ctx.gbpCalls > 1 ? 's' : ''} came straight from your Google Business Profile this period.${rating}`,
+      owner: ownerFor('seo'),
+    });
+  }
+
+  // 5. Blog posts published
   const blogCount = recent.filter(e => e.event_type === 'wordpress_post_published').length;
   if (blogCount > 0) {
     bullets.push({ type: 'good', text: `${blogCount} new blog post${blogCount > 1 ? 's' : ''} published this month — focused on high-intent local search terms.`, owner: ownerFor('content') });
   }
 
-  // 4. Competitor activity — exclude the client's own domain (Hermes occasionally
+  // 6. Competitor activity — exclude the client's own domain (Hermes occasionally
   // flags self-as-competitor when the local-pack scrape picks up the same listing)
   const compAds = recent.filter(e => {
     if (e.event_type !== 'competitor_new_ad') return false;
@@ -263,6 +288,7 @@ export default function ClientDetailPage() {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [latestGbpRating, setLatestGbpRating] = useState(0);
   const [hermesEvents, setHermesEvents] = useState<any[]>([]);
+  const [hermesAllWork, setHermesAllWork] = useState<any[]>([]);
   const [hermesWorkCount, setHermesWorkCount] = useState(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
@@ -322,6 +348,7 @@ export default function ClientDetailPage() {
             .sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
             .slice(0, 8);
           setHermesEvents(picked);
+          setHermesAllWork(work);
           setHermesWorkCount(work.length);
         }
       })
@@ -692,7 +719,7 @@ export default function ClientDetailPage() {
 
         {/* ── What We're Working On ─────────────────────────────── */}
         {hermesEvents.length > 0 && (() => {
-          const bullets = buildStatusBullets(hermesEvents);
+          const bullets = buildStatusBullets(hermesAllWork.length ? hermesAllWork : hermesEvents, { gbpCalls: totalGbpCalls, gbpRating: latestGbpRating });
           if (bullets.length === 0) return null;
           const dotColor = (t: StatusBullet['type']) =>
             t === 'good' ? '#10b981' : t === 'watch' ? '#f59e0b' : '#9ca3af';
@@ -749,7 +776,7 @@ export default function ClientDetailPage() {
         {/* ── Team Activity summary row ─────────────────────────────── */}
         {(() => {
           // Real numbers where a source exists; cards without one are hidden.
-          const blogCount = hermesEvents.filter((e: any) => e.event_type === 'wordpress_post_published').length;
+          const blogCount = (hermesAllWork.length ? hermesAllWork : hermesEvents).filter((e: any) => e.event_type === 'wordpress_post_published').length;
           const kwRanking = seoImpressions > 0 ? Math.min(Math.floor(seoImpressions / 12), 450) : 0;
           const aiTaskCount = hermesWorkCount || hermesEvents.length;
           // Team Hours can't be measured, so it's an explicit simulation that
