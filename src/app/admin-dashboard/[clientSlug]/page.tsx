@@ -263,6 +263,7 @@ export default function ClientDetailPage() {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [latestGbpRating, setLatestGbpRating] = useState(0);
   const [hermesEvents, setHermesEvents] = useState<any[]>([]);
+  const [hermesWorkCount, setHermesWorkCount] = useState(0);
 
   const handlePresetDays = (days: 7 | 30 | 90) => {
     setSelectedDays(days);
@@ -302,7 +303,26 @@ export default function ClientDetailPage() {
       .then(r => r.json())
       .then((result: any) => {
         if (result.events) {
-          setHermesEvents(result.events.filter((e: any) => e.source === 'hermes_cron').slice(0, 8));
+          // Curate the client-facing feed: system telemetry (weather, local
+          // events, demand signals, daily pings) reads as noise to a client —
+          // what sells is visible LABOR on their account, human and AI mixed.
+          const TELEMETRY = new Set([
+            'weather_signal', 'local_events_radar', 'search_demand_signal',
+            'daily_metrics', 'ai_workforce_daily_stats', 'competitor_discovered',
+          ]);
+          const work = result.events.filter(
+            (e: any) => e.source === 'hermes_cron' && !TELEMETRY.has(e.event_type)
+          );
+          // Guarantee the mix: up to 3 most-recent HUMAN actions (staff_change)
+          // + most-recent AI/other actions to fill 8, then re-sort by time so
+          // the feed still reads as a timeline.
+          const human = work.filter((e: any) => e.event_type === 'staff_change').slice(0, 3);
+          const rest = work.filter((e: any) => e.event_type !== 'staff_change').slice(0, 8 - human.length);
+          const picked = [...human, ...rest]
+            .sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+            .slice(0, 8);
+          setHermesEvents(picked);
+          setHermesWorkCount(work.length);
         }
       })
       .catch(() => {});
@@ -731,7 +751,7 @@ export default function ClientDetailPage() {
           // Real numbers where a source exists; cards without one are hidden.
           const blogCount = hermesEvents.filter((e: any) => e.event_type === 'wordpress_post_published').length;
           const kwRanking = seoImpressions > 0 ? Math.min(Math.floor(seoImpressions / 12), 450) : 0;
-          const aiTaskCount = hermesEvents.length;
+          const aiTaskCount = hermesWorkCount || hermesEvents.length;
           // Team Hours can't be measured, so it's an explicit simulation that
           // ACCRUES through the month: 6 staff members' effort on this client,
           // growing day by day from ~0 on the 1st to the monthly total at EOM.

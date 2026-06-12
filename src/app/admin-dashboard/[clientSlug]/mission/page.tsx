@@ -1329,7 +1329,17 @@ export default function MissionPage() {
   );
 
   /* ── Derived data ── */
-  const allEvents = data.events;
+  // Clients don't care about system telemetry (weather, demand signals, daily
+  // pings) — to them it reads as noise. They DO care about visible labor on
+  // their account: staff changes, AI changes, content, competitor moves.
+  // Admin/team keep the full feed for debugging.
+  const TELEMETRY_TYPES = new Set([
+    'weather_signal', 'local_events_radar', 'search_demand_signal',
+    'daily_metrics', 'ai_workforce_daily_stats',
+  ]);
+  const allEvents = isClientRole
+    ? data.events.filter(e => !TELEMETRY_TYPES.has(e.event_type))
+    : data.events;
 
   // KPI counts
   const aiActions   = allEvents.filter(e => e.source === 'hermes_cron').length;
