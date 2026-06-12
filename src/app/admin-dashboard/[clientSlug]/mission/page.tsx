@@ -247,7 +247,7 @@ function OutcomeStories({ events, isClientRole }: { events: MissionEvent[]; isCl
     .filter(e => e.event_type === 'change_outcome')
     .filter(e => {
       const v = ((e.data as any)?.verdict_14d || '') as string;
-      return isClientRole ? ['improved', 'neutral', 'stable', 'mixed'].includes(v) : true;
+      return isClientRole ? ['improved', 'mixed', 'no_effect'].includes(v) : true;
     })
     .sort((a, b) =>
       new Date(((b.data as any)?.change_date || b.occurred_at)).getTime() -
@@ -262,7 +262,8 @@ function OutcomeStories({ events, isClientRole }: { events: MissionEvent[]; isCl
 
   const verdictBadge = (v: string) => {
     if (v === 'improved') return { label: '✅ Improved', color: '#059669', bg: '#ecfdf5', border: 'rgba(16,185,129,0.3)' };
-    if (v === 'worsened' || v === 'declined') return { label: '⚠ Needs attention', color: '#d97706', bg: '#fffbeb', border: 'rgba(217,119,6,0.3)' };
+    if (v === 'worse' || v === 'worsened' || v === 'declined') return { label: '⚠ Needs attention', color: '#d97706', bg: '#fffbeb', border: 'rgba(217,119,6,0.3)' };
+    if (v === 'insufficient_data') return { label: '◷ Measuring…', color: '#6b7280', bg: '#f9fafb', border: 'rgba(107,114,128,0.25)' };
     return { label: '◷ Holding steady', color: '#6b7280', bg: '#f9fafb', border: 'rgba(107,114,128,0.25)' };
   };
 
