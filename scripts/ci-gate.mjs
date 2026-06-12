@@ -238,31 +238,29 @@ async function checkNoFutureDates() {
 }
 
 async function checkNoGhostClients() {
-  // Ghost clients that should NOT have recent data
-  const ghostNames = ['Case Animal Hospital', 'Rigel & Rigel'];
+  // Ghost = any INACTIVE client still receiving summary rows. Derived from
+  // is_active dynamically — the old hardcoded name list went stale the moment
+  // those clients were reactivated and started flagging legitimate data.
   const since = daysAgo(7);
 
+  const { data: inactive, error: cErr } = await supabase
+    .from('clients')
+    .select('id, name')
+    .eq('is_active', false);
+  if (cErr) return { passed: false, detail: cErr.message };
+  if (!inactive?.length) return { passed: true, detail: 'No inactive clients to check' };
+
   const issues = [];
-  for (const name of ghostNames) {
-    // Find client id first
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('id, name')
-      .ilike('name', `%${name}%`);
+  for (const c of inactive) {
+    const { count, error } = await supabase
+      .from('client_metrics_summary')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', c.id)
+      .gte('date', since);
 
-    if (!clients?.length) continue;
-
-    for (const c of clients) {
-      const { count, error } = await supabase
-        .from('client_metrics_summary')
-        .select('id', { count: 'exact', head: true })
-        .eq('client_id', c.id)
-        .gte('date', since);
-
-      if (error) continue;
-      if ((count ?? 0) > 0) {
-        issues.push(`${c.name} has ${count} rows in last 7 days`);
-      }
+    if (error) continue;
+    if ((count ?? 0) > 0) {
+      issues.push(`${c.name} (inactive) has ${count} rows in last 7 days`);
     }
   }
 
@@ -270,7 +268,7 @@ async function checkNoGhostClients() {
     passed: issues.length === 0,
     detail:
       issues.length === 0
-        ? 'No ghost client data found'
+        ? `No ghost client data found (${inactive.length} inactive clients checked)`
         : issues.join('; '),
   };
 }
