@@ -556,11 +556,75 @@ async function checkActiveClientsHaveDataSource() {
   };
 }
 
+// ─── Group F — Heartbeats (absence-of-success detectors) ────────────────────
+// These exist because two pipelines died SILENTLY: the Hermes mission sync lost
+// its cron entry on 2026-05-27 (nothing ran, so nothing failed, so nothing
+// alerted — for two weeks), and GA4 dropped a single fleet-wide day (2026-05-25,
+// 7/23 clients) that no per-client check noticed.
+
+async function checkMissionEventsFresh() {
+  const { data, error } = await supabase
+    .from('mission_events')
+    .select('occurred_at')
+    .order('occurred_at', { ascending: false })
+    .limit(1);
+  if (error) return { passed: false, detail: error.message };
+  const latest = data?.[0]?.occurred_at?.split('T')[0];
+  const threshold = daysAgo(3);
+  const passed = !!latest && latest >= threshold;
+  return {
+    passed,
+    detail: latest
+      ? `newest mission event: ${latest} (threshold ${threshold}) — ${passed ? 'Hermes pipeline alive' : 'Hermes/GWOS sync may be down (check VPS crontab: sync_mission_to_crm)'}`
+      : 'no mission events found at all',
+  };
+}
+
+async function checkGA4DailyCoverage() {
+  // Every COMPLETE day in the last week should have GA4 sessions for ~all
+  // active clients. Catches single-day fleet-wide API gaps.
+  const from = daysAgo(8);
+  const to = daysAgo(2);
+  const { data: clients, error: cErr } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('is_active', true);
+  if (cErr) return { passed: false, detail: cErr.message };
+  const n = clients?.length ?? 0;
+  if (!n) return { passed: false, detail: 'Query returned 0 active clients — key may be RLS-denied' };
+
+  const { data, error } = await supabase
+    .from('client_metrics_summary')
+    .select('date, client_id')
+    .eq('period_type', 'daily')
+    .gt('sessions', 0)
+    .gte('date', from)
+    .lte('date', to);
+  if (error) return { passed: false, detail: error.message };
+
+  const perDay = {};
+  for (const r of data ?? []) {
+    (perDay[r.date] ??= new Set()).add(r.client_id);
+  }
+  const thin = [];
+  for (let d = new Date(from + 'T12:00:00Z'); d.toISOString().split('T')[0] <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const key = d.toISOString().split('T')[0];
+    const count = perDay[key]?.size ?? 0;
+    if (count < Math.ceil(n * 0.8)) thin.push(`${key}: ${count}/${n}`);
+  }
+  return {
+    passed: thin.length === 0,
+    detail: thin.length === 0
+      ? `all days ${from}..${to} have GA4 for ≥80% of ${n} active clients`
+      : `days with thin GA4 coverage: ${thin.join(', ')} — backfill via sync-group dispatch (date=YYYY-MM-DD)`,
+  };
+}
+
 // ─── Main runner ──────────────────────────────────────────────────────────
 
 async function main() {
   const skipFreshness = process.env.CI_SKIP_FRESHNESS === 'true';
-  const totalChecks = skipFreshness ? 10 : 17;
+  const totalChecks = skipFreshness ? 10 : 19;
   console.log(`\n${BOLD}[CI GATE] Running ${totalChecks} checks...${skipFreshness ? ' (freshness checks skipped on push)' : ''}${RESET}\n`);
 
   // Group A — skipped on push, only run on schedule
@@ -598,6 +662,13 @@ async function main() {
   console.log(`\n${BOLD}Group E — Active Clients${RESET}`);
   await check(16, 'All active clients have summary rows (last 30 days)', checkActiveClientsHaveData);
   await check(17, 'All active clients have ≥1 data source configured', checkActiveClientsHaveDataSource);
+
+  // Group F — skipped on push (freshness-dependent)
+  console.log(`\n${BOLD}Group F — Heartbeats${skipFreshness ? ' (skipped)' : ''}${RESET}`);
+  if (!skipFreshness) {
+    await check(18, 'Hermes mission events < 3 days old', checkMissionEventsFresh);
+    await check(19, 'GA4 daily coverage ≥80% of clients (last week)', checkGA4DailyCoverage);
+  }
 
   // ─── Print results ───────────────────────────────────────────────────────
 
