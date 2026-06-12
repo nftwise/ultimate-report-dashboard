@@ -787,11 +787,13 @@ export default function ClientDetailPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
             <div style={{ padding: '12px 14px', background: 'rgba(157,181,160,0.10)', borderRadius: 10, borderLeft: `3px solid ${C2.sage}` }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>Avg. Daily Visitors</div>
-              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.sage, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(sessions / Math.max(dailyData.length, 1)))}</div>
+              {/* Divide by the selected period length, not rows returned — a few
+                  missing sync days must not inflate the daily average */}
+              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.sage, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(sessions / Math.max(periodDays, 1)))}</div>
             </div>
             <div style={{ padding: '12px 14px', background: 'rgba(217,168,84,0.10)', borderRadius: 10, borderLeft: `3px solid ${C2.gold}` }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', color: C2.text2, fontFamily: FF.mono, marginBottom: 3 }}>Avg. Daily Inquiries</div>
-              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.gold, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(totalLeads / Math.max(dailyData.length, 1)))}</div>
+              <div style={{ fontFamily: FF.outfit, fontWeight: 800, fontSize: 22, color: C2.gold, letterSpacing: '-0.02em' }}>{fmtNum(Math.round(totalLeads / Math.max(periodDays, 1)))}</div>
             </div>
           </div>
         </div>
