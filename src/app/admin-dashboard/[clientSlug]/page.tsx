@@ -462,7 +462,12 @@ export default function ClientDetailPage() {
   const prevLabel = `${fmtD(prevPeriodStart)} – ${fmtD(prevPeriodEnd)}`;
 
   const prevCpl          = prevData.adsCv > 0 ? prevData.adSpend / prevData.adsCv : 0;
-  const leadTrendData    = calcMoM(totalLeads, prevData.leads, false, MOM_MIN_BASELINE);
+  // Compose the previous-period leads the SAME way as totalLeads (verified
+  // manual fills when entered, else GA4 fills) — prevData.leads is the raw
+  // total_leads rollup and would compare manual-month against GA4-window.
+  const prevLeadsComparable = (manualFormFillsEntered ? manualFormFillsPrev : prevData.formFills)
+    + prevData.adsCv + prevData.gbpCalls;
+  const leadTrendData    = calcMoM(totalLeads, prevLeadsComparable, false, MOM_MIN_BASELINE);
   const sessionsTrendData = calcMoM(sessions, prevData.sessions, false, MOM_MIN_BASELINE);
   const cplTrendData     = calcMoM(costPerLead, prevCpl, true);
   const gbpCallsTrendData = calcMoM(totalGbpCalls, prevData.gbpCalls, false, MOM_MIN_BASELINE);
@@ -641,7 +646,7 @@ export default function ClientDetailPage() {
             {/* Patient Inquiries */}
             {kpiCard(C2.coral, 'rgba(196,112,79,0.10)', C2.coral, <Users size={15}/>,
               'Patient Inquiries', 'Phone + forms + Google Ads',
-              fmtNum(totalLeads), leadTrendData, `vs ${fmtNum(prevData.leads)} prev period`)}
+              fmtNum(totalLeads), leadTrendData, `vs ${fmtNum(prevLeadsComparable)} prev period`)}
 
             {/* Website Visitors */}
             {kpiCard(C2.sage, 'rgba(157,181,160,0.18)', '#4a6b4e', <Globe size={15}/>,
@@ -723,23 +728,20 @@ export default function ClientDetailPage() {
 
         {/* ── Team Activity summary row ─────────────────────────────── */}
         {(() => {
-          // Deterministic seed from slug so numbers are stable per client
-          const seed = clientSlug.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-          const blogCount = hermesEvents.filter((e: any) => e.event_type === 'wordpress_post_published').length
-            || Math.floor(seed % 7) + 2;
-          const kwRanking = seoImpressions > 0
-            ? Math.min(Math.floor(seoImpressions / 12), 450)
-            : Math.floor((seed * 3) % 180) + 40;
-          const teamHours = Math.floor((seed % 20) + 25);
-          const aiTaskCount = hermesEvents.length || Math.floor((seed % 8) + 12);
+          // Real numbers only — cards with no underlying data are hidden rather
+          // than padded with seeded placeholders. A client noticing the same
+          // "Team Hours" every month costs more trust than a missing card.
+          const blogCount = hermesEvents.filter((e: any) => e.event_type === 'wordpress_post_published').length;
+          const kwRanking = seoImpressions > 0 ? Math.min(Math.floor(seoImpressions / 12), 450) : 0;
+          const aiTaskCount = hermesEvents.length;
           const cards = [
-            { icon: '🤖', label: 'AI Tasks This Month', value: aiTaskCount, sub: 'by Hermes', color: C2.emerald },
-            { icon: '✍️', label: 'Blog Posts Written', value: blogCount, sub: 'published this period', color: C2.coral },
-            { icon: '🔍', label: 'Keywords Ranking', value: kwRanking, sub: 'on Google Search', color: C2.gold },
-            { icon: '⏱️', label: 'Team Hours This Month', value: teamHours, sub: 'hrs of effort logged', color: C2.sage },
+            ...(aiTaskCount > 0 ? [{ icon: '🤖', label: 'AI Tasks This Month', value: aiTaskCount, sub: 'by Hermes', color: C2.emerald }] : []),
+            ...(blogCount > 0 ? [{ icon: '✍️', label: 'Blog Posts Written', value: blogCount, sub: 'published this period', color: C2.coral }] : []),
+            ...(kwRanking > 0 ? [{ icon: '🔍', label: 'Keywords Ranking', value: kwRanking, sub: 'on Google Search', color: C2.gold }] : []),
           ];
+          if (cards.length === 0) return null;
           return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginTop: 14, marginBottom: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cards.length},1fr)`, gap: 12, marginTop: 14, marginBottom: 4 }}>
               {cards.map((c, i) => (
                 <div key={i} style={{ ...CARD, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ fontSize: 20, lineHeight: 1 }}>{c.icon}</div>

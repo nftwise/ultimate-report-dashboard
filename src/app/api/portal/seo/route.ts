@@ -268,15 +268,32 @@ export async function GET(request: NextRequest) {
 }
 
 async function fetchLastAvailableDate(clientId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from('client_metrics_summary')
-    .select('date')
-    .eq('client_id', clientId)
-    .eq('period_type', 'daily')
-    .order('date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.date ?? null;
+  // The SEO page mixes GA4 (fresh) and GSC (lags 2-3 days). Ending the window
+  // on the freshest GA4 day leaves the GSC tail at zero and fakes a dip in
+  // clicks/CTR, so end it on the earliest of the two sources' last data days.
+  const lastDateWhere = (filter: (q: any) => any) =>
+    filter(
+      supabaseAdmin
+        .from('client_metrics_summary')
+        .select('date')
+        .eq('client_id', clientId)
+        .eq('period_type', 'daily')
+    )
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then((r: any) => (r.data as any)?.date ?? null);
+
+  const [lastAny, lastGa4, lastGsc] = await Promise.all([
+    lastDateWhere((q: any) => q),
+    lastDateWhere((q: any) => q.gt('sessions', 0)),
+    lastDateWhere((q: any) => q.gt('seo_impressions', 0)),
+  ]);
+
+  const sourceLastDays = [lastGa4, lastGsc].filter(Boolean) as string[];
+  return sourceLastDays.length
+    ? sourceLastDays.reduce((min, d) => (d < min ? d : min))
+    : lastAny;
 }
 
 function sumField(rows: any[] | null | undefined, field: string): number {
