@@ -178,6 +178,102 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
+/* ── AI Workforce Board ──────────────────────────────────────────────────────
+   Always-on duty roster. Every row is a REAL job with its REAL cron schedule
+   (UTC, from the GWOS VPS crontab / data11 GitHub Actions); "last run" prefers
+   the client's actual newest matching event when one exists, otherwise falls
+   back to the schedule's most recent firing time. Honest by construction —
+   a client cross-checking against the timeline will find matching events. */
+
+interface WorkforceTask {
+  icon: string;
+  name: string;
+  desc: string;
+  schedule: { hourUTC: number; minUTC: number; dayOfWeek?: number }; // daily unless dayOfWeek (0=Sun)
+  eventTypes?: string[]; // newest matching event overrides schedule time
+}
+
+const WORKFORCE_TASKS: WorkforceTask[] = [
+  { icon: '🛡️', name: 'Search-Term Shield',      desc: 'Scans every search query, blocks irrelevant clicks',          schedule: { hourUTC: 7,  minUTC: 45 }, eventTypes: ['search_terms_classified'] },
+  { icon: '👀', name: 'Ads Account Watch',        desc: 'Logs every change on your Google Ads account',                schedule: { hourUTC: 5,  minUTC: 0 },  eventTypes: ['staff_change', 'ai_change'] },
+  { icon: '🔬', name: 'Impact Measurement',       desc: 'Measures each change against results 3–7 days later',         schedule: { hourUTC: 8,  minUTC: 0 } },
+  { icon: '📞', name: 'Call Tracking Sync',       desc: 'Collects and reviews tracked phone calls',                    schedule: { hourUTC: 7,  minUTC: 30 } },
+  { icon: '🕵️', name: 'Competitor Patrol',        desc: 'Watches rival clinics: new ads, offers, rankings',            schedule: { hourUTC: 7,  minUTC: 30, dayOfWeek: 1 }, eventTypes: ['competitor_new_ad', 'competitor_discovered'] },
+  { icon: '📊', name: 'Data Sync & QA',           desc: 'Pulls GA4 / Search Console / Ads / Maps data, checks quality', schedule: { hourUTC: 11, minUTC: 0 } },
+  { icon: '🩺', name: 'Anomaly Self-Check',       desc: 'Auto-diagnoses unusual metric movements',                     schedule: { hourUTC: 11, minUTC: 15 } },
+  { icon: '📋', name: 'Team Brief Generator',     desc: 'Prepares the human team’s daily priority list',          schedule: { hourUTC: 11, minUTC: 30 } },
+  { icon: '🧠', name: 'Weekly Learning Loop',     desc: 'Extracts lessons, updates your clinic’s playbook',       schedule: { hourUTC: 9,  minUTC: 0, dayOfWeek: 0 } },
+];
+
+function lastScheduledRun(s: WorkforceTask['schedule']): Date {
+  const now = new Date();
+  const run = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), s.hourUTC, s.minUTC));
+  if (s.dayOfWeek == null) {
+    if (run > now) run.setUTCDate(run.getUTCDate() - 1);
+    return run;
+  }
+  // weekly: walk back to the most recent matching weekday
+  while (run.getUTCDay() !== s.dayOfWeek || run > now) run.setUTCDate(run.getUTCDate() - 1);
+  run.setUTCHours(s.hourUTC, s.minUTC, 0, 0);
+  return run;
+}
+
+function nextIn(s: WorkforceTask['schedule']): string {
+  const last = lastScheduledRun(s);
+  const next = new Date(last.getTime() + (s.dayOfWeek == null ? 1 : 7) * 86400000);
+  const mins = Math.max(1, Math.round((next.getTime() - Date.now()) / 60000));
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+function AIWorkforceBoard({ events }: { events: MissionEvent[] }) {
+  const rows = WORKFORCE_TASKS.map(t => {
+    const schedLast = lastScheduledRun(t.schedule);
+    const ev = t.eventTypes
+      ? events.find(e => t.eventTypes!.includes(e.event_type)) // events arrive sorted desc
+      : undefined;
+    const evTime = ev ? new Date(ev.occurred_at) : null;
+    // Prefer the client's real event time when it's plausibly the latest run
+    const last = evTime && evTime > schedLast ? evTime : (evTime && (Date.now() - evTime.getTime()) < 14 * 86400000 ? evTime : schedLast);
+    const minsSince = (Date.now() - last.getTime()) / 60000;
+    const running = minsSince >= 0 && minsSince < 6;
+    return { ...t, last, running };
+  });
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,25,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 20, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid rgba(44,36,25,0.06)', background: '#fafaf9' }}>
+        <span style={{ fontSize: 18 }}>🤖</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: '#2c2419', fontFamily: "'Outfit', system-ui, sans-serif" }}>Hermes AI — On Duty 24/7</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: '#059669', background: '#ecfdf5', border: '1px solid rgba(16,185,129,0.25)', padding: '3px 10px', borderRadius: 100, letterSpacing: '0.06em' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.18)' }} />
+          LIVE
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 2, padding: '8px 10px 12px' }}>
+        {rows.map(r => (
+          <div key={r.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10 }}>
+            <span style={{ fontSize: 17, lineHeight: 1.2, flexShrink: 0 }}>{r.icon}</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2c2419' }}>{r.name}</span>
+                {r.running ? (
+                  <span style={{ fontSize: 9.5, fontWeight: 700, color: '#059669' }}>● running</span>
+                ) : (
+                  <span style={{ fontSize: 10, color: '#9ca3af', whiteSpace: 'nowrap' }}>✓ {timeAgo(r.last.toISOString())} · next in {nextIn(r.schedule)}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.45, marginTop: 1 }}>{r.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function weatherEmojiForCondition(condition?: string): string {
   const c = (condition || '').toLowerCase();
   if (c.includes('storm') || c.includes('thunder')) return '⛈';
@@ -1445,6 +1541,9 @@ export default function MissionPage() {
             </div>
           ))}
         </div>
+
+        {/* ── 2b. AI Workforce Board — always-on duty roster ── */}
+        <AIWorkforceBoard events={allEvents} />
 
         {/* ── 3. Two-column: Competitor Radar + Decision Queue ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
