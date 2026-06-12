@@ -99,11 +99,15 @@ async function fetchLocationName(clientId: string): Promise<string> {
 }
 
 async function fetchLastAvailableDate(clientId: string): Promise<string | null> {
+  // Anchor to the last day that actually has GBP data, not the latest summary
+  // row of any kind — GBP lags GA4 by 2-4 days, so the generic anchor left the
+  // window's tail at zero and faked drops on every GBP metric.
   const { data } = await supabaseAdmin
     .from('client_metrics_summary')
     .select('date')
     .eq('client_id', clientId)
     .eq('period_type', 'daily')
+    .or('gbp_profile_views.gt.0,gbp_calls.gt.0,gbp_website_clicks.gt.0,gbp_directions.gt.0')
     .order('date', { ascending: false })
     .limit(1)
     .maybeSingle();

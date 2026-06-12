@@ -42,13 +42,15 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
         .then((r: any) => (r.data as any)?.date ?? null);
 
-    // Only GA4 (sessions) and GBP (views/calls) are checked: both produce data
-    // every day for an active client, so a trailing zero means "not synced yet".
-    // Ads are deliberately excluded — ad_spend of 0 is a legitimate value (paused
-    // campaign), so it must not drag the window back for non-spending clients.
-    const [lastAny, lastGa4, lastGbp, latestGbpRating] = await Promise.all([
+    // GA4 (sessions), GSC (impressions) and GBP (views/calls) are checked: all
+    // three produce data every day for an active client, so a trailing zero
+    // means "not synced yet". Ads are deliberately excluded — ad_spend of 0 is
+    // a legitimate value (paused campaign), so it must not drag the window back
+    // for non-spending clients.
+    const [lastAny, lastGa4, lastGsc, lastGbp, latestGbpRating] = await Promise.all([
       lastDateWhere((q) => q),
       lastDateWhere((q) => q.gt('sessions', 0)),
+      lastDateWhere((q) => q.gt('seo_impressions', 0)),
       lastDateWhere((q) => q.or('gbp_calls.gt.0,gbp_profile_views.gt.0,gbp_website_clicks.gt.0,gbp_directions.gt.0')),
       fetchLatestGbpRating(clientId),
     ]);
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
     // Earliest of the per-source last days (ISO date strings sort correctly).
     // Ignore sources the client has never had data for (null). Fall back to the
     // overall last row if somehow no source matched.
-    const sourceLastDays = [lastGa4, lastGbp].filter(Boolean) as string[];
+    const sourceLastDays = [lastGa4, lastGsc, lastGbp].filter(Boolean) as string[];
     const latestRow = sourceLastDays.length
       ? sourceLastDays.reduce((min, d) => (d < min ? d : min))
       : lastAny;
