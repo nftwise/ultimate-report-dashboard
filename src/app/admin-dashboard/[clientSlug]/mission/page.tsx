@@ -228,6 +228,103 @@ function nextIn(s: WorkforceTask['schedule']): string {
   return `${Math.round(hours / 24)}d`;
 }
 
+/* ── Outcome Stories ─────────────────────────────────────────────────────────
+   "Change X on May 8 → 14 days later: CPA -11%, CTR +48% — improved."
+   Built from change_outcome events (GWOS change_impact attribution: every ads
+   change measured against the 14 days before it). Clients see improved/stable
+   stories; admin/team see everything including the ones needing attention. */
+
+const OUTCOME_METRICS: { key: string; label: string; goodDown?: boolean }[] = [
+  { key: 'cpa',    label: 'CPA',         goodDown: true },
+  { key: 'ctr',    label: 'CTR' },
+  { key: 'conv',   label: 'Conversions' },
+  { key: 'clicks', label: 'Clicks' },
+  { key: 'cpc',    label: 'CPC',         goodDown: true },
+];
+
+function OutcomeStories({ events, isClientRole }: { events: MissionEvent[]; isClientRole: boolean }) {
+  const stories = events
+    .filter(e => e.event_type === 'change_outcome')
+    .filter(e => {
+      const v = ((e.data as any)?.verdict_14d || '') as string;
+      return isClientRole ? ['improved', 'neutral', 'stable', 'mixed'].includes(v) : true;
+    })
+    .sort((a, b) =>
+      new Date(((b.data as any)?.change_date || b.occurred_at)).getTime() -
+      new Date(((a.data as any)?.change_date || a.occurred_at)).getTime()
+    )
+    .slice(0, 4);
+
+  if (stories.length === 0) return null;
+
+  const fmtDate = (s?: string) =>
+    s ? new Date(s + (s.length === 10 ? 'T12:00:00Z' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
+  const verdictBadge = (v: string) => {
+    if (v === 'improved') return { label: '✅ Improved', color: '#059669', bg: '#ecfdf5', border: 'rgba(16,185,129,0.3)' };
+    if (v === 'worsened' || v === 'declined') return { label: '⚠ Needs attention', color: '#d97706', bg: '#fffbeb', border: 'rgba(217,119,6,0.3)' };
+    return { label: '◷ Holding steady', color: '#6b7280', bg: '#f9fafb', border: 'rgba(107,114,128,0.25)' };
+  };
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: '#2c2419', fontFamily: "'Outfit', system-ui, sans-serif" }}>🎯 Proven Results</span>
+        <span style={{ fontSize: 11, color: '#9ca3af' }}>every change we make is measured against the 14 days before it</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
+        {stories.map(ev => {
+          const d = (ev.data as any) || {};
+          const delta = d.check_14d_delta || {};
+          const badge = verdictBadge(d.verdict_14d || '');
+          const chips = OUTCOME_METRICS.map(m => {
+            const raw = delta[m.key];
+            const pct = raw == null ? null : Math.round(Number(raw) * 100);
+            if (pct == null || !isFinite(pct) || Math.abs(pct) < 3) return null;
+            const good = m.goodDown ? pct < 0 : pct > 0;
+            return { label: m.label, pct, good };
+          }).filter(Boolean).slice(0, 4) as { label: string; pct: number; good: boolean }[];
+
+          return (
+            <div key={ev.id} style={{ background: '#fff', borderRadius: 14, border: `1px solid ${badge.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2c2419' }}>
+                  Optimization · {fmtDate(d.change_date)}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, border: `1px solid ${badge.border}`, padding: '3px 9px', borderRadius: 100, whiteSpace: 'nowrap' }}>
+                  {badge.label}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
+                14 days later, compared to the 14 days before:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {chips.length > 0 ? chips.map(c => (
+                  <span key={c.label} style={{
+                    fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8,
+                    color: c.good ? '#047857' : '#b45309',
+                    background: c.good ? '#ecfdf5' : '#fff7ed',
+                    border: `1px solid ${c.good ? 'rgba(16,185,129,0.25)' : 'rgba(217,119,6,0.25)'}`,
+                  }}>
+                    {c.label} {c.pct > 0 ? '+' : ''}{c.pct}%
+                  </span>
+                )) : (
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>Metrics holding steady — no negative impact from this change.</span>
+                )}
+              </div>
+              {d.verdict_30d && (
+                <div style={{ fontSize: 10.5, color: '#9ca3af', marginTop: 10 }}>
+                  30-day check: {d.verdict_30d}{!isClientRole && d.actor ? ` · by ${String(d.actor).split('@')[0]}` : ''}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AIWorkforceBoard({ events }: { events: MissionEvent[] }) {
   const rows = WORKFORCE_TASKS.map(t => {
     const schedLast = lastScheduledRun(t.schedule);
@@ -1542,7 +1639,10 @@ export default function MissionPage() {
           ))}
         </div>
 
-        {/* ── 2b. AI Workforce Board — always-on duty roster ── */}
+        {/* ── 2b. Outcome Stories — proven cause→effect ── */}
+        <OutcomeStories events={allEvents} isClientRole={isClientRole} />
+
+        {/* ── 2c. AI Workforce Board — always-on duty roster ── */}
         <AIWorkforceBoard events={allEvents} />
 
         {/* ── 3. Two-column: Competitor Radar + Decision Queue ── */}
@@ -1598,6 +1698,9 @@ export default function MissionPage() {
           </div>
         </div>
 
+        {/* ── 6+7: internal signal telemetry — admin/team only. Clients get
+            outcomes and labor above; raw signals read as noise to them. ── */}
+        {!isClientRole && (<>
         {/* ── 6. Signals + Schedule Row (Weather | Local Events | Schedule) ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) 240px', gap: 14, marginBottom: 20, alignItems: 'start' }}>
           <WeatherDemandBar events={allEvents} city={data.client.city} compact />
@@ -1669,6 +1772,7 @@ export default function MissionPage() {
             </div>
           </div>
         </div>
+        </>)}
 
         {/* ── 8. Team Activity (compact) ── */}
         <TeamActivityMap events={allEvents} />
